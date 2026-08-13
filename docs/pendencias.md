@@ -242,14 +242,18 @@ permissões oferece o degrau **"Ver e baixar"**, que na prática é igual a "Só
 Foram as três que ficaram sem frase explicativa na Config de Usuários, porque
 qualquer frase seria mentira.
 
-### B1f · O `bling-proxy` devolve os pedidos de todos os canais 🟡 *escrito e provado; FALTA SÓ SUBIR A EDGE*
-**Estado em 13/08/2026: o código está pronto, testado e commitado. Não está no
-ar** porque subir Edge Function é na mão, e o CLI do Supabase desta máquina está
-logado em OUTRA conta (só enxerga o projeto do erickIA). Falta autorizar o MCP do
-Supabase, ou rodar `supabase login` com a conta do iamundi, e então subir a
-função. Enquanto não subir, **o recorte continua valendo só na tela.**
+### B1f · O `bling-proxy` devolve os pedidos de todos os canais 🟢 *NO AR — falta só ver com um login limitado*
+**Subiu em 13/08/2026 (versão 10 da Edge Function, `verify_jwt` mantido em
+`true`).** Conferido logo depois com a conta de serviço: a lista de pedidos, o
+pedido pelo id, a nota fiscal e os produtos voltaram **exatamente** os mesmos
+números de antes do deploy — os robôs não foram cegados.
 
-O buraco: a edge perguntava só **"essa pessoa pode?"** — se é `admin` ou tem
+**O que ainda não foi visto:** ninguém abriu a Gestão à Vista logado com um dos
+dois logins limitados (Héllen ou Juliana). O recorte tem 30 testes, mas teste não
+é tela. É um olhar de um minuto: abrir o telão com um desses logins e conferir
+que aparece só a Dom Pedro, e que o total bate com o que a loja vendeu.
+
+O buraco que isto fechou: a edge perguntava só **"essa pessoa pode?"** — se é `admin` ou tem
 `sales`/`gestor` — e devolvia os pedidos de **todos os canais**. A Gestão à Vista
 e a Análise de Vendas leem o Bling ao vivo por ela, então a trava do banco que
 protege `gc_vendas_item` não valia nessas duas telas: sumia da tela, mas quem
