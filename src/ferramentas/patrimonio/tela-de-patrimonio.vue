@@ -187,7 +187,7 @@
             </div>
             <div class="pat-card-linha">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-              {{ textoDoDono(bem, pessoasById) }}
+              {{ textoDoDono(bem, pessoasById, pessoasErro) }}
             </div>
           </button>
         </div>
@@ -209,7 +209,7 @@
                 <td>{{ nomeDe(categorias, bem.categoria_id) }}</td>
                 <td>{{ nomeDe(empresas, bem.empresa_id) }}</td>
                 <td>{{ nomeDoLocal(bem) }}</td>
-                <td>{{ textoDoDono(bem, pessoasById) }}</td>
+                <td>{{ textoDoDono(bem, pessoasById, pessoasErro) }}</td>
                 <td><span class="pat-pill" :class="classeDaSituacao(bem.situacao)">{{ rotuloDaSituacao(bem.situacao) }}</span></td>
                 <td class="pat-dir">{{ formatarValor(bem.valor_centavos) }}</td>
               </tr>
@@ -1705,8 +1705,14 @@ const linhasAchatadas = computed(() => {
     empresa: nome(empresas.value, b.empresa_id),
     local: nome(locais.value, b.local_id),
     comodo: nome(comodos.value, b.comodo_id),
-    dono: b.pessoa_id ? (pessoasById.value[b.pessoa_id]?.nome || 'Pessoa removida')
-      : (b.dono_texto ? b.dono_texto + ' (não cadastrada)' : ''),
+    // O "Pessoa removida" daqui sai também no arquivo exportado, onde não há
+    // aviso de erro nenhum em volta pra desmentir — então ele obedece à mesma
+    // trava do cartão e da tabela: com a lista de colaboradores falhando, dizer
+    // que a pessoa foi removida é mentir sobre gente que existe.
+    // (Bem sem dono nenhum continua saindo com a célula VAZIA na planilha, que
+    //  é o que sempre saiu — não é "Sem dono" escrito em 88% das linhas.)
+    dono: (b.pessoa_id || b.dono_texto)
+      ? textoDoDono(b, pessoasById.value, pessoasErro.value) : '',
     situacao: rotuloDaSituacao(b.situacao),
     etiquetado: b.etiquetado ? 'Sim' : 'Não',
     data_compra: b.data_compra ? formatarDataBR(b.data_compra) : '',
