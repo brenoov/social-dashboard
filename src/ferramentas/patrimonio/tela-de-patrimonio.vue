@@ -411,7 +411,7 @@
               :recado-de-erro="campoDeCriacao === 'massa' ? erroDePessoa : ''"
               rotulo="Com quem está" texto-vazio="— não mudar —"
               @criar="(p) => criarPessoaRapida(p, 'massa')" @criar-setor="(p) => criarSetorRapido(p, 'massa')"
-              @criar-marca="(p) => criarMarcaRapida(p, 'massa')">
+              @criar-marca="(p) => criarMarcaRapida(p, 'massa')" @abrir="limparAvisoDeCriacao">
               <option :value="LIMPAR">Tirar o dono (ninguém)</option>
             </EscolhaDePessoa>
           </div>
@@ -649,7 +649,7 @@
               :recado-de-erro="campoDeCriacao === 'ficha' ? erroDePessoa : ''"
               rotulo="Com quem está" texto-vazio="Ninguém"
               @criar="(p) => criarPessoaRapida(p, 'ficha')" @criar-setor="(p) => criarSetorRapido(p, 'ficha')"
-              @criar-marca="(p) => criarMarcaRapida(p, 'ficha')" />
+              @criar-marca="(p) => criarMarcaRapida(p, 'ficha')" @abrir="limparAvisoDeCriacao" />
           </div>
           <div class="pat-ajuda-txt" v-if="ajudaAberta === 'dono'">{{ AJUDAS.dono }}</div>
 
@@ -1447,6 +1447,13 @@ async function criarMarcaRapida({ nome }, campo) {
   if (error) { erroDePessoa.value = 'Não consegui cadastrar a marca. Tente de novo.'; return }
   campoDeCriacao.value = ''
   await carregar()
+}
+
+// Abrir a caixinha começa uma tentativa nova: o aviso da tentativa anterior
+// não pertence a ela.
+function limparAvisoDeCriacao() {
+  erroDePessoa.value = ''
+  campoDeCriacao.value = ''
 }
 
 function fecharFicha() {

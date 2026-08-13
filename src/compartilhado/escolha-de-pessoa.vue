@@ -150,7 +150,7 @@ const props = defineProps({
   textoVazio: { type: String, default: '— ninguém —' },
 })
 
-const emit = defineEmits(['update:modelValue', 'criar', 'criar-setor', 'criar-marca'])
+const emit = defineEmits(['update:modelValue', 'criar', 'criar-setor', 'criar-marca', 'abrir'])
 
 // Um id por instância: há mais de um campo de pessoa na mesma tela, e datalist
 // com id repetido faz a sugestão de um campo aparecer no outro. O uid da
@@ -201,6 +201,12 @@ async function abrirCaixinha() {
   esperandoSub.value = null
   await nextTick()
   if (campoNome.value && campoNome.value.focus) campoNome.value.focus()
+  // Avisa o pai que a caixinha abriu. É o momento — e o único — em que faz
+  // sentido apagar o recado de erro que ele guarda: o erro é de uma tentativa
+  // anterior, e o componente não pode limpar uma prop sozinho. Sem isto, uma
+  // criação que falhou deixa o aviso colado na próxima abertura, inclusive em
+  // outra ficha.
+  emit('abrir')
 }
 
 // INVARIANTE: fechar a caixinha — por qualquer caminho — significa não deixar
