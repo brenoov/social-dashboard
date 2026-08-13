@@ -1,9 +1,15 @@
 <template>
   <div class="esc-pessoa">
     <div class="esc-pessoa-linha">
-      <select class="esc-pessoa-campo" :value="modelValue" :disabled="desabilitado"
+      <select class="esc-pessoa-campo" :value="modelValue"
               :aria-label="rotulo" @change="$emit('update:modelValue', $event.target.value)">
         <option value="">{{ textoVazio }}</option>
+        <!-- ANTES dos nomes: a opção que não é uma pessoa e precisa ficar ao
+             alcance da vista, como o "Tirar o dono (ninguém)" da mudança em
+             massa do Patrimônio. Com um `<slot />` só, ela caía depois dos ~24
+             nomes — a pessoa tinha de rolar a lista inteira para achar o que
+             antes era o segundo item. -->
+        <slot name="antes" />
         <option v-for="p in pessoas" :key="p.id" :value="p.id">{{ p.nome }}</option>
         <!-- A Frota põe aqui a opção "de fora da empresa": quem não é da casa
              continua tendo por onde entrar, sem virar cadastro. -->
@@ -134,6 +140,11 @@ const props = defineProps({
   modelValue: { type: String, default: '' },
   // Já vem pronta da tela: mesclada e só com as ativas.
   pessoas: { type: Array, default: () => [] },   // { id, nome, status, cargo }
+  // A lista COMPLETA, incluindo quem foi desligada. Serve só para conferir nome
+  // repetido: o banco procura em todo mundo, então sem isto a tela deixa a
+  // pessoa tentar criar um nome que o banco vai recusar como já existente — e
+  // ela fica clicando "Criar" para sempre, sem nada acontecer.
+  todas: { type: Array, default: () => [] },     // { id, nome, status, cargo }
   marcas: { type: Array, default: () => [] },    // { id, nome }
   setores: { type: Array, default: () => [] },   // { id, nome }
 
@@ -145,7 +156,6 @@ const props = defineProps({
   // O erro da gravação, em português, vindo da tela.
   recadoDeErro: { type: String, default: '' },
 
-  desabilitado: { type: Boolean, default: false },
   rotulo: { type: String, default: 'Pessoa' },
   textoVazio: { type: String, default: '— ninguém —' },
 })
@@ -239,7 +249,27 @@ function confirmar() {
 
   // Nome repetido não cria a segunda pessoa: aponta pra que já está lá. O banco
   // faz a mesma checagem — aqui é só pra pessoa saber na hora, sem ida e volta.
-  const r = resolverNovaOpcao(novo.nome, props.pessoas)
+  //
+  // A conferência é contra `todas` — a lista COMPLETA — e não contra o que o
+  // campo mostra, porque é em todo mundo que o banco procura. Contra as ativas
+  // só, o nome de quem foi DESLIGADA passava por inédito, a tela mandava criar,
+  // o banco respondia "já existia" sem gravar nada, e a pessoa desligada nunca
+  // aparecia na lista das ativas pro componente fechar a caixinha: ela ficava
+  // aberta, com o nome digitado, sem nada selecionado e SEM recado nenhum.
+  // Clicar de novo repetia isso pra sempre — o mesmo beco sem saída que este
+  // "+" existe pra acabar. Sem `todas` (chamador antigo), cai nas ativas e o
+  // componente continua funcionando como antes.
+  const universo = (props.todas && props.todas.length) ? props.todas : props.pessoas
+  const r = resolverNovaOpcao(novo.nome, universo)
+  if (r.ok && r.jaExistia && !(props.pessoas || []).some((p) => p && p.id === r.item.id)) {
+    // Ela existe, mas não está entre as que o campo oferece: saiu da empresa.
+    // Não dá pra selecionar (não está lá) e não adianta mandar criar (o banco
+    // recusa como repetida). Dizer isso é o único caminho honesto — e o que foi
+    // digitado fica na tela pra ser corrigido.
+    recado.value = `“${r.item.nome}” já está cadastrada, mas está marcada como desligada. `
+      + 'Peça a quem administra para reativá-la — ou use outro nome.'
+    return
+  }
   if (r.ok && r.jaExistia) {
     emit('update:modelValue', r.item.id)
     // Fecha pelo `cancelar()` — não zera `aberta` na mão — porque este também

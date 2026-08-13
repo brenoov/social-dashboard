@@ -1932,14 +1932,21 @@ async function criarNaArvore({ nivel, nome, empresaId, localId }) {
  * Quatro campos de pessoa nesta tela — Responsável, Quem vai dirigir, Quem vai
  * usar, Passar para —, então `campo` marca qual deles pediu a criação. O aviso
  * de erro e o "Criando…" pertencem a ELE, não à tela: com um só `erroDePessoa`
- * compartilhado, uma falha num campo apareceria nos outros três. */
+ * compartilhado, uma falha num campo apareceria nos outros três.
+ *
+ * SEM try/catch DE PROPÓSITO, nas três funções abaixo: o supabase-js v2 não
+ * rejeita a promessa quando o fetch falha — ele DEVOLVE `{ error }`, que é
+ * justamente o que estas funções já tratam. E o `criandoPessoa = false` vem
+ * ANTES do `await carregar()`, então nem um erro no recarregamento deixa o
+ * botão preso em "Criando…". Um try/catch aqui não pegaria nada e só esconderia
+ * o caminho de erro que existe. */
 async function criarPessoaRapida({ nome, cargo, marcaId, setorId }, campo) {
   if (criandoPessoa.value) return
   criandoPessoa.value = true
   erroDePessoa.value = ''
   campoDeCriacao.value = campo
 
-  const { error } = await sbClient.rpc('criar_pessoa_rapida', {
+  const { data, error } = await sbClient.rpc('criar_pessoa_rapida', {
     p_nome: nome, p_cargo: cargo, p_marca_id: marcaId, p_setor_id: setorId,
   })
   criandoPessoa.value = false
@@ -1949,7 +1956,20 @@ async function criarPessoaRapida({ nome, cargo, marcaId, setorId }, campo) {
     return
   }
   campoDeCriacao.value = ''
+  const criada = Array.isArray(data) ? data[0] : data
   await carregar()
+  // A linha devolvida é LIDA, e não jogada fora: o Patrimônio faz a mesma
+  // chamada e conta o que aconteceu, e as duas telas não podem dizer coisas
+  // diferentes sobre a mesma ação. Aqui não há toast, então o recado vai pelo
+  // mesmo caminho que este componente já usa. O caso que ele realmente salva é
+  // o da pessoa DESLIGADA: ela volta como "já existia", não entra na lista das
+  // ativas, e sem este aviso a caixinha ficaria aberta e muda.
+  if (criada && criada.ja_existia) {
+    campoDeCriacao.value = campo
+    erroDePessoa.value = `“${criada.nome}” já estava cadastrada — não criei uma segunda. `
+      + 'Se ela não aparecer na lista, é porque está marcada como desligada: peça a quem '
+      + 'administra para reativá-la.'
+  }
 }
 
 async function criarSetorRapido({ nome }, campo) {
@@ -2957,10 +2977,11 @@ onMounted(async () => {
               </p>
               <EscolhaDePessoa
                 v-model="vForm.pessoa_id"
-                :pessoas="comSelecionada(pessoasAtivas, pessoas, vForm.pessoa_id)" :marcas="empresasPat" :setores="setores"
+                :pessoas="comSelecionada(pessoasAtivas, pessoas, vForm.pessoa_id)" :todas="pessoas"
+                :marcas="empresasPat" :setores="setores"
                 :pode-criar="podeEditar" :criando="criandoPessoa && campoDeCriacao === 'responsavel'"
                 :recado-de-erro="campoDeCriacao === 'responsavel' ? erroDePessoa : ''"
-                rotulo="Responsável pelo carro" texto-vazio="— ninguém —"
+                rotulo="Responsável — de quem é o carro" texto-vazio="— ninguém —"
                 @criar="(p) => criarPessoaRapida(p, 'responsavel')" @criar-setor="(p) => criarSetorRapido(p, 'responsavel')"
                 @criar-marca="(p) => criarMarcaRapida(p, 'responsavel')" @abrir="limparAvisoDeCriacao" />
               <span class="fr-ajuda">
@@ -3420,7 +3441,8 @@ onMounted(async () => {
             </p>
             <EscolhaDePessoa
               v-model="pedidoForm.pessoaId"
-              :pessoas="comSelecionada(pessoasAtivas, pessoas, pedidoForm.pessoaId)" :marcas="empresasPat" :setores="setores"
+              :pessoas="comSelecionada(pessoasAtivas, pessoas, pedidoForm.pessoaId)" :todas="pessoas"
+              :marcas="empresasPat" :setores="setores"
               :pode-criar="podeEditar" :criando="criandoPessoa && campoDeCriacao === 'pedido'"
               :recado-de-erro="campoDeCriacao === 'pedido' ? erroDePessoa : ''"
               rotulo="Quem vai dirigir" texto-vazio="— escolha —"
@@ -3591,7 +3613,8 @@ onMounted(async () => {
             </p>
             <EscolhaDePessoa
               v-model="form.pessoaId"
-              :pessoas="comSelecionada(pessoasAtivas, pessoas, form.pessoaId)" :marcas="empresasPat" :setores="setores"
+              :pessoas="comSelecionada(pessoasAtivas, pessoas, form.pessoaId)" :todas="pessoas"
+              :marcas="empresasPat" :setores="setores"
               :pode-criar="podeEditar" :criando="criandoPessoa && campoDeCriacao === 'retirada'"
               :recado-de-erro="campoDeCriacao === 'retirada' ? erroDePessoa : ''"
               rotulo="Quem vai usar" texto-vazio="— escolha —"
@@ -3681,7 +3704,8 @@ onMounted(async () => {
                  pro componente. -->
             <EscolhaDePessoa
               v-model="paraQuem"
-              :pessoas="comSelecionada(pessoasAtivas, pessoas, paraQuem)" :marcas="empresasPat" :setores="setores"
+              :pessoas="comSelecionada(pessoasAtivas, pessoas, paraQuem)" :todas="pessoas"
+              :marcas="empresasPat" :setores="setores"
               :pode-criar="podeEditar" :criando="criandoPessoa && campoDeCriacao === 'passar'"
               :recado-de-erro="campoDeCriacao === 'passar' ? erroDePessoa : ''"
               rotulo="Passar para"

@@ -412,13 +412,19 @@
             </div>
             <EscolhaDePessoa
               v-model="massa.pessoaId"
-              :pessoas="comSelecionada(pessoasAtivas, pessoas, massa.pessoaId)" :marcas="empresas" :setores="setores"
+              :pessoas="comSelecionada(pessoasAtivas, pessoas, massa.pessoaId)" :todas="pessoas"
+              :marcas="empresas" :setores="setores"
               :pode-criar="podeEditar" :criando="criandoPessoa && campoDeCriacao === 'massa'"
               :recado-de-erro="campoDeCriacao === 'massa' ? erroDePessoa : ''"
               rotulo="Com quem está" texto-vazio="— não mudar —"
               @criar="(p) => criarPessoaRapida(p, 'massa')" @criar-setor="(p) => criarSetorRapido(p, 'massa')"
               @criar-marca="(p) => criarMarcaRapida(p, 'massa')" @abrir="limparAvisoDeCriacao">
-              <option :value="LIMPAR">Tirar o dono (ninguém)</option>
+              <!-- Vai no slot "antes" porque tirar o dono NÃO é escolher uma
+                   pessoa: ela sempre foi o segundo item da lista, e depois dos
+                   ~24 nomes ninguém a acha. -->
+              <template #antes>
+                <option :value="LIMPAR">Tirar o dono (ninguém)</option>
+              </template>
             </EscolhaDePessoa>
           </div>
 
@@ -664,7 +670,8 @@
             </div>
             <EscolhaDePessoa
               v-model="form.pessoa_id"
-              :pessoas="comSelecionada(pessoasAtivas, pessoas, form.pessoa_id)" :marcas="empresas" :setores="setores"
+              :pessoas="comSelecionada(pessoasAtivas, pessoas, form.pessoa_id)" :todas="pessoas"
+              :marcas="empresas" :setores="setores"
               :pode-criar="podeEditar" :criando="criandoPessoa && campoDeCriacao === 'ficha'"
               :recado-de-erro="campoDeCriacao === 'ficha' ? erroDePessoa : ''"
               rotulo="Com quem está" texto-vazio="Ninguém"
@@ -1426,7 +1433,14 @@ async function confirmarNovaOpcao() {
  * Quem grava é a tela, não o componente — mesmo contrato do "+" de local. O
  * banco é quem decide se pode: `criar_pessoa_rapida` recusa quem não mexe em
  * Patrimônio, Frota ou Acessos, e devolve `ja_existia` quando o nome já estava
- * lá (comparando sem caixa e sem espaço nas pontas). */
+ * lá (comparando sem caixa e sem espaço nas pontas).
+ *
+ * SEM try/catch DE PROPÓSITO, nas três funções abaixo: o supabase-js v2 não
+ * rejeita a promessa quando o fetch falha — ele DEVOLVE `{ error }`, que é
+ * justamente o que estas funções já tratam. E o `criandoPessoa = false` vem
+ * ANTES do `await carregar()`, então nem um erro no recarregamento deixa o
+ * botão preso em "Criando…". Um try/catch aqui não pegaria nada e só esconderia
+ * o caminho de erro que existe. */
 async function criarPessoaRapida({ nome, cargo, marcaId, setorId }, campo) {
   if (criandoPessoa.value) return
   criandoPessoa.value = true
@@ -1984,10 +1998,11 @@ async function carregar() {
   categorias.value = rCat.data || []
   tipos.value = rTip.data || []
   // Colaboradores e Frota vêm de módulos vizinhos — os dois pontos em que
-  // Patrimônio depende de outra ferramenta. Se a pessoa não tiver acesso a
-  // um deles, a RLS devolve lista vazia sem erro, e a tela segue
-  // funcionando: pessoas cai no nome solto (dono_texto); a Frota cai no
-  // aviso de "sem acesso" (`temAcessoFrota()`), nunca em "nada ligado".
+  // Patrimônio depende de outra ferramenta. A leitura de pessoas hoje é a RPC
+  // `pessoas_para_escolher()`, que ESTOURA em vez de devolver lista vazia
+  // quando falta acesso — por isso `pessoasErro` existe e a tela diz o motivo
+  // em vez de mostrar o campo vazio calado. A Frota, essa sim, cai no aviso de
+  // "sem acesso" (`temAcessoFrota()`), nunca em "nada ligado".
   pessoas.value = mesclarPessoas(rPes.data || [], [])
   setores.value = rSet && !rSet.error ? (rSet.data || []) : []
   veiculosFrota.value = rFrota && !rFrota.error ? (rFrota.data || []) : []
@@ -2216,7 +2231,10 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-patrimonio .pat-campo{display:flex;flex-direction:column;gap:5px;font-family:var(--fonte-principal);}
 .tela-patrimonio .pat-campo > span{font-size:max(9px, calc(11px * var(--escala-texto, 1)));font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);}
 .tela-patrimonio .pat-campo em{font-style:normal;text-transform:none;letter-spacing:0;font-weight:400;}
-.tela-patrimonio .pat-campo-titulo{display:block;margin-bottom:5px;}
+/* Sem margem embaixo: o `.pat-campo` já separa rótulo e controle com gap:5px, e
+   a margem somava por cima disso — este rótulo ficava a 10px do campo dele e
+   todos os outros a 5px. */
+.tela-patrimonio .pat-campo-titulo{display:block;}
 .tela-patrimonio .pat-campo input,.tela-patrimonio .pat-campo select,.tela-patrimonio .pat-campo textarea{font-size:max(16px, calc(16px * var(--escala-texto, 1)));font-family:var(--fonte-principal);padding:11px 12px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);width:100%;}
 .tela-patrimonio .pat-campo select:disabled{opacity:.5;}
 .tela-patrimonio .pat-campo-par{display:grid;grid-template-columns:1fr 1fr;gap:10px;overflow-wrap:anywhere;}
