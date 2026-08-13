@@ -169,6 +169,11 @@ function cancelar() {
   subNome.value = ''
   recado.value = ''
   esperando.value = null
+  // Sem isto, uma criação de marca/setor pendente (pediu "Criar" e trocou de
+  // ficha antes de voltar) continuava viva: quando a marca/setor chegasse nas
+  // props, o watch de baixo gravava o id em `novo.marcaId`/`novo.setorId` da
+  // ficha ATUAL — valor de um cadastro vazando pro outro, sem aviso nenhum.
+  esperandoSub.value = null
 }
 
 function confirmar() {
