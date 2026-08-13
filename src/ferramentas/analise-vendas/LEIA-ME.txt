@@ -27,6 +27,21 @@ Como funciona (resumido):
   sozinhos a cada 5 minutos enquanto a tela estiver aberta.
 - Botão "Canais": filtra quais lojas/canais entram nos números (checkboxes,
   com atalhos "Todos"/"Nenhum").
+- QUEM É DE TIME DE VENDA VÊ SÓ A LOJA DELA (12/08/2026). A regra mora em
+  src/compartilhado/canais-de-venda-permitidos.js, compartilhada com a Gestão
+  à Vista. Quem NÃO está sob escopo por equipe (15 dos 17 perfis de hoje)
+  continua vendo tudo, inclusive os canais zerados, exatamente como antes.
+  O recorte vale para as TRÊS janelas de pedidos (atual, anterior e a de 15
+  dias) e também para as METAS — recortar só a venda mediria uma loja contra a
+  meta de todas, e a vendedora apareceria sempre a 8% do alvo. Uma faixa no
+  topo diz qual canal está sendo mostrado; sem ela, um total menor parece dado
+  errado.
+  ⚠️ ISTO É RECORTE DE TELA, NÃO É TRANCA. Esta tela lê os pedidos AO VIVO do
+  Bling pela edge `bling-proxy`, e essa edge confere PERMISSÃO, não canal —
+  ela devolve os pedidos de todos os canais para qualquer um que tenha
+  'sales'. A tranca de verdade seria filtrar dentro da edge. A trava do banco
+  (`pode_ver_canal`, RLS) só protege `gc_vendas_item`, que é a Gestão
+  Comercial — não passa por aqui.
 - Botão "Marcas" (topo esquerdo): limpa todos os timers/gráficos e volta para
   o seletor de marca.
 - Só abre para quem tem a permissão "sales.analise-vendas" liberada (ou é

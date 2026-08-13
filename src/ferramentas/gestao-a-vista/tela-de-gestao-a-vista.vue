@@ -58,6 +58,9 @@
     </div>
     </template>
     </barra-de-topo>
+    <!-- A FAIXA DO RECORTE. Só aparece para quem é de time de venda: um total
+         menor sem explicação parece dado errado. -->
+    <div id="gv-recorte" class="gv-recorte" style="display:none"></div>
     <div class="gv-board" id="gv-board">
       <div class="gv-loading-screen">
         <div class="gv-spinner"></div>
@@ -106,7 +109,14 @@ import { useRouter } from 'vue-router'
 import TourCoachmark from '../meta-ads/tour-coachmark.vue'
 import { TOUR_GV } from './tutorial-gv.js'
 import { sbClient, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../compartilhado/conectar-no-banco-de-dados.js'
-import { hasPermission } from '../../compartilhado/controle-de-login-e-usuario.js'
+import { hasPermission, estado } from '../../compartilhado/controle-de-login-e-usuario.js'
+// QUEM É DE TIME DE VENDA VÊ SÓ A LOJA DELA (pedido do dono, 12/08/2026).
+// MESMO módulo da Análise de Vendas — duas telas de venda recortando por conta
+// própria divergiriam no primeiro ajuste. ⚠️ Recorte de TELA: a edge
+// `bling-proxy` continua devolvendo todos os canais.
+import {
+  canaisDoEscopo, estaLimitada, filtrarPedidos, filtrarMapaDeCanais, fraseDoRecorte,
+} from '../../compartilhado/canais-de-venda-permitidos.js'
 import { adminToast } from '../../compartilhado/avisos.js'
 import { filtrarPedidosPorCanal, depositosVisiveis, prepararEstoque, statusSaldo, categoriasDisponiveis, DEPOSITOS } from './estoque-gv.js'
 import { aplicarDataDaVenda } from '../../compartilhado/data-da-venda.js'
@@ -621,17 +631,51 @@ async function loadGestaoVistaData(period){
     const ajuste=await aplicarDataDaVenda(sbClient,pedidosBrutos,di,df);
     const ajustePrev=await aplicarDataDaVenda(sbClient,pedidosPrevBrutos,diPrev,dfPrev);
     if(myLoad!==_gvLoadId)return;
-    const pedidos=ajuste.pedidos;
-    const pedidosPrev=ajustePrev.pedidos;
+    // `let`, e não `const`: o recorte por time (mais abaixo) reatribui os dois.
+    let pedidos=ajuste.pedidos;
+    let pedidosPrev=ajustePrev.pedidos;
 
     // Supabase: pode rodar em paralelo (API diferente)
-    const[canais,metasRows]=await Promise.all([
+    const[canaisCheio,metasRows,eqTimes,eqMembros]=await Promise.all([
       sbClient.from('bling_lojas').select('loja_id,nome').then(r=>{const mp={};(r.data||[]).forEach(l=>mp[l.loja_id]=l.nome);return mp;}).catch(()=>({})),
-      sbClient.from('bling_metas').select('loja_id,meta_valor,daily_goals').eq('year',metaY).eq('month',metaM).then(r=>r.data||[]).catch(()=>[])
+      sbClient.from('bling_metas').select('loja_id,meta_valor,daily_goals').eq('year',metaY).eq('month',metaM).then(r=>r.data||[]).catch(()=>[]),
+      // Os times e quem está neles. Falhar devolve lista vazia — e com ela quem
+      // é de time fica com `[]` (tela vazia com o motivo escrito), não com a
+      // empresa inteira. É o lado seguro do erro.
+      sbClient.from('equipes').select('id,nome,canal_loja_id').then(r=>r.data||[]).catch(()=>[]),
+      sbClient.from('equipes_membros').select('equipe_id,profile_id').then(r=>r.data||[]).catch(()=>[])
     ]);
 
+    // O RECORTE POR TIME. `null` = vê tudo, o caminho de 15 dos 17 perfis de
+    // hoje: para eles nada muda, inclusive os canais zerados continuam
+    // aparecendo como sempre apareceram (pedido do dono).
+    const meusCanais=canaisDoEscopo({
+      isSuperadmin:estado.is_superadmin,
+      escopoPorEquipe:estado.escopo_por_equipe,
+      meuId:estado.userId,
+      times:eqTimes,membros:eqMembros,
+    });
+    const canais=filtrarMapaDeCanais(canaisCheio,meusCanais);
+    if(estaLimitada(meusCanais)){
+      // Os pedidos das DUAS janelas: recortar só a atual faria o comparativo
+      // medir a loja dela contra a empresa inteira.
+      pedidos=filtrarPedidos(pedidos,meusCanais);
+      pedidosPrev=filtrarPedidos(pedidosPrev,meusCanais);
+    }
+
     const metasMap={};const dailyGoalsMap={};
-    metasRows.forEach(r=>{metasMap[r.loja_id]=r.meta_valor;if(r.daily_goals)dailyGoalsMap[r.loja_id]=r.daily_goals;});
+    // A META TAMBÉM É RECORTADA: sem isto a venda de UMA loja seria medida
+    // contra a meta de TODAS, e a vendedora apareceria sempre a 8% do alvo.
+    metasRows.filter(r=>!estaLimitada(meusCanais)||meusCanais.map(String).includes(String(r.loja_id)))
+      .forEach(r=>{metasMap[r.loja_id]=r.meta_valor;if(r.daily_goals)dailyGoalsMap[r.loja_id]=r.daily_goals;});
+
+    const faixaGv=document.getElementById('gv-recorte');
+    if(faixaGv){
+      const frase=fraseDoRecorte(meusCanais,canaisCheio);
+      faixaGv.textContent=frase;
+      faixaGv.style.display=frase?'block':'none';
+      faixaGv.classList.toggle('gv-recorte-vazio',estaLimitada(meusCanais)&&!meusCanais.length);
+    }
 
     // Vendedores: carrega do Supabase (instantâneo) + descobre mapeamentos faltantes via detalhe Bling
     if(!window._gvVendedoresCache)window._gvVendedoresCache={};
@@ -1505,6 +1549,8 @@ onUnmounted(() => {
   .tela-gestao-a-vista :deep(.gv-brand-tag){letter-spacing:1.5px;}
 }
 /* Board layout — 2-column grid: left=gauge panel, right=canal gauges + rankings */
+.tela-gestao-a-vista :deep(.gv-recorte){margin:0 0 10px;padding:9px 12px;border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:8px;background:var(--surface2);color:var(--muted);font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));line-height:1.45;}
+.tela-gestao-a-vista :deep(.gv-recorte-vazio){border-left-color:var(--orange,#d97706);color:var(--orange,#d97706);}
 .tela-gestao-a-vista :deep(.gv-board){flex:1;display:grid;grid-template-columns:480px 1fr;gap:1px;background:var(--border);overflow:hidden;min-height:0;position:relative;z-index:2;backdrop-filter:none;}
 .tela-gestao-a-vista :deep(.gv-left){background:var(--bg);display:flex;flex-direction:column;align-items:center;padding:8px 22px;gap:0;overflow:hidden;justify-content:space-between;}
 /* align-items:safe center — quando o conteúdo é mais alto que a área (telão/dev-tv com

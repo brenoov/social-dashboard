@@ -14,6 +14,10 @@ export const estado = reactive({
   permissions: {},
   allowed_accounts: null, // null = todos os perfis
   is_superadmin: false,
+  // Limitada aos canais dos times dela? É a chave que as duas dashboards de
+  // venda usam para mostrar só a loja da pessoa (canais-de-venda-permitidos.js).
+  // `false` é o estado de quem já usava o sistema; conta nova nasce `true`.
+  escopo_por_equipe: false,
   // Conta criada em lote (vendedoras): a senha inicial foi entregue por outra
   // pessoa. Enquanto for `true`, a moldura do aplicativo cobra a troca — marca
   // sem cobrança seria promessa não cumprida.
@@ -41,6 +45,7 @@ export function limparEstado() {
   estado.permissions = {}
   estado.allowed_accounts = null
   estado.is_superadmin = false
+  estado.escopo_por_equipe = false
   estado.precisa_trocar_senha = false
   estado.erroPerfil = null
 }
@@ -56,7 +61,7 @@ export async function carregarPerfil(session) {
   estado.userId = session?.user?.id || null
   try {
     const tok = session?.access_token || SUPABASE_ANON_KEY
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${session.user.id}&select=role,features,avatar_url,permissions,allowed_accounts,is_superadmin,precisa_trocar_senha`, {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${session.user.id}&select=role,features,avatar_url,permissions,allowed_accounts,is_superadmin,precisa_trocar_senha,escopo_por_equipe`, {
       headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${tok}` },
     })
     const corpo = await r.json().catch(() => null)
@@ -73,6 +78,7 @@ export async function carregarPerfil(session) {
     estado.allowed_accounts = p.allowed_accounts ?? null
     estado.is_superadmin = !!p.is_superadmin
     estado.precisa_trocar_senha = !!p.precisa_trocar_senha
+    estado.escopo_por_equipe = !!p.escopo_por_equipe
     estado.avatarUrl = p.avatar_url || null
     return { ok: true, erro: null }
   } catch (e) {

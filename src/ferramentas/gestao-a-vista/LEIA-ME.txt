@@ -45,3 +45,17 @@ Acessos):
   fundo animado por "tema" da tela inicial (setHomeBgTheme).
 
 Para mexer só nesta tela, edite apenas esta pasta.
+
+QUEM É DE TIME DE VENDA VÊ SÓ A LOJA DELA (12/08/2026)
+------------------------------------------------------
+Mesma regra e MESMO módulo da Análise de Vendas
+(src/compartilhado/canais-de-venda-permitidos.js) — duas telas de venda
+recortando por conta própria divergiriam no primeiro ajuste.
+- Quem NÃO está sob escopo por equipe continua vendo tudo, com os canais
+  zerados aparecendo como sempre apareceram. Isso foi pedido explicitamente.
+- Para quem é de time: os chips de canal, os pedidos das duas janelas (atual e
+  anterior) e as metas são recortados. Uma faixa acima do board diz qual canal
+  está sendo mostrado.
+- ⚠️ Recorte de TELA. A edge `bling-proxy` confere permissão, não canal, e
+  devolve todos os canais para quem tem 'sales'. A tranca do banco
+  (`pode_ver_canal`) protege `gc_vendas_item`, que esta tela não usa.

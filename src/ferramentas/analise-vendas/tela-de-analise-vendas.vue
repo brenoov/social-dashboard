@@ -55,6 +55,9 @@
     </template>
     </barra-de-topo>
 
+    <!-- A FAIXA DO RECORTE. Só aparece para quem é de time de venda. Um total
+         menor sem explicação parece dado errado — e é assim que nasce chamado. -->
+    <div id="sa-recorte" class="sa-recorte" style="display:none"></div>
     <div id="sa-body"></div>
   </div>
 </template>
@@ -64,7 +67,15 @@ import { onMounted, onUnmounted } from 'vue'
 import BarraDeTopo from '../../compartilhado/barra-de-topo.vue'
 import { useRouter } from 'vue-router'
 import { sbClient, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../compartilhado/conectar-no-banco-de-dados.js'
-import { hasPermission } from '../../compartilhado/controle-de-login-e-usuario.js'
+import { hasPermission, estado } from '../../compartilhado/controle-de-login-e-usuario.js'
+// QUEM É DE TIME DE VENDA VÊ SÓ A LOJA DELA (pedido do dono, 12/08/2026).
+// A regra mora num módulo só, compartilhado com a Gestão à Vista: duas telas
+// de venda recortando por conta própria divergiriam no primeiro ajuste.
+// ⚠️ Isto é recorte de TELA. A edge `bling-proxy` continua devolvendo todos os
+// canais — ela confere permissão, não canal. Ver o cabeçalho do módulo.
+import {
+  canaisDoEscopo, estaLimitada, filtrarPedidos, filtrarMapaDeCanais, fraseDoRecorte,
+} from '../../compartilhado/canais-de-venda-permitidos.js'
 import { adminToast } from '../../compartilhado/avisos.js'
 import { hojeLocal, diasAtras } from '../../compartilhado/datas.js'
 import { aplicarDataDaVenda } from '../../compartilhado/data-da-venda.js'
@@ -334,14 +345,45 @@ async function loadSalesAnalysisData(period){
   const df15=brtToday;
 
   try{
-    const[pedidosBrutos,pedidosPrevBrutos,lojaMap,metasArr,vendedoresArr,pedidos15Brutos]=await Promise.all([
+    const[pedidosBrutos,pedidosPrevBrutos,lojaMapCheio,metasArr,vendedoresArr,pedidos15Brutos,meusTimes]=await Promise.all([
       blingPages('pedidos/vendas',{dataInicial:di,dataFinal:df,'idsSituacoes[]':9}),
       blingPages('pedidos/vendas',{dataInicial:diPrev,dataFinal:dfPrev,'idsSituacoes[]':9}).catch(()=>[]),
       sbClient.from('bling_lojas').select('loja_id,nome').order('loja_id').then(r=>{const mp={};(r.data||[]).forEach(l=>mp[l.loja_id]=l.nome);return mp;}),
       sbClient.from('bling_metas').select('loja_id,meta_valor,daily_goals').eq('year',effY).eq('month',effM).then(r=>r.data||[]),
       sbClient.from('bling_vendedores').select('vendor_id,nome').then(r=>r.data||[]),
-      blingPages('pedidos/vendas',{dataInicial:di15,dataFinal:df15,'idsSituacoes[]':9}).catch(()=>[])
+      blingPages('pedidos/vendas',{dataInicial:di15,dataFinal:df15,'idsSituacoes[]':9}).catch(()=>[]),
+      // Os times e quem está neles. Falhar aqui devolve listas vazias — e com
+      // elas `canaisDoEscopo` responde `[]` para quem é de time, ou seja, tela
+      // vazia com o motivo escrito. É o lado seguro: o outro seria mostrar o
+      // faturamento da empresa inteira para quem não pode ver.
+      Promise.all([
+        sbClient.from('equipes').select('id,nome,canal_loja_id').then(r=>r.data||[]),
+        sbClient.from('equipes_membros').select('equipe_id,profile_id').then(r=>r.data||[]),
+      ]).then(([t,m])=>({times:t,membros:m})).catch(()=>({times:[],membros:[]}))
     ]);
+
+    // O RECORTE POR TIME. `null` = vê tudo, e é o caminho de 15 dos 17 perfis
+    // de hoje: nada muda para eles, que foi exatamente o pedido do dono.
+    const meusCanais=canaisDoEscopo({
+      isSuperadmin:estado.is_superadmin,
+      escopoPorEquipe:estado.escopo_por_equipe,
+      meuId:estado.userId,
+      times:meusTimes.times,membros:meusTimes.membros,
+    });
+    const lojaMap=filtrarMapaDeCanais(lojaMapCheio,meusCanais);
+    // A META TAMBÉM. Sem isto a tela mediria a venda de UMA loja contra a meta
+    // de TODAS — a vendedora apareceria eternamente a 8% do alvo.
+    const metas=estaLimitada(meusCanais)
+      ? (metasArr||[]).filter(m=>meusCanais.map(String).includes(String(m.loja_id)))
+      : metasArr;
+
+    const faixa=document.getElementById('sa-recorte');
+    if(faixa){
+      const frase=fraseDoRecorte(meusCanais,lojaMapCheio);
+      faixa.textContent=frase;
+      faixa.style.display=frase?'block':'none';
+      faixa.classList.toggle('sa-recorte-vazio',estaLimitada(meusCanais)&&!meusCanais.length);
+    }
 
     // A VENDA CONTA NO DIA DA NOTA, não no dia do pedido. As TRÊS janelas
     // recebem o mesmo tratamento — a atual, a anterior (senão o comparativo
@@ -352,7 +394,12 @@ async function loadSalesAnalysisData(period){
       aplicarDataDaVenda(sbClient,pedidosPrevBrutos,diPrev,dfPrev),
       aplicarDataDaVenda(sbClient,pedidos15Brutos,di15,df15),
     ]);
-    const pedidos=aj.pedidos, pedidosPrev=ajPrev.pedidos, pedidos15=aj15.pedidos;
+    // AS TRÊS JANELAS RECEBEM O MESMO RECORTE. Recortar só a atual faria o
+    // comparativo ("vs período anterior") medir a loja dela contra a empresa
+    // inteira — um número errado com cara de verdade.
+    const pedidos=filtrarPedidos(aj.pedidos,meusCanais);
+    const pedidosPrev=filtrarPedidos(ajPrev.pedidos,meusCanais);
+    const pedidos15=filtrarPedidos(aj15.pedidos,meusCanais);
 
     const allIds=[...new Set([...pedidos,...pedidosPrev,...pedidos15].map(p=>parseInt(p.id)))];
     let pvMap={};let pvQtdMap={};
@@ -390,7 +437,7 @@ async function loadSalesAnalysisData(period){
     }
     if(canalTrigger)canalTrigger.textContent=initialIds.length===lojas.length?'Todos os canais ▾':`${initialIds.length} canal(is) ▾`;
 
-    window._saRawData={pedidos,pedidosPrev,lojaMap,lojas,metasArr,vendedoresArr,pvMap,pvQtdMap,pedidos15,period,di,df,diPrev,dfPrev,di15,df15,now:effNow,y:effY,m:effM};
+    window._saRawData={pedidos,pedidosPrev,lojaMap,lojas,metasArr:metas,vendedoresArr,pvMap,pvQtdMap,pedidos15,period,di,df,diPrev,dfPrev,di15,df15,now:effNow,y:effY,m:effM};
     window._saCurrentPeriod=period;
     window._saLastUpdateTime=new Date(new Date().toLocaleString('en-US',{timeZone:'America/Sao_Paulo'}));
     window._saNextRefreshAt=new Date(window._saLastUpdateTime.getTime()+5*60*1000);
@@ -1080,7 +1127,9 @@ function renderSALojaTable({loja,pedidos,vendedoresArr,pvMap,metasArr,now,y,m}){
   const metaW=getMetaWeek();
   const nVends=vendStats.length||1;
 
-  const wrap=document.createElement('div');wrap.style.overflowX='auto';
+  // O embrulho ganha CLASSE (era só `style.overflowX`): é por ela que o CSS
+  // do celular prende a coluna do nome enquanto o resto rola de lado.
+  const wrap=document.createElement('div');wrap.className='sa-loja-tbl-wrap';
   const tbl=document.createElement('table');tbl.className='sa-loja-table';
 
   const thead=document.createElement('thead');
@@ -1128,8 +1177,13 @@ function renderSAPositivacao({loja,pedidos15,vendedoresArr,pvMap,di15,df15,now})
   }
 
   const WEEK_NAMES=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+  // A CLASSE ESTAVA MORTA: este grid nascia só com estilo inline, e o
+  // `.sa-pos-grid` do <style> não pegava em nada — inclusive as regras de
+  // celular. Só as colunas continuam inline, porque a quantidade de dias é
+  // dinâmica; o resto (rolagem, espaçamento) volta para o CSS.
   const grid=document.createElement('div');
-  grid.style.cssText='display:grid;grid-template-columns:auto repeat('+dias.length+',minmax(52px,1fr));gap:3px;overflow-x:auto';
+  grid.className='sa-pos-grid';
+  grid.style.gridTemplateColumns='auto repeat('+dias.length+',minmax(52px,1fr))';
 
   const emptyHdr=document.createElement('div');grid.appendChild(emptyHdr);
   dias.forEach(dt=>{
@@ -1268,6 +1322,8 @@ onUnmounted(() => {
 .tela-analise-vendas :deep(.gv-loading-lbl){font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));letter-spacing:4px;text-transform:uppercase;color:var(--muted);}
 
 /* ── Dropdown de canais (legacy L1855-1861, próprio desta tela) ── */
+.tela-analise-vendas :deep(.sa-recorte){margin:0 0 10px;padding:9px 12px;border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:8px;background:var(--surface2);color:var(--muted);font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));line-height:1.45;}
+.tela-analise-vendas :deep(.sa-recorte-vazio){border-left-color:var(--orange,#d97706);color:var(--orange,#d97706);}
 .tela-analise-vendas :deep(.sa-canal-wrap){position:relative;}
 .tela-analise-vendas :deep(.sa-canal-trigger){background:none;border:1px solid var(--border);color:var(--muted);border-radius:var(--radius-sm);padding:5px 16px;font-size:max(9px, calc(12px * var(--escala-texto, 1)));font-weight:600;letter-spacing:1px;text-transform:uppercase;font-family:var(--fonte-principal);cursor:pointer;white-space:nowrap;transition:background .2s,color .15s,border-color .15s;}
 .tela-analise-vendas :deep(.sa-canal-trigger:hover){border-color:var(--accent);color:var(--accent);}
@@ -1310,11 +1366,12 @@ onUnmounted(() => {
 .tela-analise-vendas :deep(.sa-loja-summary-item){background:var(--surface2);border-radius:6px;padding:6px 12px;display:flex;flex-direction:column;gap:2px;min-width:100px;}
 .tela-analise-vendas :deep(.sa-loja-summary-label){font-family:var(--fonte-principal);font-size:max(9px, calc(9px * var(--escala-texto, 1)));font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;}
 .tela-analise-vendas :deep(.sa-loja-summary-val){font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));font-weight:800;color:var(--text);}
+.tela-analise-vendas :deep(.sa-loja-tbl-wrap){overflow-x:auto;-webkit-overflow-scrolling:touch;}
 .tela-analise-vendas :deep(.sa-loja-table){width:100%;border-collapse:collapse;font-size:max(9px, calc(12px * var(--escala-texto, 1)));}
 .tela-analise-vendas :deep(.sa-loja-table th){color:var(--muted);font-weight:700;text-align:left;padding:6px 8px;border-bottom:1px solid var(--border);}
 .tela-analise-vendas :deep(.sa-loja-table td){padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:top;font-weight:500;}
 .tela-analise-vendas :deep(.sa-loja-table tr:last-child td){border-bottom:none;}
-.tela-analise-vendas :deep(.sa-pos-grid){display:grid;gap:2px;overflow-x:auto;}
+.tela-analise-vendas :deep(.sa-pos-grid){display:grid;gap:3px;overflow-x:auto;-webkit-overflow-scrolling:touch;}
 .tela-analise-vendas :deep(.sa-pos-row){display:contents;}
 .tela-analise-vendas :deep(.sa-pos-cell){padding:4px 6px;border-radius:4px;font-size:max(9px, calc(10px * var(--escala-texto, 1)));text-align:center;white-space:nowrap;min-width:52px;}
 .tela-analise-vendas :deep(.sa-pos-cell.green){background:color-mix(in srgb,var(--green) 13%,var(--surface));color:var(--green);}
@@ -1365,6 +1422,55 @@ onUnmounted(() => {
   .tela-analise-vendas :deep(.sa-kpi){padding:12px 12px;}
   .tela-analise-vendas :deep(.sa-kpi-delta){font-size:max(9px, calc(10px * var(--escala-texto, 1)));line-height:1.35;}
   .tela-analise-vendas :deep(.sa-kpi:last-child:nth-child(odd)){grid-column:1 / -1;}
+
+  /* ── O RESTO DA TELA NO CELULAR (12/08/2026) ──────────────────────────────
+     Os cartões de número já tinham sido acertados; abaixo deles a tela
+     continuava desenhada para computador. Medido a 375px:
+
+     1. OS DOIS GRÁFICOS LADO A LADO. `.sa-chart-row` era `1fr 1fr` em
+        QUALQUER largura: num aparelho de 375px cada gráfico ficava com ~170px
+        de largura por 200px de altura, com rótulo de eixo por cima do outro.
+        Era o pior item da tela. Vira uma coluna só, e aí cada gráfico tem a
+        largura inteira.
+
+     2. A TABELA DE METAS POR VENDEDORA TEM TREZE COLUNAS (Vendedora + 4
+        períodos × 3 números). Ela já rolava de lado, mas o nome rolava JUNTO:
+        três dedos para a direita e não dava mais para saber de quem era a
+        linha que se está lendo. A primeira coluna passa a ficar presa.
+
+     3. O MAPA DE POSITIVAÇÃO tem 16 colunas (nome + 15 dias). Mesmo problema,
+        mesma solução: o nome fica preso e os dias rolam por baixo dele.
+
+     Nada aqui vale acima de 640px — o computador continua exatamente como
+     estava, que é a regra desta base para mexida de responsivo. */
+
+  /* 1) UM GRÁFICO POR VEZ. */
+  .tela-analise-vendas :deep(.sa-chart-row){grid-template-columns:1fr;}
+  .tela-analise-vendas :deep(.sa-chart-row .sa-chart-wrap){height:200px;}
+
+  /* Respiro: 16px de cada lado em 375px é 8,5% da tela só de margem. */
+  .tela-analise-vendas :deep(#sa-body){padding:12px;gap:12px;}
+  .tela-analise-vendas :deep(.sa-section){padding:12px;}
+
+  /* 2) e 3) A PRIMEIRA COLUNA FICA PRESA enquanto o resto rola.
+     `background` explícito é obrigatório: sem ele a coluna presa fica
+     transparente e as outras passam POR BAIXO dela, virando um borrão
+     ilegível — o defeito parece pior que o problema original. */
+  .tela-analise-vendas :deep(.sa-loja-table th:first-child),
+  .tela-analise-vendas :deep(.sa-loja-table td:first-child){position:sticky;left:0;z-index:2;background:var(--surface);max-width:112px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .tela-analise-vendas :deep(.sa-loja-table th),
+  .tela-analise-vendas :deep(.sa-loja-table td){padding:6px;white-space:nowrap;}
+  .tela-analise-vendas :deep(.sa-pos-name){position:sticky;left:0;z-index:2;background:var(--surface);}
+
+  /* Os cartõezinhos de resumo da loja em duas colunas certas, em vez de uma
+     fileira irregular que deixa um item sozinho e esticado. */
+  .tela-analise-vendas :deep(.sa-loja-summary){gap:6px;}
+  .tela-analise-vendas :deep(.sa-loja-summary-item){flex:1 1 calc(50% - 3px);min-width:0;}
+
+  /* As abas viram uma fileira que rola, igual à régua de períodos logo acima:
+     quebrar em duas linhas desalinha e come altura. */
+  .tela-analise-vendas :deep(.sa-tab-row){flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px;}
+  .tela-analise-vendas :deep(.sa-tab){flex-shrink:0;white-space:nowrap;padding:6px 12px;}
 }
 /* ── RESPONSIVE: Análise de Vendas (legacy L619-621 — só a regra viva; as
    demais deste bloco miravam .sa-brand-nm/.sa-pbtn, classes mortas) ── */
