@@ -75,3 +75,50 @@ export function textoDoAviso(causa, { ehAdmin = false, horaDoDado = null, tecnic
   }
   return { titulo: 'O Bling não respondeu.', detalhe: `Erro no servidor do Bling.${HORA(horaDoDado)}${curto ? ' · ' + curto : ''}` }
 }
+
+// ── A chamada ─────────────────────────────────────────────────────────────
+// A diferença que importa em relação ao código antigo é UMA linha: conferir
+// `r.ok` antes de interpretar o corpo. O resto é o mesmo.
+export async function chamarBling(sbClient, endpoint, params) {
+  const { data: { session } } = await sbClient.auth.getSession()
+  if (!session) throw new ErroDoBling('sem-acesso-a-vendas', 'sem sessão no navegador')
+  let r
+  try {
+    r = await fetch(SUPABASE_URL + '/functions/v1/bling-proxy', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + session.access_token,
+        'apikey': SUPABASE_ANON_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ endpoint, params }),
+    })
+  } catch (e) {
+    throw new ErroDoBling('sem-resposta', e?.message || 'fetch falhou')
+  }
+  let corpo = null
+  try { corpo = await r.json() } catch { corpo = null }
+  if (!r.ok) {
+    const causa = classificarFalhaDoBling(r.status, corpo)
+    const tecnica = typeof corpo?.error === 'string' ? corpo.error : JSON.stringify(corpo?.error ?? corpo ?? '')
+    throw new ErroDoBling(causa, `${r.status} ${tecnica}`)
+  }
+  return corpo ?? {}
+}
+
+// ── A paginação ───────────────────────────────────────────────────────────
+// Página vazia continua sendo "fim da lista" — isso é legítimo e é o caso do
+// dia sem venda. O que mudou: a FALHA não passa mais por vazio, ela sobe.
+// (O código antigo tentava 3 vezes por página e desistia devolvendo [], o que
+// transformava um Bling fora do ar em "não vendeu nada".)
+export async function paginasDoBling(sbClient, endpoint, params) {
+  const todos = []
+  for (let pagina = 1; pagina <= 10; pagina++) {
+    const resp = await chamarBling(sbClient, endpoint, { ...params, pagina, limite: 100 })
+    const itens = Array.isArray(resp?.data) ? resp.data : []
+    if (!itens.length) break
+    todos.push(...itens)
+    if (itens.length < 100) break
+  }
+  return todos
+}
