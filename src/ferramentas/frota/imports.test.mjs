@@ -20,12 +20,21 @@ import { dirname, join } from 'node:path'
 // de 4.000 linhas, que é exatamente onde um import esquecido se esconde melhor.
 
 const AQUI = dirname(fileURLToPath(import.meta.url))
+// O miolo compartilhado entra junto (13/08/2026): a Frota usa `mesclarPessoas`,
+// `apenasAtivas` e `comSelecionada` de lá, e um import esquecido num nome de
+// fora derruba a tela igualzinho a um de dentro.
+const COMPARTILHADO = join(AQUI, '..', '..', 'compartilhado')
 
 function nomesExportados() {
   const mapa = new Map()
-  for (const arq of readdirSync(AQUI).filter((f) => f.endsWith('.js') && !f.includes('.test.'))) {
-    const src = readFileSync(join(AQUI, arq), 'utf8')
-    for (const m of src.matchAll(/export (?:function|const|let) (\w+)/g)) mapa.set(m[1], arq)
+  for (const pasta of [COMPARTILHADO, AQUI]) {
+    for (const arq of readdirSync(pasta).filter((f) => f.endsWith('.js') && !f.includes('.test.'))) {
+      const src = readFileSync(join(pasta, arq), 'utf8')
+      // A pasta desta ferramenta vem por último de propósito: nome repetido nos
+      // dois lados é o daqui que a tela usa sem caminho, e é ele que o recado
+      // precisa citar.
+      for (const m of src.matchAll(/export (?:function|const|let) (\w+)/g)) mapa.set(m[1], arq)
+    }
   }
   return mapa
 }
@@ -86,6 +95,13 @@ for (const tela of TELAS) {
 test('o guarda olha TODAS as telas da pasta, e não só a principal', () => {
   assert.ok(TELAS.includes('tela-de-frota.vue'))
   assert.ok(TELAS.length >= 3, 'a pasta tem mais de uma tela; o guarda precisa ver todas')
+})
+
+test('o guarda enxerga tambem o miolo compartilhado', () => {
+  // Sem isto, mover um arquivo para lá desligaria a cobertura em silêncio.
+  const mapa = nomesExportados()
+  assert.equal(mapa.get('comSelecionada'), 'pessoas-para-escolher.js')
+  assert.ok(mapa.has('resolverNovaOpcao'), 'nova-opcao.js precisa entrar na conta')
 })
 
 test('o proprio teste enxerga um import faltando', () => {
