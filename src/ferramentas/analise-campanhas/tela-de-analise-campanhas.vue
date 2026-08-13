@@ -70,6 +70,9 @@ import { useRouter } from 'vue-router'
 import { sbClient, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { estado, hasPermission } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { adminToast } from '../../compartilhado/avisos.js'
+// Traduz 401/42501 para uma frase que o dono entende. Ver seção 9 do
+// PADRAO-DA-CENTRAL: "a tela nunca mente" — e não fala em código de erro.
+import { classificarErro } from '../../compartilhado/classificar-erro.js'
 
 const router = useRouter()
 
@@ -208,9 +211,20 @@ async function _initMetaAds(){
   try{
     // Fetch all social accounts from Supabase
     const res=await adFetch('accounts?select=id,name,instagram_id,ad_account_id,profile_picture_url,picture_url&order=name.asc');
-    if(!res.ok)throw new Error(`Supabase ${res.status}`);
-    const socialAccs=await res.json();
-    if(!Array.isArray(socialAccs))throw new Error('Resposta inválida do Supabase');
+    // As DUAS guardas abaixo são o que salvou esta tela em 13/08, quando a irmã
+    // (Gestor de Tráfego) caiu com "g is not iterable": sem elas, um corpo de
+    // erro do PostgREST desce como objeto e estoura no `for...of` mais abaixo.
+    // Não remover.
+    const corpoContas=await res.json().catch(()=>null);
+    // O status vira frase de gente: a regra do projeto é o dono ler "sua sessão
+    // expirou", não "Supabase 401" (ver classificar-erro.js e seção 9 do
+    // PADRAO-DA-CENTRAL). O código cru fica no console, pra quem conserta.
+    if(!res.ok){
+      console.error('[MetaAds] o banco recusou a lista de contas:',res.status,corpoContas);
+      throw new Error(classificarErro(res.status,corpoContas).mensagem);
+    }
+    const socialAccs=corpoContas;
+    if(!Array.isArray(socialAccs))throw new Error('O banco não devolveu a lista de contas.');
 
     const seen=new Set();
     _maAccounts=[];

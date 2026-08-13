@@ -166,6 +166,9 @@ import { sbClient, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../compartilhado/c
 import { estado, hasPermission } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { adminToast } from '../../compartilhado/avisos.js'
 import { sb } from '../../compartilhado/buscar-e-salvar-dados.js'
+// Traduz 401/42501 para uma frase que o dono entende. Ver seção 9 do
+// PADRAO-DA-CENTRAL: "a tela nunca mente" — e não fala em código de erro.
+import { classificarErro } from '../../compartilhado/classificar-erro.js'
 import { hojeLocal, diasAtras, primeiroDiaDoMes, ultimoDiaDoMes } from '../../compartilhado/datas.js'
 // Decisão "o orçamento é da campanha (CBO) ou dos conjuntos (ABO)?" e o
 // agrupamento campanha → conjuntos → anúncios moram num módulo puro, testado
@@ -516,8 +519,34 @@ async function _initGestaoTrafego(){
   const setLbl=t=>{if(col)col.innerHTML=`<div class="gv-loading-screen"><div class="gv-spinner"></div><span class="gv-loading-lbl">${t}</span></div>`;};
   setLbl('Carregando contas…');
   try{
-    const res=await adFetch('accounts?select=id,name,ad_account_id,profile_picture_url,picture_url,persona&order=name.asc');
-    const socialAccs=await res.json();
+    // Antes aqui era `adFetch(...)` seguido de `await res.json()` SEM olhar o
+    // status. Quando o banco recusava a leitura, o corpo da resposta era um
+    // OBJETO de erro (`{code:'42501',...}`), não uma lista — e o `for...of`
+    // logo abaixo estourava com "g is not iterable" (o "g" é o nome desta
+    // variável depois de minificada). O dono via jargão de programador no lugar
+    // do motivo. Aconteceu de verdade em 13/08: a coluna `persona` tinha sido
+    // criada sem GRANT de leitura, e UMA coluna sem permissão derruba a linha
+    // inteira no PostgREST.
+    //
+    // Duas trocas, e cada uma conserta uma metade:
+    //  - `sbClient` no lugar do adFetch: o adFetch monta o token na mão a partir
+    //    de `estado.currentSession`, que é uma FOTO tirada no login; o sbClient
+    //    renova o token sozinho. Também é o que manda a seção 9 do
+    //    PADRAO-DA-CENTRAL — e de propósito não é o `sb()` desta base, que cai
+    //    na chave anônima e devolve lista vazia calada.
+    //  - o erro passa por `classificarErro`: a tela diz "sua sessão expirou" ou
+    //    "você não tem permissão", nunca "42501". O detalhe técnico vai pro
+    //    console, que é de quem conserta.
+    const {data:socialAccs,error:erroContas,status:statusContas}=await sbClient
+      .from('accounts')
+      .select('id,name,ad_account_id,profile_picture_url,picture_url,persona')
+      .order('name');
+    if(erroContas){
+      console.error('[GT] o banco recusou a lista de contas:',erroContas);
+      throw new Error(classificarErro(statusContas,erroContas).mensagem);
+    }
+    // Cinto de segurança: o que não for lista não entra no `for...of` abaixo.
+    if(!Array.isArray(socialAccs))throw new Error('O banco não devolveu a lista de contas.');
     const seen=new Set();
     const accs=[];
     // Step 1 — accounts with ad_account_id explicitly in Supabase

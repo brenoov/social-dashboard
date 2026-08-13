@@ -1,6 +1,6 @@
 # Pendências do iamundi
 
-Última revisão: **12/08/2026**
+Última revisão: **13/08/2026**
 
 O que é este arquivo: a lista viva do que está **em aberto** no projeto. Cada item
 diz o que falta, **por que importa** e **onde** se resolve. É a memória escrita —
@@ -306,9 +306,38 @@ Três são money-path:
 Também não foi executado o **upload de PDF** (edge `ler-documento` v1) pela tela
 — só pela API direto, com o PDF real da curadoria (US$ 0,067 por arquivo).
 
+> 🔴 **A tela não abria — e o motivo derrubava metade deste item (13/08).** O dono
+> abriu o Gestor de Tráfego e leu, no lugar da lista de contas:
+> "**Erro ao carregar contas: g is not iterable**".
+>
+> A causa, medida no banco: `accounts` **não** dá SELECT no nível da tabela — ela
+> usa **permissão por coluna**, e foi assim que se escondeu o `access_token` (o
+> token da Meta) do front. A migration de 12/08 criou a coluna `persona` e não
+> deu a permissão dela. Como **uma** coluna sem permissão faz o PostgREST recusar
+> a linha inteira, a resposta virava um objeto de erro em vez de uma lista, e a
+> tela tentava percorrer esse objeto. O "g" era o nome da variável minificada.
+>
+> Provado isolando a coluna: sem `persona` → HTTP 200; só `persona` → HTTP 401.
+>
+> **Corrigido em duas camadas** (`2026-08-13-persona-grant-de-leitura.sql`):
+> a permissão de leitura de `persona` para quem está logado (`access_token`
+> continua revogado), e a tela passou a olhar o status da resposta — erro de
+> leitura agora vira "sua sessão expirou" / "você não tem permissão", nunca mais
+> jargão. ⚠️ **Não foi visto numa tela logada** (esta máquina não tem sessão e a
+> regra é não mexer em conta real): o primeiro a abrir confirma.
+>
+> **A lição, que vale pra próxima coluna:** em `accounts`, **coluna nova nasce sem
+> permissão de leitura**. Migration que cria coluna que a tela lê tem que dar o
+> GRANT no mesmo arquivo — é uma tarefa só, não duas.
+
 **Falta ainda, e é clique do dono:**
 - **Persona das outras 4 contas** (Motoeasy, Mantova, Raíssa, Breno Vale). Só a
   Vessel está preenchida. Sem persona, a IA sugere idade olhando quem CLICOU.
+  ⚠️ **Isto não era falta de clique — era porta trancada.** Salvar a persona pela
+  tela usa `Prefer: return=representation`, que também precisa **ler** a coluna;
+  sem a permissão acima, toda gravação caía. A persona **nunca** pôde ser salva
+  pela tela desde que foi criada — a da Vessel entrou direto no banco. Destrancado
+  em 13/08; agora sim é só clique.
 - **Os 13 problemas que a Meta aponta** (agora visíveis na Fila): 5 conjuntos da
   Raíssa pausados pela Meta por público personalizado que sumiu, 3 vídeos da
   Mantova com menos de 500px que não rodam no Instagram, 2 anúncios que a Meta
