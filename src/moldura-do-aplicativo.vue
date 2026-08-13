@@ -113,7 +113,12 @@
         <div class="np-modal-emoji">🔔</div>
         <h3>Ativar notificações</h3>
         <p>Receba avisos importantes da Central direto no seu celular.</p>
-        <button class="np-modal-ativar" type="button" @click="ativarPush">Ativar agora</button>
+        <button class="np-modal-ativar" type="button" @click="ativarPush" :disabled="ativandoPush">
+          {{ ativandoPush ? 'Ativando…' : 'Ativar agora' }}
+        </button>
+        <!-- O RECADO DO QUE DEU ERRADO fica AQUI, no convite, e não num aviso
+             que some sozinho: é uma instrução para seguir, não um alerta. -->
+        <p v-if="recadoPush" class="np-modal-recado">{{ recadoPush }}</p>
         <!-- Sem esta saída, o convite voltava em TODA abertura: quem fechava o
              prompt do navegador passava da parede, mas a permissão continuava
              'default' e no dia seguinte a parede estava lá. Quem dispensa não
@@ -174,7 +179,11 @@ import AvisoDeAtualizacao from './compartilhado/aviso-de-atualizacao.vue'
 import { useRouter, useRoute } from 'vue-router'
 import { estado } from './compartilhado/controle-de-login-e-usuario.js'
 import { sbClient } from './compartilhado/conectar-no-banco-de-dados.js'
-import { inscrever, jaInscrito, permissaoAtual, pushSuportado, registrarSW, devePedirPush, deveInscreverEmSilencio } from './compartilhado/notificacoes-push.js'
+import { inscrever, jaInscrito, permissaoAtual, pushSuportado, registrarSW, devePedirPush, deveInscreverEmSilencio, observarPermissao } from './compartilhado/notificacoes-push.js'
+import { recadoDoPush, deuCerto } from './compartilhado/recado-do-push.js'
+// O recado do push tambem sai por aqui quando o convite nao esta aberto (o
+// caminho do menu do avatar). Sem este import era ReferenceError no clique.
+import { adminToast } from './compartilhado/avisos.js'
 // Trava a rolagem do fundo enquanto um modal legado (JavaScript puro, sem
 // v-if) estiver aberto — Acessos, Admin, Redes Sociais, Gestão Comercial e
 // Gestão de Tráfego. Fica na MOLDURA, e não em cada tela, pelo mesmo motivo
@@ -301,6 +310,11 @@ async function salvarSenha() {
 
 /* ── Notificações de vendas (Web Push) ── */
 const mostrarModalPush = ref(false)
+// A tela precisa dizer que está trabalhando e o que deu errado. Sem estes
+// dois, o botão ficava mudo enquanto a inscrição rodava — o "fica travado"
+// que o dono relatou — e sumia sem explicação quando falhava.
+const ativandoPush = ref(false)
+const recadoPush = ref('')
 const pushAtivo = ref(false)
 
 // Lembrado POR APARELHO: "não quero ser perguntado neste navegador". Fica no
@@ -323,20 +337,61 @@ async function avaliarPush() {
   // concedida o navegador não abre prompt nenhum — pedir de novo seria pedir
   // o que já foi dado, que é justamente a reclamação do dono.
   if (deveInscreverEmSilencio(situacao)) {
-    const ok = await inscrever(estado.user?.id)
+    // `inscrever` passou a devolver { ok, motivo } — ler como booleano daria
+    // sempre verdadeiro, porque objeto é verdadeiro. Aqui o silêncio é de
+    // propósito: com a permissão já dada, não há nada a perguntar nem a avisar.
+    const ok = deuCerto(await inscrever(estado.user?.id))
     pushAtivo.value = ok
     situacao.inscrito = ok
   }
   mostrarModalPush.value = devePedirPush(situacao)
+  observarPermissaoDoNavegador()
 }
 
 async function ativarPush() {
+  if (ativandoPush.value) return // clique duplo não dispara duas inscrições
   menuAberto.value = false // fecha o menu do avatar se veio de lá
-  const ok = await inscrever(estado.user?.id)
-  pushAtivo.value = ok
-  // Ativou de verdade: a dispensa de antes não faz mais sentido.
-  if (ok) { try { localStorage.removeItem(DISPENSOU_PUSH) } catch {} }
-  mostrarModalPush.value = false
+  ativandoPush.value = true
+  recadoPush.value = ''
+  try {
+    const r = await inscrever(estado.user?.id)
+    const ok = deuCerto(r)
+    pushAtivo.value = ok
+    if (ok) {
+      // Ativou de verdade: a dispensa de antes não faz mais sentido.
+      try { localStorage.removeItem(DISPENSOU_PUSH) } catch {}
+      mostrarModalPush.value = false
+      return
+    }
+    // NÃO fecha o convite quando falha. Fechar calado foi o defeito: a pessoa
+    // ficava sem saber se ativou, e o único caminho que sobrava era adivinhar.
+    recadoPush.value = recadoDoPush(r && r.motivo)
+    if (!mostrarModalPush.value) adminToast(recadoPush.value, false)
+  } finally {
+    ativandoPush.value = false
+  }
+}
+
+// AUTORIZAR PELO NAVEGADOR passa a valer NA HORA.
+//
+// É o caminho que o dono achou sozinho: clicar no ícone ao lado do endereço e
+// escolher Permitir. Até aqui a Central só percebia isso na próxima abertura —
+// a pessoa autorizava e continuava sem aviso nenhum, sem entender por quê.
+// Agora, quando a permissão vira 'granted' por fora, a inscrição acontece
+// sozinha e o convite se fecha.
+let _pararDeObservarPermissao = null
+async function observarPermissaoDoNavegador() {
+  if (_pararDeObservarPermissao) return
+  _pararDeObservarPermissao = await observarPermissao(async (estadoDaPermissao) => {
+    if (estadoDaPermissao !== 'granted' || !estado.user) return
+    const ok = deuCerto(await inscrever(estado.user?.id))
+    pushAtivo.value = ok
+    if (ok) {
+      recadoPush.value = ''
+      mostrarModalPush.value = false
+      try { localStorage.removeItem(DISPENSOU_PUSH) } catch {}
+    }
+  })
 }
 
 function dispensarPush() {
@@ -516,6 +571,17 @@ router.afterEach(() => fecharTodosOsModaisLegadosAoTrocarDeRota())
   margin-top: 18px; width: 100%; padding: 12px; border: 0; border-radius: 10px;
   background: var(--accent); color: var(--sobre-cor); font-weight: 700; font-size: 14px;
   cursor: pointer; font-family: inherit; min-height: 40px;
+}
+.np-modal-ativar[disabled] { opacity: .65; cursor: progress; }
+/* O RECADO DE QUANDO NÃO DEU CERTO. Laranja de aviso, e não vermelho de erro:
+   na maioria dos casos não quebrou nada — falta um passo, e o texto diz qual.
+   Alinhado à esquerda de propósito: é instrução para seguir, não anúncio. */
+.np-modal-recado {
+  margin-top: 12px; text-align: left; font-size: 12.5px; line-height: 1.5;
+  color: color-mix(in srgb, var(--orange) 78%, var(--text));
+  background: color-mix(in srgb, var(--orange) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--orange) 35%, transparent);
+  border-radius: 8px; padding: 10px 12px;
 }
 /* Saída do convite. Botão comum: borda + fundo transparente, nunca cinza
    (padrão da Central, item 3). 40px de alvo porque dedo não acerta menos. */
