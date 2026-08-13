@@ -524,6 +524,14 @@
             {{ AJUDAS[ajudaAberta] }}
           </div>
 
+          <!-- Colado no Nº da etiqueta de propósito (pedido do dono): são os dois
+               jeitos de dizer QUAL aparelho é este. A etiqueta é da empresa e pode
+               cair; o IMEI é do aparelho e não sai nunca. -->
+          <label class="pat-campo">
+            <span>IMEI / Nº de série <em>(opcional)</em></span>
+            <input v-model="form.numero_serie" type="text" placeholder="Ex.: 356938035643809">
+          </label>
+
           <label class="pat-campo">
             <span>Data da compra <em>(opcional)</em></span>
             <input v-model="form.data_compra" type="date">
@@ -1190,7 +1198,7 @@ const podeExcluir = computed(() => hasPermission('patrimonio', 'excluir'))
 const pessoasAtivas = computed(() => apenasAtivas(pessoas.value))
 
 const FORM_VAZIO = {
-  nome: '', numero: '', valor: '', data_compra: '',
+  nome: '', numero: '', numero_serie: '', valor: '', data_compra: '',
   empresa_id: '', local_id: '', comodo_id: '', categoria_id: '',
   tipo_id: '', marca: '',
   pessoa_id: '', situacao: 'em_estoque', observacao: '', etiquetado: false,
@@ -1510,6 +1518,7 @@ watch(bemAberto, async (bem) => {
   Object.assign(form, {
     nome: bem.nome || '',
     numero: bem.numero === null || bem.numero === undefined ? '' : String(bem.numero),
+    numero_serie: bem.numero_serie || '',
     valor: bem.valor_centavos === null || bem.valor_centavos === undefined ? '' : formatarValor(bem.valor_centavos),
     data_compra: bem.data_compra ? String(bem.data_compra).slice(0, 10) : '',
     empresa_id: bem.empresa_id || '',
@@ -1574,6 +1583,7 @@ async function salvarBem() {
   const linha = {
     nome,
     numero: numeroTexto ? parseInt(numeroTexto, 10) : null,
+    numero_serie: (form.numero_serie || '').trim() || null,
     valor_centavos: valorCentavos,
     data_compra: form.data_compra || null,
     empresa_id: form.empresa_id || null,
@@ -1673,6 +1683,7 @@ const linhasAchatadas = computed(() => {
   return bens.value.map((b) => ({
     id: b.id,
     numero: b.numero,
+    numero_serie: b.numero_serie || '',
     nome: b.nome,
     categoria: nome(categorias.value, b.categoria_id),
     tipo: nome(tipos.value, b.tipo_id),
