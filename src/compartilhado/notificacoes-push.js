@@ -33,6 +33,35 @@ export async function registrarSW() {
   return navigator.serviceWorker.register('/sw-push.js');
 }
 
+// ── Perguntar ou não perguntar ────────────────────────────────────────────
+// Regra pedida pelo dono em 13/08/2026: "sempre está pedindo para ativar
+// notificações; se o usuário ou o dispositivo já aceitou não precisa mostrar
+// novamente". A regra antiga (`!inscrito && permissao !== 'denied'`) só calava
+// com o navegador NEGANDO — quem fechava o convite era perguntado em toda
+// abertura, para sempre.
+//
+// Duas peças puras, para poderem ser testadas sem navegador. A moldura decide
+// o que fazer; aqui mora só o critério.
+//
+// `permissao === 'granted'` NUNCA pergunta: se o aparelho já autorizou, mostrar
+// o convite é pedir uma coisa que já foi dada. Se por acaso não houver inscrição
+// neste aparelho, o caminho é `deveInscreverEmSilencio` — com permissão dada, o
+// navegador não abre prompt nenhum.
+//
+// `dispensou` é lembrado por aparelho (localStorage). Quem dispensou não perde
+// nada: o botão de ativar continua no menu do avatar.
+export function devePedirPush({ suportado = false, permissao = 'default', inscrito = false, dispensou = false } = {}) {
+  if (!suportado) return false;
+  if (permissao === 'granted' || permissao === 'denied') return false;
+  if (inscrito) return false;
+  if (dispensou) return false;
+  return true;
+}
+
+export function deveInscreverEmSilencio({ suportado = false, permissao = 'default', inscrito = false } = {}) {
+  return !!suportado && permissao === 'granted' && !inscrito;
+}
+
 export async function jaInscrito() {
   if (!pushSuportado()) return false;
   const reg = await navigator.serviceWorker.getRegistration('/sw-push.js');

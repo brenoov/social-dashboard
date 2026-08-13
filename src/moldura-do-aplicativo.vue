@@ -114,6 +114,11 @@
         <h3>Ativar notificações</h3>
         <p>Receba avisos importantes da Central direto no seu celular.</p>
         <button class="np-modal-ativar" type="button" @click="ativarPush">Ativar agora</button>
+        <!-- Sem esta saída, o convite voltava em TODA abertura: quem fechava o
+             prompt do navegador passava da parede, mas a permissão continuava
+             'default' e no dia seguinte a parede estava lá. Quem dispensa não
+             perde nada — o botão de ativar fica no menu do avatar. -->
+        <button class="np-modal-depois" type="button" @click="dispensarPush">Agora não</button>
       </div>
     </div>
 
@@ -169,7 +174,7 @@ import AvisoDeAtualizacao from './compartilhado/aviso-de-atualizacao.vue'
 import { useRouter, useRoute } from 'vue-router'
 import { estado } from './compartilhado/controle-de-login-e-usuario.js'
 import { sbClient } from './compartilhado/conectar-no-banco-de-dados.js'
-import { inscrever, jaInscrito, permissaoAtual, pushSuportado, registrarSW } from './compartilhado/notificacoes-push.js'
+import { inscrever, jaInscrito, permissaoAtual, pushSuportado, registrarSW, devePedirPush, deveInscreverEmSilencio } from './compartilhado/notificacoes-push.js'
 // Trava a rolagem do fundo enquanto um modal legado (JavaScript puro, sem
 // v-if) estiver aberto — Acessos, Admin, Redes Sociais, Gestão Comercial e
 // Gestão de Tráfego. Fica na MOLDURA, e não em cada tela, pelo mesmo motivo
@@ -196,9 +201,17 @@ async function trocarSenhaAgora() {
     if (error) throw new Error(error.message)
     // A MARCA SÓ CAI DEPOIS que a senha trocou de verdade. Na ordem inversa,
     // uma falha na troca deixaria a conta com a senha provisória e sem cobrança.
-    const { error: e2 } = await sbClient.from('profiles')
-      .update({ precisa_trocar_senha: false }).eq('id', estado.user?.id)
+    //
+    // POR RPC, E NÃO POR UPDATE DIRETO: `profiles` só aceita UPDATE de quem é
+    // admin (política admin_update_profiles). Para todo mundo mais, o update
+    // casava com ZERO linhas — e o PostgREST devolve SUCESSO SEM ERRO nesse
+    // caso. A marca ficava no banco e a pessoa era cobrada de novo no login
+    // seguinte, todos os dias. Duas pessoas do time de vendas viveram isso.
+    const { data: marcou, error: e2 } = await sbClient.rpc('marcar_senha_trocada')
     if (e2) throw new Error(e2.message)
+    // E conferir o RETORNO, não só a ausência de erro: é a diferença entre
+    // "gravou" e "não deu erro", que aqui custou dias de incômodo.
+    if (marcou !== true) throw new Error('a senha foi trocada, mas não consegui registrar isso. Recarregue e tente de novo.')
     estado.precisa_trocar_senha = false
     senha1.value = ''; senha2.value = ''
   } catch (e) {
@@ -290,21 +303,44 @@ async function salvarSenha() {
 const mostrarModalPush = ref(false)
 const pushAtivo = ref(false)
 
+// Lembrado POR APARELHO: "não quero ser perguntado neste navegador". Fica no
+// localStorage e não no perfil de propósito — a pessoa pode querer o aviso no
+// celular e não no computador da loja, e são navegadores diferentes.
+const DISPENSOU_PUSH = 'push-dispensado-v1'
+const dispensouPush = () => { try { return localStorage.getItem(DISPENSOU_PUSH) === '1' } catch { return false } }
+
 async function avaliarPush() {
   if (!estado.user || !pushSuportado()) return
   pushAtivo.value = await jaInscrito()
-  // Insistente: reaparece toda vez que abre logado e ainda não ativou,
-  // desde que o navegador não tenha NEGADO explicitamente.
-  mostrarModalPush.value = !pushAtivo.value && permissaoAtual() !== 'denied'
+  const situacao = {
+    suportado: pushSuportado(),
+    permissao: permissaoAtual(),
+    inscrito: pushAtivo.value,
+    dispensou: dispensouPush(),
+  }
+  // Aparelho já autorizou mas perdeu a inscrição (limpou dados, trocou de
+  // navegador, assinatura expirada): reinscreve CALADO. Com a permissão já
+  // concedida o navegador não abre prompt nenhum — pedir de novo seria pedir
+  // o que já foi dado, que é justamente a reclamação do dono.
+  if (deveInscreverEmSilencio(situacao)) {
+    const ok = await inscrever(estado.user?.id)
+    pushAtivo.value = ok
+    situacao.inscrito = ok
+  }
+  mostrarModalPush.value = devePedirPush(situacao)
 }
 
 async function ativarPush() {
   menuAberto.value = false // fecha o menu do avatar se veio de lá
   const ok = await inscrever(estado.user?.id)
   pushAtivo.value = ok
-  // Some ao ativar OU quando o navegador nega (nesta sessão). Se a pessoa só
-  // fechar o prompt sem decidir (permissão segue 'default'), o modal reaparece
-  // na próxima abertura — o "insistente" pedido pelo dono.
+  // Ativou de verdade: a dispensa de antes não faz mais sentido.
+  if (ok) { try { localStorage.removeItem(DISPENSOU_PUSH) } catch {} }
+  mostrarModalPush.value = false
+}
+
+function dispensarPush() {
+  try { localStorage.setItem(DISPENSOU_PUSH, '1') } catch {}
   mostrarModalPush.value = false
 }
 
@@ -479,7 +515,14 @@ router.afterEach(() => fecharTodosOsModaisLegadosAoTrocarDeRota())
 .np-modal-ativar {
   margin-top: 18px; width: 100%; padding: 12px; border: 0; border-radius: 10px;
   background: var(--accent); color: var(--sobre-cor); font-weight: 700; font-size: 14px;
-  cursor: pointer; font-family: inherit;
+  cursor: pointer; font-family: inherit; min-height: 40px;
+}
+/* Saída do convite. Botão comum: borda + fundo transparente, nunca cinza
+   (padrão da Central, item 3). 40px de alvo porque dedo não acerta menos. */
+.np-modal-depois {
+  margin-top: 8px; width: 100%; padding: 12px; min-height: 40px;
+  border: 1px solid var(--border); border-radius: 10px; background: transparent;
+  color: var(--muted); font-size: 13px; cursor: pointer; font-family: inherit;
 }
 </style>
 
