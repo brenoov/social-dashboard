@@ -255,6 +255,12 @@ watch(() => [props.marcas, props.setores], () => {
   recado.value = `“${achado.nome}” criado.`
   cancelarSub()
 })
+
+// Trocar de ficha (outro bem, outro carro) tem de fechar a caixinha: deixar
+// aberta uma pergunta que já foi respondida é o mesmo defeito que o
+// Patrimônio corrigiu no `fecharFicha`. O `esperando` protege o caso em que
+// a escolha mudou porque a pessoa ACABOU de ser criada por aqui.
+watch(() => props.modelValue, () => { if (aberta.value && !esperando.value) cancelar() })
 </script>
 
 <style scoped>
