@@ -18,6 +18,18 @@ Aqui ficam as peças que TODAS as ferramentas usam:
                                    anda sempre grudada no local porque existem DUAS
                                    "Fábrica Conchal" e DUAS "Sede Limeira", de
                                    empresas diferentes
+- escolha-de-pessoa.vue          → o campo de PESSOA do Patrimônio e da Frota: mostra
+                                   quem trabalha aqui e traz o "+" para cadastrar na
+                                   hora o colaborador que ainda não existe, sem sair
+                                   do formulário do bem ou do carro
+- pessoas-para-escolher.js       → as contas dessa lista (juntar as duas leituras,
+                                   deixar de fora quem saiu, sugerir os cargos que já
+                                   existem). Só nome, cargo e situação: e-mail e
+                                   celular do colaborador NÃO passam por aqui
+- nova-opcao.js                  → a regra do "+" de toda a Central: decide se o nome
+                                   digitado vira cadastro novo ou se já existe e é só
+                                   selecionar (veio da pasta do Patrimônio, que era
+                                   onde ela nasceu)
 
 ESCOLHER ONDE O ANÚNCIO APARECE (13/08/2026)
 ============================================

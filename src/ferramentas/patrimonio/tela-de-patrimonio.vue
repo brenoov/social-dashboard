@@ -187,7 +187,7 @@
             </div>
             <div class="pat-card-linha">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-              {{ textoDoDono(bem, pessoasById) }}
+              {{ textoDoDono(bem, pessoasById, pessoasErro) }}
             </div>
           </button>
         </div>
@@ -209,7 +209,7 @@
                 <td>{{ nomeDe(categorias, bem.categoria_id) }}</td>
                 <td>{{ nomeDe(empresas, bem.empresa_id) }}</td>
                 <td>{{ nomeDoLocal(bem) }}</td>
-                <td>{{ textoDoDono(bem, pessoasById) }}</td>
+                <td>{{ textoDoDono(bem, pessoasById, pessoasErro) }}</td>
                 <td><span class="pat-pill" :class="classeDaSituacao(bem.situacao)">{{ rotuloDaSituacao(bem.situacao) }}</span></td>
                 <td class="pat-dir">{{ formatarValor(bem.valor_centavos) }}</td>
               </tr>
@@ -402,14 +402,31 @@
             </select>
           </label>
 
-          <label class="pat-campo">
-            <span>Com quem está</span>
-            <select v-model="massa.pessoaId">
-              <option value="">— não mudar —</option>
-              <option :value="LIMPAR">Tirar o dono (ninguém)</option>
-              <option v-for="p in pessoasAtivas" :key="p.id" :value="p.id">{{ p.nome }}</option>
-            </select>
-          </label>
+          <div class="pat-campo">
+            <span class="pat-campo-titulo">Com quem está</span>
+            <div class="pat-nota" v-if="pessoasErro">
+              Não consegui carregar a lista de colaboradores. O campo pode estar vazio por
+              causa disso, e não porque não haja ninguém cadastrado. Recarregue a página; se
+              continuar, peça acesso a Colaboradores e Acessos (ou a Patrimônio/Frota) a quem
+              administra.
+            </div>
+            <EscolhaDePessoa
+              v-model="massa.pessoaId"
+              :pessoas="comSelecionada(pessoasAtivas, pessoas, massa.pessoaId)" :todas="pessoas"
+              :marcas="empresas" :setores="setores"
+              :pode-criar="podeEditar" :criando="criandoPessoa && campoDeCriacao === 'massa'"
+              :recado-de-erro="campoDeCriacao === 'massa' ? erroDePessoa : ''"
+              rotulo="Com quem está" texto-vazio="— não mudar —"
+              @criar="(p) => criarPessoaRapida(p, 'massa')" @criar-setor="(p) => criarSetorRapido(p, 'massa')"
+              @criar-marca="(p) => criarMarcaRapida(p, 'massa')" @abrir="limparAvisoDeCriacao">
+              <!-- Vai no slot "antes" porque tirar o dono NÃO é escolher uma
+                   pessoa: ela sempre foi o segundo item da lista, e depois dos
+                   ~24 nomes ninguém a acha. -->
+              <template #antes>
+                <option :value="LIMPAR">Tirar o dono (ninguém)</option>
+              </template>
+            </EscolhaDePessoa>
+          </div>
 
           <label class="pat-campo">
             <span>Categoria</span>
@@ -512,6 +529,14 @@
           <div class="pat-ajuda-txt" v-if="ajudaAberta === 'etiqueta' || ajudaAberta === 'valor'">
             {{ AJUDAS[ajudaAberta] }}
           </div>
+
+          <!-- Colado no Nº da etiqueta de propósito (pedido do dono): são os dois
+               jeitos de dizer QUAL aparelho é este. A etiqueta é da empresa e pode
+               cair; o IMEI é do aparelho e não sai nunca. -->
+          <label class="pat-campo">
+            <span>IMEI / Nº de série <em>(opcional)</em></span>
+            <input v-model="form.numero_serie" type="text" placeholder="Ex.: 356938035643809">
+          </label>
 
           <label class="pat-campo">
             <span>Data da compra <em>(opcional)</em></span>
@@ -635,13 +660,24 @@
           </label>
           <div class="pat-ajuda-txt" v-if="ajudaAberta === 'situacao'">{{ AJUDAS.situacao }}</div>
 
-          <label class="pat-campo" data-tour="bem-responsavel">
-            <span>Com quem está <em>(opcional)</em> <button type="button" class="pat-ajuda-q" @click.prevent="alternarAjuda('dono')" title="O que é isso?">?</button></span>
-            <select v-model="form.pessoa_id">
-              <option value="">Ninguém</option>
-              <option v-for="p in pessoasAtivas" :key="p.id" :value="p.id">{{ p.nome }}</option>
-            </select>
-          </label>
+          <div class="pat-campo" data-tour="bem-responsavel">
+            <span class="pat-campo-titulo">Com quem está <em>(opcional)</em> <button type="button" class="pat-ajuda-q" @click.prevent="alternarAjuda('dono')" title="O que é isso?">?</button></span>
+            <div class="pat-nota" v-if="pessoasErro">
+              Não consegui carregar a lista de colaboradores. O campo pode estar vazio por
+              causa disso, e não porque não haja ninguém cadastrado. Recarregue a página; se
+              continuar, peça acesso a Colaboradores e Acessos (ou a Patrimônio/Frota) a quem
+              administra.
+            </div>
+            <EscolhaDePessoa
+              v-model="form.pessoa_id"
+              :pessoas="comSelecionada(pessoasAtivas, pessoas, form.pessoa_id)" :todas="pessoas"
+              :marcas="empresas" :setores="setores"
+              :pode-criar="podeEditar" :criando="criandoPessoa && campoDeCriacao === 'ficha'"
+              :recado-de-erro="campoDeCriacao === 'ficha' ? erroDePessoa : ''"
+              rotulo="Com quem está" texto-vazio="Ninguém"
+              @criar="(p) => criarPessoaRapida(p, 'ficha')" @criar-setor="(p) => criarSetorRapido(p, 'ficha')"
+              @criar-marca="(p) => criarMarcaRapida(p, 'ficha')" @abrir="limparAvisoDeCriacao" />
+          </div>
           <div class="pat-ajuda-txt" v-if="ajudaAberta === 'dono'">{{ AJUDAS.dono }}</div>
 
           <div class="pat-nota" v-if="avisoDono">{{ avisoDono }}</div>
@@ -892,7 +928,7 @@ import AbaDeRelatorios from '../../compartilhado/relatorios/aba-de-relatorios.vu
 import { RELATORIOS_DO_PATRIMONIO } from './relatorios-do-patrimonio.js'
 import { LIMPAR, montarAlteracaoEmMassa, temAlgoParaMudar, resumoDaSelecao,
   alternarTodosVisiveis, estadoDaSelecaoVisivel } from './acao-em-massa.js'
-import { resolverNovaOpcao } from './nova-opcao.js'
+import { resolverNovaOpcao } from '../../compartilhado/nova-opcao.js'
 import {
   temAcessoFrota, categoriaVeiculoEntre, bemEhCategoriaVeiculo,
   veiculoLigadoAoBem, veiculosParaLigar, patchVeiculoDoBem,
@@ -900,6 +936,8 @@ import {
 // Trava a rolagem do fundo enquanto um destes 4 modais estiver aberto (bronca
 // do dono: "abro um modal e a tela atrás continua rolando").
 import { vTravaRolagem } from '../../compartilhado/travar-rolagem-de-fundo.js'
+import EscolhaDePessoa from '../../compartilhado/escolha-de-pessoa.vue'
+import { mesclarPessoas, apenasAtivas, comSelecionada } from '../../compartilhado/pessoas-para-escolher.js'
 
 const router = useRouter()
 
@@ -912,6 +950,23 @@ const comodos = ref([])
 const categorias = ref([])
 const tipos = ref([])
 const pessoas = ref([])
+const setores = ref([])
+const criandoPessoa = ref(false)
+const erroDePessoa = ref('')
+// Qual campo de pessoa está criando agora ('' = nenhum). O aviso de erro e o
+// "Criando…" pertencem ao campo que pediu, não à tela: são dois campos de
+// pessoa aqui (a ficha e a alteração em massa) e o erro de um aparecia no
+// outro na primeira vez que a caixinha dele abria.
+const campoDeCriacao = ref('')   // '' | 'ficha' | 'massa'
+// A RPC `pessoas_para_escolher()` ESTOURA (42501) pra quem não é
+// is_frota_admin, is_patrimonio_admin nem is_acessos_admin — de propósito
+// (migration 2026-08-13, linha ~31: "vazio silencioso é o defeito que já
+// mostrou R$ 0,00 na tela do dono por 17 horas"). Aqui não há leitura direta
+// de `acessos_pessoas` de reserva — a lista de pessoas vem só desta função —,
+// então o erro dela sozinho já é o "eu não vejo essa lista", mesmo
+// raciocínio do `frotaErro` logo abaixo: lista vazia sozinha não distingue
+// "ninguém pra escolher" de "eu não vejo essa lista".
+const pessoasErro = ref(false)
 // A ligação com a Frota (Bronca 2 do dono): carros que já apontam pra um bem
 // daqui. `frotaErro` distingue "a consulta falhou de verdade" (rede, banco
 // fora do ar) de "vazio porque não tenho a feature frota" — as duas
@@ -1144,10 +1199,13 @@ function abrirNovo() {
 const salvando = ref(false)
 const historico = ref([])
 const podeExcluir = computed(() => hasPermission('patrimonio', 'excluir'))
-const pessoasAtivas = computed(() => pessoas.value.filter((p) => p.status === 'ativo'))
+// `apenasAtivas` trata ficha sem `status` como ativa: a coluna tem padrão
+// 'ativo' no banco, e sumir com alguém por campo vazio seria dado a menos sem
+// avisar. Pessoa recém-criada pelo "+" cai exatamente nesse caso.
+const pessoasAtivas = computed(() => apenasAtivas(pessoas.value))
 
 const FORM_VAZIO = {
-  nome: '', numero: '', valor: '', data_compra: '',
+  nome: '', numero: '', numero_serie: '', valor: '', data_compra: '',
   empresa_id: '', local_id: '', comodo_id: '', categoria_id: '',
   tipo_id: '', marca: '',
   pessoa_id: '', situacao: 'em_estoque', observacao: '', etiquetado: false,
@@ -1370,6 +1428,77 @@ async function confirmarNovaOpcao() {
   cancelarNovaOpcao()
 }
 
+/* CADASTRO RÁPIDO DE COLABORADOR (13/08/2026).
+ *
+ * Quem grava é a tela, não o componente — mesmo contrato do "+" de local. O
+ * banco é quem decide se pode: `criar_pessoa_rapida` recusa quem não mexe em
+ * Patrimônio, Frota ou Acessos, e devolve `ja_existia` quando o nome já estava
+ * lá (comparando sem caixa e sem espaço nas pontas).
+ *
+ * SEM try/catch DE PROPÓSITO, nas três funções abaixo: o supabase-js v2 não
+ * rejeita a promessa quando o fetch falha — ele DEVOLVE `{ error }`, que é
+ * justamente o que estas funções já tratam. E o `criandoPessoa = false` vem
+ * ANTES do `await carregar()`, então nem um erro no recarregamento deixa o
+ * botão preso em "Criando…". Um try/catch aqui não pegaria nada e só esconderia
+ * o caminho de erro que existe. */
+async function criarPessoaRapida({ nome, cargo, marcaId, setorId }, campo) {
+  if (criandoPessoa.value) return
+  criandoPessoa.value = true
+  erroDePessoa.value = ''
+  campoDeCriacao.value = campo
+
+  const { data, error } = await sbClient.rpc('criar_pessoa_rapida', {
+    p_nome: nome, p_cargo: cargo, p_marca_id: marcaId, p_setor_id: setorId,
+  })
+  criandoPessoa.value = false
+
+  if (error) {
+    erroDePessoa.value = 'Não consegui cadastrar. Tente de novo; se continuar, confirme '
+      + 'com quem administra se você pode cadastrar colaborador.'
+    return
+  }
+
+  campoDeCriacao.value = ''
+  const criada = Array.isArray(data) ? data[0] : data
+  await carregar()
+  if (criada && criada.ja_existia) adminToast(`"${criada.nome}" já estava cadastrada`)
+  else if (criada) adminToast(`"${criada.nome}" cadastrada`)
+}
+
+async function criarSetorRapido({ nome }, campo) {
+  if (criandoPessoa.value) return
+  criandoPessoa.value = true
+  erroDePessoa.value = ''
+  campoDeCriacao.value = campo
+  const { error } = await sbClient.rpc('criar_setor_rapido', { p_nome: nome })
+  criandoPessoa.value = false
+  if (error) { erroDePessoa.value = 'Não consegui cadastrar o setor. Tente de novo.'; return }
+  campoDeCriacao.value = ''
+  await carregar()
+}
+
+// Marca reaproveita a tabela que o Patrimônio já cadastra por aqui — não há
+// função nova no banco pra ela.
+async function criarMarcaRapida({ nome }, campo) {
+  if (criandoPessoa.value) return
+  criandoPessoa.value = true
+  erroDePessoa.value = ''
+  campoDeCriacao.value = campo
+  const { error } = await sbClient.from('patrimonio_empresas')
+    .insert({ nome, ordem: empresas.value.length + 1 })
+  criandoPessoa.value = false
+  if (error) { erroDePessoa.value = 'Não consegui cadastrar a marca. Tente de novo.'; return }
+  campoDeCriacao.value = ''
+  await carregar()
+}
+
+// Abrir a caixinha começa uma tentativa nova: o aviso da tentativa anterior
+// não pertence a ela.
+function limparAvisoDeCriacao() {
+  erroDePessoa.value = ''
+  campoDeCriacao.value = ''
+}
+
 function fecharFicha() {
   bemAberto.value = null
   passeioBemAberto.value = false
@@ -1403,6 +1532,7 @@ watch(bemAberto, async (bem) => {
   Object.assign(form, {
     nome: bem.nome || '',
     numero: bem.numero === null || bem.numero === undefined ? '' : String(bem.numero),
+    numero_serie: bem.numero_serie || '',
     valor: bem.valor_centavos === null || bem.valor_centavos === undefined ? '' : formatarValor(bem.valor_centavos),
     data_compra: bem.data_compra ? String(bem.data_compra).slice(0, 10) : '',
     empresa_id: bem.empresa_id || '',
@@ -1467,6 +1597,7 @@ async function salvarBem() {
   const linha = {
     nome,
     numero: numeroTexto ? parseInt(numeroTexto, 10) : null,
+    numero_serie: (form.numero_serie || '').trim() || null,
     valor_centavos: valorCentavos,
     data_compra: form.data_compra || null,
     empresa_id: form.empresa_id || null,
@@ -1566,6 +1697,7 @@ const linhasAchatadas = computed(() => {
   return bens.value.map((b) => ({
     id: b.id,
     numero: b.numero,
+    numero_serie: b.numero_serie || '',
     nome: b.nome,
     categoria: nome(categorias.value, b.categoria_id),
     tipo: nome(tipos.value, b.tipo_id),
@@ -1573,8 +1705,14 @@ const linhasAchatadas = computed(() => {
     empresa: nome(empresas.value, b.empresa_id),
     local: nome(locais.value, b.local_id),
     comodo: nome(comodos.value, b.comodo_id),
-    dono: b.pessoa_id ? (pessoasById.value[b.pessoa_id]?.nome || 'Pessoa removida')
-      : (b.dono_texto ? b.dono_texto + ' (não cadastrada)' : ''),
+    // O "Pessoa removida" daqui sai também no arquivo exportado, onde não há
+    // aviso de erro nenhum em volta pra desmentir — então ele obedece à mesma
+    // trava do cartão e da tabela: com a lista de colaboradores falhando, dizer
+    // que a pessoa foi removida é mentir sobre gente que existe.
+    // (Bem sem dono nenhum continua saindo com a célula VAZIA na planilha, que
+    //  é o que sempre saiu — não é "Sem dono" escrito em 88% das linhas.)
+    dono: (b.pessoa_id || b.dono_texto)
+      ? textoDoDono(b, pessoasById.value, pessoasErro.value) : '',
     situacao: rotuloDaSituacao(b.situacao),
     etiquetado: b.etiquetado ? 'Sim' : 'Não',
     data_compra: b.data_compra ? formatarDataBR(b.data_compra) : '',
@@ -1831,14 +1969,19 @@ async function excluirBem() {
 async function carregar() {
   carregando.value = true
   erro.value = ''
-  const [rBens, rEmp, rLoc, rCom, rCat, rTip, rPes, rCfg, rFrota] = await Promise.all([
+  const [rBens, rEmp, rLoc, rCom, rCat, rTip, rPes, rSet, rCfg, rFrota] = await Promise.all([
     sbClient.from('patrimonio_bens').select('*').order('numero', { ascending: true, nullsFirst: false }),
     sbClient.from('patrimonio_empresas').select('id,nome').order('ordem').order('nome'),
     sbClient.from('patrimonio_locais').select('id,nome,empresa_id').order('ordem').order('nome'),
     sbClient.from('patrimonio_comodos').select('id,nome,local_id').order('ordem').order('nome'),
     sbClient.from('patrimonio_categorias').select('id,nome,vida_util_anos').order('ordem').order('nome'),
     sbClient.from('patrimonio_tipos').select('id,nome,categoria_id').order('ordem').order('nome'),
-    sbClient.from('acessos_pessoas').select('id,nome,status').order('nome'),
+    // PORTA ESTREITA (13/08/2026): a leitura direta de `acessos_pessoas` só
+    // abre para quem tem Colaboradores e Acessos, e devolvia lista VAZIA para
+    // os demais. A função do banco entrega nome/cargo/situação para quem mexe
+    // no Patrimônio, sem abrir e-mail nem telefone de ninguém.
+    sbClient.rpc('pessoas_para_escolher'),
+    sbClient.rpc('setores_para_escolher'),
     sbClient.from('patrimonio_config').select('chave,valor'),
     // A ligação com a Frota (Bronca 2): id/nome/placa/bem_id de cada carro,
     // só o bastante pra saber quem está ligado a qual bem. A tabela é da
@@ -1861,13 +2004,18 @@ async function carregar() {
   categorias.value = rCat.data || []
   tipos.value = rTip.data || []
   // Colaboradores e Frota vêm de módulos vizinhos — os dois pontos em que
-  // Patrimônio depende de outra ferramenta. Se a pessoa não tiver acesso a
-  // um deles, a RLS devolve lista vazia sem erro, e a tela segue
-  // funcionando: pessoas cai no nome solto (dono_texto); a Frota cai no
-  // aviso de "sem acesso" (`temAcessoFrota()`), nunca em "nada ligado".
-  pessoas.value = rPes.data || []
+  // Patrimônio depende de outra ferramenta. A leitura de pessoas hoje é a RPC
+  // `pessoas_para_escolher()`, que ESTOURA em vez de devolver lista vazia
+  // quando falta acesso — por isso `pessoasErro` existe e a tela diz o motivo
+  // em vez de mostrar o campo vazio calado. A Frota, essa sim, cai no aviso de
+  // "sem acesso" (`temAcessoFrota()`), nunca em "nada ligado".
+  pessoas.value = mesclarPessoas(rPes.data || [], [])
+  setores.value = rSet && !rSet.error ? (rSet.data || []) : []
   veiculosFrota.value = rFrota && !rFrota.error ? (rFrota.data || []) : []
   frotaErro.value = !!(rFrota && rFrota.error)
+  // Sem leitura direta de reserva aqui — a RPC falhando é, sozinha, o "eu não
+  // vejo essa lista" (ver o comentário do `pessoasErro` lá em cima).
+  pessoasErro.value = !!(rPes && rPes.error)
   const cfgTeto = (rCfg.data || []).find((x) => x.chave === 'numero_maximo')
   teto.value = Number(cfgTeto?.valor) || TETO_PADRAO
   agoraNaTela.value = new Date().toISOString()
@@ -1993,7 +2141,7 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-patrimonio .pat-visoes{display:flex;gap:8px;padding:0 14px 8px;white-space:nowrap;}
 .tela-patrimonio .pat-plan-topo{font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));color:var(--muted);padding:2px 0 10px;}
 .tela-patrimonio .pat-plan-dica{display:block;font-size:max(9px, calc(11px * var(--escala-texto, 1)));opacity:.8;margin-top:2px;}
-/* A planilha ROLA de lado, como planilha rola — 14 colunas nao cabem em tela
+/* A planilha ROLA de lado, como planilha rola — 15 colunas nao cabem em tela
    nenhuma, e espremer viraria papa. A rolagem fica no wrap, nunca na pagina. */
 .tela-patrimonio .pat-plan-wrap{border:1px solid var(--border);border-radius:10px;background:var(--surface);}
 .tela-patrimonio .pat-plan{border-collapse:collapse;font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));white-space:nowrap;}
@@ -2089,6 +2237,10 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-patrimonio .pat-campo{display:flex;flex-direction:column;gap:5px;font-family:var(--fonte-principal);}
 .tela-patrimonio .pat-campo > span{font-size:max(9px, calc(11px * var(--escala-texto, 1)));font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);}
 .tela-patrimonio .pat-campo em{font-style:normal;text-transform:none;letter-spacing:0;font-weight:400;}
+/* Sem margem embaixo: o `.pat-campo` já separa rótulo e controle com gap:5px, e
+   a margem somava por cima disso — este rótulo ficava a 10px do campo dele e
+   todos os outros a 5px. */
+.tela-patrimonio .pat-campo-titulo{display:block;}
 .tela-patrimonio .pat-campo input,.tela-patrimonio .pat-campo select,.tela-patrimonio .pat-campo textarea{font-size:max(16px, calc(16px * var(--escala-texto, 1)));font-family:var(--fonte-principal);padding:11px 12px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);width:100%;}
 .tela-patrimonio .pat-campo select:disabled{opacity:.5;}
 .tela-patrimonio .pat-campo-par{display:grid;grid-template-columns:1fr 1fr;gap:10px;overflow-wrap:anywhere;}

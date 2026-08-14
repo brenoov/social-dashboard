@@ -1,6 +1,11 @@
-// O "+" ao lado dos campos do formulário do bem (empresa, categoria, local,
-// ambiente, tipo): decide se o nome digitado vira um cadastro novo ou se já
-// existe e deve só ser selecionado. Lógica pura: não toca banco nem tela.
+// A REGRA DO "+" DE TODA A CENTRAL: decide se o nome digitado vira um cadastro
+// novo ou se já existe e deve só ser selecionado. Lógica pura: não toca banco
+// nem tela.
+//
+// Hoje ela serve TRÊS consumidores, e por isso mora aqui e não no Patrimônio:
+//   - tela-de-patrimonio.vue          empresa, categoria, local, ambiente, tipo
+//   - escolha-de-local-e-ambiente.vue marca, local e ambiente de qualquer tela
+//   - escolha-de-pessoa.vue           a pessoa, e a marca e o setor dela
 //
 // Por que existe: antes, essas listas só cresciam por quem tivesse acesso à
 // tela de Listas — e quem só cadastra bem ficava travado quando a marca, o

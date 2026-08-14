@@ -43,15 +43,21 @@ import { montarDetalhePastas } from './montar-textos-do-topo.js'
 import { decidirEstadoAcesso, mensagemEstadoVazio, agruparPorEscopo, corDeAvatar, inicialDe } from './acesso-da-pasta.js'
 import { montarEmailsDeSelecao } from './onedrive-escrita.js'
 import { contarAcessosOneDrive, resumoAcessosOneDrive, statusWorkdrive, campoPreenchido, resumoDaFicha, camposDaFicha, CAMPOS_DA_FICHA } from './ficha-do-colaborador.js'
-// Patrimônio (Tarefa 5): dinheiro em centavos + histórico de posse (módulo já testado)
-import { formatarValor, parsearValor, CATEGORIAS_PATRIMONIO, fecharEAbrirHistorico } from '../patrimonio/patrimonio.js'
-// Lógica pura da lista/consolidado de patrimônio (somar, filtrar, formatar data, histórico)
-// filtrarItens e donoAtualNome saíram junto com a aba Patrimônio (que virou
-// módulo próprio); os que ficam ainda servem os blocos de Dispositivos e
-// Veículos da ficha do colaborador, que só saem na Fase 3.
-import { somarCentavos, formatarDataBR, textoLinhaHistorico } from '../patrimonio/patrimonio-lista.js'
+// Patrimônio: dinheiro em centavos (módulo já testado)
+import { formatarValor } from '../patrimonio/patrimonio.js'
+// Lógica pura da lista/consolidado de patrimônio (somar, formatar data)
+import { somarCentavos, formatarDataBR } from '../patrimonio/patrimonio-lista.js'
+// Rótulo/cor de cada situação real de patrimonio_bens (em_uso/em_estoque/em_manutencao/baixado)
+import { rotuloDaSituacao } from '../patrimonio/rotulos-do-bem.js'
 // Auditoria (Tarefa 6): classificação pura do volume de acesso ao OneDrive (destaque de "muitas pastas")
 import { volumeDeAcesso } from './auditoria-volume.js'
+// Bens & Veículos na ficha (13/08/2026): a ficha passa a ler patrimonio_bens e
+// frota_veiculos de verdade, em vez da acessos_dispositivos morta (0 linhas
+// desde sempre). temAcessoFrota é reaproveitada da Frota (mesma conta que
+// tela-de-patrimonio.vue já usa pra decidir o mesmo tipo de aviso); o gêmeo
+// para o Patrimônio mora em bens-e-veiculos-da-pessoa.js.
+import { temAcessoFrota } from '../patrimonio/ligacao-com-frota.js'
+import { temAcessoPatrimonio, pilulaDaSituacaoDoBem, agruparPorPessoa, decidirEstadoDaSecao } from './bens-e-veiculos-da-pessoa.js'
 
 const router = useRouter()
 
@@ -1642,7 +1648,7 @@ function _acRenderFicha(id){
         </div>
         <div class="ac-fx-quick">
           <div class="ac-fx-qa"><span class="ac-fx-qn tnum" id="ac-fx-qn-pastas">…</span><span class="ac-fx-ql">pastas</span></div>
-          <div class="ac-fx-qa"><span class="ac-fx-qn tnum" id="ac-fx-qn-equip">…</span><span class="ac-fx-ql">equipamentos</span></div>
+          <div class="ac-fx-qa"><span class="ac-fx-qn tnum" id="ac-fx-qn-equip">…</span><span class="ac-fx-ql">itens</span></div>
           <div class="ac-fx-qa"><span class="ac-fx-qn tnum" id="ac-fx-qn-termos">…</span><span class="ac-fx-ql">termos</span></div>
         </div>
         <div class="ac-fx-actions">
@@ -1665,15 +1671,14 @@ function _acRenderFicha(id){
           </div>
         </div>
 
-        <!-- Dispositivos & patrimônio (GANCHO — o CRUD completo é a Tarefa 5) -->
+        <!-- Bens & Veículos: só leitura (pedido do dono, 13/08/2026). Lê
+             patrimonio_bens e frota_veiculos de verdade — editar continua no
+             Patrimônio e na Frota, pra não ter dois lugares criando a mesma
+             coisa e divergindo. -->
         <div class="ac-panel">
-          <div class="ac-phead"><h2>Dispositivos &amp; patrimônio</h2>
-            <button class="ac-btn-mini" onclick="_acPatForm('${c.id}')">+ Registrar</button></div>
+          <div class="ac-phead"><h2>Bens &amp; Veículos</h2></div>
           <div id="ac-disp-wrap" class="ac-fx-wrap">
-            <div class="ac-fx-empty">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg>
-              Nenhum notebook, celular ou equipamento registrado nesta pessoa. Registre para saber o que está sob a responsabilidade dela.
-            </div>
+            <div class="ac-fx-empty">Carregando bens e veículos…</div>
           </div>
         </div>
 
@@ -1712,7 +1717,7 @@ function _acRenderFicha(id){
   // sem travar a ficha. Cada um trata o próprio erro e é HONESTO (não vira 0).
   _acFichaCarregarAcessos(id);
   _acFichaCarregarContadores(id);
-  _acRenderPatItens(id); // preenche o painel "Dispositivos & patrimônio" (CRUD da Tarefa 5)
+  _acRenderPatItens(id); // preenche o painel "Bens & Veículos" (só leitura, ver bens-e-veiculos-da-pessoa.js)
   _acRenderTermos(id);   // preenche o painel "Termo de responsabilidade" (CRUD da Tarefa 7)
 }
 // Editor de UM campo da ficha, em modal PRÓPRIO (nada de prompt nativo). Salva
@@ -1767,17 +1772,21 @@ async function _acFichaCarregarAcessos(id){
   // Contagem no cabeçalho do painel de acessos (pastas do OneDrive).
   set('ac-fx-acc-cnt', r.indisponivel?'—':((r.parcial?'≥':'')+r.total+' pasta'+(r.total===1?'':'s')));
 }
-// Conta equipamentos e termos da pessoa (do banco) pros quadradinhos do topo.
-// Barato e honesto: se falhar, mostra "—" no lugar, não fake 0.
+// Conta bens (patrimonio_bens + frota_veiculos) e termos da pessoa (do banco)
+// pros quadradinhos do topo. Barato e honesto: se falhar, mostra "—" no
+// lugar, não fake 0. Fix round 1 / IMPORTANT 2: antes contava
+// acessos_dispositivos (0 linhas, estruturalmente); com o corpo da ficha
+// mostrando bens de verdade, o cabeçalho continuar em 0 ficava ridículo.
 async function _acFichaCarregarContadores(id){
   const set=(elId,txt)=>{const el=document.getElementById(elId);if(el)el.textContent=txt;};
   try{
-    const[d,t]=await Promise.all([
-      sbClient.from('acessos_dispositivos').select('*',{count:'exact',head:true}).eq('pessoa_id',id),
+    const[b,v,t]=await Promise.all([
+      sbClient.from('patrimonio_bens').select('*',{count:'exact',head:true}).eq('pessoa_id',id),
+      sbClient.from('frota_veiculos').select('*',{count:'exact',head:true}).eq('pessoa_id',id),
       sbClient.from('acessos_termos').select('*',{count:'exact',head:true}).eq('pessoa_id',id),
     ]);
     if(_acSel!==id)return;
-    set('ac-fx-qn-equip', d.error?'—':String(d.count||0));
+    set('ac-fx-qn-equip', (b.error||v.error)?'—':String((b.count||0)+(v.count||0)));
     set('ac-fx-qn-termos', t.error?'—':String(t.count||0));
   }catch(e){ if(_acSel!==id)return; set('ac-fx-qn-equip','—');set('ac-fx-qn-termos','—'); }
 }
@@ -1792,8 +1801,8 @@ function _acDesligar(id){
     <label style="display:block;margin-top:10px">Data de fim de contrato
       <input class="ac-input" type="date" id="ac-dlg-data" value="${hoje}"></label>
     <div class="ac-kicker" style="margin:14px 0 6px;display:block">Revogar acessos</div>
-    <label style="display:flex;align-items:center;gap:8px;margin-top:6px"><input type="checkbox" id="ac-dlg-equip" checked> Marcar equipamentos em uso para devolução</label>
-    <label style="display:flex;align-items:center;gap:8px;margin-top:6px"><input type="checkbox" id="ac-dlg-od" ${c.email_outlook?'checked':'disabled'}> Remover dos compartilhamentos do OneDrive${c.email_outlook?'':' <span class="ac-muted">(sem e-mail Outlook)</span>'}</label>
+    <div class="ac-muted" style="margin-top:2px">A devolução dos bens e veículos desta pessoa se registra no Patrimônio e na Frota — não por aqui.</div>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:10px"><input type="checkbox" id="ac-dlg-od" ${c.email_outlook?'checked':'disabled'}> Remover dos compartilhamentos do OneDrive${c.email_outlook?'':' <span class="ac-muted">(sem e-mail Outlook)</span>'}</label>
     <label style="display:flex;align-items:center;gap:8px;margin-top:6px"><input type="checkbox" id="ac-dlg-zoho" ${c.email_corporativo?'checked':'disabled'}> Suspender caixa de e-mail Zoho${c.email_corporativo?'':' <span class="ac-muted">(sem e-mail corporativo)</span>'}</label>
     <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
       <button class="ac-btn ghost" id="ac-dlg-cancel">Cancelar</button>
@@ -1808,17 +1817,18 @@ function _acDesligar(id){
     const motivo=ov.querySelector('#ac-dlg-motivo').value.trim();
     const data=ov.querySelector('#ac-dlg-data').value||null;
     if(!motivo){adminToast('Informe o motivo',false);return;}
-    const doEquip=ov.querySelector('#ac-dlg-equip').checked;
     const doOd=ov.querySelector('#ac-dlg-od').checked&&!!c.email_outlook;
     const doZoho=ov.querySelector('#ac-dlg-zoho').checked&&!!c.email_corporativo;
     const okBtn=ov.querySelector('#ac-dlg-ok');okBtn.disabled=true;okBtn.textContent='Processando…';
     const{error}=await sbClient.from('acessos_pessoas').update({status:'desligado',motivo_saida:motivo,data_fim_contrato:data,atualizado_em:new Date().toISOString()}).eq('id',id);
     if(error){adminToast('Erro: '+error.message,false);okBtn.disabled=false;okBtn.textContent='Confirmar desligamento';return;}
     let resumo='Desligado';
-    if(doEquip){
-      const{error:e2}=await sbClient.from('acessos_dispositivos').update({status:'a_devolver',atualizado_em:new Date().toISOString()}).eq('pessoa_id',id).eq('status','em_uso');
-      resumo+=e2?' · equip. falhou':' · equipamentos → devolução';
-    }
+    // A caixinha "marcar equipamentos para devolução" saiu daqui (fix round 1
+    // / IMPORTANT 3): ela gravava em acessos_dispositivos, que está sempre
+    // vazia, e dizia "equipamentos → devolução" mesmo sem devolver nada — e
+    // agora que a ficha mostra bens de verdade, isso vira mentira visível.
+    // A devolução se registra no Patrimônio/na Frota (mudar `situacao`/
+    // `pessoa_id` de lá), não por aqui.
     if(doOd){
       try{const r=await _acProxy('microsoft.revokeForEmail',{email:c.email_outlook});resumo+=' · OneDrive: '+(r&&r.removed||0)+' removido(s)';}
       catch(e){resumo+=' · OneDrive falhou';}
@@ -2068,193 +2078,126 @@ async function _acDelItem(id,pessoaId,categoria){
   adminToast('Item excluído');_acRenderItens(pessoaId,categoria);
 }
 // ==========================================================================
-// PATRIMÔNIO (Tarefa 5 do redesign): CRUD na ficha + histórico de posse + aba
-// consolidada. Dinheiro SEMPRE em centavos inteiros (parsearValor na entrada,
-// formatarValor na saída — módulo patrimonio.js). Categorias novas em
-// CATEGORIAS_PATRIMONIO. Absorve a categoria "Veículos" (o painel _acRenderVeiculos
-// da ficha saiu na Tarefa 4): vira um item com campo de placa no jsonb "detalhes".
-// As funções antigas _acRenderItens/_acFormItem/_acSaveItem/_acSetItemStatus/_acDelItem
-// ficam preservadas acima (não são mais chamadas), conforme combinado no brief.
+// BENS & VEÍCULOS na ficha (13/08/2026, pedido do dono): SÓ LEITURA. Lia
+// acessos_dispositivos — tabela do módulo antigo, 0 linhas desde sempre, com
+// um CRUD completo (_acPatForm/_acPatTrocarDono/_acPatHistorico/_acPatDel)
+// gravando numa tabela que ninguém lia de volta. Removido depois de grep
+// confirmar que nada mais no repositório usava essas funções nem essa
+// tabela (só esta ficha). Agora lê as fontes de verdade — patrimonio_bens e
+// frota_veiculos — e não escreve nada: editar bem continua no Patrimônio,
+// editar carro continua na Frota. Duas telas criando/editando a mesma coisa
+// é como elas divergem.
 // ==========================================================================
 
-// Pill de situação do item (reusa AC_DST, a mesma tabela de status do CRUD antigo).
-function _acPatStatusPill(status){const m=_acDstMeta(status);return `<span class="ac-pill ${m[2]}">${_acEsc(m[1])}</span>`;}
+// Vai pra Patrimônio/Frota a partir da ficha ("Ver no Patrimônio"/"Ver na
+// Frota"). Só navega — em window pelo mesmo motivo do resto do cluster _ac*
+// (onclick embutido em string HTML).
+function _acVerPatrimonio(){router.push({name:'patrimonio'});}
+function _acVerFrota(){router.push({name:'frota'});}
 
-// Lista os itens de patrimônio de UMA pessoa no painel da ficha (#ac-disp-wrap).
-// Se não houver nada, mostra o mesmo estado vazio pontilhado do mockup.
+// Lista os bens e os veículos de UMA pessoa no painel da ficha (#ac-disp-wrap).
+// Duas seções, cada uma com o SEU estado — nunca uma lista vazia sozinha.
+// Fix round 1 (CRITICAL 1): quem decide o estado é `decidirEstadoDaSecao`,
+// NA ORDEM erro > com-dados > sem-acesso > vazio — dado na mão sempre vence a
+// flag de acesso (que é só uma aproximação da RLS real, mais generosa; ver
+// bens-e-veiculos-da-pessoa.js). Descartar linha de verdade porque a flag
+// achava que não devia existir é pior que o silêncio que esta tela veio
+// substituir.
+// Fix round 1 (IMPORTANT 4): as duas consultas vão dentro de um try/catch —
+// uma rejeição de verdade (offline, DNS, abort) não vira `{error}` do
+// Supabase, ela rejeita a Promise, e sem o catch a caixa ficava em
+// "Carregando…" pra sempre, sem explicação.
 async function _acRenderPatItens(pessoaId){
   const wrap=document.getElementById('ac-disp-wrap');if(!wrap)return;
-  const{data,error}=await sbClient.from('acessos_dispositivos').select('*').eq('pessoa_id',pessoaId).order('atualizado_em',{ascending:false});
-  if(_acSel!==pessoaId)return; // trocou de pessoa nesse meio-tempo: não escreve em ficha velha
-  if(error){wrap.innerHTML='<div class="ac-fx-empty">Não consegui carregar o patrimônio: '+_acEsc(error.message)+'</div>';return;}
-  const itens=data||[];
-  if(!itens.length){
-    wrap.innerHTML=`<div class="ac-fx-empty">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg>
-      Nenhum notebook, celular ou equipamento registrado nesta pessoa. Registre para saber o que está sob a responsabilidade dela.
-    </div>`;return;
+  let bens=[],veiculos=[],erroBens=null,erroVeiculos=null;
+  try{
+    const r=await Promise.all([
+      sbClient.from('patrimonio_bens')
+        .select('id,numero,nome,marca,numero_serie,situacao,valor_centavos,data_compra,patrimonio_categorias(nome),patrimonio_locais(nome),patrimonio_comodos(nome)')
+        .eq('pessoa_id',pessoaId).order('nome'),
+      sbClient.from('frota_veiculos').select('id,nome,placa').eq('pessoa_id',pessoaId).order('nome')
+    ]);
+    bens=r[0].data||[];erroBens=r[0].error;
+    veiculos=r[1].data||[];erroVeiculos=r[1].error;
+  }catch(e){
+    erroBens=erroVeiculos=e&&e.message?e:{message:String(e)};
   }
-  const total=somarCentavos(itens);
-  wrap.innerHTML=`<div class="ac-pat-list">${itens.map(d=>_acPatRow(pessoaId,d)).join('')}</div>
-    <div class="ac-pat-total">Total do patrimônio desta pessoa <strong>${_acEsc(formatarValor(total))}</strong></div>`;
+  if(_acSel!==pessoaId)return; // trocou de pessoa nesse meio-tempo: não escreve em ficha velha
+  wrap.innerHTML=_acSecaoBens(bens,erroBens)+_acSecaoVeiculos(veiculos,erroVeiculos);
 }
-// Uma linha de item na ficha: categoria + situação, descrição e metadados, botões.
-function _acPatRow(pessoaId,d){
-  const desde=d.desde?formatarDataBR(d.desde):'—';
-  const placa=(d.detalhes&&typeof d.detalhes==='object'&&d.detalhes.placa)?d.detalhes.placa:'';
+// Seção "Bens" (patrimonio_bens). Sem filtro de categoria de propósito: a
+// ficha mostra TUDO que está com esta pessoa, categoria que for (a mesma
+// pessoa pode ter notebook, celular e mesa, por exemplo).
+function _acSecaoBens(bens,erro){
+  const estadoSecao=decidirEstadoDaSecao({lista:bens,erro,temAcesso:temAcessoPatrimonio(estado)});
+  let corpo;
+  if(estadoSecao==='erro'){
+    corpo='<div class="ac-fx-empty">Não consegui carregar os bens agora: '+_acEsc(erro.message)+'. Recarregue a página; se continuar assim, avise quem administra.</div>';
+  }else if(estadoSecao==='sem-acesso'){
+    corpo='<div class="ac-fx-empty">Você não tem acesso ao módulo Patrimônio, então não dá pra saber se esta pessoa está com algum bem. Peça acesso ao módulo Patrimônio, ou peça a quem administra pra conferir por lá.</div>';
+  }else if(estadoSecao==='vazio'){
+    corpo=`<div class="ac-fx-empty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg>
+      Nenhum bem do Patrimônio está registrado com esta pessoa.
+    </div>`;
+  }else{
+    const total=somarCentavos(bens);
+    corpo=`<div class="ac-pat-list">${bens.map(_acBemRow).join('')}</div>
+      <div class="ac-pat-total">Total dos bens desta pessoa <strong>${_acEsc(formatarValor(total))}</strong></div>`;
+  }
+  const link=temAcessoPatrimonio(estado)?'<button class="ac-btn ghost" style="margin-left:auto" onclick="_acVerPatrimonio()">Ver no Patrimônio →</button>':'';
+  return `<div class="ac-section-h" style="margin:0 0 10px"><h3>Bens</h3>${link}</div>${corpo}`;
+}
+// Uma linha de bem: categoria + situação, nome/marca e metadados. Só leitura
+// — sem botões de ação (editar é no Patrimônio).
+function _acBemRow(b){
+  const cat=(b.patrimonio_categorias&&b.patrimonio_categorias.nome)||null;
+  const local=(b.patrimonio_locais&&b.patrimonio_locais.nome)||null;
+  const comodo=(b.patrimonio_comodos&&b.patrimonio_comodos.nome)||null;
+  const onde=[local,comodo].filter(Boolean).join(' · ');
   return `<div class="ac-pat-item">
     <div class="ac-pat-main">
-      <div class="ac-pat-top"><span class="ac-chip">${_acEsc(d.categoria||'—')}</span> ${_acPatStatusPill(d.status)}</div>
-      <div class="ac-pat-desc">${_acEsc(d.descricao||'(sem descrição)')}</div>
+      <div class="ac-pat-top">${cat?'<span class="ac-chip">'+_acEsc(cat)+'</span>':''} <span class="ac-pill ${pilulaDaSituacaoDoBem(b.situacao)}">${_acEsc(rotuloDaSituacao(b.situacao))}</span></div>
+      <div class="ac-pat-desc">${_acEsc(b.nome||'(sem nome)')}${b.marca?' · '+_acEsc(b.marca):''}</div>
       <div class="ac-pat-meta">
-        ${d.identificador?'<span>Nº série: '+_acEsc(d.identificador)+'</span>':''}
-        ${placa?'<span>Placa: '+_acEsc(placa)+'</span>':''}
-        <span>Valor: ${_acEsc(formatarValor(d.valor_centavos))}</span>
-        <span>Desde: ${_acEsc(desde)}</span>
-        ${d.observacao?'<span>'+_acEsc(d.observacao)+'</span>':''}
+        ${b.numero!=null?'<span>Etiqueta nº '+_acEsc(b.numero)+'</span>':''}
+        ${b.numero_serie?'<span>Nº série: '+_acEsc(b.numero_serie)+'</span>':''}
+        ${onde?'<span>'+_acEsc(onde)+'</span>':''}
+        <span>Valor: ${_acEsc(formatarValor(b.valor_centavos))}</span>
+        ${b.data_compra?'<span>Desde: '+_acEsc(formatarDataBR(b.data_compra))+'</span>':''}
       </div>
     </div>
-    <div class="ac-pat-acts">
-      <button class="ac-btn ghost" onclick="_acPatForm('${pessoaId}','${d.id}')">Editar</button>
-      <button class="ac-btn ghost" onclick="_acPatTrocarDono('${d.id}','${pessoaId}')">Trocar dono</button>
-      <button class="ac-btn ghost" onclick="_acPatHistorico('${d.id}')">Histórico</button>
-      <button class="ac-btn danger" onclick="_acPatDel('${d.id}','${pessoaId}')">Remover</button>
-    </div>
   </div>`;
 }
-// Modal de adicionar/editar item. Sem id = novo. Grava em acessos_dispositivos.
-async function _acPatForm(pessoaId,id){
-  let d={categoria:'TI',status:'em_uso',descricao:'',identificador:'',valor_centavos:null,desde:hojeLocal(),observacao:'',detalhes:{}};
-  if(id){const{data}=await sbClient.from('acessos_dispositivos').select('*').eq('id',id).single();if(data){d=data;d.detalhes=(data.detalhes&&typeof data.detalhes==='object')?data.detalhes:{};}}
-  // valor vem em centavos: mostra sem o "R$ " pra facilitar editar (parsearValor aceita de volta)
-  const valorTxt=(d.valor_centavos!=null)?formatarValor(d.valor_centavos).replace('R$ ',''):'';
-  const ov=document.createElement('div');ov.className='ac-modal-ov open';
-  ov.innerHTML=`<div class="ac-modal" style="max-width:540px">
-    <h3 style="margin-top:0">${id?'Editar item':'Registrar item'} de patrimônio</h3>
-    <div class="ac-grid2">
-      <label>Categoria<select class="ac-select" id="ac-pat-cat">${CATEGORIAS_PATRIMONIO.map(c=>`<option ${c===d.categoria?'selected':''}>${_acEsc(c)}</option>`).join('')}</select></label>
-      <label>Situação<select class="ac-select" id="ac-pat-status">${AC_DST.map(s=>`<option value="${s[0]}" ${s[0]===(d.status||'em_uso')?'selected':''}>${_acEsc(s[1])}</option>`).join('')}</select></label>
-      <label style="grid-column:1/-1">Descrição<input class="ac-input" id="ac-pat-desc" value="${_acEsc(d.descricao||'')}" placeholder="Ex.: Notebook Dell Latitude 5440"></label>
-      <label>Nº de série / identificação<input class="ac-input" id="ac-pat-ident" value="${_acEsc(d.identificador||'')}"></label>
-      <label>Valor (R$)<input class="ac-input" id="ac-pat-valor" inputmode="decimal" value="${_acEsc(valorTxt)}" placeholder="Ex.: 3.500,00"></label>
-      <label>Desde<input class="ac-input" type="date" id="ac-pat-desde" value="${_acEsc(d.desde||'')}"></label>
-      <label id="ac-pat-placa-wrap" style="${d.categoria==='Veículos'?'':'display:none'}">Placa (veículo)<input class="ac-input" id="ac-pat-placa" value="${_acEsc((d.detalhes&&d.detalhes.placa)||'')}"></label>
-      <label style="grid-column:1/-1">Observação<input class="ac-input" id="ac-pat-obs" value="${_acEsc(d.observacao||'')}"></label>
-    </div>
-    <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
-      <button class="ac-btn ghost" data-x="0">Cancelar</button>
-      <button class="ac-btn primary" data-x="1">Salvar</button>
-    </div>
-  </div>`;
-  (document.getElementById('acessos-screen')||document.body).appendChild(ov);
-  const close=()=>ov.remove();
-  ov.addEventListener('click',e=>{if(e.target===ov)close();});
-  ov.querySelector('[data-x="0"]').onclick=close;
-  // o campo de placa só aparece pra categoria Veículos (absorve o antigo painel de veículos)
-  ov.querySelector('#ac-pat-cat').onchange=e=>{ov.querySelector('#ac-pat-placa-wrap').style.display=e.target.value==='Veículos'?'':'none';};
-  ov.querySelector('[data-x="1"]').onclick=async()=>{
-    const desc=(ov.querySelector('#ac-pat-desc').value||'').trim();
-    if(!desc){adminToast('A descrição é obrigatória',false);return;}
-    const valorRaw=(ov.querySelector('#ac-pat-valor').value||'').trim();
-    let valor_centavos=null;
-    if(valorRaw){valor_centavos=parsearValor(valorRaw);if(valor_centavos===null){adminToast('Valor inválido — use algo como 3.500,00',false);return;}}
-    const categoria=ov.querySelector('#ac-pat-cat').value;
-    const detalhes=Object.assign({},(d.detalhes&&typeof d.detalhes==='object')?d.detalhes:{});
-    const placaEl=ov.querySelector('#ac-pat-placa');const placa=placaEl?placaEl.value.trim():'';
-    if(categoria==='Veículos'&&placa)detalhes.placa=placa;else delete detalhes.placa;
-    const desde=ov.querySelector('#ac-pat-desde').value||null;
-    const rec={pessoa_id:pessoaId,categoria,status:ov.querySelector('#ac-pat-status').value,descricao:desc,identificador:(ov.querySelector('#ac-pat-ident').value||'').trim()||null,valor_centavos,desde,observacao:(ov.querySelector('#ac-pat-obs').value||'').trim()||null,detalhes,atualizado_em:new Date().toISOString()};
-    const btn=ov.querySelector('[data-x="1"]');btn.disabled=true;btn.textContent='Salvando…';
-    if(id){
-      const{error}=await sbClient.from('acessos_dispositivos').update(rec).eq('id',id);
-      if(error){adminToast('Erro: '+error.message,false);btn.disabled=false;btn.textContent='Salvar';return;}
-      await _acLog('patrimonio.editar',categoria+':'+desc,'ok',null);
-    }else{
-      const{data:novo,error}=await sbClient.from('acessos_dispositivos').insert(rec).select('id').single();
-      if(error){adminToast('Erro: '+error.message,false);btn.disabled=false;btn.textContent='Salvar';return;}
-      // Abre o histórico de posse do PRIMEIRO dono — assim "trocar dono" depois tem
-      // um registro aberto pra fechar (senão o período do dono inicial se perde).
-      const pessoa=(_acData.pessoas||[]).find(p=>p.id===pessoaId);
-      await sbClient.from('acessos_patrimonio_historico').insert({dispositivo_id:novo.id,pessoa_id:pessoaId,pessoa_nome:pessoa?pessoa.nome:null,de:desde||hojeLocal(),ate:null,motivo:'Registro inicial'});
-      await _acLog('patrimonio.criar',categoria+':'+desc,'ok',null);
-    }
-    close();adminToast('Item salvo');
-    _acRenderPatItens(pessoaId);_acFichaCarregarContadores(pessoaId);
-  };
-}
-// Trocar o dono de um item: escolhe outra pessoa; fecha o histórico do dono anterior
-// e abre o do novo (fecharEAbrirHistorico), e atualiza pessoa_id no próprio item.
-async function _acPatTrocarDono(id,pessoaAtualId){
-  const{data:item}=await sbClient.from('acessos_dispositivos').select('descricao,pessoa_id').eq('id',id).single();
-  const pessoas=(_acData.pessoas||[]).slice().sort((a,b)=>(a.nome||'').localeCompare(b.nome||''));
-  const ov=document.createElement('div');ov.className='ac-modal-ov open';
-  ov.innerHTML=`<div class="ac-modal" style="max-width:460px">
-    <h3 style="margin-top:0">Trocar dono</h3>
-    <div class="ac-muted" style="font-size:max(9px, calc(13px * var(--escala-texto, 1)));margin-bottom:12px">${_acEsc(item?item.descricao:'Item')}</div>
-    <label style="display:block">Novo dono
-      <select class="ac-select" id="ac-pat-novodono">${pessoas.map(p=>`<option value="${p.id}" ${p.id===(item&&item.pessoa_id)?'selected':''}>${_acEsc(p.nome)}${p.status==='desligado'?' (desligado)':''}</option>`).join('')}</select></label>
-    <label style="display:block;margin-top:10px">Motivo (opcional)
-      <input class="ac-input" id="ac-pat-motivo" placeholder="Ex.: passou para o setor de vendas"></label>
-    <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
-      <button class="ac-btn ghost" data-x="0">Cancelar</button>
-      <button class="ac-btn primary" data-x="1">Trocar</button>
-    </div>
-  </div>`;
-  (document.getElementById('acessos-screen')||document.body).appendChild(ov);
-  const close=()=>ov.remove();
-  ov.addEventListener('click',e=>{if(e.target===ov)close();});
-  ov.querySelector('[data-x="0"]').onclick=close;
-  ov.querySelector('[data-x="1"]').onclick=async()=>{
-    const novoDonoId=ov.querySelector('#ac-pat-novodono').value;
-    const motivo=(ov.querySelector('#ac-pat-motivo').value||'').trim();
-    const novo=(_acData.pessoas||[]).find(p=>p.id===novoDonoId);
-    const hoje=hojeLocal();
-    const btn=ov.querySelector('[data-x="1"]');btn.disabled=true;btn.textContent='Trocando…';
-    // Histórico atual do item pra decidir o que fechar (a lógica é pura e testada).
-    const{data:hist}=await sbClient.from('acessos_patrimonio_historico').select('*').eq('dispositivo_id',id);
-    const plano=fecharEAbrirHistorico({historicoAtual:hist||[],novoDonoId,novoDonoNome:novo?novo.nome:null,hoje});
-    if(!plano.aAbrir){adminToast('Este item já é dessa pessoa',false);btn.disabled=false;btn.textContent='Trocar';return;}
-    // Fecha o dono anterior (se havia registro aberto).
-    if(plano.aFechar){const{error:eF}=await sbClient.from('acessos_patrimonio_historico').update({ate:plano.aFechar.ate}).eq('id',plano.aFechar.id);if(eF){adminToast('Erro ao fechar histórico: '+eF.message,false);btn.disabled=false;btn.textContent='Trocar';return;}}
-    // Abre o registro do novo dono (o motivo do usuário entra aqui).
-    const{error:eA}=await sbClient.from('acessos_patrimonio_historico').insert({dispositivo_id:id,pessoa_id:plano.aAbrir.pessoa_id,pessoa_nome:plano.aAbrir.pessoa_nome,de:plano.aAbrir.de,ate:plano.aAbrir.ate,motivo:motivo||null});
-    if(eA){adminToast('Erro ao abrir histórico: '+eA.message,false);btn.disabled=false;btn.textContent='Trocar';return;}
-    // Muda o dono no próprio item.
-    const{error:eU}=await sbClient.from('acessos_dispositivos').update({pessoa_id:novoDonoId,atualizado_em:new Date().toISOString()}).eq('id',id);
-    if(eU){adminToast('Erro ao atualizar item: '+eU.message,false);btn.disabled=false;btn.textContent='Trocar';return;}
-    await _acLog('patrimonio.trocar_dono','item:'+id,'ok',(novo?novo.nome:'')+(motivo?' · '+motivo:''));
-    close();adminToast('Dono atualizado');
-    // O item pode ter saído desta ficha (foi pra outra pessoa): re-render da ficha atual.
-    _acRenderPatItens(pessoaAtualId);_acFichaCarregarContadores(pessoaAtualId);
-  };
-}
-// Ver o histórico de posse de um item (quem teve, de–até, motivo).
-async function _acPatHistorico(id){
-  const{data,error}=await sbClient.from('acessos_patrimonio_historico').select('*').eq('dispositivo_id',id).order('de',{ascending:false});
+// Seção "Veículos" (frota_veiculos). Aqui pessoa_id é o DONO FIXO do carro na
+// Frota, não necessariamente quem está com ele agora — o vazio explica isso.
+// Mesma ordem de decisão da seção Bens (decidirEstadoDaSecao). Do lado da
+// Frota isso não muda comportamento nenhum: a flag `temAcessoFrota` e a RLS
+// de frota_veiculos são a MESMA expressão (`'frota' = any(features) or
+// is_superadmin`, conferido em is_frota_admin()) — usar a função em comum
+// só evita as duas seções divergirem de novo no futuro.
+function _acSecaoVeiculos(veiculos,erro){
+  const estadoSecao=decidirEstadoDaSecao({lista:veiculos,erro,temAcesso:temAcessoFrota(estado)});
   let corpo;
-  if(error)corpo='<div class="ac-fx-empty">Erro ao carregar: '+_acEsc(error.message)+'</div>';
-  else if(!data||!data.length)corpo='<div class="ac-fx-empty">Sem histórico de posse ainda.</div>';
-  else corpo=data.map(r=>`<div class="ac-pat-histrow">${_acEsc(textoLinhaHistorico(r))}</div>`).join('');
-  const ov=document.createElement('div');ov.className='ac-modal-ov open';
-  ov.innerHTML=`<div class="ac-modal" style="max-width:480px">
-    <h3 style="margin-top:0">Histórico de posse</h3>
-    <div class="ac-pat-hist">${corpo}</div>
-    <div style="margin-top:16px;display:flex;justify-content:flex-end"><button class="ac-btn primary" data-x="0">Fechar</button></div>
-  </div>`;
-  (document.getElementById('acessos-screen')||document.body).appendChild(ov);
-  const close=()=>ov.remove();
-  ov.addEventListener('click',e=>{if(e.target===ov)close();});
-  ov.querySelector('[data-x="0"]').onclick=close;
+  if(estadoSecao==='erro'){
+    corpo='<div class="ac-fx-empty">Não consegui carregar os veículos agora: '+_acEsc(erro.message)+'. Recarregue a página; se continuar assim, avise quem administra.</div>';
+  }else if(estadoSecao==='sem-acesso'){
+    corpo='<div class="ac-fx-empty">Você não tem acesso ao módulo Frota, então não dá pra saber se esta pessoa está com algum veículo. Peça acesso ao módulo Frota, ou peça a quem administra pra conferir por lá.</div>';
+  }else if(estadoSecao==='vazio'){
+    corpo='<div class="ac-fx-empty">Nenhum veículo da Frota tem esta pessoa cadastrada como dona fixa. (Quem usa o carro no dia a dia pode ser outra pessoa — confira na Frota.)</div>';
+  }else{
+    corpo=`<div class="ac-pat-list">${veiculos.map(_acVeiculoRow).join('')}</div>`;
+  }
+  const link=temAcessoFrota(estado)?'<button class="ac-btn ghost" style="margin-left:auto" onclick="_acVerFrota()">Ver na Frota →</button>':'';
+  return `<div class="ac-section-h" style="margin:18px 0 10px"><h3>Veículos</h3>${link}</div>${corpo}`;
 }
-// Remover um item (o histórico dele some junto — FK on delete cascade). Confirma em modal próprio.
-async function _acPatDel(id,pessoaId){
-  const ok=await _acConfirmar('Remover este item do patrimônio? O histórico de posse dele também será apagado.',{ok:'Remover',perigo:true});
-  if(!ok)return;
-  const{error}=await sbClient.from('acessos_dispositivos').delete().eq('id',id);
-  if(error){adminToast('Erro: '+error.message,false);return;}
-  await _acLog('patrimonio.remover','item:'+id,'ok',null);
-  adminToast('Item removido');
-  _acRenderPatItens(pessoaId);_acFichaCarregarContadores(pessoaId);
+function _acVeiculoRow(v){
+  return `<div class="ac-pat-item">
+    <div class="ac-pat-main">
+      <div class="ac-pat-desc">${_acEsc(v.nome||'(sem nome)')}</div>
+      <div class="ac-pat-meta"><span>Placa: ${_acEsc(v.placa||'—')}</span></div>
+    </div>
+  </div>`;
 }
 
 
@@ -2332,13 +2275,15 @@ async function _acRenderAuditoria(){
   const body=document.getElementById('ac-body');
   body.innerHTML='<div class="ac-muted">Carregando auditoria…</div>';
   _acAudAviso=null; // recomeça limpo: aviso de carga velha não pode sobrar na nova.
-  const[{data:orgs},{data:setores},{data:pessoas},{data:itens},{data:vincs}]=await Promise.all([
+  const[{data:orgs},{data:setores},{data:pessoas},{data:bens,error:erroBens},{data:veiculosAud,error:erroVeiculosAud},{data:vincs}]=await Promise.all([
     sbClient.from('acessos_organizacoes').select('*').order('ordem').order('nome'),
     sbClient.from('acessos_setores').select('*').order('nome'),
     sbClient.from('acessos_pessoas').select('*').order('nome'),
-    sbClient.from('acessos_dispositivos').select('*'),
+    sbClient.from('patrimonio_bens').select('id,nome,pessoa_id'),
+    sbClient.from('frota_veiculos').select('id,nome,pessoa_id'),
     sbClient.from('acessos_vinculos').select('pessoa_id,papel,estado,acessos_recursos(nome,tipo,arquivado_em)')
   ]);
+  const avisos=[]; // junta OneDrive + Patrimônio + Frota — um só bloco de aviso no topo.
   let odMap={},odByName={};
   try{const r=await _acProxy('microsoft.allShares');((r&&r.items)||[]).forEach(it=>{
     const e=(it.email||'').toLowerCase();
@@ -2351,22 +2296,42 @@ async function _acRenderAuditoria(){
   });
   // Pasta que o proxy não conseguiu ler vira aviso na tela, não silêncio.
   if(r&&Array.isArray(r.falhas)&&r.falhas.length){
-    _acAudAviso='Não consegui ler o acesso de '+r.falhas.length+' pasta(s) do OneDrive: '+r.falhas.map(f=>f.pasta).join(', ')+'. O que aparece abaixo está incompleto.';
+    avisos.push('Não consegui ler o acesso de '+r.falhas.length+' pasta(s) do OneDrive: '+r.falhas.map(f=>f.pasta).join(', ')+'. O que aparece abaixo está incompleto.');
   }
   }catch(e){
   // Este catch era vazio. Quando a chamada inteira falhava, a Auditoria pintava a
   // lista sem NENHUM acesso do OneDrive — igualzinho a "essas pessoas não têm acesso
   // a nada". Quem olhasse ia embora achando que estava tudo limpo. Agora a tela diz
   // que não conseguiu olhar, que é a verdade.
-  _acAudAviso='Não consegui consultar os acessos do OneDrive agora ('+(e&&e.message?e.message:'falha na conexão')+'). A coluna do OneDrive abaixo está VAZIA por causa disso — não porque as pessoas não tenham acesso.';
+  avisos.push('Não consegui consultar os acessos do OneDrive agora ('+(e&&e.message?e.message:'falha na conexão')+'). A coluna do OneDrive abaixo está VAZIA por causa disso — não porque as pessoas não tenham acesso.');
   }
+  // Mesma honestidade da ficha (item 2 do pedido do dono) — e o MESMO cuidado
+  // do CRITICAL 1 do fix round 1: aqui as linhas NÃO são descartadas (ao
+  // contrário da ficha antes da correção), então empurrar "sem acesso" sem
+  // checar se veio dado faria a tela se contradizer — o aviso diria "a
+  // coluna fica sempre vazia pra você" bem em cima de uma coluna cheia de
+  // nomes. Só entra quando é vazio DE VERDADE (sem dado e sem a flag).
+  if(erroBens){
+    avisos.push('Não consegui carregar os bens agora ('+(erroBens.message||'falha na conexão')+'). A coluna "Bens" abaixo pode estar incompleta.');
+  }else if(!temAcessoPatrimonio(estado)&&!(bens||[]).length){
+    avisos.push('Você não tem acesso ao módulo Patrimônio: a coluna "Bens" abaixo fica sempre vazia pra você — não significa que ninguém tem bem, peça acesso a quem administra.');
+  }
+  if(erroVeiculosAud){
+    avisos.push('Não consegui carregar os veículos agora ('+(erroVeiculosAud.message||'falha na conexão')+'). A coluna "Veículos" abaixo pode estar incompleta.');
+  }else if(!temAcessoFrota(estado)&&!(veiculosAud||[]).length){
+    avisos.push('Você não tem acesso ao módulo Frota: a coluna "Veículos" abaixo fica sempre vazia pra você — não significa que ninguém está com carro, peça acesso a quem administra.');
+  }
+  if(avisos.length)_acAudAviso=avisos.join(' ');
   const setorById={};(setores||[]).forEach(s=>setorById[s.id]=s);
-  const itensByP={};(itens||[]).forEach(d=>{(itensByP[d.pessoa_id]=itensByP[d.pessoa_id]||[]).push(d);});
+  // Bens (patrimonio_bens) e veículos (frota_veiculos) de TODAS as pessoas,
+  // agrupados por pessoa_id — UMA consulta cada (acima), não uma por pessoa.
+  const bensByP=agruparPorPessoa(bens);
+  const veiculosByP=agruparPorPessoa(veiculosAud);
   // Pasta arquivada não conta na Auditoria: ela saiu de uso, então mostrar que
   // "fulano tem acesso" a ela só geraria cobrança de um acesso que não importa
   // mais. O vínculo em si continua no banco (nada foi apagado).
   const iclMap={};(vincs||[]).forEach(v=>{const r=v.acessos_recursos;if(r&&r.tipo==='icloud'&&!r.arquivado_em){(iclMap[v.pessoa_id]=iclMap[v.pessoa_id]||[]).push({pasta:r.nome,papel:v.papel,estado:v.estado});}});
-  _acAudData={orgs:orgs||[],setores:setores||[],pessoas:pessoas||[],setorById,itensByP,odMap,odByName,iclMap};
+  _acAudData={orgs:orgs||[],setores:setores||[],pessoas:pessoas||[],setorById,bensByP,veiculosByP,odMap,odByName,iclMap};
   _acAudPaint();
 }
 function _acNorm(s){return String(s==null?'':s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' ').trim();}
@@ -2406,7 +2371,7 @@ function _acOdSummary(od){
 }
 function _acAudPaint(){
   const body=document.getElementById('ac-body');if(!body||!_acAudData)return;
-  const {orgs,setores,pessoas,setorById,itensByP,odMap,odByName,iclMap}=_acAudData;
+  const {orgs,setores,pessoas,setorById,bensByP,veiculosByP,odMap,odByName,iclMap}=_acAudData;
   const orgName=id=>{const o=orgs.find(x=>x.id===id);return o?o.nome:null;};
   const tree={};
   pessoas.forEach(p=>{
@@ -2432,11 +2397,14 @@ function _acAudPaint(){
     }
     return [];
   };
-  const inPoss=d=>(d.status==='em_uso'||d.status==='a_devolver');
-  // Taxonomia nova de patrimônio (Tarefa 5): a categoria "Veículos" vai pra linha
-  // "Patrimônio"; todo o resto (TI, Móveis, Telefonia, Outro) cai em "Dispositivos".
-  const dispOf=p=>(itensByP[p.id]||[]).filter(d=>d.categoria!=='Veículos'&&inPoss(d));
-  const veicOf=p=>(itensByP[p.id]||[]).filter(d=>d.categoria==='Veículos'&&inPoss(d));
+  // Bens (patrimonio_bens) e veículos (frota_veiculos) desta pessoa — fonte de
+  // verdade nova (13/08/2026); acessos_dispositivos, que estas colunas liam
+  // antes, tinha 0 linhas desde sempre e dizia "nenhum" pra todo mundo.
+  // SEM filtro por situação de propósito (o antigo `inPoss` não volta): um bem
+  // no nome da pessoa é responsabilidade dela mesmo `em_estoque` — é isso que
+  // o dono quis dizer com "os bens que a pessoa usa". Não "consertar" de volta.
+  const dispOf=p=>bensByP[p.id]||[];
+  const veicOf=p=>veiculosByP[p.id]||[];
   const orgNomeOf=p=>{const s=p.setor_id?setorById[p.setor_id]:null;return p.organizacao_id?orgName(p.organizacao_id):(s&&s.organizacao_id?orgName(s.organizacao_id):null);};
   const item=(logo,k,v)=>`<div class="ac-aud-item"><div class="ac-aud-k">${logo||''}${k}</div><div class="ac-aud-v">${v}</div></div>`;
   // Selo de "muitas pastas": destaque honesto pra quem acumulou acesso ao OneDrive
@@ -2450,8 +2418,8 @@ function _acAudPaint(){
           <div class="ac-kicker">${_acEsc(p.cargo||'—')}${orgN?' · '+_acEsc(orgN):''}</div></div></div>
       ${item(_acLogo('zoho'),'Zoho',p.email_corporativo?_acEsc(p.email_corporativo):'<span class="ac-muted">—</span>')}
       ${item(_acLogo('apple'),'Apple',p.conta_apple?_acEsc(p.conta_apple):'<span class="ac-muted">—</span>')}
-      ${item('','Dispositivos',disp.length?disp.map(d=>_acEsc(d.descricao||_acItemTipoLabel(d.tipo))).join(', '):'<span class="ac-muted">nenhum</span>')}
-      ${item('','Patrimônio',veic.length?veic.map(d=>_acEsc(d.descricao||_acItemTipoLabel(d.tipo))).join(', '):'<span class="ac-muted">nenhum</span>')}
+      ${item('','Bens',disp.length?disp.map(d=>_acEsc(d.nome||'(sem nome)')).join(', '):'<span class="ac-muted">nenhum</span>')}
+      ${item('','Veículos',veic.length?veic.map(d=>_acEsc(d.nome||'(sem nome)')).join(', '):'<span class="ac-muted">nenhum</span>')}
     </div>`;
   };
   const listRow=p=>{
@@ -2463,7 +2431,7 @@ function _acAudPaint(){
       <div class="grow" style="min-width:0"><div class="ac-person-name">${_acEsc(p.nome)} ${p.status==='desligado'?'<span class="ac-pill neutral">desligado</span>':''}${odMuitas?`<span class="ac-badge-muitas" title="Acesso a muitas pastas do OneDrive — vale revisar">${od.length} pastas</span>`:''}</div>
         <div class="ac-kicker">${_acEsc(p.cargo||'—')}${orgN?' · '+_acEsc(orgN):''}</div>
         ${p.email_corporativo?`<div class="ac-person-email">${_acEsc(p.email_corporativo)}</div>`:''}</div>
-      <div class="ac-audrow-counts">${cnt(_acLogo('apple'),'iCloud',icl.length)}${cnt('','Disp',disp.length)}${cnt('','Patrim',veic.length)}</div>
+      <div class="ac-audrow-counts">${cnt(_acLogo('apple'),'iCloud',icl.length)}${cnt('','Bens',disp.length)}${cnt('','Veíc',veic.length)}</div>
       <button class="ac-btn ghost" onclick="_acOpenPessoa('${p.id}')">Abrir →</button>
     </div>`;
   };
@@ -2507,9 +2475,8 @@ Object.assign(window, {
   _acUploadAvatar, _acUploadTermo, _acWrapId, _acZohoStatus,
   _acDriveSetProvedor, _acDriveProvedorBar, _acRenderWorkdrive, _acWdCarregarPastas, _acWdRepaint,
   _acWdNo, _acWdAlternar, _acWdImportar,
-  // Patrimônio (Tarefa 5): CRUD na ficha, histórico de posse e aba consolidada.
-  _acPatStatusPill, _acRenderPatItens, _acPatRow, _acPatForm, _acPatTrocarDono, _acPatHistorico,
-  _acPatDel
+  // Bens & Veículos na ficha: só leitura (patrimonio_bens + frota_veiculos).
+  _acRenderPatItens, _acVerPatrimonio, _acVerFrota
 })
 
 // ==========================================================================
@@ -3158,12 +3125,8 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos :deep(.ac-pat-top){display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px}
 .tela-acessos :deep(.ac-pat-desc){font-family:var(--fonte-principal);font-weight:600;font-size:max(9px, calc(14px * var(--escala-texto, 1)));color:var(--text);line-height:1.3}
 .tela-acessos :deep(.ac-pat-meta){display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:5px;font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));color:var(--muted)}
-.tela-acessos :deep(.ac-pat-acts){display:flex;gap:6px;flex-wrap:wrap;align-items:center}
-.tela-acessos :deep(.ac-pat-acts .ac-btn){padding:6px 11px;font-size:max(9px, calc(12px * var(--escala-texto, 1)))}
 .tela-acessos :deep(.ac-pat-total){margin-top:12px;text-align:right;font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));color:var(--muted)}
 .tela-acessos :deep(.ac-pat-total strong){font-family:var(--fonte-dados);font-size:max(16px, calc(16px * var(--escala-texto, 1)));color:var(--text);margin-left:6px;font-variant-numeric:tabular-nums}
-.tela-acessos :deep(.ac-pat-hist){display:flex;flex-direction:column;gap:8px;max-height:52vh;overflow:auto}
-.tela-acessos :deep(.ac-pat-histrow){padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface2);font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));color:var(--text);line-height:1.4}
 .tela-acessos :deep(.ac-pat-filtros){display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
 .tela-acessos :deep(.ac-pat-filtros .ac-select){width:auto;min-width:180px;flex:1 1 200px}
 .tela-acessos :deep(.ac-pat-kpi){margin-left:auto;font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));color:var(--muted)}
@@ -3177,8 +3140,6 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos :deep(.ac-pat-table tbody tr:last-child td){border-bottom:none}
 .tela-acessos :deep(.ac-pat-r){text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 @media(max-width:640px){
-  .tela-acessos :deep(.ac-pat-acts){width:100%}
-  .tela-acessos :deep(.ac-pat-acts .ac-btn){flex:1 1 calc(50% - 3px);text-align:center;justify-content:center}
   .tela-acessos :deep(.ac-pat-kpi){width:100%;margin-left:0;margin-top:4px}
 }
 /* acessos desta pessoa */
