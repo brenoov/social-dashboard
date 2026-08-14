@@ -58,6 +58,9 @@ import { volumeDeAcesso } from './auditoria-volume.js'
 // para o Patrimônio mora em bens-e-veiculos-da-pessoa.js.
 import { temAcessoFrota } from '../patrimonio/ligacao-com-frota.js'
 import { temAcessoPatrimonio, pilulaDaSituacaoDoBem, agruparPorPessoa, decidirEstadoDaSecao } from './bens-e-veiculos-da-pessoa.js'
+// Auditoria: as consultas de bens/veículos agora têm limite explícito, e
+// detectam quando o número de linhas bate nele (corte silencioso do PostgREST).
+import { LIMITE_AUDITORIA, foiCortado, avisoDeCorte } from './auditoria-corte.js'
 
 const router = useRouter()
 
@@ -2200,14 +2203,30 @@ async function _acRenderAuditoria(){
   const body=document.getElementById('ac-body');
   body.innerHTML='<div class="ac-muted">Carregando auditoria…</div>';
   _acAudAviso=null; // recomeça limpo: aviso de carga velha não pode sobrar na nova.
-  const[{data:orgs},{data:setores},{data:pessoas},{data:bens,error:erroBens},{data:veiculosAud,error:erroVeiculosAud},{data:vincs}]=await Promise.all([
-    sbClient.from('acessos_organizacoes').select('*').order('ordem').order('nome'),
-    sbClient.from('acessos_setores').select('*').order('nome'),
-    sbClient.from('acessos_pessoas').select('*').order('nome'),
-    sbClient.from('patrimonio_bens').select('id,nome,pessoa_id'),
-    sbClient.from('frota_veiculos').select('id,nome,pessoa_id'),
-    sbClient.from('acessos_vinculos').select('pessoa_id,papel,estado,acessos_recursos(nome,tipo,arquivado_em)')
-  ]);
+  _acAudData=null; // idem: dado velho não pode sobreviver a uma carga que falhou.
+  let orgs,setores,pessoas,bens,erroBens,veiculosAud,erroVeiculosAud,vincs;
+  try{
+    ([{data:orgs},{data:setores},{data:pessoas},{data:bens,error:erroBens},{data:veiculosAud,error:erroVeiculosAud},{data:vincs}]=await Promise.all([
+      sbClient.from('acessos_organizacoes').select('*').order('ordem').order('nome'),
+      sbClient.from('acessos_setores').select('*').order('nome'),
+      sbClient.from('acessos_pessoas').select('*').order('nome'),
+      // Limite explícito (item C): sem ele o PostgREST corta em 1000 linhas
+      // SEM avisar. foiCortado() abaixo detecta quando a lista voltou exatamente
+      // no limite e transforma o corte silencioso num aviso na tela.
+      sbClient.from('patrimonio_bens').select('id,nome,pessoa_id').limit(LIMITE_AUDITORIA),
+      sbClient.from('frota_veiculos').select('id,nome,pessoa_id').limit(LIMITE_AUDITORIA),
+      sbClient.from('acessos_vinculos').select('pessoa_id,papel,estado,acessos_recursos(nome,tipo,arquivado_em)')
+    ]));
+  }catch(e){
+    // Promise.all sem try/catch deixava a aba presa em "Carregando auditoria…"
+    // pra sempre quando a rejeição era de VERDADE (offline, DNS, aborto) — que
+    // não vira {error} do Supabase, e sim uma promessa rejeitada de fato. A
+    // aba não pode terminar mostrando uma auditoria vazia como se não houvesse
+    // dado: por isso a mensagem substitui o "Carregando…" e _acAudData fica
+    // null (não existe estado inventado pra pintar).
+    body.innerHTML='<div class="ac-fx-empty">Não consegui carregar a auditoria agora ('+_acEsc((e&&e.message)?e.message:'falha na conexão')+'). Recarregue a página; se persistir, avise quem administra.</div>';
+    return;
+  }
   const avisos=[]; // junta OneDrive + Patrimônio + Frota — um só bloco de aviso no topo.
   let odMap={},odByName={};
   try{const r=await _acProxy('microsoft.allShares');((r&&r.items)||[]).forEach(it=>{
@@ -2246,6 +2265,10 @@ async function _acRenderAuditoria(){
   }else if(!temAcessoFrota(estado)&&!(veiculosAud||[]).length){
     avisos.push('Você não tem acesso ao módulo Frota: a coluna "Veículos" abaixo fica sempre vazia pra você — não significa que ninguém está com carro, peça acesso a quem administra.');
   }
+  // Item C: número de linhas bateu igual ao limite explícito → tratamos como
+  // corte do PostgREST e avisamos, em vez de deixar a tela parecer completa.
+  const corteMsg=avisoDeCorte([foiCortado(bens)&&'bens',foiCortado(veiculosAud)&&'veículos']);
+  if(corteMsg)avisos.push(corteMsg);
   if(avisos.length)_acAudAviso=avisos.join(' ');
   const setorById={};(setores||[]).forEach(s=>setorById[s.id]=s);
   // Bens (patrimonio_bens) e veículos (frota_veiculos) de TODAS as pessoas,
