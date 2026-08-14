@@ -108,6 +108,12 @@ import PasseioGuiado from '../../compartilhado/passeio-guiado.vue'
 // Bronca do dono: "fui editar a ficha de carro BMW, aí tem lá campo local, eu
 // digito ao invés de já mostrar tudo o que já temos em banco".
 import EscolhaDeLocalEAmbiente from '../../compartilhado/escolha-de-local-e-ambiente.vue'
+// A MESMA porta estreita do Patrimônio (13/08/2026): os 4 campos de pessoa
+// desta tela — Responsável, Quem vai dirigir, Quem vai usar, Passar para —
+// passam a enxergar quem não tem Colaboradores e Acessos, e a cadastrar na
+// hora quem falta.
+import EscolhaDePessoa from '../../compartilhado/escolha-de-pessoa.vue'
+import { mesclarPessoas, apenasAtivas, comSelecionada } from '../../compartilhado/pessoas-para-escolher.js'
 import {
   PASSOS, TEXTOS, PASSOS_VEICULO, PASSOS_ITEM, PASSOS_FICHA_DETALHE,
   PASSOS_PEDIDO, PASSOS_DECISAO, PASSOS_FICHA, deveAbrirSozinho, marcarComoVisto,
@@ -120,6 +126,22 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 const veiculos = ref([])
 const usos = ref([])
 const pessoas = ref([])
+const setores = ref([])
+const criandoPessoa = ref(false)
+const erroDePessoa = ref('')
+// Qual campo de pessoa está criando agora ('' = nenhum). O aviso de erro e o
+// "Criando…" pertencem ao campo que pediu, não à tela: são quatro campos de
+// pessoa nesta tela e o erro de um apareceria nos outros.
+const campoDeCriacao = ref('')   // '' | 'responsavel' | 'pedido' | 'retirada' | 'passar'
+const pessoasAtivas = computed(() => apenasAtivas(pessoas.value))
+// A RPC `pessoas_para_escolher()` ESTOURA (42501) pra quem não é
+// is_frota_admin, is_patrimonio_admin nem is_acessos_admin — de propósito
+// (migration 2026-08-13, linha ~31: "vazio silencioso é o defeito que já
+// mostrou R$ 0,00 na tela do dono por 17 horas"). Isto só é a falha real
+// quando a leitura direta de `acessos_pessoas` TAMBÉM não trouxe nada —
+// mesmo raciocínio do `falhaArvore` abaixo: lista vazia sozinha não distingue
+// "ninguém pra escolher" de "eu não vejo essa lista".
+const falhaPessoas = ref(false)
 const carregando = ref(true)
 const falha = ref('')
 const podeEditar = computed(() => hasPermission('frota', 'editar'))
@@ -813,7 +835,7 @@ function voltar() { router.push({ name: 'gestao-interna' }) }
 async function carregar() {
   carregando.value = true
   falha.value = ''
-  const [v, ua, uh, p, q, pl, rv, bn, ci, cc, cf, catv] = await Promise.all([
+  const [v, ua, uh, p, pe, se, q, pl, rv, bn, ci, cc, cf, catv] = await Promise.all([
     sbClient.from('frota_veiculos').select('*').order('nome'),
     // frota_uso vem em DUAS consultas de propósito, e não numa só com limite.
     //
@@ -847,6 +869,14 @@ async function carregar() {
     // aconteceu com `email_corporativo`: a decisão erra calada.
     sbClient.from('acessos_pessoas')
       .select('id,nome,email_corporativo,profile_id,numero_corporativo,numero_pessoal').order('nome'),
+    // PORTA ESTREITA (13/08/2026): a leitura acima devolve VAZIO para quem não
+    // tem Colaboradores e Acessos — medido: Gabriel Alves, Guilherme Cardoso e
+    // Jeremias Vieira enxergavam ZERO pessoas, e o campo "Responsável" nascia
+    // vazio pra eles. Esta função entrega os nomes (e o `profile_id`, que é
+    // como pessoaDoUsuario() acha a ficha de quem está logado), sem abrir
+    // e-mail nem telefone.
+    sbClient.rpc('pessoas_para_escolher'),
+    sbClient.rpc('setores_para_escolher'),
     // A agenda de reservas: quem vê a Frota vê a agenda inteira. Saber que o
     // carro está reservado é o que evita o conflito de viagens — esconder isso
     // de quem dirige recriaria no app o problema que o papel tem.
@@ -881,7 +911,17 @@ async function carregar() {
   }
   veiculos.value = v.data || []
   usos.value = [...(ua.data || []), ...(uh.data || [])]
-  pessoas.value = (p.data || [])
+  // Nome vem da porta estreita (todo mundo vê); contato vem da leitura direta
+  // (só quem tem Colaboradores e Acessos). Quem tem os dois recebe a ficha
+  // inteira; quem tem um só recebe o que pode — e nunca uma lista vazia por
+  // falta de permissão.
+  pessoas.value = mesclarPessoas(pe && !pe.error ? (pe.data || []) : [], p.data || [])
+  setores.value = se && !se.error ? (se.data || []) : []
+  // A RPC falhou E a leitura direta não trouxe ninguém: as duas coisas juntas
+  // são o "eu não vejo essa lista" — se só a RPC tivesse falhado mas a leitura
+  // direta tivesse pessoas, a lista continuaria certa e não haveria o que
+  // avisar.
+  falhaPessoas.value = !!(pe && pe.error) && !(p.data && p.data.length)
   // A agenda pode falhar sozinha (permissão nova ainda não concedida) sem
   // derrubar o resto da tela: sem ela a Frota ainda serve pra pegar e devolver.
   requisicoes.value = q && !q.error ? (q.data || []) : []
@@ -2229,6 +2269,87 @@ async function criarNaArvore({ nivel, nome, empresaId, localId }) {
   }
 }
 
+/* CADASTRO RÁPIDO DE COLABORADOR (13/08/2026). Mesmo contrato do "+" da árvore
+ * de locais: quem grava é a tela; o componente só avisa e espera o nome
+ * aparecer. `criar_pessoa_rapida` devolve `ja_existia` quando o nome já estava
+ * lá — a checagem mora no banco porque duas janelas cadastrando ao mesmo tempo
+ * é o caso que a tela sozinha não cobre.
+ *
+ * Quatro campos de pessoa nesta tela — Responsável, Quem vai dirigir, Quem vai
+ * usar, Passar para —, então `campo` marca qual deles pediu a criação. O aviso
+ * de erro e o "Criando…" pertencem a ELE, não à tela: com um só `erroDePessoa`
+ * compartilhado, uma falha num campo apareceria nos outros três.
+ *
+ * SEM try/catch DE PROPÓSITO, nas três funções abaixo: o supabase-js v2 não
+ * rejeita a promessa quando o fetch falha — ele DEVOLVE `{ error }`, que é
+ * justamente o que estas funções já tratam. E o `criandoPessoa = false` vem
+ * ANTES do `await carregar()`, então nem um erro no recarregamento deixa o
+ * botão preso em "Criando…". Um try/catch aqui não pegaria nada e só esconderia
+ * o caminho de erro que existe. */
+async function criarPessoaRapida({ nome, cargo, marcaId, setorId }, campo) {
+  if (criandoPessoa.value) return
+  criandoPessoa.value = true
+  erroDePessoa.value = ''
+  campoDeCriacao.value = campo
+
+  const { data, error } = await sbClient.rpc('criar_pessoa_rapida', {
+    p_nome: nome, p_cargo: cargo, p_marca_id: marcaId, p_setor_id: setorId,
+  })
+  criandoPessoa.value = false
+  if (error) {
+    erroDePessoa.value = 'Não consegui cadastrar. Tente de novo; se continuar, confirme '
+      + 'com quem administra se você pode cadastrar colaborador.'
+    return
+  }
+  campoDeCriacao.value = ''
+  const criada = Array.isArray(data) ? data[0] : data
+  await carregar()
+  // A linha devolvida é LIDA, e não jogada fora: o Patrimônio faz a mesma
+  // chamada e conta o que aconteceu, e as duas telas não podem dizer coisas
+  // diferentes sobre a mesma ação. Aqui não há toast, então o recado vai pelo
+  // mesmo caminho que este componente já usa. O caso que ele realmente salva é
+  // o da pessoa DESLIGADA: ela volta como "já existia", não entra na lista das
+  // ativas, e sem este aviso a caixinha ficaria aberta e muda.
+  if (criada && criada.ja_existia) {
+    campoDeCriacao.value = campo
+    erroDePessoa.value = `“${criada.nome}” já estava cadastrada — não criei uma segunda. `
+      + 'Se ela não aparecer na lista, é porque está marcada como desligada: peça a quem '
+      + 'administra para reativá-la.'
+  }
+}
+
+async function criarSetorRapido({ nome }, campo) {
+  if (criandoPessoa.value) return
+  criandoPessoa.value = true
+  erroDePessoa.value = ''
+  campoDeCriacao.value = campo
+  const { error } = await sbClient.rpc('criar_setor_rapido', { p_nome: nome })
+  criandoPessoa.value = false
+  if (error) { erroDePessoa.value = 'Não consegui cadastrar o setor. Tente de novo.'; return }
+  campoDeCriacao.value = ''
+  await carregar()
+}
+
+async function criarMarcaRapida({ nome }, campo) {
+  if (criandoPessoa.value) return
+  criandoPessoa.value = true
+  erroDePessoa.value = ''
+  campoDeCriacao.value = campo
+  const { error } = await sbClient.from('patrimonio_empresas')
+    .insert({ nome, ordem: (empresasPat.value || []).length + 1 })
+  criandoPessoa.value = false
+  if (error) { erroDePessoa.value = 'Não consegui cadastrar a marca. Tente de novo.'; return }
+  campoDeCriacao.value = ''
+  await carregarArvoreDeLocais()
+}
+
+// Abrir a caixinha começa uma tentativa nova: o aviso da tentativa anterior
+// não pertence a ela.
+function limparAvisoDeCriacao() {
+  erroDePessoa.value = ''
+  campoDeCriacao.value = ''
+}
+
 // Escolher um bem no seletor de ligação, enquanto cria, também sugere nome,
 // marca, FIPE e código patrimonial pra ficha (patchDoBem só preenche o que
 // ainda está vazio — nunca apaga o que a pessoa já tinha digitado). Editando
@@ -3341,18 +3462,29 @@ onMounted(async () => {
                que ela já trocou. -->
           <h3 class="fr-grupo">De quem é, onde fica e com quem falar</h3>
           <div class="fr-dupla">
-            <label class="fr-campo" v-if="!veiculoAberto.novo" data-tour="veic-responsavel">
+            <div class="fr-campo" v-if="!veiculoAberto.novo" data-tour="veic-responsavel">
               <span class="fr-lab">Responsável — de quem é o carro</span>
-              <select v-model="vForm.pessoa_id">
-                <option value="">— ninguém —</option>
-                <option v-for="p in pessoas" :key="p.id" :value="p.id">{{ p.nome }}</option>
-              </select>
+              <p class="fr-erro-inline" v-if="falhaPessoas">
+                Não consegui carregar a lista de colaboradores. O campo pode estar vazio por
+                causa disso, e não porque não haja ninguém cadastrado. Recarregue a página; se
+                continuar, peça acesso a Colaboradores e Acessos (ou a Patrimônio/Frota) a quem
+                administra.
+              </p>
+              <EscolhaDePessoa
+                v-model="vForm.pessoa_id"
+                :pessoas="comSelecionada(pessoasAtivas, pessoas, vForm.pessoa_id)" :todas="pessoas"
+                :marcas="empresasPat" :setores="setores"
+                :pode-criar="podeEditar" :criando="criandoPessoa && campoDeCriacao === 'responsavel'"
+                :recado-de-erro="campoDeCriacao === 'responsavel' ? erroDePessoa : ''"
+                rotulo="Responsável — de quem é o carro" texto-vazio="— ninguém —"
+                @criar="(p) => criarPessoaRapida(p, 'responsavel')" @criar-setor="(p) => criarSetorRapido(p, 'responsavel')"
+                @criar-marca="(p) => criarMarcaRapida(p, 'responsavel')" @abrir="limparAvisoDeCriacao" />
               <span class="fr-ajuda">
                 Quem responde pelo carro — é este nome que a multa procura quando ninguém
                 pegou o carro emprestado. Carro com responsável deixa de aparecer como livre.
                 Vale também no Patrimônio: mudar aqui muda lá, e o contrário também.
               </span>
-            </label>
+            </div>
             <label class="fr-campo" data-tour="veic-empresa">
               <span class="fr-lab">De qual empresa é este carro</span>
               <select v-model="vForm.empresa_id">
@@ -3798,19 +3930,32 @@ onMounted(async () => {
               </option>
             </select>
           </label>
-          <label class="fr-campo">
+          <div class="fr-campo">
             <span class="fr-lab">Quem vai dirigir</span>
-            <select v-model="pedidoForm.pessoaId" @change="conferirPedido">
-              <option value="">— escolha —</option>
-              <option v-for="p in pessoas" :key="p.id" :value="p.id">{{ p.nome }}</option>
+            <p class="fr-erro-inline" v-if="falhaPessoas">
+              Não consegui carregar a lista de colaboradores. O campo pode estar vazio por
+              causa disso, e não porque não haja ninguém cadastrado. Recarregue a página; se
+              continuar, peça acesso a Colaboradores e Acessos (ou a Patrimônio/Frota) a quem
+              administra.
+            </p>
+            <EscolhaDePessoa
+              v-model="pedidoForm.pessoaId"
+              :pessoas="comSelecionada(pessoasAtivas, pessoas, pedidoForm.pessoaId)" :todas="pessoas"
+              :marcas="empresasPat" :setores="setores"
+              :pode-criar="podeEditar" :criando="criandoPessoa && campoDeCriacao === 'pedido'"
+              :recado-de-erro="campoDeCriacao === 'pedido' ? erroDePessoa : ''"
+              rotulo="Quem vai dirigir" texto-vazio="— escolha —"
+              @update:modelValue="conferirPedido"
+              @criar="(p) => criarPessoaRapida(p, 'pedido')" @criar-setor="(p) => criarSetorRapido(p, 'pedido')"
+              @criar-marca="(p) => criarMarcaRapida(p, 'pedido')" @abrir="limparAvisoDeCriacao">
               <!-- Se a opção não existe, a pessoa TRAVA. Foi o que aconteceu em
                    11/08: o dono precisou registrar o Felipe, modelista de fora,
                    não achou onde, e acabou pondo a SI MESMO como motorista com
                    a verdade escrita na finalidade — uma multa da quinzena
                    cairia no nome errado. -->
               <option :value="DE_FORA">— outra pessoa, de fora da empresa —</option>
-            </select>
-          </label>
+            </EscolhaDePessoa>
+          </div>
           <label class="fr-campo" v-if="pedidoForm.pessoaId === DE_FORA">
             <span class="fr-lab">Nome de quem vai dirigir</span>
             <input v-model="pedidoForm.nomeDeFora" type="text" list="fr-nomes-de-fora"
@@ -4118,13 +4263,24 @@ onMounted(async () => {
                chave é fazer a pessoa digitar duas vezes o mesmo. Aparecem só no
                registro de uso avulso, feito pela Gestão, que não tem reserva
                atrás. -->
-          <label class="fr-campo" v-if="ficha.modo === 'retirar' && !ficha.reserva">
+          <div class="fr-campo" v-if="ficha.modo === 'retirar' && !ficha.reserva">
             <span class="fr-lab">Quem vai usar</span>
-            <select v-model="form.pessoaId">
-              <option value="">— escolha —</option>
-              <option v-for="p in pessoas" :key="p.id" :value="p.id">{{ p.nome }}</option>
-            </select>
-          </label>
+            <p class="fr-erro-inline" v-if="falhaPessoas">
+              Não consegui carregar a lista de colaboradores. O campo pode estar vazio por
+              causa disso, e não porque não haja ninguém cadastrado. Recarregue a página; se
+              continuar, peça acesso a Colaboradores e Acessos (ou a Patrimônio/Frota) a quem
+              administra.
+            </p>
+            <EscolhaDePessoa
+              v-model="form.pessoaId"
+              :pessoas="comSelecionada(pessoasAtivas, pessoas, form.pessoaId)" :todas="pessoas"
+              :marcas="empresasPat" :setores="setores"
+              :pode-criar="podeEditar" :criando="criandoPessoa && campoDeCriacao === 'retirada'"
+              :recado-de-erro="campoDeCriacao === 'retirada' ? erroDePessoa : ''"
+              rotulo="Quem vai usar" texto-vazio="— escolha —"
+              @criar="(p) => criarPessoaRapida(p, 'retirada')" @criar-setor="(p) => criarSetorRapido(p, 'retirada')"
+              @criar-marca="(p) => criarMarcaRapida(p, 'retirada')" @abrir="limparAvisoDeCriacao" />
+          </div>
 
           <label class="fr-campo" data-tour="ficha-km">
             <span class="fr-lab">
@@ -4192,16 +4348,32 @@ onMounted(async () => {
             Registrar quem está com o carro é o que faz uma multa ter resposta. Sem isso
             ela cai no nome do responsável fixo, que pode não ter sido quem dirigiu.
           </p>
-          <label class="fr-campo">
+          <div class="fr-campo">
             <span class="fr-lab">Passar para</span>
-            <select v-model="paraQuem">
-              <!-- Sem dono fixo, "devolver" não tem pra quem: o certo é o carro
-                   ficar livre. Com dono fixo, a posse dele reabre no mesmo
-                   instante — sem buraco na linha do tempo (D9c). -->
-              <option value="">{{ passando.pessoa_id
+            <p class="fr-erro-inline" v-if="falhaPessoas">
+              Não consegui carregar a lista de colaboradores. O campo pode estar vazio por
+              causa disso, e não porque não haja ninguém cadastrado. Recarregue a página; se
+              continuar, peça acesso a Colaboradores e Acessos (ou a Patrimônio/Frota) a quem
+              administra.
+            </p>
+            <!-- Sem dono fixo, "devolver" não tem pra quem: o certo é o carro
+                 ficar livre. Com dono fixo, a posse dele reabre no mesmo
+                 instante — sem buraco na linha do tempo (D9c). O texto
+                 calculado vai pro `texto-vazio`, e um valor vazio continua
+                 querendo dizer "devolver / encerrar" — não muda com a troca
+                 pro componente. -->
+            <EscolhaDePessoa
+              v-model="paraQuem"
+              :pessoas="comSelecionada(pessoasAtivas, pessoas, paraQuem)" :todas="pessoas"
+              :marcas="empresasPat" :setores="setores"
+              :pode-criar="podeEditar" :criando="criandoPessoa && campoDeCriacao === 'passar'"
+              :recado-de-erro="campoDeCriacao === 'passar' ? erroDePessoa : ''"
+              rotulo="Passar para"
+              :texto-vazio="passando.pessoa_id
                 ? ('Devolver para ' + (nomeDaPessoa(passando.pessoa_id) || 'o responsável fixo'))
-                : 'Encerrar a posse — o carro fica livre' }}</option>
-              <option v-for="p in pessoas" :key="p.id" :value="p.id">{{ p.nome }}</option>
+                : 'Encerrar a posse — o carro fica livre'"
+              @criar="(p) => criarPessoaRapida(p, 'passar')" @criar-setor="(p) => criarSetorRapido(p, 'passar')"
+              @criar-marca="(p) => criarMarcaRapida(p, 'passar')" @abrir="limparAvisoDeCriacao">
               <!-- Pessoa de fora TAMBÉM aqui, e este é o lugar que mais importa:
                    é `frota_uso` que responde "quem estava com o carro no dia da
                    multa". Sem isto, a quinzena do Felipe continuaria caindo no
@@ -4213,8 +4385,8 @@ onMounted(async () => {
                    circulação. Vale no Patrimônio junto — "Parado" aqui é "em
                    estoque" lá (migration 042). -->
               <option :value="PARA_ESTOQUE">— recolher para o estoque —</option>
-            </select>
-          </label>
+            </EscolhaDePessoa>
+          </div>
           <p class="fr-tutorial-fixo" v-if="paraQuem === PARA_ESTOQUE">
             O carro sai de circulação: para de aparecer como livre e some da cobrança do
             checklist. No Patrimônio ele fica <strong>em estoque</strong>, junto.

@@ -28,12 +28,23 @@ import { dirname, join } from 'node:path'
 // também aqui.
 
 const AQUI = dirname(fileURLToPath(import.meta.url))
+// O miolo compartilhado entra junto (13/08/2026): o `nova-opcao.js` nasceu nesta
+// pasta e MUDOU para lá quando virou peça de três telas. Com o guarda olhando só
+// os vizinhos daqui, o `resolverNovaOpcao` que a tela usa — e que estava coberto
+// — passou a não ser mais. Arquivo que muda de pasta não pode levar embora a
+// guarda que já existia sobre quem ficou.
+const COMPARTILHADO = join(AQUI, '..', '..', 'compartilhado')
 
 function nomesExportados() {
   const mapa = new Map()
-  for (const arq of readdirSync(AQUI).filter((f) => f.endsWith('.js') && !f.includes('.test.'))) {
-    const src = readFileSync(join(AQUI, arq), 'utf8')
-    for (const m of src.matchAll(/export (?:function|const|let) (\w+)/g)) mapa.set(m[1], arq)
+  for (const pasta of [COMPARTILHADO, AQUI]) {
+    for (const arq of readdirSync(pasta).filter((f) => f.endsWith('.js') && !f.includes('.test.'))) {
+      const src = readFileSync(join(pasta, arq), 'utf8')
+      // A pasta desta ferramenta vem por último de propósito: nome repetido nos
+      // dois lados é o daqui que a tela usa sem caminho, e é ele que o recado
+      // precisa citar.
+      for (const m of src.matchAll(/export (?:function|const|let) (\w+)/g)) mapa.set(m[1], arq)
+    }
   }
   return mapa
 }
@@ -87,6 +98,13 @@ test('a tela de patrimônio não usa função de módulo sem importar', () => {
     if (usado.test(script)) faltando.push(`${nome} (exportado por ${arq})`)
   }
   assert.deepEqual(faltando, [], 'a tela usa estes nomes e não os importa — abre em branco, e o build NÃO pega')
+})
+
+test('o guarda enxerga tambem o miolo compartilhado', () => {
+  // Sem isto, mover um arquivo de novo desligaria a cobertura em silêncio.
+  const mapa = nomesExportados()
+  assert.equal(mapa.get('resolverNovaOpcao'), 'nova-opcao.js')
+  assert.ok(mapa.has('mesclarPessoas'), 'pessoas-para-escolher.js precisa entrar na conta')
 })
 
 test('o proprio teste enxerga um import faltando', () => {

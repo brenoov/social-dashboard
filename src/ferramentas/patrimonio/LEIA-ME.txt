@@ -12,8 +12,8 @@ O que tem aqui:
   patrimonio-lista.js     somar, formatar data, texto de linha do histórico
   rotulos-do-bem.js       situações do bem e como cada uma aparece na tela
   filtro-de-bens.js       busca por texto, filtros e total
-  nova-opcao.js           o "+" que cria empresa/categoria/local/ambiente/tipo
-                          direto no formulário, sem precisar abrir Listas
+  (a regra do "+" saiu daqui para src/compartilhado/nova-opcao.js — agora ela
+   também serve a escolha de local e a escolha de pessoa)
   ligacao-com-frota.js    a ligação bem↔veículo vista da ficha do bem: liga a
                           um carro existente, cria um carro a partir do bem, ou
                           desfaz — a gravação é em frota_veiculos.bem_id, então

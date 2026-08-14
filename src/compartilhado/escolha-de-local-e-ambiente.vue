@@ -212,12 +212,13 @@
  * que decide o que fazer com a coluna de texto antiga. Aqui ela só é MOSTRADA. */
 import { ref, reactive, computed, watch, nextTick } from 'vue'
 import { montarArvore, filtrarArvore, listarLocais, estadoDaEscolha } from './arvore-de-locais.js'
-// De propósito reaproveitando a regra do "+" que o Patrimônio já usa, em vez de
-// escrever uma segunda: ela decide se o nome digitado vira cadastro novo ou se
+// De propósito reaproveitando a regra do "+" compartilhada — a mesma que o
+// Patrimônio e a escolha de pessoa usam —, em vez de escrever uma segunda: ela
+// decide se o nome digitado vira cadastro novo ou se
 // já existe e é só selecionar (comparando sem caixa e sem espaço nas pontas —
 // senão a lista vira "Volvo", "VOLVO" e "volvo" convivendo, que é o estado real
 // de Marcas hoje).
-import { resolverNovaOpcao, normalizarNome } from '../ferramentas/patrimonio/nova-opcao.js'
+import { resolverNovaOpcao, normalizarNome } from './nova-opcao.js'
 
 const props = defineProps({
   // As três listas cruas do banco, do jeito que a tela de Patrimônio já busca.

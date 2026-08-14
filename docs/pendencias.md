@@ -183,6 +183,28 @@ Adiado porque **o dono é superadmin e já enxerga a aba**. Quando for liberar p
 mais alguém, é aqui. E se alguém disser "a aba não aparece pra mim", é isto —
 antes de suspeitar de defeito.
 
+### A10 · Lugares no mapa › conferir uma vez com o dono junto 🔴 *mexe em conjunto real*
+Subiu em 13/08: escolher **Brasil, Estado, Cidade ou Local**, com o mapa mostrando
+cada escolha e o ponto largado dizendo em que rua caiu. Duas coisas **não se
+provam com teste** e ficaram esperando:
+
+1. **Nome de ponto indo para a Meta.** Quando o ponto tem nome, o app manda `name`
+   e `address_string` junto. Até 13/08 todo ponto criado pelo mapa nasceu SEM
+   nome, então esse caminho **nunca rodou contra a Meta de verdade**. Aplicar uma
+   vez, num conjunto **pausado**, e ver a Meta aceitar.
+2. **Conferir no Gerenciador** que o estado e o ponto ficaram onde deviam. É a
+   mesma pendência que o mapa de 12/08 deixou aberta.
+
+Enquanto isso não acontece, o mapa continua marcado como "não provado ao vivo".
+
+### A11 · Lugares no mapa › a busca de endereço, com um login de verdade 🟡
+A função `buscar-lugar` (a que pergunta o endereço ao OpenStreetMap) subiu e
+responde — a porta de permissão foi conferida. O que **não** deu para conferir
+sem login foi a ligação de dentro dela até o serviço de mapa. Se ao buscar um
+Local não vier nada e a tela disser "não consegui buscar agora", é isto: o
+serviço de mapa recusou a chamada vinda da função, e a saída é trocar de serviço
+(Google/Mapbox) — decisão que já está registrada no desenho.
+
 ---
 
 ## Parte B — Precisa programar

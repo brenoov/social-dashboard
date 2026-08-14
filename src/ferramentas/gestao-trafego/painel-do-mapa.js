@@ -40,6 +40,11 @@ const CSS = `
 .gt-mapa-pin{position:absolute;width:22px;height:22px;margin:-22px 0 0 -11px;pointer-events:auto;cursor:pointer;
   background:var(--accent,#4f7cff);border:2px solid #fff;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 1px 4px rgba(0,0,0,.5);}
 .gt-mapa-pin:hover{filter:brightness(1.2);}
+/* A marca de "a área inteira": quadrada e chapada, DE PROPÓSITO diferente do
+   alfinete — e sem círculo em volta, porque área não tem raio. Um círculo aqui
+   faria o dono acreditar que o anúncio para na borda dele. */
+.gt-mapa-area{position:absolute;width:14px;height:14px;margin:-7px 0 0 -7px;pointer-events:none;
+  background:var(--surface,#151a20);border:2px solid var(--accent,#4f7cff);border-radius:3px;box-shadow:0 1px 4px rgba(0,0,0,.5);}
 .gt-mapa-credito{position:absolute;right:4px;bottom:3px;font-size:max(9px, calc(10px * var(--escala-texto, 1)));padding:1px 5px;border-radius:4px;background:rgba(0,0,0,.5);color:#fff;pointer-events:none;}
 .gt-mapa-controles{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:8px;}
 .gt-mapa-bt{min-width:40px;min-height:40px;padding:0 12px;border:1px solid var(--border,#2a2a2a);border-radius:8px;background:var(--surface,#151a20);color:var(--text,#e6edf3);font-size:max(9px, calc(15px * var(--escala-texto, 1)));cursor:pointer;}
@@ -66,12 +71,22 @@ function garantirCss() {
 }
 
 // Monta o mapa dentro de `alvo`. `opcoes`:
-//   pins        [{lat,lng,raio,unidade,nome}]  — a lista viva; o mapa NÃO a copia
-//   editavel    bool                            — sem isto, só olha
-//   aoMudar()                                   — chamado quando a lista muda
+//   lugares     [{comoMirar,lat,lng,raio,unidade,nome}] — a lista viva; o mapa
+//               NÃO a copia, ele mexe nela. É a MESMA lista do painel de lugares.
+//   editavel    bool          — sem isto, só olha
+//   aoMudar()                 — chamado quando a lista muda
+//   aoPorPonto(ponto)         — chamado quando um ponto nasce do clique; quem
+//                               chamou busca o endereço e manda desenhar de novo
+//
+// MUDOU DE `pins` PARA `lugares` em 13/08/2026: o dono passou a escolher entre
+// "a área inteira" e "ponto com raio" na mesma linha, e duas listas paralelas
+// teriam duas verdades sobre o mesmo lugar.
 export function montarMapa(alvo, opcoes) {
   const o = opcoes || {};
-  const pins = o.pins || [];
+  const lugares = o.lugares || [];
+  const temCoordenada = (l) => l && Number.isFinite(Number(l.lat)) && Number.isFinite(Number(l.lng));
+  const pontos = () => lugares.filter((l) => temCoordenada(l) && l.comoMirar === 'ponto');
+  const areas = () => lugares.filter((l) => temCoordenada(l) && l.comoMirar !== 'ponto');
   const editavel = !!o.editavel;
   garantirCss();
 
@@ -98,7 +113,7 @@ export function montarMapa(alvo, opcoes) {
   // Estado do mapa. Começa enquadrando os pins que já existem — é o pedido
   // inteiro: ver de uma vez se as coordenadas estão certas.
   const tamanho = () => ({ largura: tela.clientWidth || 640, altura: tela.clientHeight || 320 });
-  let vista = enquadrar(pins, tamanho().largura, tamanho().altura)
+  let vista = enquadrar([...pontos(), ...areas()], tamanho().largura, tamanho().altura)
     // Sem pin, abre no centro do estado de SP, que é onde as contas anunciam.
     || { centro: { lat: -22.9099, lng: -47.0626 }, zoom: 9 };
 
@@ -111,19 +126,33 @@ export function montarMapa(alvo, opcoes) {
       + ` src="${URL_DO_QUADRADINHO(q.x, q.y, q.z)}"`
       + ` style="left:${q.esquerda}px;top:${q.topo}px">`).join('');
 
-    camadaP.innerHTML = pins.map((p, i) => {
+    // ÁREA NÃO LEVA CÍRCULO. Um alfinete com círculo diria uma mentira: "a
+    // cidade inteira" não tem raio nenhum, e o círculo faria o dono acreditar
+    // que o anúncio para na borda dele.
+    const desenhoDasAreas = areas().map((a) => {
+      const pos = posicaoNaJanela(a, janela);
+      return `<span class="gt-mapa-area" style="left:${pos.esquerda}px;top:${pos.topo}px" title="${esc(a.nome || '')} — a área inteira"></span>`;
+    }).join('');
+
+    const desenhoDosPontos = pontos().map((p) => {
       const pos = posicaoNaJanela(p, janela);
       const raio = raioEmPixels(p.lat, p.raio, p.unidade, janela.zoom);
       const circulo = raio > 2
         ? `<span class="gt-mapa-raio" style="left:${pos.esquerda - raio}px;top:${pos.topo - raio}px;width:${raio * 2}px;height:${raio * 2}px"></span>`
         : '';
       const rotulo = p.nome || `${Number(p.lat).toFixed(4)}, ${Number(p.lng).toFixed(4)}`;
-      return circulo + `<span class="gt-mapa-pin" data-pin="${i}" style="left:${pos.esquerda}px;top:${pos.topo}px" title="${esc(rotulo)}"></span>`;
+      // O índice é o da LISTA INTEIRA, não o da lista filtrada: é ele que o
+      // clique usa para tirar o ponto certo.
+      const indice = lugares.indexOf(p);
+      return circulo + `<span class="gt-mapa-pin" data-pin="${indice}" style="left:${pos.esquerda}px;top:${pos.topo}px" title="${esc(rotulo)}"></span>`;
     }).join('');
 
-    dica.textContent = pins.length
-      ? `${pins.length} ponto${pins.length > 1 ? 's' : ''} · zoom ${vista.zoom}`
-      : (editavel ? 'Nenhum ponto ainda — clique no mapa para pôr um.' : 'Nenhum ponto.');
+    camadaP.innerHTML = desenhoDasAreas + desenhoDosPontos;
+
+    const quantos = pontos().length + areas().length;
+    dica.textContent = quantos
+      ? `${quantos} lugar${quantos > 1 ? 'es' : ''} no mapa · zoom ${vista.zoom}`
+      : (editavel ? 'Nenhum lugar no mapa ainda — clique para pôr um ponto.' : 'Nenhum lugar no mapa.');
   }
 
   // ── arrastar ──────────────────────────────────────────────────────────────
@@ -172,9 +201,18 @@ export function montarMapa(alvo, opcoes) {
     );
     // Raio 1 km é o que a Mantova usa nos pins de condomínio (medido). Não é
     // chute nosso: é o valor que os conjuntos reais mais repetem.
-    pins.push({ lat: c.lat, lng: c.lng, raio: 1, unidade: 'kilometer', nome: '', pais: 'BR' });
+    const novo = {
+      tipo: 'local', chave: null, nome: '', endereco: '',
+      comoMirar: 'ponto', lat: c.lat, lng: c.lng,
+      raio: 1, unidade: 'kilometer', pais: 'BR',
+      // O NOME AINDA NÃO CHEGOU, e o alfinete não espera por ele: desenhar só
+      // depois da resposta faria o mapa parecer travado no clique.
+      procurandoNome: true,
+    };
+    lugares.push(novo);
     desenhar();
     if (o.aoMudar) o.aoMudar();
+    if (o.aoPorPonto) o.aoPorPonto(novo);
   });
 
   // Clicar no pin tira o pin.
@@ -182,7 +220,7 @@ export function montarMapa(alvo, opcoes) {
     const alvoPin = ev.target.closest('[data-pin]');
     if (!alvoPin || !editavel) return;
     ev.stopPropagation();
-    pins.splice(Number(alvoPin.dataset.pin), 1);
+    lugares.splice(Number(alvoPin.dataset.pin), 1);
     desenhar();
     if (o.aoMudar) o.aoMudar();
   });
@@ -200,7 +238,7 @@ export function montarMapa(alvo, opcoes) {
       else if (q === 'menos') mudarZoom(-1);
       else if (q === 'tudo') {
         const { largura, altura } = tamanho();
-        vista = enquadrar(pins, largura, altura) || vista;
+        vista = enquadrar([...pontos(), ...areas()], largura, altura) || vista;
         desenhar();
       }
     });
@@ -212,7 +250,7 @@ export function montarMapa(alvo, opcoes) {
   desenhar();
   return { desenhar, enquadrarTudo: () => {
     const { largura, altura } = tamanho();
-    vista = enquadrar(pins, largura, altura) || vista;
+    vista = enquadrar([...pontos(), ...areas()], largura, altura) || vista;
     desenhar();
   } };
 }
