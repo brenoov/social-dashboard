@@ -118,6 +118,13 @@ const pessoas = ref([])
 const setores = ref([])
 const criandoPessoa = ref(false)
 const erroDePessoa = ref('')
+// Recado sobre como a criação TERMINOU ("já existia"/"cadastrada"), pra
+// alimentar a prop `aviso` do EscolhaDePessoa. Existe separado de
+// `erroDePessoa` porque este é preenchido DEPOIS do `await carregar()` — a
+// essa altura a caixinha já fechou sozinha, e o parágrafo que mostraria
+// `erroDePessoa` (dentro dela) nunca chegaria a aparecer. `aviso` vive no
+// parágrafo de FORA, que sobrevive ao fechamento (item D do fix de 13/08/2026).
+const avisoDeCriacao = ref('')
 // Qual campo de pessoa está criando agora ('' = nenhum). O aviso de erro e o
 // "Criando…" pertencem ao campo que pediu, não à tela: são quatro campos de
 // pessoa nesta tela e o erro de um apareceria nos outros.
@@ -1944,6 +1951,7 @@ async function criarPessoaRapida({ nome, cargo, marcaId, setorId }, campo) {
   if (criandoPessoa.value) return
   criandoPessoa.value = true
   erroDePessoa.value = ''
+  avisoDeCriacao.value = ''
   campoDeCriacao.value = campo
 
   const { data, error } = await sbClient.rpc('criar_pessoa_rapida', {
@@ -1955,20 +1963,20 @@ async function criarPessoaRapida({ nome, cargo, marcaId, setorId }, campo) {
       + 'com quem administra se você pode cadastrar colaborador.'
     return
   }
-  campoDeCriacao.value = ''
   const criada = Array.isArray(data) ? data[0] : data
   await carregar()
   // A linha devolvida é LIDA, e não jogada fora: o Patrimônio faz a mesma
   // chamada e conta o que aconteceu, e as duas telas não podem dizer coisas
-  // diferentes sobre a mesma ação. Aqui não há toast, então o recado vai pelo
-  // mesmo caminho que este componente já usa. O caso que ele realmente salva é
-  // o da pessoa DESLIGADA: ela volta como "já existia", não entra na lista das
-  // ativas, e sem este aviso a caixinha ficaria aberta e muda.
+  // diferentes sobre a mesma ação. `campoDeCriacao` continua apontando pra
+  // este campo (não zera mais aqui) porque é ele quem decide, lá no template,
+  // qual EscolhaDePessoa recebe este aviso pela prop `aviso` — e a caixinha já
+  // fechou sozinha (watch de `pessoas` no componente) ANTES deste ponto, então
+  // um recado escrito dentro dela (como `erroDePessoa` fazia antes) nunca
+  // chegava a aparecer. É o item D do fix de 13/08/2026.
   if (criada && criada.ja_existia) {
-    campoDeCriacao.value = campo
-    erroDePessoa.value = `“${criada.nome}” já estava cadastrada — não criei uma segunda. `
-      + 'Se ela não aparecer na lista, é porque está marcada como desligada: peça a quem '
-      + 'administra para reativá-la.'
+    avisoDeCriacao.value = `«${criada.nome}» já estava cadastrada — deixei essa selecionada.`
+  } else if (criada) {
+    avisoDeCriacao.value = `«${criada.nome}» cadastrada`
   }
 }
 
@@ -2001,6 +2009,7 @@ async function criarMarcaRapida({ nome }, campo) {
 // não pertence a ela.
 function limparAvisoDeCriacao() {
   erroDePessoa.value = ''
+  avisoDeCriacao.value = ''
   campoDeCriacao.value = ''
 }
 
@@ -2981,6 +2990,7 @@ onMounted(async () => {
                 :marcas="empresasPat" :setores="setores"
                 :pode-criar="podeEditar" :criando="criandoPessoa && campoDeCriacao === 'responsavel'"
                 :recado-de-erro="campoDeCriacao === 'responsavel' ? erroDePessoa : ''"
+                :aviso="campoDeCriacao === 'responsavel' ? avisoDeCriacao : ''"
                 rotulo="Responsável — de quem é o carro" texto-vazio="— ninguém —"
                 @criar="(p) => criarPessoaRapida(p, 'responsavel')" @criar-setor="(p) => criarSetorRapido(p, 'responsavel')"
                 @criar-marca="(p) => criarMarcaRapida(p, 'responsavel')" @abrir="limparAvisoDeCriacao" />
@@ -3445,6 +3455,7 @@ onMounted(async () => {
               :marcas="empresasPat" :setores="setores"
               :pode-criar="podeEditar" :criando="criandoPessoa && campoDeCriacao === 'pedido'"
               :recado-de-erro="campoDeCriacao === 'pedido' ? erroDePessoa : ''"
+              :aviso="campoDeCriacao === 'pedido' ? avisoDeCriacao : ''"
               rotulo="Quem vai dirigir" texto-vazio="— escolha —"
               @update:modelValue="conferirPedido"
               @criar="(p) => criarPessoaRapida(p, 'pedido')" @criar-setor="(p) => criarSetorRapido(p, 'pedido')"
@@ -3617,6 +3628,7 @@ onMounted(async () => {
               :marcas="empresasPat" :setores="setores"
               :pode-criar="podeEditar" :criando="criandoPessoa && campoDeCriacao === 'retirada'"
               :recado-de-erro="campoDeCriacao === 'retirada' ? erroDePessoa : ''"
+              :aviso="campoDeCriacao === 'retirada' ? avisoDeCriacao : ''"
               rotulo="Quem vai usar" texto-vazio="— escolha —"
               @criar="(p) => criarPessoaRapida(p, 'retirada')" @criar-setor="(p) => criarSetorRapido(p, 'retirada')"
               @criar-marca="(p) => criarMarcaRapida(p, 'retirada')" @abrir="limparAvisoDeCriacao" />
@@ -3708,6 +3720,7 @@ onMounted(async () => {
               :marcas="empresasPat" :setores="setores"
               :pode-criar="podeEditar" :criando="criandoPessoa && campoDeCriacao === 'passar'"
               :recado-de-erro="campoDeCriacao === 'passar' ? erroDePessoa : ''"
+              :aviso="campoDeCriacao === 'passar' ? avisoDeCriacao : ''"
               rotulo="Passar para"
               :texto-vazio="passando.pessoa_id
                 ? ('Devolver para ' + (nomeDaPessoa(passando.pessoa_id) || 'o responsável fixo'))

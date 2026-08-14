@@ -416,6 +416,7 @@
               :marcas="empresas" :setores="setores"
               :pode-criar="podeEditar" :criando="criandoPessoa && campoDeCriacao === 'massa'"
               :recado-de-erro="campoDeCriacao === 'massa' ? erroDePessoa : ''"
+              :aviso="campoDeCriacao === 'massa' ? avisoDeCriacao : ''"
               rotulo="Com quem está" texto-vazio="— não mudar —"
               @criar="(p) => criarPessoaRapida(p, 'massa')" @criar-setor="(p) => criarSetorRapido(p, 'massa')"
               @criar-marca="(p) => criarMarcaRapida(p, 'massa')" @abrir="limparAvisoDeCriacao">
@@ -674,6 +675,7 @@
               :marcas="empresas" :setores="setores"
               :pode-criar="podeEditar" :criando="criandoPessoa && campoDeCriacao === 'ficha'"
               :recado-de-erro="campoDeCriacao === 'ficha' ? erroDePessoa : ''"
+              :aviso="campoDeCriacao === 'ficha' ? avisoDeCriacao : ''"
               rotulo="Com quem está" texto-vazio="Ninguém"
               @criar="(p) => criarPessoaRapida(p, 'ficha')" @criar-setor="(p) => criarSetorRapido(p, 'ficha')"
               @criar-marca="(p) => criarMarcaRapida(p, 'ficha')" @abrir="limparAvisoDeCriacao" />
@@ -953,6 +955,11 @@ const pessoas = ref([])
 const setores = ref([])
 const criandoPessoa = ref(false)
 const erroDePessoa = ref('')
+// Recado sobre como a criação TERMINOU ("já existia"/"cadastrada"), pra
+// alimentar a prop `aviso` do EscolhaDePessoa — mesmo parágrafo de fora que a
+// Frota usa (item D do fix de 13/08/2026). O Patrimônio mantém o `adminToast`
+// que já tinha, mas as duas telas passam a dizer a mesma coisa no mesmo lugar.
+const avisoDeCriacao = ref('')
 // Qual campo de pessoa está criando agora ('' = nenhum). O aviso de erro e o
 // "Criando…" pertencem ao campo que pediu, não à tela: são dois campos de
 // pessoa aqui (a ficha e a alteração em massa) e o erro de um aparecia no
@@ -1445,6 +1452,7 @@ async function criarPessoaRapida({ nome, cargo, marcaId, setorId }, campo) {
   if (criandoPessoa.value) return
   criandoPessoa.value = true
   erroDePessoa.value = ''
+  avisoDeCriacao.value = ''
   campoDeCriacao.value = campo
 
   const { data, error } = await sbClient.rpc('criar_pessoa_rapida', {
@@ -1458,11 +1466,20 @@ async function criarPessoaRapida({ nome, cargo, marcaId, setorId }, campo) {
     return
   }
 
-  campoDeCriacao.value = ''
   const criada = Array.isArray(data) ? data[0] : data
   await carregar()
-  if (criada && criada.ja_existia) adminToast(`"${criada.nome}" já estava cadastrada`)
-  else if (criada) adminToast(`"${criada.nome}" cadastrada`)
+  // `campoDeCriacao` continua apontando pra este campo (não zera mais aqui):
+  // é ele quem decide, no template, qual EscolhaDePessoa recebe este aviso
+  // pela prop `aviso`. O `adminToast` continua — o dono já está acostumado a
+  // olhar pra ele — mas agora as duas telas (Frota e Patrimônio) dizem a
+  // mesma coisa no mesmo parágrafo de fora, e não só no toast que passa.
+  if (criada && criada.ja_existia) {
+    avisoDeCriacao.value = `«${criada.nome}» já estava cadastrada — deixei essa selecionada.`
+    adminToast(`"${criada.nome}" já estava cadastrada`)
+  } else if (criada) {
+    avisoDeCriacao.value = `«${criada.nome}» cadastrada`
+    adminToast(`"${criada.nome}" cadastrada`)
+  }
 }
 
 async function criarSetorRapido({ nome }, campo) {
@@ -1496,6 +1513,7 @@ async function criarMarcaRapida({ nome }, campo) {
 // não pertence a ela.
 function limparAvisoDeCriacao() {
   erroDePessoa.value = ''
+  avisoDeCriacao.value = ''
   campoDeCriacao.value = ''
 }
 

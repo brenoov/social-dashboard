@@ -155,6 +155,16 @@ const props = defineProps({
   criando: { type: Boolean, default: false },
   // O erro da gravação, em português, vindo da tela.
   recadoDeErro: { type: String, default: '' },
+  // Recado do PAI sobre a criação (ex.: "«Fulano» já estava cadastrada — deixei
+  // essa selecionada."), pra mostrar no parágrafo de FORA da caixinha (junto do
+  // aviso próprio do componente). Existe porque a tela só sabe como a gravação
+  // terminou DEPOIS de recarregar a lista — e a essa altura a caixinha já
+  // fechou sozinha (o watch de `pessoas` abaixo detecta o nome novo e chama
+  // `cancelar()`), então um recado escrito dentro dela nunca chegaria a
+  // aparecer. Ver item D do fix de 13/08/2026: a Frota escrevia esse recado e
+  // ele nunca era visto, porque o parágrafo que o mostraria vivia dentro da
+  // caixinha já fechada.
+  aviso: { type: String, default: '' },
 
   rotulo: { type: String, default: 'Pessoa' },
   textoVazio: { type: String, default: '— ninguém —' },
@@ -187,11 +197,17 @@ const idQueOAvisoExplica = ref('')
 
 // O aviso de fora só existe com a caixinha FECHADA — com ela aberta quem mostra
 // o recado é o parágrafo de dentro — e só enquanto a escolha for a que ele
-// explica.
+// explica. Dois avisos podem disputar este parágrafo (o próprio, de nome
+// repetido resolvido aqui mesmo; e o do pai, prop `aviso`, sobre uma criação
+// que só ele sabe como terminou) — nunca um terceiro lugar de mensagem: quando
+// os dois têm algo a dizer, o do componente ganha, porque é sobre o que a
+// pessoa acabou de digitar agora.
 const avisoDeFora = computed(() => {
+  if (aberta.value) return ''
   const aindaEhAEscolhaQueEuFiz = !!idQueOAvisoExplica.value
     && props.modelValue === idQueOAvisoExplica.value
-  return !aberta.value && aindaEhAEscolhaQueEuFiz ? recado.value : ''
+  if (aindaEhAEscolhaQueEuFiz) return recado.value
+  return props.aviso
 })
 
 async function abrirCaixinha() {
