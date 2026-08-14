@@ -1,6 +1,6 @@
 # Pendências do iamundi
 
-Última revisão: **13/08/2026**
+Última revisão: **14/08/2026**
 
 O que é este arquivo: a lista viva do que está **em aberto** no projeto. Cada item
 diz o que falta, **por que importa** e **onde** se resolve. É a memória escrita —
@@ -470,6 +470,36 @@ Ou seja: **ligar o aviso do A1 é o que destrava estas duas.**
 
 O que está em jogo: das 26 multas (R$ 4.653,76), **5 são "não identificação do
 condutor", R$ 1.301,60** — dinheiro perdido puramente por não saber quem dirigia.
+
+### B13 · Frota › quem decidiu a reserva nem sempre tem nome na tela
+
+O histórico da aba Gestão mostra quem pediu, quem decidiu e quem encerrou cada
+reserva. O nome sai de `acessos_pessoas.profile_id` — a ficha de colaborador
+ligada à conta de login, que a tela já carrega. **Quem tem login e não tem ficha
+de colaborador ligada aparece só como data, sem nome.**
+
+Não é defeito de tela: é o mesmo elo que o A2 trata pelo outro lado (gente sem
+login). Enquanto o elo não existir, a tela escreve a data e cala sobre o nome —
+o que ela não faz é inventar um nome plausível.
+
+**Como resolver:** ligar a ficha de colaborador ao login de cada pessoa em
+Acessos. Sem código.
+
+### B14 · Frota › o aceite de retirada não tem cópia em PDF no Zoho
+
+Desde 13/08/2026 quem pega um carro conferido por **outra pessoa** assina o
+*aceite de retirada* (ver o desenho em
+`docs/superpowers/specs/2026-08-13-frota-gestao-reservas-design.md`). Ele fica
+gravado em `frota_uso`, com o rabisco e o código da ficha do dia congelado.
+
+**O que não existe: o PDF dele na pasta do Zoho.** Foi decisão consciente — o
+dono aprovou "uma assinatura por viagem e nenhum PDF a mais", e a prova mora no
+banco, não no papel. Fica anotado porque, no dia em que uma multa precisar do
+papel do aceite, ele não vai estar na pasta.
+
+**O que fazer, se for pedido:** a mesma receita do checklist —
+`frota_uso_pdf` + a fila que a Edge Function `enviar-pdf-checklist` já sabe
+processar. O gerador (`pdf-do-checklist.js`) já tem o papel timbrado pronto.
 
 ---
 
