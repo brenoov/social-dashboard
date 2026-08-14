@@ -94,6 +94,24 @@ export function paraListas(lugares) {
   return saida;
 }
 
+// JÁ ESTÁ NA LISTA? Duas identidades diferentes, porque os lugares têm duas
+// naturezas: o que vem da Meta é a CHAVE (mesma chave e mesmo tipo = mesmo
+// lugar), e o que vem do mapa é a COORDENADA. Sem isto, clicar duas vezes no
+// mesmo resultado duplicaria a segmentação — e público duplicado não dá erro
+// nenhum na Meta, só gasta.
+export function jaEstaNaLista(lugares, achado) {
+  if (!achado) return false;
+  return lista(lugares).some((l) => {
+    if (l == null) return false;
+    if (l.chave != null && achado.chave != null) {
+      return String(l.chave) === String(achado.chave) && l.tipo === achado.tipo;
+    }
+    const a = num(l.lat); const b = num(l.lng);
+    const c = num(achado.lat); const d = num(achado.lng);
+    return a != null && c != null && a === c && b === d;
+  });
+}
+
 // O que a pessoa lê na linha. Nunca devolve vazio: ponto sem nome mostra a
 // coordenada, que é feia mas verdadeira — melhor que uma linha em branco.
 export function rotuloDoLugar(lugar) {

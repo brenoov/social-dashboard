@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  LUGAR_TIPOS, podeVirarPonto, deListas, paraListas, rotuloDoLugar,
+  LUGAR_TIPOS, podeVirarPonto, deListas, paraListas, rotuloDoLugar, jaEstaNaLista,
 } from './lugares-do-anuncio.js';
 
 test('os quatro tipos, na ordem que a tela mostra', () => {
@@ -80,4 +80,21 @@ test('nada quebra com lista faltando ou nula', () => {
   assert.deepEqual(deListas(null), []);
   assert.deepEqual(deListas({}), []);
   assert.deepEqual(paraListas(null), { paises: [], estados: [], cidades: [], pins: [] });
+});
+
+// Público duplicado não dá erro nenhum na Meta — só gasta. Por isso a lista
+// recusa o repetido, e a identidade é diferente conforme a origem: chave para o
+// que vem da Meta, coordenada para o que vem do mapa.
+test('a lista recusa o lugar repetido, pela chave OU pela coordenada', () => {
+  const lista = [
+    { tipo: 'cidade', chave: '273173', nome: 'Uberlândia', comoMirar: 'area' },
+    { tipo: 'local', chave: null, nome: 'Shopping', comoMirar: 'ponto', lat: -18.91, lng: -48.26 },
+  ];
+  assert.equal(jaEstaNaLista(lista, { tipo: 'cidade', chave: '273173' }), true, 'mesma cidade');
+  assert.equal(jaEstaNaLista(lista, { tipo: 'estado', chave: '273173' }), false, 'mesma chave, tipo diferente: outro lugar');
+  assert.equal(jaEstaNaLista(lista, { tipo: 'cidade', chave: '999' }), false, 'cidade nova entra');
+  assert.equal(jaEstaNaLista(lista, { tipo: 'local', chave: null, lat: -18.91, lng: -48.26 }), true, 'mesmo ponto');
+  assert.equal(jaEstaNaLista(lista, { tipo: 'local', chave: null, lat: -18.92, lng: -48.26 }), false, 'ponto ao lado é outro ponto');
+  assert.equal(jaEstaNaLista(lista, null), false);
+  assert.equal(jaEstaNaLista(null, { tipo: 'cidade', chave: '1' }), false);
 });
