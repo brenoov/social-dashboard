@@ -144,7 +144,14 @@ const props = defineProps({
   // repetido: o banco procura em todo mundo, então sem isto a tela deixa a
   // pessoa tentar criar um nome que o banco vai recusar como já existente — e
   // ela fica clicando "Criar" para sempre, sem nada acontecer.
-  todas: { type: Array, default: () => [] },     // { id, nome, status, cargo }
+  //
+  // OBRIGATÓRIA de propósito (13/08/2026): com `default: () => []`, uma tela
+  // nova que esquecesse de passar `todas` caía de volta EXATAMENTE nesse beco
+  // sem saída — nome de gente desligada parece inédito, o banco recusa como
+  // repetida, "Criar" não faz nada, para sempre, sem mensagem. `required`
+  // faz o Vue reclamar alto no console em desenvolvimento quando faltar, em
+  // vez de deixar a tela nascer muda sobre o próprio defeito.
+  todas: { type: Array, required: true },        // { id, nome, status, cargo }
   marcas: { type: Array, default: () => [] },    // { id, nome }
   setores: { type: Array, default: () => [] },   // { id, nome }
 
