@@ -86,6 +86,64 @@ test('no computador, o "?" e o "✕" encolhem JUNTOS e para o mesmo tamanho', ()
   assert.equal(tam('tela-frota .fr-fechar'), tam('tela-frota .fr-btn-ajuda'))
 })
 
+// ── No computador, cartão e botão param de variar de tamanho ───────────────
+//
+// Segunda bronca do dono sobre o mesmo assunto (13/08/2026): "os cards, botões
+// no computador estão feios, precisa harmonizar e centralizar melhor os
+// tamanhos". A primeira rodada igualou a ALTURA dos botões; o que sobrou foi a
+// LARGURA deles e a altura dos cartões.
+
+test('na grade do computador o botão não estica pra preencher o cartão', () => {
+  // `.fr-btn` nasce com `flex:1 1 auto` — certo no celular, onde o dedo quer a
+  // largura toda. Na grade do computador aquilo dava cartão com um botão de
+  // ponta a ponta ao lado de cartão com três botões de larguras diferentes.
+  const tela = fonte['tela-de-frota.vue']
+  const desktop = tela.slice(tela.indexOf('@media(min-width:900px)'))
+  const m = desktop.match(/\.tela-frota \.fr-lista \.fr-acoes \.fr-btn\{([^}]*)\}/)
+  assert.ok(m, 'sumiu a regra que impede o botão de esticar no computador')
+  assert.match(m[1], /flex:0 /, 'o botão voltou a esticar (flex-grow diferente de 0)')
+  assert.match(m[1], /min-width:\d+px/, 'sem largura mínima igual não há harmonia nenhuma')
+})
+
+test('a ação cola no rodapé do cartão, e só do cartão', () => {
+  const tela = fonte['tela-de-frota.vue']
+  // O cartão precisa ser coluna, senão o `auto` não tem eixo pra empurrar.
+  const card = regras(tela, 'tela-frota \\.fr-card').find((c) => /background/.test(c))
+  assert.ok(card, '.fr-card sumiu — se foi renomeado, atualize este teste')
+  assert.match(card, /flex-direction:column/, 'sem coluna, margin-top:auto não empurra nada')
+  // FILHO DIRETO: `.fr-acoes` também aparece dentro da caixa da senha do
+  // convite, no meio de outros parágrafos. Um `auto` solto empurraria aquela
+  // linha de botões — e tudo o que vem depois — pro pé da caixa.
+  assert.match(tela, /\.tela-frota \.fr-card > \.fr-acoes\{[^}]*margin-top:auto/,
+    'a ação precisa colar no rodapé do cartão, e por filho DIRETO')
+})
+
+test('os dois selos da aba Gestão têm a mesma medida', () => {
+  // Eles aparecem um embaixo do outro, na mesma aba. Um deles tinha `.8rem`
+  // cravado, que além de divergir IGNORA o ajuste de tamanho de letra do app.
+  const tela = fonte['tela-de-frota.vue']
+  const medida = (classe) => {
+    const corpo = regras(tela, classe).find((c) => /font-size/.test(c))
+    assert.ok(corpo, `.${classe} sumiu — se foi renomeado, atualize este teste`)
+    const letra = (corpo.match(/font-size:max\(9px, calc\(([\d.]+)px/) || [])[1]
+    assert.ok(letra, `.${classe} não usa a escala de texto do app`)
+    return `${letra}|${(corpo.match(/padding:([^;]+)/) || [])[1]}|${(corpo.match(/border-radius:([^;]+)/) || [])[1]}`
+  }
+  assert.equal(medida('tela-frota \\.fr-selo'), medida('tela-frota \\.fr-cobranca-selo'))
+})
+
+test('os botões rápidos do topo ficam todos da mesma altura no computador', () => {
+  // `align-items:start` foi copiado da sanfona de revisões, onde é necessário
+  // (cartão que abre). Aqui produzia botão de duas linhas mais alto que o
+  // vizinho, e a fila saía desalinhada.
+  const brp = fonte['botoes-rapidos.vue']
+  const desktop = brp.slice(brp.indexOf('@media(min-width:900px)'))
+  const m = desktop.match(/\.brp-grade\{([^}]*)\}/)
+  assert.ok(m, '.brp-grade sumiu do trecho de computador')
+  assert.doesNotMatch(m[1], /align-items:\s*start/,
+    'com align-items:start os botões voltam a ter alturas diferentes')
+})
+
 test('nenhum botão da Frota fica abaixo de 34px', () => {
   // 34px é o menor que esta ferramenta usa, e só no computador. Qualquer coisa
   // menor é um alvo que o dedo erra — e um deles APAGA registro do histórico.

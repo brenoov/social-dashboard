@@ -46,9 +46,14 @@ defineEmits(['escolher'])
 .brp-nome{font-size:max(9px, calc(13.5px * var(--escala-texto, 1)));font-weight:700;color:var(--text);line-height:1.25;overflow-wrap:anywhere;}
 .brp-estado{font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));color:var(--muted);line-height:1.3;overflow-wrap:anywhere;}
 @media(min-width:900px){
-  /* Quatro por linha no computador. `align-items:start` porque um botão com
-     estado e outro sem têm alturas diferentes, e a grade estica por padrão —
-     mesmo defeito que a sanfona de revisões pegou na Fase A. */
-  .brp-grade{grid-template-columns:repeat(auto-fit,minmax(200px,1fr));align-items:start;padding:14px 24px 6px;}
+  /* Quatro por linha no computador, e TODOS DA MESMA ALTURA.
+     Aqui havia `align-items:start`, copiado da sanfona de revisões. Lá aquilo
+     é necessário: a sanfona ABRE, e um cartão aberto inflaria os vizinhos
+     fechados da mesma linha. Estes botões não abrem nada — são estáticos, um
+     ao lado do outro. O que o `start` produzia era o defeito que o dono
+     apontou em 13/08/2026: botão com rótulo de duas linhas ficava mais alto
+     que o vizinho, e a fila inteira saía desalinhada no computador.
+     Deixando a grade esticar (o padrão dela), a linha fica reta. */
+  .brp-grade{grid-template-columns:repeat(auto-fit,minmax(200px,1fr));padding:14px 24px 6px;}
 }
 </style>

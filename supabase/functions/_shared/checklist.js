@@ -84,6 +84,71 @@ export function precisaDeChecklist({ veiculoId, fichas, hoje }) {
   return !(fichas || []).some((f) => f && f.veiculo_id === veiculoId && f.feita_em === hoje);
 }
 
+/**
+ * O QUE PEDIR A QUEM ESTÁ PEGANDO O CARRO AGORA.
+ *
+ * Desenho: docs/superpowers/specs/2026-08-13-frota-gestao-reservas-design.md
+ *
+ * POR QUE ESTA FUNÇÃO EXISTE, e o que ela conserta. `precisaDeChecklist` acima
+ * olha só CARRO e DIA. A consequência, medida no banco em 13/08/2026: das 5
+ * retiradas reais, nenhuma tinha a assinatura de quem pegou o carro. No único
+ * dia em que houve ficha assinada, quem assinou foi Erick Martins às 7h30 e
+ * quem pegou o carro foi Breno às 17h49 — e como o carro "já tinha checklist
+ * hoje", a tela não pediu nada a ele.
+ *
+ * São duas frases diferentes, e é por isso que uma não cobre a outra:
+ *   o checklist diz  "o carro estava assim neste dia, e fulano viu";
+ *   a retirada diz   "eu, fulano, recebi este carro assim e respondo por ele".
+ *
+ * A REGRA PASSA A SER POR PESSOA, e não por carro:
+ *
+ *   ninguém conferiu hoje      → o checklist inteiro, assinado (como já era)
+ *   quem está pegando conferiu → nada. Ninguém confere o mesmo carro 2x no dia
+ *   conferiu OUTRA pessoa      → o aceite: uma linha curta, assinada
+ *   conferiram e não assinaram → o aceite também. A conferência valeu; o que
+ *                                falta é a prova, e o aceite é ela.
+ *
+ * NÃO EXISTE "assinar duas vezes": `frota_checklist` tem `unique (veiculo_id,
+ * feita_em)`, um checklist por carro por dia, de propósito. O aceite mora na
+ * viagem (`frota_uso`), não numa segunda ficha — continua sendo uma assinatura
+ * por viagem, e nenhum PDF a mais. Foi assim que o dono aprovou.
+ */
+export function oQuePedirNaRetirada({ veiculoId, fichas, hoje, pessoaId, pessoaNome }) {
+  const ficha = (fichas || []).find((f) => f && f.veiculo_id === veiculoId && f.feita_em === hoje) || null;
+
+  if (!ficha) return { pedir: 'checklist', porque: 'sem-ficha', ficha: null, quemConferiu: null };
+
+  const nome = (s) => String(s ?? '').trim().toLowerCase();
+  const mesmaPessoa = (pessoaId && ficha.pessoa_id && pessoaId === ficha.pessoa_id)
+    // O nome só decide quando os DOIS têm nome escrito: dois vazios não são a
+    // mesma pessoa, são duas ausências — e tratá-los como iguais dispensaria a
+    // assinatura de quem pega justamente nos casos sem cadastro.
+    || (!!nome(pessoaNome) && nome(pessoaNome) === nome(ficha.pessoa_nome));
+
+  if (!ficha.assinada_em) {
+    return { pedir: 'aceite', porque: 'ficha-sem-assinatura', ficha, quemConferiu: ficha.pessoa_nome || null };
+  }
+  if (mesmaPessoa) {
+    return { pedir: 'nada', porque: 'ja-assinou', ficha, quemConferiu: ficha.pessoa_nome || null };
+  }
+  return { pedir: 'aceite', porque: 'assinou-outra', ficha, quemConferiu: ficha.pessoa_nome || null };
+}
+
+/** A frase que a ficha de retirada mostra em cima do campo de assinar. */
+export function porQuePedirOAceite(porque, quemConferiu) {
+  const quem = String(quemConferiu ?? '').trim();
+  switch (porque) {
+    case 'assinou-outra':
+      return `${quem || 'Outra pessoa'} já conferiu este carro hoje e assinou. `
+        + 'Você não precisa conferir de novo — só assinar que está recebendo o carro assim.';
+    case 'ficha-sem-assinatura':
+      return 'Este carro já foi conferido hoje, mas a ficha ficou sem assinatura. '
+        + 'Assine que está recebendo o carro no estado registrado.';
+    default:
+      return '';
+  }
+}
+
 /* ── O que entra na ficha ─────────────────────────────────────────────────── */
 
 /** Os itens ativos das cadências pedidas, na ordem que o gestor definiu. */

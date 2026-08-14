@@ -3618,7 +3618,14 @@ onMounted(async () => {
 /* Cor pelo token, nunca chumbada: o app tem modo escuro, e verde-claro fixo
    sobre fundo preto é ilegível. Mesmo motivo que fez o painel do motorista
    inteiro precisar ser refeito. */
-.tela-frota .fr-cobranca-selo{font-size:.8rem;font-weight:600;padding:2px 10px;border-radius:999px;background:var(--surface2);color:var(--green);white-space:nowrap;}
+/* MESMA MEDIDA DO `.fr-selo`, e isso foi bronca do dono (13/08/2026: tamanhos
+   divergentes no computador). Os dois selos aparecem na MESMA aba, um embaixo
+   do outro, e estavam em medidas diferentes: este tinha `.8rem` cravado e
+   `padding:2px`, enquanto o outro usa a escala de texto do app e `padding:4px`.
+   Pior que a diferença: `rem` cravado IGNORA o ajuste de tamanho de letra da
+   Central (`--escala-texto`) — quem aumenta a letra via ajuste via este selo
+   ficar para trás dos outros. */
+.tela-frota .fr-cobranca-selo{font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));font-weight:700;letter-spacing:.4px;padding:4px 10px;border-radius:999px;background:var(--surface2);color:var(--green);white-space:nowrap;}
 .tela-frota .fr-cobranca-selo.pendente{color:var(--red);}
 /* "feito, sem assinatura" (D22): laranja, não vermelho. Vermelho é FALTA, e
    sem assinatura não é falta de ninguém — três donos de carro não têm login.
@@ -3785,7 +3792,15 @@ onMounted(async () => {
 .tela-frota .fr-checklist-editor{padding:4px 14px 40px;}
 
 .tela-frota .fr-lista{display:flex;flex-direction:column;gap:10px;padding:4px 14px 40px;}
-.tela-frota .fr-card{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--green,#16a34a);border-radius:12px;padding:14px 16px;}
+/* CARTÃO EM COLUNA, e isso não é preferência de escrita: é o que permite ao
+   `.fr-acoes` empurrar-se pro rodapé com `margin-top:auto` lá embaixo. Sem
+   `flex-direction:column` aqui, o `auto` não tem eixo pra empurrar e o botão
+   fica onde o texto acabar — que é o que deixava, no computador, cada coluna
+   da grade com o botão numa altura diferente. (Bronca do dono, 13/08/2026:
+   "os cards e botões no computador estão feios".)
+   Medida do respiro e do raio pela ESCALA, não no olho: `--card-pad` e
+   `--card-radius` são os mesmos que o resto da Central usa. */
+.tela-frota .fr-card{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--green,#16a34a);border-radius:var(--card-radius);padding:var(--card-pad);display:flex;flex-direction:column;}
 .tela-frota .fr-card.rua{border-left-color:var(--accent);}
 .tela-frota .fr-card.parado{border-left-color:var(--muted);opacity:.72;}
 .tela-frota .fr-card-topo{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;}
@@ -3801,7 +3816,20 @@ onMounted(async () => {
 .tela-frota .fr-dado-lab{font-family:var(--fonte-principal);font-size:max(9px, calc(9.5px * var(--escala-texto, 1)));letter-spacing:.8px;text-transform:uppercase;color:var(--muted);}
 .tela-frota .fr-dado-val{font-family:var(--fonte-dados);font-size:max(9px, calc(13px * var(--escala-texto, 1)));font-weight:600;color:var(--text);font-variant-numeric:tabular-nums;}
 .tela-frota .fr-dado-val.alerta{color:var(--orange,#d97706);}
-.tela-frota .fr-acoes{display:flex;gap:8px;margin-top:14px;}
+/* `flex-wrap` porque um cartão pode ter quatro botões ("Abrir ficha",
+   "Devolver", "Passar, devolver ou recolher", "WhatsApp") e sem quebra o
+   último sairia pela borda — e `overflow-x:clip` cortaria isso em silêncio. */
+.tela-frota .fr-acoes{display:flex;gap:var(--sp-2);margin-top:var(--sp-3);flex-wrap:wrap;}
+/* `margin-top:auto` = a ação COLA NO RODAPÉ do cartão. Na grade do computador
+   os cartões de uma mesma linha já têm a mesma altura (é o padrão do grid), e
+   é isto que faz os botões pararem todos na mesma altura em vez de subirem e
+   descerem conforme o texto de cada carro.
+
+   FILHO DIRETO do cartão, de propósito. `.fr-acoes` também aparece DENTRO de
+   outros blocos (a caixa da senha do convite, por exemplo), no meio de outros
+   parágrafos — ali um `auto` empurraria a linha de botões e tudo o que vem
+   depois pro pé da caixa, abrindo um buraco no meio. */
+.tela-frota .fr-card > .fr-acoes{margin-top:auto;padding-top:var(--sp-3);}
 
 /* 44px de altura em tudo que se toca: é o alvo que o dedo acerta. Esta
    ferramenta é usada em pé, no estacionamento, com uma mão só. */
@@ -3884,6 +3912,23 @@ onMounted(async () => {
   .tela-frota .fr-topbar{padding:12px 24px;}
   .tela-frota .fr-resumo{padding:12px 24px;}
   .tela-frota .fr-lista{padding:4px 24px 40px;display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;}
+
+  /* O BOTÃO PARA DE ESTICAR NO COMPUTADOR (bronca do dono, 13/08/2026).
+     `.fr-btn` nasce com `flex:1 1 auto` porque no celular o dedo quer a
+     largura toda — e ali isso está certo, não se mexe. Mas dentro da grade do
+     computador aquilo dava o efeito que ele viu: cartão com UM botão ficava
+     com um botão de ponta a ponta, cartão com TRÊS ficava com três larguras
+     diferentes, e a lista inteira parecia montada no olho.
+
+     Aqui o botão passa a ter a largura do que ele diz, com um mínimo IGUAL
+     pra todos — é o mínimo que dá a harmonia, e o conteúdo é quem cresce
+     quando o rótulo é longo ("Passar, devolver ou recolher").
+
+     132px, e não mais: a coluna da grade tem 320px, menos 32px de respiro do
+     cartão sobram 288px. Dois botões de 132 com 8 de intervalo dão 272 e
+     cabem na mesma linha; a 148 já não caberiam, e dois botões curtos
+     quebrariam em duas linhas sem necessidade. Contado, não estimado. */
+  .tela-frota .fr-lista .fr-acoes .fr-btn{flex:0 1 auto;min-width:132px;}
   .tela-frota .fr-checklist-editor{padding:4px 24px 40px;}
   /* Ponteiro do mouse acerta 24px sem esforço — ver o comentário no fr-btn-ajuda. */
   /* O "?" e o "✕" dividem a linha do topo do modal, com 10px entre eles: no
