@@ -19,6 +19,24 @@ Aqui ficam as peças que TODAS as ferramentas usam:
                                    "Fábrica Conchal" e DUAS "Sede Limeira", de
                                    empresas diferentes
 
+ESCOLHER ONDE O ANÚNCIO APARECE (13/08/2026)
+============================================
+- lugares-do-anuncio.js          → o modelo de "um lugar" (Brasil, Estado,
+                                   Cidade, Local) e a tradução para as QUATRO
+                                   chaves que a Meta entende: countries,
+                                   regions, cities e custom_locations. Puro.
+- busca-de-lugar.js              → monta a pergunta certa pra cada tipo e traduz
+                                   as respostas. São DOIS fornecedores porque a
+                                   Meta não devolve coordenada nenhuma e não tem
+                                   busca de estabelecimento (medido em
+                                   13/08/2026): o catálogo dela dá a CHAVE, e o
+                                   OpenStreetMap dá a coordenada e o endereço
+- painel-de-lugares.js           → a linha de acrescentar + a lista. Imperativo
+                                   e montado num elemento, para servir tanto o
+                                   modal da Gestão de Tráfego (que vive fora da
+                                   raiz do componente, onde :deep() não alcança)
+                                   quanto a Fábrica, que é Vue
+
 REGRA IMPORTANTE
 ================
 Estes arquivos são compartilhados. Mudanças aqui afetam TODO o sistema.

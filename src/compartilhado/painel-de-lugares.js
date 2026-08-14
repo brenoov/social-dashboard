@@ -274,5 +274,16 @@ export function montarPainelDeLugares(alvo, opcoes) {
   campo.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); buscar(); } });
 
   pintar();
+
+  // OS LUGARES QUE JÁ VIERAM DO CONJUNTO também precisam aparecer no mapa.
+  //
+  // ACHADO NA PROVA (13/08/2026): o lugar recém-escolhido ganhava a marca
+  // sozinho, mas a cidade que já estava no conjunto ficava fora do mapa — o mapa
+  // abria vazio para quem só queria CONFERIR o que já existe, que é metade do
+  // pedido. Vão pela mesma fila de uma por vez, no fundo, sem travar a tela.
+  for (const l of lugares) {
+    if (l && l.comoMirar !== 'ponto' && l.lat == null && l.nome) procurarOndeFica(l);
+  }
+
   return { redesenhar: pintar, dizer };
 }
