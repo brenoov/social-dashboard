@@ -253,6 +253,36 @@ verdes; entram testes novos só para o que é novo (cabeçalho, rodapé, numera�
 - Edge Function `enviar-pdf-checklist` subida **na mão**, com as dependências de
   `_shared` — ela não sobe com push.
 
+## O que ficou provado, e a única divergência que sobrou
+
+Feito e conferido em 14/08/2026:
+
+- `npm test`: **3043 testes verdes** (eram 2966 antes da merge com a main).
+- `npm run build` sem erro.
+- Navegador de verdade, **1440px e 375px, tema claro e escuro**, com o CSS do
+  build e o `data-v` real: rolagem horizontal **0**, nenhum alvo abaixo de 40px,
+  nada de texto cortado. Cartões da mesma linha com **altura idêntica**
+  (520/520/520 e 302×4) e a ação a **17px do rodapé em todos** — que é o que o
+  dono chamou de feio quando não era assim.
+- Migrations 045 e 046 aplicadas pelo MCP, e os gatilhos **provados dentro de
+  transação desfeita** (`rollback`), sem tocar em dado real: cancelar sem motivo
+  é barrado, cancelar com motivo carimba quem/quando, o histórico nasce sozinho,
+  e reserva encerrada não se edita.
+- PDF novo gerado a partir da ficha real de 07/08 (BMW X1) e **aberto**.
+- Edge Function `enviar-pdf-checklist` na **versão 4**, e um 401 de teste prova
+  que ela sobe e importa os seis módulos — o 401 só acontece depois disso.
+- Deploy conferido **pelo caminho**, em `socialdashboard.rbvcompany.com`:
+  home → `index-6U_hIesq.js` → `tela-de-frota-Ci10MX1e.js`, com o mesmo
+  SHA-256 do arquivo construído aqui.
+
+**A divergência:** o deploy da Edge Function é feito enviando o conteúdo dos
+arquivos, e o que subiu tem **alguns caracteres de enfeite a menos nos
+comentários** (as réguas `──` de algumas seções, e um acento em "papéis"). O
+código executável foi comparado **byte a byte com comentários e espaços
+removidos: os seis arquivos são idênticos ao repositório.** Não muda
+comportamento nenhum, e some no próximo deploy desta função — fica escrito aqui
+porque nesta central vale a regra de que só o servidor diz o que está rodando.
+
 ## O que fica de fora, de propósito
 
 - **Assinatura de requisição** — decisão do dono, com o motivo registrado acima.
