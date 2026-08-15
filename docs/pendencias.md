@@ -1,6 +1,6 @@
 # Pendências do iamundi
 
-Última revisão: **14/08/2026**
+Última revisão: **15/08/2026**
 
 O que é este arquivo: a lista viva do que está **em aberto** no projeto. Cada item
 diz o que falta, **por que importa** e **onde** se resolve. É a memória escrita —
@@ -312,7 +312,38 @@ a Meta devolver rate limit de verdade. Money-path: na próxima vez que der rate
 limit, conferir no Gerenciador que continuou na MESMA campanha, sem uma segunda
 igual. Só depois disso o item sai daqui.
 
-### B4b · Meta Ads › as seis melhorias subiram sem ninguém ver na tela 🔴
+### B4b · Meta Ads › as seis melhorias subiram sem ninguém ver na tela 🟡 *metade provada em 15/08*
+
+> ✅ **A metade de LEITURA foi vista numa tela logada em 15/08/2026**, com a conta
+> real do dono (`erick@`) e uma trava de rede que abortava toda escrita. Os três
+> defeitos que estavam só "conferidos no bundle" agora estão conferidos na tela:
+>
+> | O que era o defeito | O que a tela mostrou |
+> |---|---|
+> | "Erro ao carregar contas: g is not iterable" (GRANT da coluna `persona`) | A lista abre com as 4 contas, e trocar de conta funciona |
+> | Aba "A régua" MORTA (`Cannot access 'campo' before initialization`) | Pinta inteira: o texto de ajuda, as metas e os campos de peso |
+> | Texto da IA caindo em campo órfão (o `data-conta-id`) | O `<textarea>` carrega `data-conta-id`, e ele bate com a conta ativa |
+>
+> A prova mais forte foi a persona: na conta da Raíssa o campo vem vazio, e o
+> banco confirma `persona` nula — vazio honesto. Trocando para a **Vessel**, os
+> **2.326 caracteres** aparecem no campo e o `data-conta-id` muda junto para o id
+> da Vessel. Se o GRANT ainda estivesse faltando, a linha inteira seria recusada
+> e a lista de contas nem carregaria.
+>
+> **Zero escritas.** A trava abortava tudo que não fosse leitura, e no caminho
+> inteiro ela não precisou barrar nada do app — só os dois disparos falsos que eu
+> mesmo fiz para provar que ela mordia. 92 leituras na Meta, nenhuma escrita.
+>
+> ⚠️ **Uma armadilha do método, que vale guardar:** a primeira trava abortava
+> *todo* POST, e o `meta-proxy` **lê por POST** (o verbo real vai no corpo). A
+> tela apareceu com "0 campanhas / Nenhuma campanha encontrada" — um defeito que
+> não existia, fabricado pela minha própria medição. A trava passou a ler o corpo
+> e deixar passar só `method: 'GET'`; aí vieram as 5 campanhas de verdade.
+>
+> **O que continua sem prova, e é o que sobra deste item:** as três de escrita —
+> pin no mapa (reescreve `custom_locations` na Meta), re-disparo do subir (depende
+> de rate limit real) e sugerir público (gasta IA). Nenhuma dá para provar sem
+> escrever na conta real.
 As seis melhorias que o dono pediu em 12/08/2026 estão **no ar e conferidas no
 bundle de produção**, mas **nenhuma foi vista funcionando com sessão logada**.
 Três são money-path:
@@ -365,8 +396,9 @@ correta — e leva de 10 a 60 segundos, o que importou (ver abaixo).
 > a permissão de leitura de `persona` para quem está logado (`access_token`
 > continua revogado), e a tela passou a olhar o status da resposta — erro de
 > leitura agora vira "sua sessão expirou" / "você não tem permissão", nunca mais
-> jargão. ⚠️ **Não foi visto numa tela logada** (esta máquina não tem sessão e a
-> regra é não mexer em conta real): o primeiro a abrir confirma.
+> jargão. ✅ **Visto numa tela logada em 15/08** — a lista de contas abre e a
+> persona da Vessel (2.326 caracteres) chega ao campo. Ver o quadro no topo deste
+> item.
 >
 > **A lição, que vale pra próxima coluna:** em `accounts`, **coluna nova nasce sem
 > permissão de leitura**. Migration que cria coluna que a tela lê tem que dar o
