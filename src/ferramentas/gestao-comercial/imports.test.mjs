@@ -12,13 +12,10 @@ import { guardarImports } from '../../compartilhado/guarda-de-imports.mjs'
 //
 // O motor mora em `src/compartilhado/guarda-de-imports.mjs` e se testa em
 // `guarda-de-imports.test.mjs`. Pasta nova nasce com este arquivo.
-//
-// A dor desta pasta (05/08/2026): `vendedoras`, `veOEstoque` e
-// `podeLiberarEstoque` usados sem import derrubaram a tela de Admin.
 
 guardarImports(import.meta.url, {
   // Quantas telas a pasta tem hoje. Se cair, é `.vue` sumindo — e o guarda
   // passaria por estar vazio, que é o mesmo que não existir. Mexer aqui é de
   // propósito, nunca de passagem.
-  minimoDeTelas: 1,
+  minimoDeTelas: 3,
 })
