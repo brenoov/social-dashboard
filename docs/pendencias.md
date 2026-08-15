@@ -205,25 +205,57 @@ Local não vier nada e a tela disser "não consegui buscar agora", é isto: o
 serviço de mapa recusou a chamada vinda da função, e a saída é trocar de serviço
 (Google/Mapbox) — decisão que já está registrada no desenho.
 
+### A12 · Status do Claude › o `breno@` não enxerga a ferramenta 🟢 *achado em 14/08*
+Medido no banco em 14/08, conferindo outra coisa (o B12).
+
+| Super-admin | Tem `claude.status` |
+|---|---|
+| erick@rbvcompany.com | sim |
+| gabriel.gertrudes@rbvcompany.com | sim |
+| **breno@rbvcompany.com** | **não** |
+
+Por quê: a permissão foi concedida por uma migration de julho que varria **quem
+era super-admin naquele dia**. O `breno@` virou super-admin depois, e a concessão
+não voltou a rodar. É o padrão conhecido: **chave nova só chega a quem já
+existia** — quem entra depois nasce sem ela.
+
+Resolve em **Administração › Usuários**, marcando "ver" em Status do Claude para
+o `breno@`. Não mexi: é permissão de pessoa de verdade, e a decisão é sua.
+
 ---
 
 ## Parte B — Precisa programar
 
-### B1 · 15 pastas ainda sem o guarda de import 🔴 *já derrubou tela 4 vezes*
+### B1 · ~~15 pastas ainda sem o guarda de import~~ ✅ **resolvido em 14/08**
 Chamar uma função da pasta vizinha e **esquecer de importar não quebra o build** —
 o Vite supõe que é global do navegador. O erro só nasce quando alguém clica.
 
 Já aconteceu: Gestão de Tráfego (29/07, duas vezes no mesmo dia), Admin (05/08),
 Patrimônio (10/08 — as abas Planilha e Resumo abriam **em branco**).
 
-O guarda é um `imports.test.mjs` na pasta. **Existe em 5**: `admin`,
-`gestao-trafego`, `patrimonio`, `frota` e `compartilhado/relatorios`. **As outras
-~15 de `src/ferramentas/` não têm.** Copiar de
-`src/ferramentas/patrimonio/imports.test.mjs`, que já trata os dois falsos
-positivos conhecidos.
+**O que estava errado era maior do que este item dizia.** Na hora de fazer, a
+conta real era: o guarda existia em **9** pastas (não 5) e faltava em **13** — mas
+as 9 eram **cópias do mesmo código que já tinham divergido entre si**. Quatro nem
+olhavam o miolo compartilhado, e sete olhavam **uma** tela da pasta em vez de
+todas. Copiar a décima cópia, como este item mandava, seria fazer o problema
+crescer.
 
-Regra: pasta nova nasce com o guarda; ao mexer numa sem guarda, criar **antes** e
-ver o que ele acusa.
+**Como ficou:** o motor mora em `src/compartilhado/guarda-de-imports.mjs`, se
+testa em `guarda-de-imports.test.mjs`, e cada uma das **22 pastas** tem um
+`imports.test.mjs` de três linhas. Três buracos foram fechados de quebra: todos
+os blocos `<script>` (e não só o primeiro), `export async function`, e nome vindo
+de desmontagem (`const { x } = y`), que virava acusação falsa.
+
+**Provado, não deduzido:** as 22 pastas foram sabotadas uma a uma (tirei um
+import de verdade de cada) e as 22 acusaram. E com `rotuloDeStatus` fora do
+import do `cartao-peca.vue`, o `npm run build` **passou** e o guarda reprovou —
+que é exatamente o formato do defeito. Suíte: 3043 → 3105 testes, 0 falha.
+
+Nenhum import faltando foi encontrado no código de hoje: o guarda entra
+preventivo, não corretivo.
+
+Regra que continua valendo: **pasta nova nasce com o guarda**; ao mexer numa sem
+guarda, criar **antes** e ver o que ele acusa.
 
 ### B2 · Relatórios › nunca foram vistos na tela real
 O que foi verificado: 2359 testes, build, e os 8 relatórios rodando com os
@@ -419,19 +451,40 @@ Dois efeitos colaterais da mudança de dono, para quem tropeçar neles:
   em outra conta (ele é global — outra sessão pode ter trocado), o erro é
   `Permission to rbv-co/social-dashboard.git denied to <conta>`.
 
-### B12 · Migrations › o runner acha que 57 estão pendentes 🔴 *não rodar*
-`cd coletor && node run-migrations.mjs --dry` lista **57 migrations como
-pendentes**, incluindo as que obviamente já rodaram. A tabela de controle
-`public.schema_migrations` tem **23 registros para 80 arquivos** — as outras
-foram aplicadas na mão e nunca registradas.
+### B12 · ~~Migrations › o runner acha que 57 estão pendentes~~ ✅ **resolvido em 14/08**
+Eram **60**, não 57 (a lista tinha envelhecido: 26 registros para 86 arquivos).
+`node run-migrations.mjs --dry` listava todas elas como pendentes, incluindo as
+que obviamente já tinham rodado — as outras foram aplicadas na mão, pelo painel
+ou pelo MCP, e ninguém registrou.
 
-**Rodar o runner replicaria 57 migrations em produção.** Muitas são
-`if not exists`, mas nem todas, e nenhuma foi conferida uma a uma. Enquanto isso
-não for arrumado, migration nova vai **dirigida pelo MCP** e se registra na mão
-no mesmo SQL (foi assim com as duas de 12/08).
+**A conferência, uma a uma (não por amostra):** de cada arquivo foram extraídos
+os objetos que ele cria — **227 alvos** entre tabela, coluna, função, policy,
+índice, trigger, tipo, view, job de cron e bucket — e cada alvo foi perguntado ao
+banco. **50 arquivos** bateram inteiros. **3** apareceram como parciais e os três
+eram erro da minha leitura, não do banco (a coluna era em `accounts` e não em
+`push_preferencias`; uma policy nasce dentro de um bloco `DO`, então o nome da
+tabela não está no texto; e duas policies "sumidas" são as que a migration
+seguinte trocou de nome de propósito). **7** não criam objeto nenhum — são UPDATE
+de permissão, INSERT de segredo, GRANT de coluna e COMMENT — e foram conferidas
+pelo efeito.
 
-Arrumar de verdade é conferir as 57 contra o banco e registrar as que já valem.
-É trabalho próprio, não coisa pra fazer de passagem.
+**Nenhuma das 60 precisava rodar.** As 61 (com a de acerto) foram carimbadas em
+`db/migrations/2026-08-14-registrar-migrations-ja-aplicadas.sql`, aplicado pelo
+MCP. Hoje: `✓ Tudo em dia. Nenhuma migration pendente. (87 já aplicadas)`.
+
+**O que era perigoso, e agora está escrito:** três das 60 fariam estrago se
+rodassem de novo — uma recriaria policies de escrita que uma migration posterior
+substituiu (afrouxando quem pode gravar a config da Gestão de Tráfego), duas são
+`UPDATE` em `profiles`, e a `conteudo-11` **tira** a permissão de Conteúdo de
+todo mundo: rodá-la hoje tomaria o acesso da única pessoa que o tem.
+
+A tabela de controle ganhou a coluna `observacao`, porque `applied_at` nessas 60
+é a data do **carimbo**, não a da aplicação de verdade — essa ninguém sabe mais.
+Sem ela, quem lesse a tabela daqui a um mês concluiria que 60 migrations rodaram
+todas no dia 14/08.
+
+Continua valendo: **migration nova vai dirigida pelo MCP** e se registra no mesmo
+SQL. O runner agora só existe como conferência (`--dry`), e essa passou a valer.
 
 ### B5 · Fábrica Hero-IA › trocar a composição pelo relight da foto real 💰
 O motor `coletor/hero-ia/hero-ia.mjs` hoje compõe `[cena de fundo, recorte da
