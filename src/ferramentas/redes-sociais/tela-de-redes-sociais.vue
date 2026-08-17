@@ -476,7 +476,7 @@ import { barraDoDia, diasSemPublicacao } from './estimativa-de-seguidores.js'
 // Em que balde cada campanha entra (Seguidores / Contatos / Site e alcance /
 // Vendas). Puro e com teste ao lado (baldes-do-painel.test.mjs), decidido pelo
 // sinal que a Meta afirma no conjunto — nunca pelo nome da campanha.
-import { BALDES, idsParaConsulta, conjuntosMaisRecentes, baldesSemGasto, baldeEfetivo } from './baldes-do-painel.js'
+import { BALDES, idsParaConsulta, conjuntosMaisRecentes, baldesSemGasto, baldeEfetivo, classificacaoEhProvisoria } from './baldes-do-painel.js'
 import { cartoesDoBalde, podeDarVeredito, chaveDeMeta } from './cartoes-do-balde.js'
 
 const router = useRouter()
@@ -662,7 +662,7 @@ function desenharBaldeBar(vazios, efetivo) {
 function desenharAvisoBalde(provisorio) {
   const banner = document.getElementById('balde-provisorio-banner'); if (!banner) return
   banner.style.display = provisorio ? 'flex' : 'none'
-  banner.textContent = provisorio ? '⚠️ Classificação provisória: os tipos de campanha ainda não foram coletados neste perfil. Os valores por balde podem mudar depois da próxima coleta.' : ''
+  banner.textContent = provisorio ? '⚠️ Classificação provisória: os tipos de campanha ainda não foram coletados neste perfil. Os valores por tipo de campanha podem mudar depois da próxima coleta.' : ''
 }
 
 /* ── OS QUATRO CARTÕES DA SEÇÃO 02 (o conteúdo troca com o balde) ── */
@@ -1762,13 +1762,11 @@ async function fetchData(accountId, period, customStart, customEnd) {
   // o deixariam para trás. Falha ao buscar as campanhas NÃO pode virar "este perfil
   // não tem campanha nenhuma" em silêncio — isso apagaria dinheiro real da tela.
   erroAds.value = campanhasRows.erro || conjuntosRows.erro || null
-  // Lido AQUI pelo mesmo motivo do erroAds acima: .erro mora no array que o
-  // sb() devolveu, e some se a gente passar por um .map()/.filter() antes de
-  // guardar. "Provisório" só pode significar "a leitura funcionou e veio
-  // vazia" — se ela FALHOU, conjuntosRows também chega com length 0, e aí
-  // quem tem de falar é o banner de erro geral (erroAds acima), não este.
-  // Duas faixas vermelhas discordando entre si seria pior que nenhuma.
-  const _semConjuntoDeVerdade = conjuntosRows.length === 0 && !conjuntosRows.erro
+  // Chamada AQUI pelo mesmo motivo do erroAds acima: classificacaoEhProvisoria
+  // olha o .erro do array, que mora nele só até o primeiro .map()/.filter().
+  // Pura e testada em baldes-do-painel.test.mjs (é lá que fica documentado o
+  // limite: RLS negando leitura também chega como [] sem erro nenhum).
+  const _semConjuntoDeVerdade = classificacaoEhProvisoria(conjuntosRows)
   // Campanha + os conjuntos dela = o que decide o balde. Conjunto ainda não
   // coletado não some: cai pela regra do objetivo (ver baldes-do-painel.js), que é
   // exatamente o que acontece enquanto campaign_adsets ainda está vazia.
@@ -1967,11 +1965,9 @@ async function fetchData(accountId, period, customStart, customEnd) {
     // Recorte por balde: o que a barra desenha e o que o ao vivo tem de somar.
     baldesVazios, baldeEfetivo: _efetivo, idsParaAoVivo,
     // Sem nenhum conjunto coletado pra este perfil, toda campanha cai pela
-    // regra do objetivo — provisório, não fechado (ver desenharAvisoBalde).
-    // LIMITE CONHECIDO: RLS que nega leitura também devolve 200+[] sem erro
-    // (ver comentário de sb() em buscar-e-salvar-dados.js) — indistinguível
-    // daqui de "ainda não coletado". O aviso vai dizer "provisório" nesse
-    // caso também; é o mesmo ponto cego que o resto da tela já tem.
+    // regra do objetivo — provisório, não fechado (ver desenharAvisoBalde e
+    // classificacaoEhProvisoria em baldes-do-painel.js, com o limite do RLS
+    // documentado lá e testado ao lado).
     classificacaoProvisoria: _semConjuntoDeVerdade,
     // Nenhuma campanha no recorte → o cartão de dinheiro mostra "—", nunca o
     // total da conta. E o alcance avisa quando repete pessoa.

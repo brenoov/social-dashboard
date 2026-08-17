@@ -740,10 +740,10 @@ gravaria **zero** por cima de "ainda não sei" — que é exatamente o defeito q
 este projeto já levou um susto por causa dele (ver "Falha que vira número" na
 memória). Não valia arriscar isso para entregar mais rápido.
 
-Já está especificado: é a **Tarefa 9** do plano
-`docs/superpowers/plans/2026-08-17-baldes-de-campanha-redes-sociais.md`, com
-o código pronto (`coletor/janelas-de-backfill.mjs` + teste). Entra quando o
-dono quiser comparar período com período anterior nos baldes novos.
+Já está especificado, passo a passo, como a **Tarefa 9** do plano
+`docs/superpowers/plans/2026-08-17-baldes-de-campanha-redes-sociais.md`
+(`coletor/janelas-de-backfill.mjs` + teste). Entra quando o dono quiser
+comparar período com período anterior nos baldes novos.
 
 ---
 

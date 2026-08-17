@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { BALDES, baldeDaCampanha, rotuloDoBalde, idsDoBalde, idsParaConsulta, conjuntosMaisRecentes, baldesSemGasto, baldeEfetivo } from './baldes-do-painel.js';
+import { BALDES, baldeDaCampanha, rotuloDoBalde, idsDoBalde, idsParaConsulta, conjuntosMaisRecentes, baldesSemGasto, baldeEfetivo, classificacaoEhProvisoria } from './baldes-do-painel.js';
 
 // TODAS as campanhas abaixo são REAIS: nome, objetivo e gasto conferidos no banco
 // de produção em 17/08/2026. Os conjuntos são o sinal que a Meta afirma.
@@ -280,3 +280,30 @@ test('linha sem synced_at é descartada: ela não pode ser a mais recente', () =
   // mesmo caminho de quando campaign_adsets ainda está vazia. Não some ninguém.
   assert.deepEqual(conjuntosMaisRecentes([{ adset_id: '1', synced_at: null }, { adset_id: '2' }]), []);
 });
+
+test('classificacaoEhProvisoria: vazia e sem erro é provisório de verdade', () => {
+  assert.equal(classificacaoEhProvisoria([]), true);
+});
+
+test('classificacaoEhProvisoria: vazia MAS com erro não é provisório — quem fala é o banner de erro geral', () => {
+  // .erro é como sb() marca falha de rede/sessão/permissão num array que, sem
+  // isso, pareceria "não tem nada" (ver buscar-e-salvar-dados.js). É exatamente
+  // este caso que quebrou uma vez: a tela dizia "classificação provisória"
+  // quando a leitura tinha FALHADO, não vindo vazia de verdade.
+  const linhas = [];
+  linhas.erro = 'falha de rede';
+  assert.equal(classificacaoEhProvisoria(linhas), false);
+});
+
+test('classificacaoEhProvisoria: com conjunto coletado, nunca é provisório', () => {
+  const linhas = [{ campaign_id: '1', destination_type: 'WHATSAPP', synced_at: '2026-08-17' }];
+  assert.equal(classificacaoEhProvisoria(linhas), false);
+});
+
+// LIMITE CONHECIDO, e por isso NÃO testado como um quarto caso "correto" aqui:
+// negação por RLS chega como sucesso HTTP (200 + []) sem nenhum .erro — pra esta
+// função, uma leitura negada e uma leitura genuinamente vazia são o MESMO
+// objeto, e ela vai dizer "provisório" nos dois. Escrever um teste que afirmasse
+// isso como certo estaria fingindo que o ponto cego não existe; o lugar certo
+// pra ele é o comentário da função, não uma asserção que finge resolvido o que
+// não dá pra resolver neste nível.

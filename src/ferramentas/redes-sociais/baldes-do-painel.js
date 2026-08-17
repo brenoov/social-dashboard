@@ -164,3 +164,22 @@ export function baldeEfetivo(escolhido, vazios) {
   if (!escolhido) return 'todos';
   return (vazios || []).includes(escolhido) ? 'todos' : escolhido;
 }
+
+// "PROVISÓRIO" SÓ PODE SIGNIFICAR "A LEITURA FUNCIONOU E VEIO VAZIA" — nunca "a
+// leitura falhou". sb() (buscar-e-salvar-dados.js) devolve [] tanto para "este
+// perfil não tem conjunto nenhum" quanto para erro de rede/sessão/permissão, e
+// distingue os dois pendurando um .erro (não-enumerável) no próprio array. Achou
+// [] sem checar .erro já quebrou uma vez aqui: a tela dizia "classificação
+// provisória" num caso que podia ser "a leitura falhou" — quem tinha de falar
+// ali era o banner de erro geral, não este aviso.
+//
+// LIMITE CONHECIDO, e não corrigido por esta função porque não tem como: negação
+// por RLS chega como sucesso HTTP (200 + []) SEM nenhum .erro — pra quem só vê o
+// array, é idêntico a "genuinamente vazio". Enquanto campaign_adsets não tiver
+// política mais estreita que as outras tabelas que esta tela lê, isso é
+// hipotético; se um dia tiver, esta função vai dizer "provisório" quando a
+// verdade for "sem permissão" — o mesmo ponto cego que sb() já documenta.
+export function classificacaoEhProvisoria(linhasDeConjunto) {
+  const linhas = linhasDeConjunto || [];
+  return linhas.length === 0 && !linhas.erro;
+}
