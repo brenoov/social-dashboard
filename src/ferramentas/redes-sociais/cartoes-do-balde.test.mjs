@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cartoesDoBalde } from './cartoes-do-balde.js';
+import { cartoesDoBalde, podeDarVeredito } from './cartoes-do-balde.js';
+import { CRITERIOS } from '../gestao-trafego/saude.js';
 
 // Números REAIS de 30 dias, última captura de 17/08/2026.
 const motoeasy = { investimento: 6211.97, alcance: 85367, impressoes: 428132, frequencia: 5.02, conversas: 580, cadastros: 2, seguidores: 0, interacoes: 0, curtidas: 0, compras: 0, visitas: 0 };
@@ -108,6 +109,55 @@ test('investimento nulo (recorte sem campanha) não vira R$ 0 em balde nenhum', 
       .filter(x => x.formato === 'dinheiro' && x.id !== 'investimento')
       .forEach(x => assert.equal(x.valor, null, b + '/' + x.id + ': custo sem investimento'));
   });
+});
+
+test('as faixas da frequência são AS MESMAS da saúde da Gestão de Tráfego', () => {
+  // Dois juízes discordando sobre a mesma campanha é defeito. saude.js é o que já
+  // existia, então ele manda: importado, não copiado.
+  const f = cartoesDoBalde('todos', motoeasy).find(x => x.id === 'frequencia');
+  assert.equal(CRITERIOS.freqSatura, 4);
+  assert.equal(CRITERIOS.freqAtencao, 3.5);
+  assert.equal(f.semaforo(CRITERIOS.freqSatura), 'ruim');
+  assert.equal(f.semaforo(CRITERIOS.freqAtencao), 'atencao');
+  assert.equal(f.semaforo(3.6), 'atencao');
+  assert.equal(f.semaforo(3.2), 'bom', 'entre 3 e 3,5 a saúde do GT ainda diz que está bom');
+  assert.equal(f.semaforo(3.49), 'bom');
+});
+
+test('TODO custo de um balde divide O MESMO investimento — o que está no cartão de cima', () => {
+  // Um número que não divide o número impresso acima dele é um número que
+  // ninguém consegue conferir. Foi por isso que a Vessel mostrava R$ 7.802 de
+  // investimento enquanto os custos dividiam R$ 461,52.
+  const n = { investimento: 2584.19, seguidores: 1268, interacoes: 9000, curtidas: 7000, conversas: 100, cadastros: 10, compras: 4, visitas: 500, impressoes: 300000 };
+  const denominadores = { seguidores: { cps: 1268, cpi: 9000, cpl: 7000 }, contatos: { custo_conversa: 100, custo_cadastro: 10 }, vendas: { custo_venda: 4 }, site: { custo_visita: 500, cpm: 300 }, todos: { cpm: 300 } };
+  Object.keys(denominadores).forEach((balde) => {
+    const c = cartoesDoBalde(balde, n);
+    assert.equal(c[0].valor, 2584.19, balde);
+    Object.keys(denominadores[balde]).forEach((id) => {
+      const cartao = c.find(x => x.id === id);
+      assert.equal(cartao.valor, c[0].valor / denominadores[balde][id], balde + '/' + id + ' não divide o investimento do cartão');
+    });
+  });
+});
+
+test('sem meta definida NÃO se dá veredito — nota contra meta 0 é conclusão sem prova', () => {
+  // Uma meta chutada já fez o semáforo responder "de quem é essa conta?" em vez
+  // de "essa campanha vai bem?". Cartão sem alvo mostra o número e cala a nota.
+  const c = cartoesDoBalde('contatos', { investimento: 500, conversas: 50 }).find(x => x.id === 'custo_conversa');
+  assert.equal(c.valor, 10);
+  assert.equal(podeDarVeredito(c, 0), false, 'meta 0 não é meta');
+  assert.equal(podeDarVeredito(c, null), false);
+  assert.equal(podeDarVeredito(c, undefined), false);
+  assert.equal(podeDarVeredito(c, NaN), false);
+  assert.equal(podeDarVeredito(c, 12), true, 'com alvo de verdade, aí sim');
+});
+
+test('veredito também não sai sem número, nem em cartão que não tem meta', () => {
+  const semNumero = cartoesDoBalde('contatos', { investimento: 500, conversas: null }).find(x => x.id === 'custo_conversa');
+  assert.equal(podeDarVeredito(semNumero, 12), false, '"—" não recebe nota');
+  const quantidade = cartoesDoBalde('todos', motoeasy).find(x => x.id === 'alcance');
+  assert.equal(podeDarVeredito(quantidade, 12), false, 'cartão sem metaKey nunca tem barra');
+  assert.equal(podeDarVeredito(null, 12), false);
 });
 
 test('o cartão de investimento é sempre o primeiro, e é o único com meta de BUDGET', () => {

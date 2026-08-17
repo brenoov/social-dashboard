@@ -470,7 +470,7 @@ import { barraDoDia, diasSemPublicacao } from './estimativa-de-seguidores.js'
 // Vendas). Puro e com teste ao lado (baldes-do-painel.test.mjs), decidido pelo
 // sinal que a Meta afirma no conjunto — nunca pelo nome da campanha.
 import { BALDES, idsParaConsulta, conjuntosMaisRecentes, baldesSemGasto, baldeEfetivo } from './baldes-do-painel.js'
-import { cartoesDoBalde } from './cartoes-do-balde.js'
+import { cartoesDoBalde, podeDarVeredito } from './cartoes-do-balde.js'
 
 const router = useRouter()
 
@@ -564,18 +564,11 @@ const GOALS = {
   cps: { 1: 2.0, 7: 2.0, 14: 2.0, 30: 2.0 },
   cpi: { 1: 0.15, 7: 0.15, 14: 0.15, 30: 0.15 },
   cpl: { 1: 0.20, 7: 0.20, 14: 0.20, 30: 0.20 },
-  // Metas dos indicadores que só aparecem em alguns baldes (ver cartoes-do-balde.js).
-  // São PONTO DE PARTIDA, do mesmo jeito que os R$ 2,00 de custo por seguidor acima:
-  // o dono edita na tela e o valor dele passa a valer. O que não podia era ficar sem
-  // default — meta 0 faria o cartão pintar de vermelho e escrever "acima da meta"
-  // sem que ninguém tivesse escolhido meta nenhuma.
-  // Mesmo valor em todo período: custo por resultado não cresce com o tamanho da
-  // janela (é por isso que eles também entram em RATE_GOALS).
-  cpm: { 1: 20, 7: 20, 14: 20, 30: 20 },
-  custo_conversa: { 1: 15, 7: 15, 14: 15, 30: 15 },
-  custo_cadastro: { 1: 30, 7: 30, 14: 30, 30: 30 },
-  custo_venda: { 1: 60, 7: 60, 14: 60, 30: 60 },
-  custo_visita: { 1: 1, 7: 1, 14: 1, 30: 1 },
+  // NÃO existe padrão para custo por conversa, por cadastro, por venda, por visita
+  // nem para o custo por mil impressões — de propósito. Indicador de balde novo
+  // nasce SEM META (ver metaDefinida): mostra o número, não mostra barra e não dá
+  // nota, até o dono digitar o alvo dele. Um número chutado aqui viraria veredito
+  // sobre a campanha de todo mundo sem ninguém ter medido nada.
   likes: { 1: 400, 7: 1000, 14: 2000, 30: 12000 },
   saves: { 1: 80, 7: 250, 14: 500, 30: 2500 },
   shares: { 1: 60, 7: 200, 14: 400, 30: 2000 },
@@ -732,21 +725,31 @@ function desenharCartoesDoBalde(cartoes, ctx) {
     // ali convidaria o dono a preencher uma meta que ninguém lê.
     const temMeta = !!cartao.metaKey
     const areaMeta = card.querySelector('.mc-goal-area'); if (areaMeta) areaMeta.style.display = temMeta ? '' : 'none'
-    ;['.mc-divider', '.mc-progress-track', '.mc-bottom'].forEach((sel) => { const el = card.querySelector(sel); if (el) el.style.display = temMeta ? '' : 'none' })
+    // O ALVO que o dono realmente definiu, ou null. Indicador de balde novo NASCE
+    // SEM META: o campo fica em "—", esperando o número dele. Herdar a meta de
+    // outro indicador ou inventar um padrão é pior do que não ter — um alvo
+    // chutado faz o semáforo responder "de quem é essa conta?" em vez de "essa
+    // campanha vai bem?".
+    const meta = temMeta ? metaDefinida(cartao.metaKey, currentPeriod, currentAccountId) : null
     if (metaEl && temMeta) {
       // O id DO ELEMENTO é a chave de gravação: watchGoals lê el.id no blur e
       // getGoal procura por ele. Trocar o id junto com o cartão é o que impede a
       // meta de custo por conversa de gravar por cima da de custo por seguidor.
       // (O caso sem meta já foi estacionado lá em cima, antes do `return`.)
       metaEl.id = 'goal-' + cartao.metaKey
-      metaEl.textContent = loadGoal(cartao.metaKey, currentPeriod, currentAccountId)
+      metaEl.textContent = meta == null ? '—' : String(meta)
       const lblMeta = card.querySelector('.mc-goal-lbl')
       if (lblMeta) lblMeta.textContent = cartao.id === 'investimento' ? 'BUDGET' : 'META MÁX'
     }
+    // Barra, porcentagem e veredito só existem com alvo. Sem meta o cartão mostra
+    // o número e a comparação, e cala a nota — é um estado normal, não quebrado.
+    const temBarra = temMeta && meta != null
+    ;['.mc-divider', '.mc-progress-track', '.mc-bottom'].forEach((sel) => { const el = card.querySelector(sel); if (el) el.style.display = temBarra ? '' : 'none' })
     // O CUSTO POR SEGUIDOR segue com o caminho dele, inteiro: é o único indicador
     // desta tela cujo denominador a Meta publica com ~1 dia de atraso, e os selos
-    // "⏳ consolidando" e "⏳ prévia" existem por causa disso.
-    if (cartao.id === 'cps') { desenharCustoPorSeguidor(ctx.d, ctx.pl, ctx.inv); return }
+    // "⏳ consolidando" e "⏳ prévia" existem por causa disso. O NÚMERO, porém, é o
+    // mesmo dos outros custos: investimento do cartão ÷ novos seguidores.
+    if (cartao.id === 'cps') { desenharCustoPorSeguidor(ctx.d, ctx.pl, ctx.inv, ctx.invAnt, cartao, meta); return }
     const valEl = document.getElementById('ads-' + slot + '-val')
     if (valEl) {
       if (cartao.valor != null && cartao.formato === 'inteiro') animCount(valEl, cartao.valor)
@@ -757,7 +760,7 @@ function desenharCartoesDoBalde(cartoes, ctx) {
     if (cartao.valor == null) return
     if (cartao.id === 'investimento') {
       setCompare('cmp-' + slot, cartao.valor, ctx.invAnt, 'R$ ', ctx.pl, true)
-      applySpend(cartao.valor, getGoal(cartao.metaKey))
+      if (podeDarVeredito(cartao, meta)) applySpend(cartao.valor, meta)
       return
     }
     if (cartao.semaforo) {
@@ -767,11 +770,7 @@ function desenharCartoesDoBalde(cartoes, ctx) {
       _mcValColor(slot, cor); _mcBorderColor(slot, cor)
       return
     }
-    if (!temMeta || !(cartao.valor > 0)) return
-    const meta = getGoal(cartao.metaKey)
-    // Meta 0 (ninguém definiu ainda) não vira veredito: a régua invertida daria
-    // 0% e pintaria de vermelho um custo que ninguém julgou.
-    if (!(meta > 0)) return
+    if (!podeDarVeredito(cartao, meta)) return
     applyMetricInverse(slot, cartao.valor, meta)
     _mcBorderColor(slot, perfColor((meta / cartao.valor) * 100))
   })
@@ -790,9 +789,18 @@ function desenharCartoesDoBalde(cartoes, ctx) {
 // real, sem selo. Quando a soma de gained é 0 SÓ porque os dias recentes ainda não consolidaram na
 // Meta (contagem mexeu, mas "quem seguiu" não publicou) → "consolidando" em vez de R$0. Nunca
 // R$0, número negativo, nem valor por líquido.
-function desenharCustoPorSeguidor(d, pl, inv) {
+//
+// O VALOR vem do cartão (investimento impresso ÷ novos seguidores do período) —
+// igual a todos os outros custos do balde. O que é só dele são os dois selos: a
+// Meta publica "quem seguiu" com cerca de um dia de atraso, e isso é sobre o
+// DENOMINADOR, não sobre qual gasto está em cima.
+function desenharCustoPorSeguidor(d, pl, inv, invAnt, cartao, meta) {
   const _cpsVal = document.getElementById('ads-cps-val')
   const _cpsPrev = document.getElementById('previa-cps')
+  const cps = cartao.valor
+  // O período anterior segue a mesma regra do atual: o investimento que o cartão
+  // de cima compara ÷ os seguidores daquele período. null = sem base pra comparar.
+  const cpsAnterior = (invAnt > 0 && d.divSeguidoresAnterior > 0) ? invAnt / d.divSeguidoresAnterior : null
   const _temInv = (d.spend > 0) || (inv > 0) // só faz sentido falar de custo se houve investimento
   const _cpsConsolidando = !!d.cpsConsolidando && _temInv
   if (_cpsConsolidando) {
@@ -809,11 +817,11 @@ function desenharCustoPorSeguidor(d, pl, inv) {
     const _pc = document.getElementById('pct-cps'); if (_pc) { _pc.textContent = 'consolidando'; _pc.className = 'mc-pct c-orange' }
     const _df = document.getElementById('diff-cps'); if (_df) { _df.textContent = 'aguardando o Instagram publicar os novos seguidores'; _df.className = 'mc-diff c-orange' }
     _mcBorderColor('cps', 'orange')
-  } else if (d.cpsPrevia && d.cps > 0) {
+  } else if (d.cpsPrevia && cps > 0) {
     // PRÉVIA: o custo foi calculado pelo crescimento da CONTAGEM de hoje (a Meta ainda não
     // publicou o bruto oficial de "quem seguiu"). Mostra o número (não zera!) mas avisa que é
     // prévia e pode ajustar quando fechar. Ex.: R$40 investidos ÷ +5 seguidores hoje = R$8.
-    if (_cpsVal) _cpsVal.textContent = fmtR(d.cps)
+    if (_cpsVal) _cpsVal.textContent = fmtR(cps)
     _mcValColor('cps', 'orange')
     if (_cpsPrev) {
       _cpsPrev.style.display = 'block'
@@ -824,11 +832,11 @@ function desenharCustoPorSeguidor(d, pl, inv) {
     _mcBorderColor('cps', 'orange')
     const _pc = document.getElementById('pct-cps'); if (_pc) { _pc.textContent = 'prévia'; _pc.className = 'mc-pct c-orange' }
   } else {
-    if (_cpsVal) _cpsVal.textContent = d.cps > 0 ? fmtR(d.cps) : 'R$ —'
+    if (_cpsVal) _cpsVal.textContent = cps > 0 ? fmtR(cps) : 'R$ —'
     if (_cpsPrev) { _cpsPrev.style.display = 'none'; _cpsPrev.innerHTML = '' }
-    setCompare('cmp-cps', d.cps, d.prevCps, 'R$ ', pl, true)
-    if (d.cps > 0) {
-      applyMetricInverse('cps', d.cps, getGoal('cps')); const gcps = getGoal('cps'); _mcBorderColor('cps', perfColor((gcps / d.cps) * 100))
+    setCompare('cmp-cps', cps || 0, cpsAnterior, 'R$ ', pl, true)
+    if (podeDarVeredito(cartao, meta)) {
+      applyMetricInverse('cps', cps, meta); _mcBorderColor('cps', perfColor((meta / cps) * 100))
     } else { _mcValColor('cps', ''); _mcBorderColor('cps', '') }
   }
 }
@@ -882,6 +890,10 @@ function goalStorageKey(key, period, accountId) { return 'ig_goal_' + (accountId
 // Metas que são TAXA (custo por resultado): valem o mesmo em 1, 7, 14 ou 30 dias.
 // Só as de VOLUME (budget, seguidores, curtidas…) é que o saveGoal recalcula
 // proporcional ao tamanho do período.
+//
+// Os cinco de baixo não têm valor padrão nenhum (ver GOALS) — isto aqui não é um
+// alvo, é o FORMATO do indicador: no dia em que o dono digitar R$ 12 por conversa,
+// os R$ 12 valem em 7D e em 30D, e não viram R$ 51 no mês.
 const RATE_GOALS = ['cps', 'cpi', 'cpl', 'cpm', 'custo_conversa', 'custo_cadastro', 'custo_venda', 'custo_visita']
 // comprimento em dias de cada período (pro recálculo proporcional). null = comprimento variável (não escala).
 function periodDays(period) {
@@ -1117,6 +1129,28 @@ function loadGoal(key, period, accountId) {
   return String(Math.max(1, Math.round((base[refP] || 0) * d / rd)))
 }
 function getGoal(key) { const el = document.getElementById('goal-' + key); const v = el ? parseFloat(String(el.textContent).replace(',', '.')) : NaN; return isFinite(v) ? v : (parseFloat(loadGoal(key, currentPeriod, currentAccountId)) || 0) }
+// A meta que o dono REALMENTE definiu para este indicador, como número — ou null.
+//
+// `loadGoal` devolve '0' quando não existe valor salvo NEM padrão em GOALS, e um 0
+// na tela seria um alvo que ninguém pôs. Os indicadores que só aparecem nos baldes
+// novos (custo por conversa, por cadastro, por venda, por visita, custo por mil
+// impressões) NASCEM SEM META de propósito: o campo mostra "—", o cartão não tem
+// barra nem nota, e é assim até o dono digitar o número dele.
+//
+// Herdar a meta de outro indicador, ou inventar um padrão, é pior do que não ter:
+// um alvo chutado igual para cinco contas já fez o semáforo desta casa responder
+// "de quem é essa conta?" em vez de "essa campanha vai bem?".
+function metaDefinida(key, period, accountId) {
+  const pk = period === 0 ? 1 : period
+  const salva = localStorage.getItem(goalStorageKey(key, pk, accountId))
+  if (salva !== null && salva !== '' && salva !== 'NaN') {
+    const v = parseFloat(String(salva).replace(',', '.'))
+    return isFinite(v) ? v : null
+  }
+  if (!GOALS[key]) return null
+  const v = parseFloat(loadGoal(key, period, accountId))
+  return isFinite(v) ? v : null
+}
 function getPrevLabel(period) {
   const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
   const end = new Date(); end.setDate(end.getDate() - 30)
@@ -1855,16 +1889,20 @@ async function fetchData(accountId, period, customStart, customEnd) {
   // NÃO saiu (dia recente) mas a contagem SUBIU, usa esse ganho de contagem (chartGained já traz
   // o +N dos dias sem bruto) como PRÉVIA — senão um custo que existe (ex.: R$40 investidos hoje,
   // +5 seguidores) apareceria zerado. É o número que já dá pra ver hoje.
+  //
+  // O CUSTO em si não sai daqui: quem divide é o cartão, e ele divide o
+  // investimento que está IMPRESSO nele (ver cartoes-do-balde.js). Daqui vai só o
+  // DENOMINADOR — os novos seguidores do período, e os do período anterior para a
+  // linha de comparação. Assim os três custos do balde Seguidores dividem o mesmo
+  // numerador que o cartão de cima mostra, e o dono consegue refazer a conta.
   const chartGainedSum = chartGained.reduce((a, b) => a + (b || 0), 0)
   const _divSeguidores = grossGained > 0 ? grossGained : chartGainedSum
-  const cps = spend > 0 && _divSeguidores > 0 ? spend / _divSeguidores : 0
   // prévia = está usando o ganho de contagem (não o bruto oficial) porque a Meta ainda não fechou.
   const cpsPrevia = grossGained === 0 && chartGainedSum > 0
   // "consolidando" (custo NÃO calculável): bruto não fechou E a contagem não subiu (net ≤ 0) —
   // aí não dá pra dividir. Só então mostra "consolidando" em vez de um número.
   const _countMoved = chartSrc.some(s => _netCountOf(s) !== 0)
   const cpsConsolidando = grossGained === 0 && grossPartial && _countMoved && chartGainedSum <= 0
-  const prevCps = prevSpend && _prevGained > 0 ? prevSpend / _prevGained : null
   const storyShares = storyDailyCurr.reduce((s, r) => s + (r.story_shares || 0), 0)
   const storyRep = storyDailyCurr.reduce((s, r) => s + (r.story_replies || 0), 0)
   const prevStoryShares = storyDailyPrev.length ? storyDailyPrev.reduce((s, r) => s + (r.story_shares || 0), 0) : null
@@ -1883,7 +1921,10 @@ async function fetchData(accountId, period, customStart, customEnd) {
   return {
     followerTotal: (trueLastRows[0]?.followers_count ?? latest), newFollowers, prevNewFollowers, avgPerDay, bestDay: '—', engRate, followerDeltas, effectivePeriod, impressions, clicks, reach,
     chart: { gained: chartGained, lost: chartLost, labels: chartLabels, dates: chartDates },
-    spend, prevSpend, cps, prevCps, cpsConsolidando, cpsPrevia, adEngagement, adLikes, adComments, adShares, adSaves,
+    spend, prevSpend, cpsConsolidando, cpsPrevia, adEngagement, adLikes, adComments, adShares, adSaves,
+    // Só o DENOMINADOR do custo por seguidor (o numerador é o investimento do
+    // cartão). `divSeguidoresAnterior` é o do período anterior, para a comparação.
+    divSeguidores: _divSeguidores, divSeguidoresAnterior: _prevGained,
     adsDiario: { inicio: followStart, fim: followEnd, linhasDeGasto: gastoDiarioRows, linhasDeSeguidores: seguidoresDiarioRows },
     // Recorte por balde: o que a barra desenha e o que o ao vivo tem de somar.
     baldesVazios, baldeEfetivo: _efetivo, idsParaAoVivo,
@@ -2272,13 +2313,14 @@ function update(d, period) {
   // visitas — colunas sem default), o null vem do banco e o 0 é resposta de
   // verdade: passa direto.
   const _numerosDoBalde = {
-    // O investimento aqui é o número do CARTÃO (ao vivo quando existe), não o do
-    // banco: é ele que o dono lê e divide de cabeça. Muda de leve o custo por
-    // interação e por curtida, que antes dividiam o gasto COLETADO — agora os
-    // quatro cartões fecham entre si, e o dono consegue refazer a conta na mão.
-    // (O custo por seguidor segue no caminho próprio dele, com o gasto coletado:
-    // é o único com selo de prévia/consolidação, e mexer nele aqui apagaria isso.)
+    // UM NUMERADOR SÓ, e é o que está na tela: o investimento do CARTÃO (ao vivo
+    // quando existe), não o do banco. Os três custos do balde dividem exatamente
+    // este número — inclusive o custo por seguidor, que antes dividia o gasto
+    // coletado. Custo que não divide o número impresso acima dele é custo que
+    // ninguém consegue conferir: a Vessel mostrava R$ 7.802 de investimento
+    // enquanto os custos dividiam R$ 461,52.
     investimento: _inv > 0 ? _inv : null,
+    seguidores: d.divSeguidores,
     interacoes: d.adEngagement > 0 ? d.adEngagement : null,
     curtidas: d.adLikes > 0 ? d.adLikes : null,
     conversas: d.conversas, cadastros: d.cadastros, compras: d.compras, visitas: d.visitas,

@@ -10,6 +10,11 @@
 // do dinheiro é de cadastro. No lugar entram quatro indicadores que valem para
 // QUALQUER campanha.
 // PURO: sem rede, sem tela.
+//
+// TODO CUSTO DESTE ARQUIVO DIVIDE `numeros.investimento`, e a tela manda para cá
+// exatamente o valor que o cartão de investimento está mostrando. Custo que não
+// divide o número impresso logo acima dele é custo que ninguém consegue conferir.
+import { CRITERIOS } from '../gestao-trafego/saude.js';
 
 // Sem denominador → "—", nunca 0. E sem NUMERADOR também: um recorte sem campanha
 // chega aqui com investimento nulo, e "R$ 0,00 por conversa" seria a mesma mentira
@@ -17,11 +22,31 @@
 const div = (a, b) => (a > 0 && b > 0) ? (a / b) : null;
 const qtd = v => (v == null ? null : v);                   // "não sei" ≠ "zero"
 
-// Frequência ≥ 4 = a mesma pessoa vendo demais. O limiar é o que a régua da Gestão
-// de Tráfego já usa para mandar reduzir verba (saude.js, freqSatura: 4) —
-// conhecimento do negócio, não preferência de conta. Por isso não é meta editável.
-// Sem número não se acende semáforo nenhum: cinza é "não sei", e é o que é.
-const semaforoFrequencia = v => (v == null ? null : (v >= 4 ? 'ruim' : v >= 3 ? 'atencao' : 'bom'));
+// As faixas da frequência são AS MESMAS da saúde da Gestão de Tráfego: 4 é onde
+// ela manda reduzir verba, 3,5 é onde ela manda monitorar. Importadas, não
+// copiadas — dois juízes discordando sobre a mesma campanha é defeito, e um número
+// copiado à mão é um juiz novo esperando para divergir.
+//
+// É conhecimento do negócio, não preferência de conta: por isso a frequência não
+// tem meta editável. Sem número não se acende semáforo nenhum — cinza é "não sei".
+const semaforoFrequencia = v => (v == null ? null
+  : (v >= CRITERIOS.freqSatura ? 'ruim' : v >= CRITERIOS.freqAtencao ? 'atencao' : 'bom'));
+
+// QUANDO O CARTÃO PODE RECEBER NOTA (barra, porcentagem, borda colorida).
+//
+// Só com ALVO DE VERDADE. Meta 0 é meta que ninguém pôs, e pintar de vermelho
+// contra ela é um veredito sem prova nenhuma atrás. Este app já pagou por isso:
+// um alvo chutado igual para cinco contas fazia o semáforo responder "de quem é
+// essa conta?" em vez de "essa campanha vai bem?" — 8 de 19 campanhas trocaram de
+// cor quando os alvos viraram números medidos.
+//
+// Cartão sem alvo não é cartão quebrado: mostra o número e a comparação com o
+// período anterior, e cala a nota até o dono digitar a meta dele.
+export function podeDarVeredito(cartao, meta) {
+  if (!cartao || !cartao.metaKey) return false;
+  if (!(cartao.valor > 0)) return false;                   // "—" e zero não recebem nota
+  return typeof meta === 'number' && isFinite(meta) && meta > 0;
+}
 
 const investimento = n => ({
   id: 'investimento', rotulo: 'INVESTIMENTO NO PERÍODO', valor: qtd(n.investimento),
