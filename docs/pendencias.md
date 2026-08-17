@@ -1,6 +1,6 @@
 # Pendências do iamundi
 
-Última revisão: **15/08/2026**
+Última revisão: **17/08/2026**
 
 O que é este arquivo: a lista viva do que está **em aberto** no projeto. Cada item
 diz o que falta, **por que importa** e **onde** se resolve. É a memória escrita —
@@ -197,13 +197,19 @@ provam com teste** e ficaram esperando:
 
 Enquanto isso não acontece, o mapa continua marcado como "não provado ao vivo".
 
-### A11 · Lugares no mapa › a busca de endereço, com um login de verdade 🟡
-A função `buscar-lugar` (a que pergunta o endereço ao OpenStreetMap) subiu e
-responde — a porta de permissão foi conferida. O que **não** deu para conferir
-sem login foi a ligação de dentro dela até o serviço de mapa. Se ao buscar um
-Local não vier nada e a tela disser "não consegui buscar agora", é isto: o
-serviço de mapa recusou a chamada vinda da função, e a saída é trocar de serviço
-(Google/Mapbox) — decisão que já está registrada no desenho.
+### A11 · ~~Lugares no mapa › a busca de endereço, com um login de verdade~~ ✅ **provado em 17/08**
+A dúvida era a ligação de dentro da função `buscar-lugar` até o serviço de mapa —
+só dava para ver com sessão logada. Conferido, e funciona nos dois sentidos:
+
+- **Buscar por endereço:** "Avenida Paulista 1000, São Paulo" devolveu **HTTP 200**
+  com o resultado real do OpenStreetMap — rua, bairro, cidade, CEP e as
+  coordenadas (`-23.5648865, -46.6519180`).
+- **Clicar no mapa:** o ponto descobre sozinho onde caiu. Clicando no meio do
+  mapa veio *"CBMEG/FEAGRI · Avenida Marechal Cândido Rondon · Cidade
+  Universitária · Campinas · SP"*.
+
+Nenhuma vez apareceu o "não consegui buscar agora". **Não é preciso trocar para
+Google/Mapbox** — aquela saída fica guardada no desenho, sem prazo.
 
 ### A12 · Status do Claude › o `breno@` não enxerga a ferramenta 🟢 *achado em 14/08*
 Medido no banco em 14/08, conferindo outra coisa (o B12).
@@ -312,7 +318,60 @@ a Meta devolver rate limit de verdade. Money-path: na próxima vez que der rate
 limit, conferir no Gerenciador que continuou na MESMA campanha, sem uma segunda
 igual. Só depois disso o item sai daqui.
 
-### B4b · Meta Ads › as seis melhorias subiram sem ninguém ver na tela 🟡 *metade provada em 15/08*
+### B4b · Meta Ads › as seis melhorias subiram sem ninguém ver na tela 🟢 *quase fechado — 17/08*
+
+> 🔴 **O PIN NO MAPA ESTAVA QUEBRADO, e só a tela contava (17/08).** Este era o
+> item nº 1 do B4b, e a suspeita era a errada: o medo era que salvar um ponto
+> **reescrevesse** o `custom_locations` de um conjunto rodando. O defeito era o
+> oposto — **o ponto nunca chegava na Meta.**
+>
+> Na conta da Vessel, conjunto "Criativos Genspark": pus um ponto no mapa, a tela
+> desenhou, descobriu sozinha o endereço (*CBMEG/FEAGRI · Av. Marechal Cândido
+> Rondon · Cidade Universitária · Campinas*) e mostrou "2 lugares no mapa" com
+> raio de 1 km. Ao confirmar: **"Nada mudou. Não há o que salvar."** Reproduzido
+> duas vezes, sem redesenho de painel no meio (o relógio de TEMPO REAL não virou
+> entre o pin e o clique — foi assim que descartei que fosse a tela se remontando).
+>
+> **A causa:** `lerPublico` **lê** o pin e `montarTargeting` **manda** o pin — as
+> duas pontas estavam certas o tempo todo. Faltava `resumoDasMudancas` olhar para
+> `pins`. E é o resumo que decide se há o que salvar: vindo vazio, a tela desiste
+> e volta **antes** de escrever. O ponto morria ali, sem nenhum aviso.
+>
+> É o pior formato de falha que o PADRÃO descreve: **a tela mente por omissão.**
+> Ela desenha o pin, mostra o endereço e o raio, e depois joga fora.
+>
+> **Corrigido e provado em produção** (commit `c08d7eb`, chunk
+> `tela-de-gestao-trafego-Fktk6t_H.js` conferido no ar): o mesmo caminho agora
+> responde **"Confirma estas mudanças? · Pontos no mapa: +Rua Walter August
+> Hadler · Cidade Universitária · Campinas · SP"**, com o botão "Salvar na Meta".
+> 5 testes novos; os 4 primeiros falham sem o conserto, e o quinto guarda a outra
+> metade (pin igual dos dois lados não pode virar mudança falsa).
+>
+> ⚠️ **Cancelei em vez de salvar.** Escrever no conjunto é decisão sua, e conferi
+> na Meta que nada foi gravado: dos 40 conjuntos da conta, só os 2 que já tinham
+> `custom_locations` continuam com eles. **O último passo — clicar "Salvar na
+> Meta" e conferir no Gerenciador — é o que falta, e é seu.**
+>
+> Conferido de quebra que `comportamentos` e `outrasLocalizacoes` **não** têm o
+> mesmo buraco: os dois são lidos e não editados por esta tela, de propósito.
+
+> ✅ **A sugestão de público lendo a persona foi provada (17/08).** Era o item nº 3.
+> Capturei o corpo do pedido à `sugerir-publico-ia`: ele leva `persona` com os
+> **2.326 caracteres** da Vessel, junto com `marca`, `evidencia` e `objetivo`.
+>
+> E a resposta é a prova de que a persona **pesa**: os números mandam mirar
+> 18-24 anos (R$ 3,74 por conversa, 3,7× mais barato), e a IA **recusa** —
+> *"contradiz o público da marca: mulheres de 28-55 com renda própria. Clique
+> barato nessa faixa não significa cliente, significa curiosidade sem conversão
+> real."* Era exatamente o defeito que originou o item ("sugere idades que não
+> casam com a marca").
+
+> ⏸️ **O re-disparo do subir (item nº 2) continua sem prova ao vivo, e não é por
+> falta de tentar.** Ele só acontece quando a Meta devolve rate limit de verdade;
+> forçar isso exigiria martelar a API dela ou criar campanhas reais só para o
+> teste. A lógica tem **5 testes** cobrindo o `campanhaDoRastro`
+> (`coletor/subir-estudio.test.mjs`). Fica como está o B4 manda: na próxima vez
+> que der rate limit, conferir no Gerenciador que continuou na MESMA campanha.
 
 > ✅ **A metade de LEITURA foi vista numa tela logada em 15/08/2026**, com a conta
 > real do dono (`erick@`) e uma trava de rede que abortava toda escrita. Os três
