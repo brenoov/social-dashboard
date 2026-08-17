@@ -92,6 +92,47 @@ function tirarOTituloRepetido(mensagem, titulo) {
   return mensagem.startsWith(prefixo) ? mensagem.slice(prefixo.length).trim() : mensagem;
 }
 
+// AS LINHAS QUE VÃO PARA O BANCO — uma por (anúncio × problema).
+//
+// POR QUE GUARDAR (17/08/2026): a Meta **apaga** o `issues_info` quando o
+// anúncio é excluído ou quando o problema é resolvido. O dono pediu para achar
+// uma campanha barrada na semana passada e não deu — o motivo tinha deixado de
+// existir, e não há histórico no Graph. `gt_problemas_meta` é a memória que a
+// Meta não tem.
+//
+// Diferente de `agruparProblemas`, que junta por causa para a tela ler, aqui
+// cada par (anúncio, código) é uma linha: no banco a pergunta é "o que houve com
+// ESTE anúncio", e agrupar perderia justamente isso.
+//
+// O NOME vai junto com o id de propósito. É a alma da tabela: ela existe para o
+// dia em que o objeto não existe mais na Meta, e id órfão não diz nada.
+export function linhasParaGuardar(anuncios, contexto) {
+  const ctx = contexto || {};
+  const linhas = [];
+  for (const a of anuncios || []) {
+    // Sem id não há chave. Deixar passar derrubaria a gravação da conta inteira
+    // por causa de um item.
+    if (!a || !a.id) continue;
+    for (const bruto of (a.issues_info || [])) {
+      const p = lerProblema(bruto);
+      if (!p.codigo) continue;
+      linhas.push({
+        ad_id: String(a.id),
+        codigo: p.codigo,
+        campaign_id: ctx.campaign_id ? String(ctx.campaign_id) : null,
+        conta_nome: ctx.conta_nome || '',
+        campanha_nome: ctx.campanha_nome || '',
+        ad_nome: a.name || a.nome || '',
+        titulo: p.titulo,
+        detalhe: p.detalhe,
+        nivel: p.nivel,
+        grave: p.grave,
+      });
+    }
+  }
+  return linhas;
+}
+
 // AGRUPA POR PROBLEMA, não por anúncio.
 //
 // Medido: os 5 conjuntos da Raíssa têm o MESMO erro 1359208, e os 3 vídeos da
