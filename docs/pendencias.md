@@ -228,6 +228,35 @@ existia** — quem entra depois nasce sem ela.
 Resolve em **Administração › Usuários**, marcando "ver" em Status do Claude para
 o `breno@`. Não mexi: é permissão de pessoa de verdade, e a decisão é sua.
 
+### A13 · Meta Ads › 49 anúncios parados, e agora dá pra ver 🔴 *achado em 17/08*
+O dono relatou que uma campanha foi barrada "por atividade suspeita". Medido no
+Graph em 17/08, e a medição corrige a premissa em dois pontos:
+
+- **Nenhuma conta está restringida.** As 7 contas de anúncio estão ATIVAS, com
+  `disable_reason: 0`. Não houve bloqueio de conta.
+- **Nenhum anúncio está recusado por política.** O que existe são **49 itens
+  parados por motivo operacional** — e a Meta diz cada um com todas as letras.
+
+| Quantos | O que a Meta diz | Onde resolve |
+|---|---|---|
+| **33 anúncios** | As Páginas não correspondem | A Página do anúncio é diferente da Página do post que ele promove. Escolher a mesma nos dois. |
+| **5 conjuntos** | Público personalizado indisponível | Abrir o conjunto na Meta e tirar o público que sumiu — enquanto ele estiver lá, não reativa. |
+| 3 anúncios | Vídeo abaixo do mínimo | Trocar por um com mais de 500px de largura (roda, mas não no Instagram). |
+| 2 anúncios | Não está sendo veiculado | Público pequeno ou concorrência entre conjuntos. |
+| 1 anúncio | Cartão de imagem sem link de CTA | Preencher o destino. |
+| 1 anúncio | Mídia orgânica excluída | — |
+
+Os **33 das Páginas** são a maior parte, e 32 deles nasceram numa rajada só:
+**13/08, entre 13h15 e 13h18**, na conta `C2 - La Vessel`. Trinta e dois anúncios
+inválidos em quatro minutos é o padrão que costuma ser lido como automação
+abusiva — pode ser essa a origem do que chegou como "atividade suspeita".
+
+⚠️ **Não foi a nossa Fábrica:** `fabrica_jobs` não tem rodada nenhuma depois de
+**29/07**. Esses anúncios não saíram por ali.
+
+**Resolve no Gerenciador de Anúncios**, não aqui — a Central mostra, e de
+propósito não mexe. Ver o painel novo em **Gestão de Tráfego › Fila**.
+
 ---
 
 ## Parte B — Precisa programar
