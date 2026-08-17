@@ -1033,3 +1033,63 @@ test('o resumo diz o que entrou e saiu de pais e estado, com nome', () => {
   assert.ok(linhas.some((l) => l.includes('+Brasil')), 'entrou o Brasil');
   assert.ok(linhas.some((l) => l.includes('−Minas Gerais')), 'saiu Minas Gerais');
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// O PIN NO MAPA PRECISA CONTAR COMO MUDANÇA.
+//
+// O DEFEITO REAL (17/08/2026), visto na conta da Vessel com sessão logada: pus
+// um ponto no mapa do conjunto "Criativos Genspark", a tela desenhou o ponto,
+// descobriu sozinha o endereço ("CBMEG/FEAGRI · Avenida Marechal Cândido Rondon
+// · Cidade Universitária · Campinas · SP") e mostrou "2 lugares no mapa" com
+// raio de 1 km. Ao confirmar, a janela respondeu **"Nada mudou. Não há o que
+// salvar."** e fechou.
+//
+// A causa: `lerPublico` LÊ o pin (de `geo_locations.custom_locations`) e
+// `montarTargeting` MANDA o pin de volta — mas `resumoDasMudancas` não olhava
+// para `pins`. Como a tela desiste quando o resumo vem vazio, o ponto morria ali
+// e NUNCA chegava na Meta. Nada avisava: a tela desenha o pin, e o pin some.
+//
+// É o pior formato de falha do padrão da Central: a tela mente por omissão.
+
+test('pin NOVO no mapa conta como mudança', () => {
+  const antes = lerPublico(ALVO_META);
+  const depois = lerPublico(ALVO_META);
+  depois.pins = [{ lat: -22.8184, lng: -47.0647, raio: 1, unidade: 'kilometer', nome: 'CBMEG/FEAGRI', endereco: 'Av. Marechal Cândido Rondon' }];
+  const r = resumoDasMudancas(antes, depois).join(' | ');
+  assert.match(r, /CBMEG/, 'o ponto novo tem de aparecer no resumo, pelo nome');
+  assert.ok(resumoDasMudancas(antes, depois).length > 0, 'sem linha, a tela diz "nada mudou" e o pin morre');
+});
+
+test('pin REMOVIDO do mapa também conta', () => {
+  const antes = lerPublico(ALVO_META);
+  antes.pins = [{ lat: -22.8184, lng: -47.0647, raio: 1, unidade: 'kilometer', nome: 'CBMEG/FEAGRI' }];
+  const depois = lerPublico(ALVO_META);
+  depois.pins = [];
+  assert.match(resumoDasMudancas(antes, depois).join(' | '), /CBMEG/);
+});
+
+test('só o RAIO do pin mudando já conta — o ponto continua o mesmo', () => {
+  const base = { lat: -22.8184, lng: -47.0647, unidade: 'kilometer', nome: 'CBMEG/FEAGRI' };
+  const antes = { ...lerPublico(ALVO_META), pins: [{ ...base, raio: 1 }] };
+  const depois = { ...lerPublico(ALVO_META), pins: [{ ...base, raio: 8 }] };
+  const r = resumoDasMudancas(antes, depois).join(' | ');
+  assert.match(r, /CBMEG/);
+  assert.match(r, /1 km.*8 km|8 km/);
+});
+
+test('pin sem nome aparece pela COORDENADA, nunca "sem nome (undefined)"', () => {
+  const antes = lerPublico(ALVO_META);
+  const depois = { ...lerPublico(ALVO_META), pins: [{ lat: -22.8184, lng: -47.0647, raio: 1, unidade: 'kilometer', nome: '', endereco: '' }] };
+  const r = resumoDasMudancas(antes, depois).join(' | ');
+  assert.match(r, /-22\.81|-47\.06/, 'sem nome, a coordenada é o que identifica o ponto');
+  assert.ok(!/undefined/.test(r));
+});
+
+test('pin IGUAL nos dois lados não vira mudança falsa', () => {
+  // A outra metade: um resumo que acusa o que não mudou faz o dono aprovar no
+  // automático, e aí a janela de confirmação deixa de significar alguma coisa.
+  const pin = { lat: -22.8184, lng: -47.0647, raio: 1, unidade: 'kilometer', nome: 'CBMEG/FEAGRI' };
+  const antes = { ...lerPublico(ALVO_META), pins: [{ ...pin }] };
+  const depois = { ...lerPublico(ALVO_META), pins: [{ ...pin }] };
+  assert.deepEqual(resumoDasMudancas(antes, depois), []);
+});
