@@ -18,8 +18,10 @@ dele** — a página nunca ganha rolagem horizontal.
 
 ### `src/ferramentas/redes-sociais/largura-do-grafico.js` (novo)
 
-Módulo puro. `larguraDoGrafico({ pontos, larguraDisponivel, minimoPorPonto = 30,
-podeRolar = true })` devolve `{ largura, rola, larguraDaTrilha, espacoPorPonto }`.
+Módulo puro. `larguraDoGrafico({ pontos, larguraDisponivel, minimoPorPonto = 30 })`
+devolve `{ largura, rola, larguraDaTrilha, espacoPorPonto }`. **Uma regra só, sem
+exceção por tipo de tela** — quem manda é a largura que o cartão tem, não o
+aparelho que é.
 
 - `largura = max(larguraDisponivel, pontos × 30)` — o `max` é o que impede uma
   semana de virar um toco de 210px num cartão de 1200px.
@@ -33,14 +35,16 @@ podeRolar = true })` devolve `{ largura, rola, larguraDaTrilha, espacoPorPonto }
   caixa que rola é lugar **recortado**.
 - `FAIXA_QUE_AVISA = 28`: a faixa apagada da direita. A tira da saída é maior que
   ela para a faixa nunca apagar o último dia.
-- `podeRolar`: ver o item 5 (televisão).
+- Nenhuma exceção por aparelho: houve uma (`podeRolar`, para televisão) e ela foi
+  retirada por decisão do coordenador — ver o item 5.
 
 ### `src/ferramentas/redes-sociais/largura-do-grafico.test.mjs` (novo)
 
-16 testes. Bordas cobertas: cabe exato não rola · um ponto a mais rola · um ponto
+15 testes. Bordas cobertas: cabe exato não rola · um ponto a mais rola · um ponto
 só · zero ponto · contêiner maior nunca encolhe · celular 375 em 7/14/30 dias ·
-tela larga · mínimo ajustável · contêiner não medido · quantidade estranha de
-pontos · largura inteira · tiras vazias · trava da televisão.
+tela larga que cabe · tela larga que não cabe e rola igual · mínimo ajustável ·
+contêiner não medido · quantidade estranha de pontos · largura inteira · tiras
+vazias.
 
 ### `src/ferramentas/redes-sociais/tela-de-redes-sociais.vue`
 
@@ -116,13 +120,21 @@ $ node --test 'src/ferramentas/redes-sociais/largura-do-grafico.test.mjs'
 ℹ tests 16 · pass 16 · fail 0
 ```
 
+(Essa trava foi **retirada depois**, por decisão do coordenador — ver o item 5.
+Os dois passos ficam registrados porque foram eles que produziram a medida que
+levou à decisão.)
+
 ### Suíte inteira e build
 
 ```
 $ npm test     (antes)  ℹ tests 3260 · pass 3260 · fail 0
-$ npm test     (depois) ℹ tests 3276 · pass 3276 · fail 0
-$ npm run build         ✓ built in 2.35s   (sem erro nem aviso)
+$ npm test     (depois) ℹ tests 3275 · pass 3275 · fail 0
+$ npm run build         ✓ built (sem erro nem aviso)
 ```
+
+3260 + 15 do módulo novo = 3275. Chegou a 3276 com a trava da televisão; a
+retirada dela tirou 2 testes e pôs 1 no lugar (a tela larga que não cabe rola
+igual às outras).
 
 ---
 
@@ -153,10 +165,16 @@ navegador (não estimada).
 **A seção 02 rola no computador em 30D e MÊS, e isso não estava previsto no
 desenho.** O desenho supunha que "o computador fica exatamente como está em
 qualquer período"; a conta desmente: o cartão da seção 02 divide a linha com o
-vizinho e sobra com 632px, e 30 dias pedem 900. A régua aprovada é "mínimo 30px
-por dia" e ela é quem manda — mas está aqui em destaque porque é uma mudança no
-computador que o desenho não anunciou. Vale o mesmo para o 14D no celular, que o
-desenho dizia que ficaria como está: 14 × 30 = 420 não cabe em 319.
+vizinho e sobra com 632px, e 30 dias pedem 900. Vale o mesmo para o 14D no
+celular, que o desenho dizia que ficaria como está: 14 × 30 = 420 não cabe em 319.
+
+**Decidido (coordenador, com o dono ciente): fica assim.** O coordenador foi
+medir o computador em produção, a 1440px, 30 dias, Breno Vale / Seguidores, e
+achou **7 sobreposições reais** nos cartões de 632px, na mesma fonte de 9px —
+`"R$ 92,86"×"R$ 100,10"`, `"R$ 99,81"×"R$ 105,73"`, `"15/8"×"16/8"`. Ou seja: o
+computador tem o mesmo defeito do celular, só que menor. A promessa de "o
+computador fica como está" tinha sido feita sobre algo que nunca havia sido
+medido — a promessa estava errada, não a régua.
 
 ---
 
@@ -210,38 +228,64 @@ ido para produção sem esta medição):
 aparelho de verdade (medi a caixa que rola, não o gesto); períodos com dia sem
 dado (`semDado`) em cima da nova largura; e `--escala-texto` diferente de 1.
 
+**Remedido depois de retirar a trava da televisão** (item 5), para garantir que a
+retirada não mexeu em nada: a 375px, em 7/14/30/31 dias, continuam 0 sobreposições
+nos três gráficos, 0 de rolagem horizontal na página e 0 texto recortado nos dois
+temas. Com `body.dev-tv` posto à mão, o resultado é idêntico ao de sem ele.
+
 ---
 
-## 5. A televisão (`body.dev-tv`) — o raciocínio NÃO se sustenta
+## 5. A televisão (`body.dev-tv`) — medida, travada, e a trava retirada
 
 Foi pedido para confirmar que "numa tela larga os pontos cabem, então a mesma
-regra resolve". **Não resolve, e a conta é esta:** a 1920 com `dev-tv`, os dois
-cartões da seção 02 dividem a linha e ficam com **836px cada**. 30 dias pedem
-900. Sem trava, a televisão passaria a rolar — e numa televisão ninguém arrasta
-nada, então os últimos dias sumiriam para sempre. Medido, não deduzido.
+regra resolve". **Não cabem, e a conta é esta:** a 1920 com `dev-tv`, os dois
+cartões da seção 02 dividem a linha e ficam com **836px cada**, e 30 dias pedem
+900. Numa televisão ninguém arrasta nada, então os últimos dias sumiriam. Medido,
+não deduzido.
 
-Como isso violava um "não pode" explícito, entrou a trava: `podeRolar: false`
-quando `body.dev-tv` está posto. Lá o gráfico se aperta (27,9px por dia) e mostra
-os 30 dias. Onde não há dedo, apertar é melhor que esconder. Conferido depois da
-trava: a 1920 com `dev-tv` nenhum dos três gráficos rola.
+Eu tinha posto uma trava (`podeRolar: false` quando `body.dev-tv` estivesse
+posto). **O coordenador mandou retirá-la, e está retirada.** O motivo é bom:
 
-**Ressalva importante:** procurei em `src/` e **nada põe a classe `dev-tv`** —
-ela só aparece em CSS (aqui e em `estilos-globais.css`) e no `legacy/index.html`.
-Ou seja, hoje a trava é inerte, e uma televisão que abra o painel é tratada como
-um computador largo: **em 30D e MÊS os gráficos da seção 02 vão rolar nela**. Se
-o modo televisão importa de verdade, alguém precisa voltar a pôr a classe.
+- **Nada em `src/` põe a classe `dev-tv`.** Ela só existe no CSS (aqui e em
+  `estilos-globais.css`, com um comentário que diz que é aplicada "via JS a partir
+  de 1920px") e no `legacy/index.html`. O modo televisão está morto no app
+  inteiro — de antes deste trabalho, não por causa dele.
+- Trava que não pode disparar é pior que trava nenhuma: parece proteção no
+  código e não protege nada.
+- E ela nem é obviamente certa se estivesse ligada: não rolar numa televisão
+  poria ~30 números sobrepostos numa tela vista de longe — trocaria dado
+  escondido por dado ilegível. Ninguém nos disse que essa televisão existe nem
+  como ela é usada.
+
+**O que foi retirado:** o parâmetro `podeRolar` e o desvio dele em
+`largura-do-grafico.js`; os dois testes que o cobriam (entrou 1 no lugar, "tela
+larga que mesmo assim não comporta os dias: rola igual"); e a função
+`alguemPodeRolar()` do `.vue`, com as duas chamadas que a consultavam. Sobrou uma
+regra só, sem exceção por tipo de tela.
+
+**Conferido depois da retirada:** com `body.dev-tv` posto à mão, o gráfico se
+comporta exatamente como sem ele (30 dias → 900px, rola). A exceção não existe
+mais em lugar nenhum.
+
+**A frase que entrou no `LEIA-ME.txt` da pasta**, como limite conhecido:
+
+> LIMITE CONHECIDO: a regra é uma só, para toda tela — numa tela bem larga com
+> muitos dias o gráfico rola para o lado do mesmo jeito (a 1920, os dois cartões
+> da seção 02 dividem a linha e ficam com 836px cada, e 30 dias pedem 900). Numa
+> tela em que ninguém encosta — uma TV passeando pelos perfis sozinha — só o
+> primeiro trecho de dias ficaria à vista, porque não há quem arraste. Se um dia
+> este painel for para uma TV, é isto que precisa ser revisto.
 
 ---
 
 ## 6. Preocupações
 
-1. **A seção 02 passa a rolar no computador em 30D e MÊS** (cartão de 632px a
-   1440). É consequência fiel da régua aprovada, mas contraria a frase "o
-   computador fica exatamente como está". Se não for o desejado, o conserto é de
-   uma linha (mínimo por ponto menor, ou `podeRolar` também por largura de tela)
-   — mas é decisão do dono, não minha.
+1. ~~**A seção 02 passa a rolar no computador em 30D e MÊS**~~ — **RESOLVIDO por
+   decisão.** O coordenador mediu o computador em produção e achou 7
+   sobreposições reais lá também; o dono viu a medida e escolheu consertar nos
+   dois. Fica como está. Ver o item 3.
 2. **14D no celular também passa a rolar** (420 > 319), ao contrário do que o
-   desenho antecipava.
+   desenho antecipava. Mesma decisão do item 1: a régua manda.
 3. **O rótulo da meta saiu da linha e foi para o canto de cima.** Só trocá-lo de
    lado não resolvia: medido, ele passou a bater no primeiro dia em vez do
    último, e a tarja é opaca — ela **escondia** o valor. Para resolver por

@@ -1381,15 +1381,6 @@ function vestirOTrilho(trilho, medida) {
   }
 }
 
-/* Existe alguém para arrastar o gráfico? No modo televisão não: a tela fica na
-   parede e ninguém encosta nela. Lá o gráfico se aperta e mostra os 30 dias, em
-   vez de esconder os últimos atrás de uma rolagem que nunca vai acontecer.
-   (Medido: a 1920 com dev-tv os cartões da seção 02 ficam com 836px, e 30 dias
-   pedem 900 — sem esta trava a televisão rolaria.) */
-function alguemPodeRolar() {
-  return !(typeof document !== 'undefined' && document.body && document.body.classList.contains('dev-tv'))
-}
-
 /* Mede o espaço que o cartão dá e aplica a régua dos 30px por dia nas três
    camadas do gráfico (ver o comentário do template, na seção 01).
 
@@ -1405,7 +1396,7 @@ function medirLarguraDoGrafico(caixaExterna, pontos) {
   // largura dela é a largura VISÍVEL mesmo quando um desenho largo de uma
   // passada anterior ainda está lá dentro. Medir o trilho devolveria a largura
   // do desenho antigo, e o gráfico nunca mais voltaria a encolher.
-  const medida = larguraDoGrafico({ pontos, larguraDisponivel: rolagem ? rolagem.clientWidth : 0, podeRolar: alguemPodeRolar() })
+  const medida = larguraDoGrafico({ pontos, larguraDisponivel: rolagem ? rolagem.clientWidth : 0 })
   if (caixaExterna) caixaExterna.classList.toggle('rolando', medida.rola)
   vestirOTrilho(trilho, medida)
   return medida
@@ -1559,7 +1550,7 @@ function desenharGraficoDiario(hostId, serie, opcoes) {
   //
   // Não cabendo rolagem (computador, período curto), `W` continua 400 e o SVG
   // continua em width:100% — pixel a pixel o que está no ar hoje.
-  const medida = larguraDoGrafico({ pontos: pontos.length, larguraDisponivel: host.clientWidth, podeRolar: alguemPodeRolar() })
+  const medida = larguraDoGrafico({ pontos: pontos.length, larguraDisponivel: host.clientWidth })
   const caixaQueRola = document.createElement('div')
   caixaQueRola.className = 'grafico-que-rola' + (medida.rola ? ' rolando' : '')
   const rolagem = document.createElement('div'); rolagem.className = 'rolagem-de-grafico'

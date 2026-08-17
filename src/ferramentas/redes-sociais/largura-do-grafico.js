@@ -65,10 +65,6 @@ function numeroPositivo(valor, quandoNaoDer) {
  * `pontos`            = quantos dias (ou barras) vão ser desenhados.
  * `larguraDisponivel` = o quanto o cartão dá de largura, em pixels de tela.
  * `minimoPorPonto`    = espaço mínimo por dia; 30px por padrão.
- * `podeRolar`         = se existe alguém para arrastar o gráfico. Falso no modo
- *                       televisão (body.dev-tv): lá ninguém encosta na tela, e
- *                       rolagem que ninguém arrasta é dia escondido para sempre.
- *                       Onde não há dedo, apertar é melhor que esconder.
  *
  * Devolve:
  *   largura         → a largura de desenho do gráfico, em pixels.
@@ -79,7 +75,7 @@ function numeroPositivo(valor, quandoNaoDer) {
  *   espacoPorPonto  → quanto cada dia ganhou de fato (serve para a tela decidir
  *                     se agora cabe número dentro da barra).
  */
-export function larguraDoGrafico({ pontos, larguraDisponivel, minimoPorPonto = MINIMO_POR_PONTO, podeRolar = true } = {}) {
+export function larguraDoGrafico({ pontos, larguraDisponivel, minimoPorPonto = MINIMO_POR_PONTO } = {}) {
   // Contêiner com largura 0, negativa ou não numérica é contêiner que AINDA NÃO
   // FOI MEDIDO (desenho antes do layout, cartão escondido). Zero lido como "não
   // tem espaço" mandaria todo gráfico rolar — inclusive no computador, onde
@@ -90,9 +86,6 @@ export function larguraDoGrafico({ pontos, larguraDisponivel, minimoPorPonto = M
 
   // Sem ponto nenhum não há o que espremer: o gráfico fica do tamanho do cartão.
   if (n <= 0) return { largura: disponivel, rola: false, larguraDaTrilha: disponivel, espacoPorPonto: 0 };
-
-  // Sem quem role, o gráfico se aperta e mostra tudo. Ver `podeRolar` acima.
-  if (!podeRolar) return { largura: disponivel, rola: false, larguraDaTrilha: disponivel, espacoPorPonto: disponivel / n };
 
   const necessaria = Math.ceil(n * minimo);
   // O máximo (e não o necessário puro) é o que impede uma semana de virar um toco

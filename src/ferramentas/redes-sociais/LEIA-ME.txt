@@ -107,6 +107,11 @@ legível) quando o gráfico rola, e o rótulo da meta ("Meta máxima", "Meta N/d
 mudado para o canto de cima à esquerda, numa faixa que é só dele — ele era o
 culpado de 5 das 8 sobreposições medidas.
 
-Na televisão (body.dev-tv) o gráfico NÃO rola: lá ninguém arrasta nada, então
-ele se aperta e mostra todos os dias. Detalhes e medidas em
-docs/superpowers/relatorio-graficos-celular.md.
+LIMITE CONHECIDO: a regra é uma só, para toda tela — numa tela bem larga com
+muitos dias o gráfico rola para o lado do mesmo jeito (a 1920, os dois cartões da
+seção 02 dividem a linha e ficam com 836px cada, e 30 dias pedem 900). Numa tela
+em que ninguém encosta — uma TV passeando pelos perfis sozinha — só o primeiro
+trecho de dias ficaria à vista, porque não há quem arraste. Se um dia este painel
+for para uma TV, é isto que precisa ser revisto.
+
+Detalhes e medidas em docs/superpowers/relatorio-graficos-celular.md.

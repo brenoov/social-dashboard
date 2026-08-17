@@ -73,23 +73,12 @@ test('tela larga: 31 dias cabem e NÃO viram rolagem', () => {
   assert.ok(r.espacoPorPonto > MINIMO_POR_PONTO);
 });
 
-// MODO TV (body.dev-tv) — E A CONTA QUE DESMENTE O PALPITE.
-// "Numa televisão a tela é larguíssima, então cabe e não rola" NÃO se sustenta:
-// medido a 1920 com dev-tv, os dois cartões da seção 02 dividem a linha e ficam
-// com 836px cada — menos que os 900px que 30 dias pedem. Sem trava, a televisão
-// ganharia rolagem, e numa televisão ninguém arrasta nada: os últimos dias
-// simplesmente sumiriam para sempre. Onde não há dedo, apertar é melhor que
-// esconder.
-test('sem quem role, o gráfico se aperta em vez de esconder dia', () => {
-  const r = larguraDoGrafico({ pontos: 30, larguraDisponivel: 836, podeRolar: false });
-  assert.equal(r.rola, false);
-  assert.equal(r.largura, 836); // aperta: 27,9px por dia em vez de esconder 2 dias
-  const comDedo = larguraDoGrafico({ pontos: 30, larguraDisponivel: 836 });
-  assert.equal(comDedo.rola, true); // no celular/computador, o mesmo caso rola
-});
-
-test('quem pode rolar continua rolando: a trava não vaza para o resto', () => {
-  const r = larguraDoGrafico({ pontos: 30, larguraDisponivel: 319, podeRolar: true });
+// UMA REGRA SÓ, SEM EXCEÇÃO POR TIPO DE TELA. Tela larga não é sinônimo de
+// "cabe": a 1920 os dois cartões da seção 02 dividem a linha e ficam com 836px
+// cada, e 30 dias pedem 900 — então lá também rola. A conta é a mesma em toda
+// tela; quem manda é a largura que o cartão tem, não o aparelho que é.
+test('tela larga que mesmo assim não comporta os dias: rola igual', () => {
+  const r = larguraDoGrafico({ pontos: 30, larguraDisponivel: 836 });
   assert.equal(r.rola, true);
   assert.equal(r.largura, 900);
 });
