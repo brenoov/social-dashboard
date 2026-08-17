@@ -1,6 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { janelaDoRecorte, alvosPendentes } from './janelas-de-backfill.mjs';
+import {
+  janelaDoRecorte, alvosPendentes, interpretarArgumentos, respostaTemAcoes,
+  PAUSA_PADRAO, PAUSA_MINIMA,
+} from './janelas-de-backfill.mjs';
 
 test('recorte 0 é o dia isolado', () => {
   assert.deepEqual(janelaDoRecorte('2026-08-14', 0), { since: '2026-08-14', until: '2026-08-14' });
@@ -55,4 +58,71 @@ test('alvos vêm do mais antigo para o mais novo', () => {
 
 test('alvo de recorte desconhecido é descartado, não vira chamada', () => {
   assert.deepEqual(alvosPendentes([{ account_id: 'A', captured_at: '2026-08-01', period_days: 3 }]), []);
+});
+
+// ----------------------------------------------------------- as bandeiras
+
+test('--dry-run vale tanto quanto --dry', () => {
+  // A grafia que quase todo mundo tenta primeiro. Se ela fosse ignorada, um
+  // engano de digitação viraria a execução inteira: 2.179 chamadas e gravação.
+  assert.equal(interpretarArgumentos(['--dry']).dry, true);
+  assert.equal(interpretarArgumentos(['--dry-run']).dry, true);
+});
+
+test('sem bandeira nenhuma: grava, com a pausa padrão', () => {
+  const a = interpretarArgumentos([]);
+  assert.equal(a.dry, false);
+  assert.equal(a.pausa, PAUSA_PADRAO);
+  assert.equal(a.erro, null);
+});
+
+test('bandeira desconhecida é RECUSADA, nunca ignorada', () => {
+  // Ignorar em silêncio é o que torna o engano perigoso: quem escreveu --dri
+  // queria uma prévia e receberia a execução de verdade.
+  assert.ok(interpretarArgumentos(['--dri']).erro);
+  assert.ok(interpretarArgumentos(['--dryrun']).erro);
+  assert.ok(interpretarArgumentos(['--dry-runn']).erro);
+  assert.ok(interpretarArgumentos(['--gravar']).erro);
+});
+
+test('--pausa aceita as duas grafias e convive com --dry', () => {
+  assert.equal(interpretarArgumentos(['--pausa', '3000']).pausa, 3000);
+  assert.equal(interpretarArgumentos(['--pausa=3000']).pausa, 3000);
+  const a = interpretarArgumentos(['--pausa', '3000', '--dry']);
+  assert.equal(a.pausa, 3000);
+  assert.equal(a.dry, true);
+  assert.equal(a.erro, null);
+});
+
+test('pausa abaixo do piso vira o piso — zero foi o que derrubou o painel em julho', () => {
+  assert.equal(interpretarArgumentos(['--pausa', '0']).pausa, PAUSA_MINIMA);
+  assert.equal(interpretarArgumentos(['--pausa', '50']).pausa, PAUSA_MINIMA);
+  assert.equal(interpretarArgumentos(['--pausa', '-1']).pausa, PAUSA_MINIMA);
+  assert.equal(interpretarArgumentos(['--pausa', '0']).pausaPedida, 0);
+});
+
+test('--pausa sem número é erro, não volta para o padrão em silêncio', () => {
+  assert.ok(interpretarArgumentos(['--pausa']).erro);
+  assert.ok(interpretarArgumentos(['--pausa', 'abc']).erro);
+  assert.ok(interpretarArgumentos(['--pausa', '3000ms']).erro);
+});
+
+// ------------------------------------------- a resposta pela metade da Meta
+
+test('resposta em que NENHUMA campanha traz actions não serve', () => {
+  // A Meta já devolveu 200 estruturalmente válido com o detalhe faltando neste
+  // projeto. Aqui o estrago seria permanente: o script grava a linha UMA vez, e
+  // o filtro conversas=is.null tranca a linha contra qualquer conserto depois.
+  assert.equal(respostaTemAcoes([{ campaign_id: '1' }, { campaign_id: '2' }]), false);
+  assert.equal(respostaTemAcoes([]), false);
+  assert.equal(respostaTemAcoes(null), false);
+});
+
+test('basta UMA campanha com actions para a resposta servir', () => {
+  assert.equal(respostaTemAcoes([{ campaign_id: '1' }, { campaign_id: '2', actions: [{ action_type: 'lead', value: '3' }] }]), true);
+});
+
+test('actions vazio é resposta boa: a Meta olhou e não havia ação', () => {
+  // Diferente de actions AUSENTE. Lista vazia é um zero de verdade.
+  assert.equal(respostaTemAcoes([{ campaign_id: '1', actions: [] }]), true);
 });

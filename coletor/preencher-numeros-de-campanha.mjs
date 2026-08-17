@@ -22,8 +22,13 @@
 //
 // Uso:
 //   node coletor/preencher-numeros-de-campanha.mjs --dry          (1 alvo, não grava)
+//   node coletor/preencher-numeros-de-campanha.mjs --dry-run      (idem; as duas grafias valem)
 //   node coletor/preencher-numeros-de-campanha.mjs                (tudo, grava)
-//   node coletor/preencher-numeros-de-campanha.mjs --pausa 3000   (pausa em ms, padrão 2000)
+//   node coletor/preencher-numeros-de-campanha.mjs --pausa 3000   (pausa em ms, padrão 2000, piso 250)
+//
+// Bandeira que o script não conhece FAZ ELE PARAR com um recado, em vez de ser
+// ignorada. Um "--dry-run" digitado errado não pode ser a diferença entre uma
+// chamada e duas mil gravando no banco.
 //
 // É seguro parar no meio (Ctrl+C) e rodar de novo: o alvo já feito fica no
 // arquivo de retomada, e além disso o UPDATE só toca linha que ainda está nula.
@@ -33,7 +38,9 @@ import { readFileSync, writeFileSync, renameSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { contagensDaCampanha } from '../supabase/functions/_shared/acoes-de-campanha.js';
-import { janelaDoRecorte, alvosPendentes } from './janelas-de-backfill.mjs';
+import {
+  janelaDoRecorte, alvosPendentes, interpretarArgumentos, respostaTemAcoes, PAUSA_MINIMA,
+} from './janelas-de-backfill.mjs';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://kounqtdoioootxqegkij.supabase.co';
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
@@ -49,15 +56,24 @@ const RETOMADA = join(AQUI, '.preencher-numeros-de-campanha.json');
 // nem se contagensDaCampanha um dia passar a devolver outra coisa.
 const AS_QUATRO = ['conversas', 'cadastros', 'compras', 'visitas'];
 
-const DRY = process.argv.includes('--dry');
-const PAUSA = (() => {
-  const i = process.argv.indexOf('--pausa');
-  const n = i > -1 ? parseInt(process.argv[i + 1], 10) : NaN;
-  return Number.isFinite(n) && n >= 0 ? n : 2000;
-})();
+// Bandeira desconhecida RECUSA a execução em vez de ser ignorada: `--dry-run`
+// escrito por engano não pode ser a diferença entre uma chamada e duas mil.
+const ARGS = interpretarArgumentos(process.argv.slice(2));
+if (ARGS.erro) {
+  console.error(`✗ ${ARGS.erro}`);
+  console.error('  node coletor/preencher-numeros-de-campanha.mjs [--dry|--dry-run] [--pausa <ms>]');
+  process.exit(1);
+}
+const DRY = ARGS.dry;
+const PAUSA = ARGS.pausa;
+
 // Erro atrás de erro quase sempre é rate limit. Insistir foi exatamente o que
 // derrubou o painel em julho: para e deixa a retomada guardar o que já foi.
 const ERROS_SEGUIDOS_ATE_DESISTIR = 5;
+// A Meta sob limite de taxa nem sempre devolve erro: às vezes devolve 200 com
+// `data: []`. Sem este contador o script gastaria 73 minutos batendo no limite
+// compartilhado com o painel e não preencheria uma linha sequer.
+const VAZIOS_SEGUIDOS_ATE_DESISTIR = 15;
 
 const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
 const chaveDoAlvo = (a) => `${a.account_id}|${a.captured_at}|${a.period_days}`;
@@ -85,7 +101,10 @@ async function lerLinhasNulas() {
       { Range: `${de}-${ate}`, 'Range-Unit': 'items' },
     );
     todas.push(...linhas);
-    if (!linhas.length || linhas.length < ate - de + 1) break;
+    // Para SÓ na página vazia, nunca na página curta. Se o teto do PostgREST for
+    // baixado um dia, uma página curta deixaria de ser "a última" e o script
+    // processaria um pedaço achando que fez tudo — em silêncio, que é o pior jeito.
+    if (!linhas.length) break;
     de += linhas.length;
   }
   return todas;
@@ -130,7 +149,11 @@ async function insightsDaJanela(adAccountId, token, since, until) {
 
   const todos = [];
   let proxima = url.toString();
+  let pagina = 0;
   while (proxima) {
+    // Página seguinte também é chamada à Meta, e conta no mesmo limite de taxa
+    // que a tela ao vivo. A primeira não espera; as demais, sim.
+    if (pagina++) await dormir(PAUSA);
     const r = await fetch(proxima);
     const j = await r.json().catch(() => null);
     if (!r.ok || !j?.data) throw new Error(j?.error?.message || `HTTP ${r.status}`);
@@ -182,12 +205,16 @@ async function main() {
   const alvos = todos.filter((a) => !feitos.has(chaveDoAlvo(a)));
 
   console.log(`${linhas.length} linha(s) nula(s) → ${todos.length} alvo(s); ${todos.length - alvos.length} já feito(s); ${alvos.length} pela frente.`);
+  if (ARGS.pausaPedida !== null && ARGS.pausaPedida < PAUSA_MINIMA) {
+    console.log(`⚠ pausa pedida de ${ARGS.pausaPedida}ms elevada para o piso de ${PAUSA_MINIMA}ms (a Meta é compartilhada com a tela ao vivo).`);
+  }
   if (DRY) console.log('PRÉVIA (--dry): UM alvo, o mais antigo, e NADA é gravado.\n');
   else console.log(`Pausa de ${PAUSA}ms entre chamadas. ~${Math.round((alvos.length * PAUSA) / 60000)} min só de pausa.\n`);
   if (!alvos.length) { console.log('Nada a fazer.'); return; }
 
   const fila = DRY ? alvos.slice(0, 1) : alvos;
-  let feitosAgora = 0, vazios = 0, erros = 0, semConta = 0, atualizadas = 0, errosSeguidos = 0;
+  let feitosAgora = 0, vazios = 0, meiaResposta = 0, semLinha = 0, erros = 0, semConta = 0;
+  let atualizadas = 0, errosSeguidos = 0, vaziosSeguidos = 0;
 
   for (const alvo of fila) {
     const conta = porId[alvo.account_id];
@@ -199,13 +226,57 @@ async function main() {
     const janela = janelaDoRecorte(alvo.captured_at, alvo.period_days);
     if (!janela) { semConta++; console.log(`  ! ${rotulo}  recorte sem janela conhecida`); continue; }
 
+    // A GRAVAÇÃO MORA DENTRO DESTE MESMO try. Antes ela ficava fora, e um PATCH
+    // instável aos 40 minutos derrubava o processo inteiro sem imprimir um total
+    // sequer — o dono acordava com um "✗" pelado. Agora um erro de escrita conta
+    // como erro do alvo, entra no freio, e o resumo sempre sai.
     let itens;
+    let nesteAlvo = 0;
     try {
       itens = await insightsDaJanela(conta.ad_account_id, conta.access_token, janela.since, janela.until);
-      errosSeguidos = 0;
+
+      // REGRA 2: resposta vazia NÃO vira zero. Não grava e NÃO marca como feito —
+      // pode ter sido a Meta engasgando, e a próxima execução tenta de novo.
+      if (!itens.length) {
+        vazios++; vaziosSeguidos++; errosSeguidos = 0;
+        console.log(`  · ${rotulo}  ${janela.since}..${janela.until}  a Meta não devolveu nada — deixado nulo`);
+        if (vaziosSeguidos >= VAZIOS_SEGUIDOS_ATE_DESISTIR) {
+          console.log(`\n✗ ${vaziosSeguidos} respostas vazias seguidas — a Meta sob limite de taxa responde 200 com lista vazia. Parando para não gastar 1h batendo no limite à toa.`);
+          break;
+        }
+        await dormir(PAUSA);
+        continue;
+      }
+
+      // Meia resposta: veio campanha, mas NENHUMA traz `actions`. Aqui o estrago
+      // seria permanente (grava uma vez, e o filtro is.null tranca contra
+      // conserto), então trata como vazio: não grava, não marca como feito.
+      if (!respostaTemAcoes(itens)) {
+        meiaResposta++; vaziosSeguidos++; errosSeguidos = 0;
+        console.log(`  · ${rotulo}  ${janela.since}..${janela.until}  ${itens.length} campanha(s) e NENHUMA com actions — meia resposta, deixado nulo`);
+        if (vaziosSeguidos >= VAZIOS_SEGUIDOS_ATE_DESISTIR) {
+          console.log(`\n✗ ${vaziosSeguidos} respostas vazias/pela metade seguidas — parando. Quase sempre é limite de taxa.`);
+          break;
+        }
+        await dormir(PAUSA);
+        continue;
+      }
+
+      for (const item of itens) {
+        if (!item?.campaign_id) continue;
+        const contagens = contagensDaCampanha(item.actions);
+        const alvoDaLinha = { campaign_id: item.campaign_id, ...alvo };
+        if (DRY) {
+          console.log(`      ${item.campaign_id}  ` + AS_QUATRO.map((k) => `${k}=${contagens[k]}`).join('  '));
+          nesteAlvo++;
+        } else {
+          nesteAlvo += await atualizarAsQuatro(alvoDaLinha, contagens);
+        }
+      }
+      errosSeguidos = 0; vaziosSeguidos = 0;
     } catch (e) {
       erros++; errosSeguidos++;
-      console.log(`  ! ${rotulo}  ${janela.since}..${janela.until}  Meta: ${String(e.message).slice(0, 90)}`);
+      console.log(`  ! ${rotulo}  ${janela.since}..${janela.until}  ${String(e.message).slice(0, 90)}`);
       if (errosSeguidos >= ERROS_SEGUIDOS_ATE_DESISTIR) {
         console.log(`\n✗ ${errosSeguidos} erros seguidos — parando para não martelar a Meta. Rode de novo mais tarde: a retomada guardou o que já foi feito.`);
         break;
@@ -214,39 +285,38 @@ async function main() {
       continue;
     }
 
-    // REGRA 2: resposta vazia NÃO vira zero. Não grava e NÃO marca como feito —
-    // pode ter sido a Meta engasgando, e a próxima execução tenta de novo.
-    if (!itens.length) {
-      vazios++;
-      console.log(`  · ${rotulo}  ${janela.since}..${janela.until}  a Meta não devolveu nada — deixado nulo`);
-      await dormir(PAUSA);
-      continue;
-    }
-
-    let nesteAlvo = 0;
-    for (const item of itens) {
-      if (!item?.campaign_id) continue;
-      const contagens = contagensDaCampanha(item.actions);
-      const alvoDaLinha = { campaign_id: item.campaign_id, ...alvo };
-      if (DRY) {
-        console.log(`      ${item.campaign_id}  ` + AS_QUATRO.map((k) => `${k}=${contagens[k]}`).join('  '));
-        nesteAlvo++;
-      } else {
-        nesteAlvo += await atualizarAsQuatro(alvoDaLinha, contagens);
-      }
-    }
     atualizadas += nesteAlvo;
-    feitosAgora++;
     console.log(`  ${DRY ? '·' : '✓'} ${rotulo}  ${janela.since}..${janela.until}  ${itens.length} campanha(s), ${nesteAlvo} linha(s)${DRY ? ' seriam atualizadas' : ' atualizadas'}`);
 
-    if (!DRY) { feitos.add(chaveDoAlvo(alvo)); salvarRetomada(feitos); }
+    // SÓ conta como feito se alguma linha foi mesmo atualizada. Se o filtro
+    // estivesse errado, marcar como feito faria a primeira execução gastar 2.179
+    // chamadas gravando NADA e a segunda dizer "Nada a fazer" — um fracasso
+    // lavado e apresentado como conclusão. Zero legítimo custa uma chamada
+    // repetida na próxima; é troca boa.
+    if (nesteAlvo > 0) {
+      feitosAgora++;
+      if (!DRY) { feitos.add(chaveDoAlvo(alvo)); salvarRetomada(feitos); }
+    } else {
+      semLinha++;
+      console.log('      ↑ nenhuma linha casou o filtro — NÃO marcado como feito, será tentado de novo');
+    }
     await dormir(PAUSA);
   }
 
   const minutos = ((Date.now() - comecou) / 60000).toFixed(1);
-  console.log(`\nalvos feitos: ${feitosAgora} · vazios (deixados nulos): ${vazios} · erro: ${erros} · sem conta/janela: ${semConta}`);
+  console.log(`\nalvos feitos: ${feitosAgora} · vazios: ${vazios} · meia resposta: ${meiaResposta} · sem linha casada: ${semLinha} · erro: ${erros} · sem conta/janela: ${semConta}`);
   console.log(`linhas ${DRY ? 'que seriam ' : ''}atualizadas: ${atualizadas} · ${minutos} min`);
-  if (DRY) console.log('\nPRÉVIA: nada foi gravado. Rode sem --dry para valer.');
+
+  if (DRY) { console.log('\nPRÉVIA: nada foi gravado. Rode sem --dry para valer.'); return; }
+
+  console.log(`\nArquivo de retomada: ${RETOMADA}`);
+  console.log('  APAGUE esse arquivo quando o backfill terminar. Se ele ficar, as');
+  console.log('  chaves velhas fazem qualquer tentativa futura pular esses alvos em silêncio.');
+  if (atualizadas > 0) {
+    console.log('\nSe algum número gravado parecer errado, dá para desfazer: é só');
+    console.log('devolver as quatro colunas daquela janela para nulo, e uma execução');
+    console.log('seguinte pergunta de novo à Meta. O SQL está no relatório da Tarefa 9.');
+  }
 }
 
 main().catch((e) => { console.error('✗ ' + e.message); process.exit(1); });
