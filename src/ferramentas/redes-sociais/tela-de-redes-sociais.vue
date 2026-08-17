@@ -164,6 +164,27 @@
               <div class="legend-item"><span style="font-weight:700;color:var(--text)">n</span><span>= líquido</span></div>
             </div>
           </div>
+          <!-- O GRÁFICO ROLA PARA O LADO QUANDO O PERÍODO NÃO CABE NA TELA.
+               A 375px o gráfico tem 319px: com 30 dias sobram ~10px por dia, e
+               "R$ 17,34" não cabe em 10px em fonte nenhuma. A régua está em
+               largura-do-grafico.js — mínimo de 30px por dia. Enquanto os dias
+               cabem nesse mínimo, nada disto entra em ação e o gráfico continua
+               do tamanho do cartão, como sempre foi.
+
+               São três camadas, e cada uma tem um motivo:
+                 .grafico-que-rola  → NÃO rola; é ela que segura a faixa apagada
+                                       da direita colada na borda visível (dentro
+                                       do que rola, a faixa iria embora junto).
+                 .rolagem-de-grafico → é o que rola, e só ela: a página não pode
+                                       ganhar rolagem para o lado por causa disto.
+                 .trilho-de-grafico  → é o que fica LARGO. O SVG e os rótulos são
+                                       filhos dele, então a camada de números
+                                       nasce da largura do desenho e não da
+                                       largura visível — sem isso os números
+                                       ficariam espremidos sobre um desenho largo. -->
+          <div class="grafico-que-rola" id="grafico-de-seguidores">
+          <div class="rolagem-de-grafico" id="rolagem-de-seguidores">
+          <div class="trilho-de-grafico" id="trilho-de-seguidores">
           <div class="chart-svg-wrap">
             <svg id="followers-chart" viewBox="0 0 400 110" preserveAspectRatio="none">
               <defs>
@@ -186,6 +207,9 @@
             <div id="chart-data-labels"></div>
           </div>
           <div class="x-labels" id="chart-xlabels"></div>
+          </div><!-- /.trilho-de-grafico -->
+          </div><!-- /.rolagem-de-grafico -->
+          </div><!-- /.grafico-que-rola -->
           <!-- Aviso dos dias ESTIMADOS. Só aparece quando existe dia estimado; fica
                vazio (e sem ocupar espaço) no dia a dia normal. O texto técnico de
                dentro é só para super-admin — ver montarNotaDeEstimativa(). -->
@@ -469,6 +493,11 @@ import { adminToast } from '../../compartilhado/avisos.js'
 import { sb } from '../../compartilhado/buscar-e-salvar-dados.js'
 import { hojeLocal } from '../../compartilhado/datas.js'
 import { montarSerieDeInvestimento, montarSerieDeCustoPorSeguidor } from './series-diarias-de-meta-ads.js'
+// Quanta largura um gráfico de um ponto por dia precisa ter, e se ele passa a
+// rolar para o lado. Puro e com teste ao lado (largura-do-grafico.test.mjs).
+// Nasceu da medida a 375px: 30 dias em 319px davam ~10px por dia e os valores em
+// reais se sobrepunham em −5px.
+import { larguraDoGrafico, ESPACO_ANTES_DO_GRAFICO, ESPACO_DEPOIS_DO_GRAFICO } from './largura-do-grafico.js'
 // Decide se a barra do dia é número do Instagram ou estimativa nossa. Puro e com
 // teste ao lado (estimativa-de-seguidores.test.mjs), usando a contagem REAL do
 // Breno nos dias em que a Meta parou de publicar.
@@ -1332,6 +1361,56 @@ function montarNotaDeEstimativa(semPublicacao) {
   el.hidden = false
 }
 
+/* Põe no trilho a largura do desenho e as duas tiras vazias das beiradas.
+   As tiras ficam aqui, e não no CSS, para não haver dois lugares dizendo o mesmo
+   número: quem manda são as constantes de largura-do-grafico.js, que é onde está
+   escrito POR QUE elas existem. */
+function vestirOTrilho(trilho, medida) {
+  if (!trilho) return
+  if (medida.rola) {
+    trilho.style.setProperty('--largura-do-grafico', medida.largura + 'px')
+    trilho.style.paddingLeft = ESPACO_ANTES_DO_GRAFICO + 'px'
+    trilho.style.paddingRight = ESPACO_DEPOIS_DO_GRAFICO + 'px'
+  } else {
+    // Cabendo, o trilho volta a ser fluido (100%) e sem tira nenhuma: o gráfico
+    // acompanha o cartão sozinho, inclusive quando o aparelho gira, sem depender
+    // de um novo desenho.
+    trilho.style.removeProperty('--largura-do-grafico')
+    trilho.style.paddingLeft = ''
+    trilho.style.paddingRight = ''
+  }
+}
+
+/* Existe alguém para arrastar o gráfico? No modo televisão não: a tela fica na
+   parede e ninguém encosta nela. Lá o gráfico se aperta e mostra os 30 dias, em
+   vez de esconder os últimos atrás de uma rolagem que nunca vai acontecer.
+   (Medido: a 1920 com dev-tv os cartões da seção 02 ficam com 836px, e 30 dias
+   pedem 900 — sem esta trava a televisão rolaria.) */
+function alguemPodeRolar() {
+  return !(typeof document !== 'undefined' && document.body && document.body.classList.contains('dev-tv'))
+}
+
+/* Mede o espaço que o cartão dá e aplica a régua dos 30px por dia nas três
+   camadas do gráfico (ver o comentário do template, na seção 01).
+
+   `caixaExterna` = a `.grafico-que-rola`; dentro dela vêm a `.rolagem-de-grafico`
+   (a que rola) e o `.trilho-de-grafico` (o que fica largo).
+
+   Devolve a medida, porque o desenho depende dela: com 30px por dia cabe número
+   dentro da barra onde antes não cabia. */
+function medirLarguraDoGrafico(caixaExterna, pontos) {
+  const rolagem = caixaExterna ? caixaExterna.querySelector('.rolagem-de-grafico') : null
+  const trilho = rolagem ? rolagem.querySelector('.trilho-de-grafico') : null
+  // Medimos a CAIXA QUE ROLA, não o trilho: ela recorta o que passa, então a
+  // largura dela é a largura VISÍVEL mesmo quando um desenho largo de uma
+  // passada anterior ainda está lá dentro. Medir o trilho devolveria a largura
+  // do desenho antigo, e o gráfico nunca mais voltaria a encolher.
+  const medida = larguraDoGrafico({ pontos, larguraDisponivel: rolagem ? rolagem.clientWidth : 0, podeRolar: alguemPodeRolar() })
+  if (caixaExterna) caixaExterna.classList.toggle('rolando', medida.rola)
+  vestirOTrilho(trilho, medida)
+  return medida
+}
+
 function buildChart(chartData) {
   // BARRAS EMPILHADAS por dia: VERDE (seguiu) embaixo + VERMELHO (deixou) em cima; LÍQUIDO rotulado no topo.
   let { gained, lost, labels, dates } = chartData
@@ -1345,9 +1424,19 @@ function buildChart(chartData) {
   gained = (gained || []).slice(); lost = (lost || []).slice(); labels = (labels || []).slice(); dates = (dates || []).slice()
   if (gained.length === 0) { gained = [0]; lost = [0]; labels = labels.length ? labels : ['']; dates = dates.length ? dates : [''] }
   const n = gained.length
+  // A régua dos 30px por dia. Ela mexe na LARGURA do desenho, não no viewBox:
+  // este SVG tem preserveAspectRatio="none", então esticar a largura estica só na
+  // horizontal (a altura continua presa em 150px pelo CSS) e os rótulos, que são
+  // posicionados em PORCENTAGEM sobre a camada de números, acompanham de graça.
+  const medidaDoGrafico = medirLarguraDoGrafico(document.getElementById('grafico-de-seguidores'), n)
   const net = gained.map((g, i) => g - (lost[i] || 0))
   const totals = gained.map((g, i) => g + (lost[i] || 0))
-  const W = 400, H = 110, padX = 8, padTop = 18, padBot = 4
+  // A meta é lida ANTES de fechar a moldura porque ela muda a moldura: quando
+  // existe rótulo de meta, o topo do quadro vira faixa dele e de mais ninguém
+  // (mesmo motivo do gráfico da seção 02 — ver o comentário do padTop de lá).
+  const metaPeriodoDoGrafico = getGoal('followers')
+  const metaDia = (metaPeriodoDoGrafico > 0 && n > 0) ? metaPeriodoDoGrafico / n : 0
+  const W = 400, H = 110, padX = 8, padTop = metaDia > 0 ? 32 : 18, padBot = 4
   const maxTot = Math.max(...totals, 1)
   const chartH = H - padTop - padBot, baseY = H - padBot
   const hOf = v => (v / maxTot) * chartH
@@ -1383,7 +1472,13 @@ function buildChart(chartData) {
   // Rótulos HTML SOBREPOSTOS (não distorcem como o <text> do SVG esticado): números dentro + líquido no topo.
   const labelsG = document.getElementById('chart-data-labels'); labelsG.textContent = ''
   const _lab = (xPx, yPx, text, cls) => { const s = document.createElement('span'); s.className = cls; s.textContent = text; s.style.left = ((xPx / W) * 100) + '%'; s.style.top = ((yPx / H) * 100) + '%'; labelsG.appendChild(s); return s }
-  const showInside = n <= 14
+  // Número DENTRO da barra (quantos seguiram / quantos saíram). A regra sempre foi
+  // de espaço, escrita em contagem de dias: até 14 dias cabia, daí em diante não.
+  // Rolando, cada dia tem 30px garantidos — mais do que os ~22px que os 14 dias
+  // tinham no celular — então o número volta a caber e não há por que escondê-lo.
+  // A conta por dias fica de pé para quem NÃO rola (o computador), que continua
+  // exatamente como está hoje.
+  const showInside = n <= 14 || medidaDoGrafico.rola
   for (let i = 0; i < n; i++) {
     const x = px(i), g = gained[i] || 0, l = lost[i] || 0
     const gh = hOf(g), lh = hOf(l)
@@ -1415,14 +1510,20 @@ function buildChart(chartData) {
   // a linha encosta no topo (clamp) pra nunca sumir do quadro.
   const metaEl = document.getElementById('chart-meta')
   if (metaEl) {
-    const metaPeriodo = getGoal('followers')
-    const metaDia = (metaPeriodo > 0 && n > 0) ? metaPeriodo / n : 0
     if (metaDia > 0) {
       const my = py(Math.min(metaDia, maxTot))
       metaEl.setAttribute('y1', my.toFixed(2)); metaEl.setAttribute('y2', my.toFixed(2))
       metaEl.removeAttribute('display')
-      const lab = _lab(W, my, 'Meta ' + fmtN(Math.round(metaDia)) + '/dia', 'cdl-meta')
-      lab.style.transform = 'translate(-100%, -118%)'
+      // O RÓTULO DA META MORA NO CANTO DE CIMA, À ESQUERDA — e essa faixa é dele
+      // sozinho (o padTop lá em cima foi aberto para isso).
+      //
+      // Antes ele ficava na direita, na altura da linha: em cima do ÚLTIMO dia,
+      // que é sempre rotulado ("+22" por cima de "Meta 69/dia" foi um dos pares
+      // medidos). Só trocar de lado NÃO resolve — medido a 375px, ele passou a
+      // bater no PRIMEIRO dia ("+28" × "Meta 69/dia"). O que resolve é tirá-lo
+      // da faixa onde moram os números dos dias.
+      const lab = _lab(0, 0, 'Meta ' + fmtN(Math.round(metaDia)) + '/dia', 'cdl-meta')
+      lab.style.transform = 'translate(0, 0)'
     } else metaEl.setAttribute('display', 'none')
   }
 }
@@ -1449,8 +1550,33 @@ function desenharGraficoDiario(hostId, serie, opcoes) {
   const NS = 'http://www.w3.org/2000/svg'
   const el = (tag, attrs) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, String(attrs[k])); return e }
   const comTitulo = (node, texto) => { const t = document.createElementNS(NS, 'title'); t.textContent = texto; node.appendChild(t); return node }
-  const W = 400, H = 136, padX = 10, padTop = 14, padBot = 24
+  // ── A régua dos 30px por dia (largura-do-grafico.js) ──
+  // AQUI A LARGURA NÃO PODE SER SÓ ESTICADA. Este SVG escala UNIFORME (não tem
+  // preserveAspectRatio="none"): alargar o desenho mantendo o viewBox em 400
+  // esticaria a ALTURA junto e o gráfico viraria um paredão. Então a largura
+  // entra no próprio viewBox — o desenho passa a ser feito em `W` unidades, que
+  // é exatamente o número de pixels na tela, na escala 1:1.
+  //
+  // Não cabendo rolagem (computador, período curto), `W` continua 400 e o SVG
+  // continua em width:100% — pixel a pixel o que está no ar hoje.
+  const medida = larguraDoGrafico({ pontos: pontos.length, larguraDisponivel: host.clientWidth, podeRolar: alguemPodeRolar() })
+  const caixaQueRola = document.createElement('div')
+  caixaQueRola.className = 'grafico-que-rola' + (medida.rola ? ' rolando' : '')
+  const rolagem = document.createElement('div'); rolagem.className = 'rolagem-de-grafico'
+  const trilho = document.createElement('div'); trilho.className = 'trilho-de-grafico'
+  vestirOTrilho(trilho, medida)
+  rolagem.appendChild(trilho); caixaQueRola.appendChild(rolagem)
+  const W = medida.rola ? medida.largura : 400
   const meta = serie.meta > 0 ? serie.meta : 0
+  // A FAIXA DE CIMA É DO RÓTULO DA META, E DE MAIS NINGUÉM.
+  // Só mudar o rótulo de lado (direita → esquerda) NÃO resolveu: medido a 375px,
+  // "Meta do dia R$ 20,00" continuou por cima de "R$ 17,34", agora do primeiro
+  // dia em vez do último. A tarja é opaca e desenhada por último, então ela
+  // ESCONDIA o valor — e esconder número é pior que amontoar. Reservando 28 em
+  // vez de 14 no topo, o valor mais alto possível fica embaixo da faixa e a
+  // sobreposição deixa de existir por construção, não por sorte de dado.
+  // Sem meta não há rótulo, e aí não há por que encurtar as barras.
+  const H = 136, padX = 10, padTop = meta > 0 ? 28 : 14, padBot = 24
   const valores = pontos.filter(p => !p.semDado).map(p => p.valor)
   // A meta entra na escala pra linha NUNCA sair do gráfico (uma linha invisível mentiria).
   const maxVal = Math.max(...valores, meta, 0.01)
@@ -1458,7 +1584,12 @@ function desenharGraficoDiario(hostId, serie, opcoes) {
   const chartH = H - padTop - padBot, baseY = H - padBot
   const hOf = v => (Math.max(0, v) / maxVal) * chartH
   const px = i => n > 1 ? padX + (i / (n - 1)) * (W - padX * 2) : W / 2
-  const svg = el('svg', { class: 'gmad-svg', viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': opcoes.titulo })
+  // `gmad-rola` só existe quando o gráfico rola, e serve para uma coisa: os
+  // valores em reais ficarem em 11px. Eles estão em 9px hoje porque não havia
+  // espaço; com a rolagem há, e 9px era o menor tamanho que ainda se lê. Sem a
+  // classe, o computador ganharia letra maior sem precisar — e letra maior no
+  // mesmo espaço é sobreposição de volta.
+  const svg = el('svg', { class: 'gmad-svg' + (medida.rola ? ' gmad-rola' : ''), viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': opcoes.titulo })
   // linha de base
   svg.appendChild(el('line', { class: 'gmad-base', x1: padX, x2: W - padX, y1: baseY, y2: baseY }))
   const slot = (W - padX * 2) / Math.max(n, 1)
@@ -1499,26 +1630,34 @@ function desenharGraficoDiario(hostId, serie, opcoes) {
     const y = baseY - hOf(meta)
     svg.appendChild(comTitulo(el('line', { class: 'gmad-meta', x1: padX, x2: W - padX, y1: y.toFixed(2), y2: y.toFixed(2) }), opcoes.rotuloMeta + ': ' + fmtR(meta)))
 
-    // O rótulo ganha uma tarja atrás de propósito. Ele fica sobre a área das barras
-    // (não há canto vazio garantido — barra alta pode existir em qualquer dia), e
-    // sem fundo o texto se misturava com a barra e virava sujeira.
+    // O RÓTULO DA META MORA NO CANTO DE CIMA, À ESQUERDA — na faixa que o padTop
+    // abriu lá em cima só para ele.
+    //
+    // Antes ele ficava colado na linha, na borda direita. Dois problemas, os dois
+    // medidos: o último dia com dado é SEMPRE rotulado, então a tarja caía em
+    // cima do valor dele; e, colado na linha, ele passeava pela altura do gráfico
+    // e esbarrava no valor de qualquer dia na mesma altura. Foi assim que este
+    // rótulo entrou em 5 dos 8 pares sobrepostos ("R$ 2,88" × "Meta máxima
+    // R$ 3,00"). Só trocar de lado NÃO resolve: passa a bater no primeiro dia.
+    //
+    // A tarja continua opaca porque continua sobre o desenho, e sem fundo o texto
+    // se misturava e virava sujeira. A linha continua tracejada e laranja como o
+    // rótulo: os dois se leem juntos sem precisar estar encostados, e a linha
+    // ainda diz o valor no toque longo.
     const txt = opcoes.rotuloMeta + ' ' + fmtR(meta)
     const larguraTxt = txt.length * 4.4 + 8 // ~4.4px por caractere no corpo 8
     const alturaTarja = 11
-    // Acima da linha; se a linha estiver colada no topo, desce a tarja pra ela não
-    // sair do quadro.
-    const acimaCabe = y - alturaTarja - 2 >= 0
-    const tarjaY = acimaCabe ? y - alturaTarja - 2 : y + 2
+    const tarjaY = 2
     svg.appendChild(el('rect', {
       class: 'gmad-meta-tarja',
-      x: (W - padX - larguraTxt).toFixed(2), y: tarjaY.toFixed(2),
+      x: padX.toFixed(2), y: tarjaY.toFixed(2),
       width: larguraTxt.toFixed(2), height: alturaTarja, rx: 2.5,
     }))
     const tag = el('text', {
       class: 'gmad-meta-txt',
-      x: (W - padX - 4).toFixed(2),
+      x: (padX + 4).toFixed(2),
       y: (tarjaY + 8).toFixed(2),
-      'text-anchor': 'end',
+      'text-anchor': 'start',
     })
     tag.textContent = txt
     svg.appendChild(tag)
@@ -1531,7 +1670,8 @@ function desenharGraficoDiario(hostId, serie, opcoes) {
     t.textContent = _gmadDiaCurto(pontos[i].data)
     svg.appendChild(t)
   }
-  host.appendChild(svg)
+  trilho.appendChild(svg)
+  host.appendChild(caixaQueRola)
   const legenda = document.createElement('div'); legenda.className = 'gmad-legenda'
   const semColeta = pontos.filter(p => p.semDado && p.motivo === 'sem-coleta').length
   const semSeguidor = pontos.filter(p => p.semDado && p.motivo === 'sem-seguidor').length
@@ -3392,6 +3532,13 @@ onUnmounted(() => {
 .tela-redes-sociais :deep(.gmad-meta-txt){font-family:var(--fonte-principal);font-size:max(9px, calc(8px * var(--escala-texto, 1)));font-weight:600;fill:var(--orange);}
 /* Rótulo de dados (valor R$) em cima de cada barra dos gráficos diários. */
 .tela-redes-sociais :deep(.gmad-valor){font-family:var(--fonte-principal);font-size:max(9px, calc(7.5px * var(--escala-texto, 1)));font-weight:700;fill:var(--text);}
+/* 11px quando o gráfico rola. Os 9px acima não foram escolha de estilo: era o
+   menor corpo legível, e mesmo assim "R$ 17,34" e "R$ 11,35" se sobrepunham em
+   −5px a 375px, porque cada dia tinha ~10px. Rolando, cada dia tem 30px — e aí
+   não há motivo para continuar espremendo a letra. Só rolando: no computador o
+   espaço é o mesmo de sempre, e letra maior no mesmo espaço traria a
+   sobreposição de volta. */
+.tela-redes-sociais :deep(.gmad-rola .gmad-valor){font-size:max(11px, calc(11px * var(--escala-texto, 1)));}
 /* Tarja atrás do rótulo da meta: ele fica sobre as barras e sem fundo virava sujeira. */
 .tela-redes-sociais :deep(.gmad-meta-tarja){fill:var(--surface);stroke:var(--orange);stroke-width:.5;opacity:.94;}
 .tela-redes-sociais :deep(.gmad-xlabel){font-family:var(--fonte-principal);font-size:max(9px, calc(8px * var(--escala-texto, 1)));fill:var(--muted);}
@@ -3442,8 +3589,53 @@ onUnmounted(() => {
 .tela-redes-sociais :deep(.sec3-grid){display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
 .tela-redes-sociais :deep(.sec4-grid){display:grid;grid-template-columns:repeat(2,1fr);gap:16px;}
 
+/* ── GRÁFICO QUE ROLA PARA O LADO — vale para a seção 01 e para a seção 02 ──
+   A régua está em largura-do-grafico.js: cada dia recebe no MÍNIMO 30px. Cabendo
+   os dias nesse mínimo (o computador em qualquer período; o celular em períodos
+   curtos), NADA aqui entra em ação: sem `overflow`, sem faixa, sem largura
+   cravada — o gráfico continua exatamente como está no ar hoje.
+
+   REPARE QUE O `overflow` SÓ EXISTE COM A CLASSE `.rolando`. É de propósito:
+   caixa que rola RECORTA também de cima e de baixo (não existe rolar num eixo e
+   deixar o outro transbordar), e os números do gráfico de seguidores ficam por
+   cima das barras, na beirada. Sem rolagem não há o que recortar, então não se
+   recorta nada. */
+/* SEM ESTE `min-width:0` A PÁGINA INTEIRA GANHA ROLAGEM PARA O LADO. Cartão é
+   item de grade, e item de grade nasce com `min-width:auto` — que quer dizer
+   "nunca menor que o conteúdo". O conteúdo aqui é DE PROPÓSITO maior que a tela
+   (é o gráfico largo), e a coluna ia atrás dele: medido a 375px, o cartão da
+   seção 02 esticou para 980px e o `body` foi para 992px. Recortar dentro da
+   caixa que rola não basta; a coluna precisa ter permissão de ser menor que o
+   que está dentro dela. */
+.tela-redes-sociais :deep(.sec1-grid)>.card,
+.tela-redes-sociais :deep(.sec2-grid)>.card{min-width:0;}
+.tela-redes-sociais :deep(.grafico-que-rola){position:relative;width:100%;margin-top:auto;}
+.tela-redes-sociais :deep(.grafico-que-rola.rolando .rolagem-de-grafico){
+  overflow-x:auto;overflow-y:hidden;
+  /* A rolagem para o lado morre AQUI: sem isto, o dedo que chega no fim do
+     gráfico empurra a PÁGINA para o lado (ou dispara o "voltar" do navegador). */
+  overscroll-behavior-x:contain;touch-action:pan-x pan-y;
+}
+/* O trilho é o que fica largo. `content-box` de propósito: as tiras vazias das
+   beiradas entram como padding e NÃO entram na largura do desenho — os rótulos
+   são posicionados em porcentagem sobre essa largura, e um trilho maior que o
+   desenho deslocaria todos eles. A largura e as tiras são postas pelo JavaScript
+   (ver vestirOTrilho), a partir das constantes de largura-do-grafico.js.
+   `min-width:100%` é a rede: se o cartão crescer depois do desenho (girar o
+   aparelho), o gráfico acompanha em vez de virar um toco no meio do cartão. */
+.tela-redes-sociais :deep(.trilho-de-grafico){box-sizing:content-box;width:var(--largura-do-grafico, 100%);min-width:100%;}
+/* A faixa apagada da direita é o único aviso de que existe mais gráfico para o
+   lado — sem ela ninguém descobre. Mora na camada que NÃO rola, senão iria
+   embora junto com o conteúdo; e cai sobre a tira vazia da saída, nunca sobre o
+   último dia (ver FAIXA_QUE_AVISA em largura-do-grafico.js — os 28 daqui são os
+   mesmos de lá). */
+.tela-redes-sociais :deep(.grafico-que-rola.rolando)::after{
+  content:'';position:absolute;top:0;right:0;bottom:0;width:28px;
+  pointer-events:none;background:linear-gradient(to right,transparent,var(--surface));
+}
+
 /* Chart */
-.tela-redes-sociais :deep(.chart-svg-wrap){position:relative;width:100%;margin-top:auto;}
+.tela-redes-sociais :deep(.chart-svg-wrap){position:relative;width:100%;}
 .tela-redes-sociais :deep(.chart-svg-wrap) svg{width:100%;height:150px;overflow:visible;cursor:crosshair;display:block;}
 .tela-redes-sociais :deep(#chart-data-labels){position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;overflow:visible;}
 /* Linha de meta de seguidores/dia: laranja tracejado e translúcido, igual às outras metas. */

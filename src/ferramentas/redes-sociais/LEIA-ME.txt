@@ -87,3 +87,26 @@ Esta tela é 100% independente das outras — não compartilha estado com
 Gestão de Tráfego, Gestão à Vista ou Análise de Campanhas (cada uma tem sua
 própria cópia dos pedacinhos de visual que se parecem, de propósito, pra não
 quebrar uma mexendo na outra).
+
+GRÁFICOS QUE ROLAM PARA O LADO NO CELULAR (17/08)
+-------------------------------------------------
+Os gráficos "novos seguidores / dia" (seção 01) e os dois gráficos diários da
+seção 02 agora dão no MÍNIMO 30px para cada dia. Enquanto os dias cabem nesse
+mínimo, nada muda: o gráfico continua do tamanho do cartão. Quando não cabem
+(celular em 14D, 30D e MÊS; e a seção 02 também no computador em 30D e MÊS,
+porque os dois cartões dividem a linha), o gráfico fica mais largo que o cartão
+e ROLA PARA O LADO dentro dele — a página nunca ganha rolagem horizontal. Uma
+faixa apagada na direita avisa que tem mais gráfico para o lado.
+
+O motivo: a 375px, com 30 dias, sobravam ~10px por dia, e "R$ 17,34" não cabe em
+10px. Os valores se sobrepunham. A conta de "cabe ou não cabe" está em
+largura-do-grafico.js, com teste ao lado, e vale para os dois gráficos.
+
+Junto vieram: os valores em reais da seção 02 em 11px (era 9px, que era o menor
+legível) quando o gráfico rola, e o rótulo da meta ("Meta máxima", "Meta N/dia")
+mudado para o canto de cima à esquerda, numa faixa que é só dele — ele era o
+culpado de 5 das 8 sobreposições medidas.
+
+Na televisão (body.dev-tv) o gráfico NÃO rola: lá ninguém arrasta nada, então
+ele se aperta e mostra todos os dias. Detalhes e medidas em
+docs/superpowers/relatorio-graficos-celular.md.
