@@ -1456,3 +1456,261 @@ comportamento esperado.
 ids de cartão (`investimento`, `cps`, `cpi`, `cpl`, `cpm`, `alcance`, `frequencia`,
 `custo_conversa`, `conversas`, `custo_cadastro`, `custo_visita`, `visitas`,
 `custo_venda`, `compras`) são os mesmos em Task 6 e Task 7.
+
+---
+
+## Task 9: Preencher para trás os quatro números novos (backfill)
+
+Acrescentada em 17/08/2026, a pedido do dono, depois que o plano já estava em execução.
+
+**Por que existe:** as colunas `conversas`, `cadastros`, `compras` e `visitas` só
+passam a ser gravadas a partir do deploy de hoje. Os cartões funcionam desde a
+primeira rodada (o agregado é recoletado inteiro a cada passada), mas a comparação
+"vs período anterior" e o gráfico diário leem capturas ANTIGAS, que ficam nulas —
+e nulo, corretamente, aparece como "—". Este backfill preenche o passado.
+
+**Arquivos:**
+- Criar: `coletor/janelas-de-backfill.mjs` (puro)
+- Testar: `coletor/janelas-de-backfill.test.mjs`
+- Criar: `coletor/preencher-numeros-de-campanha.mjs` (o script; faz rede e banco)
+- Modificar: `.gitignore` (o arquivo de retomada)
+
+**Interfaces:**
+- Consome: `contagensDaCampanha(actions)` de
+  `supabase/functions/_shared/acoes-de-campanha.js` (Tarefa 3) — a MESMA função do
+  coletor, para o número preenchido não poder divergir do número coletado.
+- Produz: `janelaDoRecorte(capturedAt, periodDays)` → `{ since, until }` e
+  `alvosPendentes(linhas)` → lista ordenada de `{ account_id, captured_at, period_days }`.
+
+### As janelas, tiradas do código que grava cada recorte
+
+Errar isto faz o número novo não bater com o gasto que já está na MESMA linha.
+Foram lidas no código, não deduzidas:
+
+| Recorte | Quem grava | Janela |
+|---|---|---|
+| `0` | `coletarAdsDia` | `since = until = captured_at` |
+| `1`, `7`, `14`, `30` | `coletarAdsPorCampanha` | `since = captured_at − period_days`, `until = captured_at` |
+| `99` | `coletor/recuperar-curtidas-zeradas.mjs:49` | `since = 1º dia do mês de captured_at`, `until = captured_at` |
+
+Repare que `1`, `7`, `14` e `30` cobrem **N+1 dias** (a subtração é do jeito que o
+coletor faz, e o backfill copia o jeito, não o conserta). E `0` NÃO é o mesmo que
+`1`: `0` é o dia isolado, `1` são dois dias.
+
+- [ ] **Passo 1: escrever o teste que falha**
+
+Crie `coletor/janelas-de-backfill.test.mjs`:
+
+```js
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { janelaDoRecorte, alvosPendentes } from './janelas-de-backfill.mjs';
+
+test('recorte 0 é o dia isolado', () => {
+  assert.deepEqual(janelaDoRecorte('2026-08-14', 0), { since: '2026-08-14', until: '2026-08-14' });
+});
+
+test('recortes de N dias terminam no dia da captura e começam N dias antes', () => {
+  // É a conta que coletarAdsPorCampanha faz: d = hoje; d.setDate(d.getDate() - dias).
+  assert.deepEqual(janelaDoRecorte('2026-08-14', 7), { since: '2026-08-07', until: '2026-08-14' });
+  assert.deepEqual(janelaDoRecorte('2026-08-14', 30), { since: '2026-07-15', until: '2026-08-14' });
+  assert.deepEqual(janelaDoRecorte('2026-08-14', 1), { since: '2026-08-13', until: '2026-08-14' });
+});
+
+test('recorte 1 NÃO é o mesmo que o recorte 0', () => {
+  assert.notDeepEqual(janelaDoRecorte('2026-08-14', 1), janelaDoRecorte('2026-08-14', 0));
+});
+
+test('recorte 99 é do primeiro dia do mês até o dia', () => {
+  assert.deepEqual(janelaDoRecorte('2026-08-14', 99), { since: '2026-08-01', until: '2026-08-14' });
+  assert.deepEqual(janelaDoRecorte('2026-03-03', 99), { since: '2026-03-01', until: '2026-03-03' });
+});
+
+test('a virada de mês e de ano não escorrega um dia', () => {
+  assert.deepEqual(janelaDoRecorte('2026-03-01', 1), { since: '2026-02-28', until: '2026-03-01' });
+  assert.deepEqual(janelaDoRecorte('2026-01-01', 30), { since: '2025-12-02', until: '2026-01-01' });
+});
+
+test('recorte desconhecido devolve null em vez de inventar janela', () => {
+  assert.equal(janelaDoRecorte('2026-08-14', 3), null);
+  assert.equal(janelaDoRecorte('2026-08-14', null), null);
+});
+
+test('alvos: uma chamada por conta+data+recorte, sem repetir campanha', () => {
+  const linhas = [
+    { account_id: 'A', captured_at: '2026-08-01', period_days: 30 },
+    { account_id: 'A', captured_at: '2026-08-01', period_days: 30 },
+    { account_id: 'A', captured_at: '2026-08-02', period_days: 30 },
+    { account_id: 'B', captured_at: '2026-08-01', period_days: 0 },
+  ];
+  const alvos = alvosPendentes(linhas);
+  assert.equal(alvos.length, 3);
+});
+
+test('alvos vêm do mais antigo para o mais novo', () => {
+  const linhas = [
+    { account_id: 'A', captured_at: '2026-08-09', period_days: 7 },
+    { account_id: 'A', captured_at: '2026-05-19', period_days: 7 },
+  ];
+  // O mais antigo primeiro: se o limite da Meta interromper no meio, o que ficou
+  // de fora é o mais recente — que é o que a próxima rodada do coletor cobre sozinha.
+  assert.equal(alvosPendentes(linhas)[0].captured_at, '2026-05-19');
+});
+
+test('alvo de recorte desconhecido é descartado, não vira chamada', () => {
+  assert.deepEqual(alvosPendentes([{ account_id: 'A', captured_at: '2026-08-01', period_days: 3 }]), []);
+});
+```
+
+- [ ] **Passo 2: rodar e ver falhar**
+
+Rodar: `npm test -- --test-name-pattern="recorte|alvos"`
+Esperado: FALHA com `Cannot find module './janelas-de-backfill.mjs'`.
+
+- [ ] **Passo 3: escrever o módulo puro**
+
+Crie `coletor/janelas-de-backfill.mjs`:
+
+```js
+// A JANELA DE DATAS de cada recorte de campaign_insights.
+//
+// Cada recorte é gravado por um código diferente, com uma conta de datas
+// diferente. O backfill tem de fazer a MESMA pergunta que quem gravou a linha
+// fez — senão o número novo não bate com o gasto que já está na mesma linha, e
+// duas colunas vizinhas passam a falar de períodos diferentes.
+//
+// Lido no código em 17/08/2026, não deduzido:
+//   0            → coletarAdsDia: time_range {since: dia, until: dia}
+//   1, 7, 14, 30 → coletarAdsPorCampanha: until = hoje, since = hoje − dias
+//                  (repare: cobre N+1 dias; o backfill COPIA o jeito, não conserta)
+//   99           → coletor/recuperar-curtidas-zeradas.mjs: do 1º do mês até o dia
+// PURO: sem rede, sem banco.
+
+const RECORTES_DE_N_DIAS = [1, 7, 14, 30];
+
+function menosDias(dia, n) {
+  const d = new Date(dia + 'T12:00:00');
+  d.setDate(d.getDate() - n);
+  return d.toLocaleDateString('en-CA');
+}
+
+export function janelaDoRecorte(capturedAt, periodDays) {
+  if (!capturedAt) return null;
+  if (periodDays === 0) return { since: capturedAt, until: capturedAt };
+  if (RECORTES_DE_N_DIAS.includes(periodDays)) return { since: menosDias(capturedAt, periodDays), until: capturedAt };
+  if (periodDays === 99) return { since: capturedAt.slice(0, 7) + '-01', until: capturedAt };
+  return null; // recorte que ninguém grava hoje: não inventa janela
+}
+
+// Uma chamada à Meta cobre TODAS as campanhas de uma conta numa janela. Então o
+// alvo é conta + data + recorte, e não a linha (que é por campanha).
+// Do mais antigo para o mais novo: se a Meta interromper no meio, o que sobra é o
+// pedaço recente, que a própria rodada seguinte do coletor cobre.
+export function alvosPendentes(linhas) {
+  const vistos = new Set();
+  const alvos = [];
+  for (const l of (linhas || [])) {
+    if (!janelaDoRecorte(l.captured_at, l.period_days)) continue;
+    const chave = `${l.account_id}|${l.captured_at}|${l.period_days}`;
+    if (vistos.has(chave)) continue;
+    vistos.add(chave);
+    alvos.push({ account_id: l.account_id, captured_at: l.captured_at, period_days: l.period_days });
+  }
+  return alvos.sort((a, b) => (a.captured_at < b.captured_at ? -1 : a.captured_at > b.captured_at ? 1 : 0));
+}
+```
+
+- [ ] **Passo 4: rodar e ver passar**
+
+Rodar: `npm test -- --test-name-pattern="recorte|alvos"`
+Esperado: PASSA, 9 testes.
+
+- [ ] **Passo 5: escrever o script**
+
+Crie `coletor/preencher-numeros-de-campanha.mjs`. Ele segue o padrão dos outros
+scripts da pasta (lê `coletor/.env`, usa a service key). Regras que são o coração
+disto e não podem ser afrouxadas:
+
+```js
+// PREENCHER PARA TRÁS conversas, cadastros, compras e visitas em campaign_insights.
+//
+// Essas quatro colunas só passaram a ser gravadas em 17/08/2026. O que veio antes
+// está nulo — e nulo aparece na tela como "—", que é a verdade. Este script
+// pergunta à Meta o que já aconteceu e preenche.
+//
+// AS QUATRO REGRAS QUE NÃO SE NEGOCIAM:
+//
+// 1. ESCREVE SÓ AS QUATRO COLUNAS. Nunca spend, likes, comments, shares, saves,
+//    impressions, clicks ou reach. Uma resposta parcial da Meta já gravou 0 por
+//    cima de dado bom neste projeto (232 mil de alcance com 0 curtidas).
+// 2. RESPOSTA VAZIA NÃO VIRA ZERO. Se a Meta não devolver nada para aquela
+//    janela, o script PULA — deixa nulo. Gravar zero transformaria "não sei" em
+//    "custou zero".
+// 3. NUNCA usar o Python legado (projetos/central-inteligencia/redes-sociais/
+//    coletor/coletar.py). Ele grava a linha INTEIRA e sobrescreveria coluna boa.
+// 4. RITMO. As chamadas usam o mesmo token e o mesmo limite da Meta que a tela ao
+//    vivo. Em 07/07/2026 uma recoleta martelou a Meta, as chamadas ao vivo
+//    tomaram rate limit e o painel caiu no coletado. Pausa entre chamadas, e de
+//    madrugada.
+//
+// Uso:
+//   node coletor/preencher-numeros-de-campanha.mjs --dry          (1 alvo, não grava)
+//   node coletor/preencher-numeros-de-campanha.mjs                (tudo, grava)
+//   node coletor/preencher-numeros-de-campanha.mjs --pausa 3000   (pausa em ms, padrão 2000)
+```
+
+O corpo faz, nesta ordem:
+
+1. Lê os alvos: `select account_id, captured_at, period_days from campaign_insights
+   where conversas is null` — **só linhas nulas**, o que torna o script idempotente
+   e impede que ele passe por cima do que o coletor já gravou bem.
+2. `alvosPendentes(linhas)` para virar uma chamada por conta+data+recorte.
+3. Lê o arquivo de retomada `coletor/.preencher-numeros-de-campanha.json` (se
+   existir) e descarta o que já foi feito.
+4. Para cada alvo, em ordem: `janelaDoRecorte(...)`, chama
+   `act_{ad_account_id}/insights` com `fields=campaign_id,actions`,
+   `level=campaign`, `time_range={since,until}`, paginando; aplica
+   `contagensDaCampanha(r.actions)` em cada campanha; e faz **um `update` por
+   campanha** com as quatro colunas, filtrando por
+   `campaign_id + account_id + captured_at + period_days`.
+5. Resposta sem nenhuma linha → **pula**, conta como "vazio", **não** marca como
+   feito (pode ser falha da Meta, e a próxima execução tenta de novo).
+6. Grava o alvo no arquivo de retomada e dorme a pausa.
+7. No fim, imprime: alvos feitos, alvos vazios, linhas atualizadas, e quanto tempo levou.
+
+`--dry` faz **um** alvo (o mais antigo), imprime o que gravaria e **não grava**.
+É uma chamada à Meta, e serve para provar o caminho inteiro sem risco.
+
+Acrescente ao `.gitignore`:
+
+```
+coletor/.preencher-numeros-de-campanha.json
+```
+
+- [ ] **Passo 6: provar o caminho com UMA chamada**
+
+Rodar: `node coletor/preencher-numeros-de-campanha.mjs --dry`
+
+Esperado: imprime o alvo mais antigo (conta, data, recorte), a janela calculada, e
+a lista de campanhas com os quatro números que ele gravaria. **Nada é gravado** —
+confira com o `select count(conversas) from campaign_insights` antes e depois: o
+número não pode mudar.
+
+- [ ] **Passo 7: rodar a suíte e commitar**
+
+```bash
+npm test
+git add coletor/janelas-de-backfill.mjs coletor/janelas-de-backfill.test.mjs coletor/preencher-numeros-de-campanha.mjs .gitignore
+git commit -m "Backfill: preencher para tras conversas, cadastros, compras e visitas"
+```
+
+- [ ] **Passo 8: A EXECUÇÃO COMPLETA É DECISÃO DO DONO — não rodar por conta própria**
+
+São ~2.600 chamadas, ~1h30 com pausa de 2s. Só roda em janela de madrugada ou com
+o dono acompanhando o painel. Quem executa registra antes e depois:
+
+```sql
+select count(*) linhas, count(conversas) preenchidas from campaign_insights;
+```
+
+E confere que `count(*)` **não mudou** — o script atualiza, nunca insere.
