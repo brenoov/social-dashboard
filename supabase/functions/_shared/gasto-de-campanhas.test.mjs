@@ -3,18 +3,11 @@ import assert from 'node:assert/strict';
 import { somarGasto } from './gasto-de-campanhas.js';
 
 // Resposta real de act_X/insights com level=campaign: uma linha por campanha,
-// `spend` em TEXTO.
-//
-// A campanha 1 usa um id com menos dígitos do que o formato real de 18 dígitos
-// da Meta DE PROPÓSITO: um id de 18 dígitos escrito como literal numérico do JS
-// (o caso do teste "id number bate com id text" logo abaixo) já perde precisão
-// na hora em que o PRÓPRIO ARQUIVO DE TESTE é interpretado — antes de qualquer
-// linha do módulo rodar (120249301837840342 vira 120249301837840340 só de
-// escrever o número no código-fonte; Number.MAX_SAFE_INTEGER tem 16 dígitos).
-// Isso não é um bug de somarGasto: é a prova de que um id de campanha da Meta
-// JAMAIS pode viajar como Number em nenhum ponto do caminho, só como texto.
+// `spend` em TEXTO. Id e valor da campanha 1 são os medidos de verdade na
+// Vessel (R$ 461,52) — é o número citado no comentário de gasto-de-campanhas.js;
+// id e valor ficam juntos, como em todo outro teste deste branch.
 const resposta = { data: [
-  { campaign_id: '12024930183784', spend: '461.52' },
+  { campaign_id: '120249301837840342', spend: '461.52' },
   { campaign_id: '120230000000000001', spend: '2254.02' },
   { campaign_id: '120230000000000002', spend: '168.90' },
 ] };
@@ -25,15 +18,21 @@ test('sem ids, soma tudo', () => {
 });
 
 test('com ids, soma só as escolhidas', () => {
-  assert.equal(somarGasto(resposta, ['12024930183784', '120230000000000002']).toFixed(2), '630.42');
+  assert.equal(somarGasto(resposta, ['120249301837840342', '120230000000000002']).toFixed(2), '630.42');
 });
 
 test('id que não veio na resposta não inventa gasto', () => {
   assert.equal(somarGasto(resposta, ['999']), 0);
 });
 
+// Um id REAL de campanha da Meta tem 18 dígitos e não cabe inteiro num Number do
+// JS (Number.MAX_SAFE_INTEGER tem 16) — escrevê-lo como literal numérico já perde
+// precisão na hora em que o PRÓPRIO ARQUIVO DE TESTE é interpretado, antes de
+// qualquer linha do módulo rodar. Por isso este caso usa um id curto e sintético
+// só para provar a coerção Number→String; não é dado de produção.
 test('id number bate com id text — o PostgREST devolve texto, a Meta também', () => {
-  assert.equal(somarGasto(resposta, [12024930183784]).toFixed(2), '461.52');
+  const respostaCurta = { data: [{ campaign_id: '12345', spend: '10.00' }] };
+  assert.equal(somarGasto(respostaCurta, [12345]).toFixed(2), '10.00');
 });
 
 test('resposta vazia ou quebrada vira zero, nunca erro', () => {
@@ -41,4 +40,24 @@ test('resposta vazia ou quebrada vira zero, nunca erro', () => {
   assert.equal(somarGasto(null, ['1']), 0);
   assert.equal(somarGasto({ data: [] }, null), 0);
   assert.equal(somarGasto({ data: [{ campaign_id: '1', spend: 'xis' }] }, null), 0);
+});
+
+// A edge não passa a resposta de uma página só pra somarGasto: quando level=campaign
+// tem mais de 500 linhas, ela segue `paging.next` e ACUMULA tudo antes de chamar
+// esta função (ver o loop em insights-ao-vivo/index.ts). Este teste simula esse
+// acúmulo — duas "páginas" concatenadas num só array `data` — pra provar que a soma
+// continua correta com linhas vindas de mais de uma chamada à Meta. O loop de
+// paginação em si é Deno/fetch e não roda sob `node --test`; só a soma é coberta
+// aqui, a paginação foi conferida por leitura do arquivo.
+test('soma correta com linhas acumuladas de mais de uma página', () => {
+  const pagina1 = [
+    { campaign_id: '1', spend: '100.00' },
+    { campaign_id: '2', spend: '50.25' },
+  ];
+  const pagina2 = [
+    { campaign_id: '3', spend: '25.75' },
+  ];
+  const acumulado = { data: [...pagina1, ...pagina2] };
+  assert.equal(somarGasto(acumulado, null).toFixed(2), '176.00');
+  assert.equal(somarGasto(acumulado, ['1', '3']).toFixed(2), '125.75');
 });

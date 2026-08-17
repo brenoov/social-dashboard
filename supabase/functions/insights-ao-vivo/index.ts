@@ -62,8 +62,19 @@ async function gasto(adAccountId: string, eS: string, eU: string, token: string,
     const ads = await apiGet(`act_${adAccountId}/insights`, { fields: 'spend', level: 'account', time_range: janela }, token)
     return parseFloat(ads.data?.[0]?.spend ?? '0') || 0
   }
-  const ads = await apiGet(`act_${adAccountId}/insights`, { fields: 'campaign_id,spend', level: 'campaign', time_range: janela, limit: '500' }, token)
-  return somarGasto(ads, campanhas)
+  // level=campaign pode passar de 500 linhas numa conta grande — segue
+  // `paging.next` até acabar (mesmo padrão de `apiGetAll` em coletar-dados/index.ts),
+  // senão as campanhas depois do corte contribuem zero e o cartão mostra menos
+  // dinheiro do que o real, calado.
+  let pagina = await apiGet(`act_${adAccountId}/insights`, { fields: 'campaign_id,spend', level: 'campaign', time_range: janela, limit: '500' }, token)
+  const linhas: any[] = [...(pagina.data ?? [])]
+  while (pagina.paging?.next) {
+    const r = await fetch(pagina.paging.next)
+    if (!r.ok) break
+    pagina = await r.json()
+    linhas.push(...(pagina.data ?? []))
+  }
+  return somarGasto({ data: linhas }, campanhas)
 }
 
 // Respostas (replies) de stories — métrica de conta agregada (validado: 7D = 7).
