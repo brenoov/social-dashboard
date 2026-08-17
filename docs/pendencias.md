@@ -723,6 +723,28 @@ fechar o que sumiu — falta só quem a chame sem depender de gente. O molde é 
 mesmo dos outros robôs (`coletor/` + cron), e o custo é zero de IA: é só leitura
 do Graph.
 
+### B16 · Redes › backfill dos números novos de campanha 🟡 *escrito em 17/08*
+As colunas conversas, cadastros, compras e visitas só existem a partir de
+17/08/2026: qualquer dia anterior mostra "—". Consequência prática: enquanto
+não for preenchido, **a comparação com o período anterior e o gráfico diário
+desses quatro indicadores ficam vazios** nos baldes Contatos, Site e alcance e
+Vendas — só o dia de hoje em diante tem número.
+
+Os insights da Meta são re-consultáveis, então dá para preencher para trás com
+um robô que refaça as chamadas por dia, dentro da janela que a Meta ainda
+guarda.
+
+**Por que ficou de fora desta entrega:** o painel já é útil sem histórico (os
+quatro baldes funcionam normalmente a partir de hoje), e um backfill malfeito
+gravaria **zero** por cima de "ainda não sei" — que é exatamente o defeito que
+este projeto já levou um susto por causa dele (ver "Falha que vira número" na
+memória). Não valia arriscar isso para entregar mais rápido.
+
+Já está especificado: é a **Tarefa 9** do plano
+`docs/superpowers/plans/2026-08-17-baldes-de-campanha-redes-sociais.md`, com
+o código pronto (`coletor/janelas-de-backfill.mjs` + teste). Entra quando o
+dono quiser comparar período com período anterior nos baldes novos.
+
 ---
 
 ## Parte C — Ideias guardadas (ninguém pediu ainda)

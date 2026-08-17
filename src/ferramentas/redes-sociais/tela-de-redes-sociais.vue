@@ -198,6 +198,13 @@
       <div class="sec-header">
         <div class="section-label">02 · Meta Ads</div>        <div class="sec-line"></div>
       </div>
+      <!-- AVISO DE CLASSIFICAÇÃO PROVISÓRIA: enquanto campaign_adsets está vazia
+           pra este perfil, toda campanha cai pela regra do objetivo — e o
+           objetivo mente (ex.: WhatsApp da Vessel contando como Seguidores).
+           Mesmo estilo do #freshness-banner, de propósito: é o mesmo tipo de
+           aviso ("o número que você está vendo pode não estar fechado"). -->
+      <div id="balde-provisorio-banner" style="display:none;align-items:center;gap:8px;padding:9px 16px;background:var(--red);color:var(--sobre-cor);font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));font-weight:600;letter-spacing:.3px;"></div>
+
       <!-- Recorte por TIPO de campanha. O balde recorta o tipo; o "⚙ Filtrar
            campanhas" logo abaixo recorta DENTRO dele — os dois se somam. -->
       <div class="balde-bar" id="balde-bar" role="tablist" aria-label="Tipo de campanha"></div>
@@ -645,6 +652,17 @@ function desenharBaldeBar(vazios, efetivo) {
     }
     bar.appendChild(bt)
   })
+}
+// Enquanto campaign_adsets estiver vazia pra este perfil, TODA campanha dele
+// cai pela regra do objetivo (ver baldes-do-painel.js) — e o objetivo mente:
+// campanha de WhatsApp chega da Meta rotulada "engagement", que é a mesma
+// caixa dos Seguidores. Isso já mede 87% do dinheiro "de engajamento" da
+// Vessel. A tela não pode mostrar o recorte por balde com cara de número
+// fechado enquanto isso for verdade — precisa avisar.
+function desenharAvisoBalde(provisorio) {
+  const banner = document.getElementById('balde-provisorio-banner'); if (!banner) return
+  banner.style.display = provisorio ? 'flex' : 'none'
+  banner.textContent = provisorio ? '⚠️ Classificação provisória: os tipos de campanha ainda não foram coletados neste perfil. Os valores por balde podem mudar depois da próxima coleta.' : ''
 }
 
 /* ── OS QUATRO CARTÕES DA SEÇÃO 02 (o conteúdo troca com o balde) ── */
@@ -1941,6 +1959,9 @@ async function fetchData(accountId, period, customStart, customEnd) {
     adsDiario: { inicio: followStart, fim: followEnd, linhasDeGasto: gastoDiarioRows, linhasDeSeguidores: seguidoresDiarioRows },
     // Recorte por balde: o que a barra desenha e o que o ao vivo tem de somar.
     baldesVazios, baldeEfetivo: _efetivo, idsParaAoVivo,
+    // Sem nenhum conjunto coletado pra este perfil, toda campanha cai pela
+    // regra do objetivo — provisório, não fechado (ver desenharAvisoBalde).
+    classificacaoProvisoria: conjuntosRows.length === 0,
     // Nenhuma campanha no recorte → o cartão de dinheiro mostra "—", nunca o
     // total da conta. E o alcance avisa quando repete pessoa.
     recorteSemCampanha: _recorteSemCampanha, alcanceSomado,
@@ -2215,6 +2236,7 @@ function update(d, period) {
   // é o que as consultas REALMENTE usaram — pode ser Todos, quando o escolhido
   // não tem dinheiro neste perfil.
   desenharBaldeBar(d.baldesVazios || [], d.baldeEfetivo)
+  desenharAvisoBalde(d.classificacaoProvisoria) // sem conjunto coletado, o balde vem só do objetivo — avisa
   applyFreshness(d.trueLastSnap) // frescor = última coleta REAL do coletor, igual em qualquer período
   const totalEl = document.getElementById('total-followers'); if (totalEl) animCountFull(totalEl, (d.live ? d.live.followers_count : d.followerTotal))
   // Status ao vivo × fallback honesto (nunca esconde que é dado coletado quando a Meta falha).

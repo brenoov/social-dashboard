@@ -19,24 +19,29 @@ Como funciona (resumido):
   selo "✓ confirmado pelo Instagram" ou "⏳ em consolidação" — explicado no
   botão "?") + gráfico de seguidores ganhos/perdidos por dia (passe o mouse
   pra ver o tooltip com o valor de cada dia).
-- "02 Meta Ads": começa por uma fileira de botões (Todos, Seguidores,
-  Contatos, Site e alcance, Vendas). Cada botão é um TIPO de campanha, e ele
-  recorta duas coisas ao mesmo tempo: de quais campanhas vem o dinheiro E
-  quais indicadores os cartões mostram. Em Seguidores são os de sempre
-  (investimento, custo por seguidor, por interação e por curtida); em
-  Contatos entram custo por conversa, conversas iniciadas e custo por
-  cadastro; em Site e alcance, custo por visita, visitas e custo por mil
-  impressões; em Vendas são só TRÊS cartões, porque não existe um quarto
-  indicador honesto para venda; e em Todos entram os quatro que valem para
-  qualquer campanha (investimento, custo por mil impressões, alcance e
-  frequência). Botão apagado = nenhuma campanha daquele tipo gastou no
-  período. O "⚙ Filtrar campanhas" continua valendo e recorta POR DENTRO do
-  tipo escolhido — os dois se somam.
+- "02 Meta Ads": tem uma barra de TIPO DE CAMPANHA em cima (Todos, Seguidores,
+  Contatos, Site e alcance, Vendas). Escolher um tipo faz os cartões falarem só
+  daquele dinheiro — e os indicadores mudam junto: Seguidores mostra custo por
+  seguidor/interação/curtida, Contatos mostra custo por conversa e por cadastro,
+  Site e alcance mostra custo por visita, Vendas mostra custo por venda. Em
+  "Todos" ficam os quatro que valem pra qualquer campanha: investimento,
+  custo por mil impressões, alcance e frequência.
+  Quem decide o tipo de cada campanha é o DESTINO que a Meta afirma no conjunto
+  (perfil, WhatsApp, site), nunca o nome da campanha — está em
+  baldes-do-painel.js, com teste ao lado. A tela abre em "Seguidores", ou em
+  "Todos" se o perfil não tiver campanha de seguidor no período.
+  O botão "⚙ Filtrar campanhas" continua e vale DENTRO do tipo escolhido.
+  Tipo sem gasto no período fica apagado, com o motivo — não some.
   Onde não dá para calcular, o cartão mostra "—" e nunca R$ 0,00: número que
   ainda não foi coletado e número que é zero de verdade são coisas
   diferentes. A frequência não tem meta editável — ela acende vermelho a
   partir de 4, que é o mesmo limiar que a Gestão de Tráfego usa para mandar
   reduzir verba.
+  Perfil recém-adicionado (antes da primeira coleta dos conjuntos): a tela
+  avisa em vermelho que a classificação por tipo ainda é provisória — o
+  destino de cada campanha ainda não foi confirmado, então ela cai pelo
+  objetivo, que às vezes engana. O aviso some sozinho assim que o coletor
+  passar por aquele perfil pela primeira vez.
 - "03/04/05": engajamento de posts/reels, engajamento de stories, e
   quantidade de conteúdo publicado (stories/posts/reels).
 - Cada card tem uma "META" editável — clique no número da meta, digite o
