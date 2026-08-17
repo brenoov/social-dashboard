@@ -175,11 +175,73 @@ export function baldeEfetivo(escolhido, vazios) {
 //
 // LIMITE CONHECIDO, e não corrigido por esta função porque não tem como: negação
 // por RLS chega como sucesso HTTP (200 + []) SEM nenhum .erro — pra quem só vê o
-// array, é idêntico a "genuinamente vazio". Enquanto campaign_adsets não tiver
-// política mais estreita que as outras tabelas que esta tela lê, isso é
-// hipotético; se um dia tiver, esta função vai dizer "provisório" quando a
-// verdade for "sem permissão" — o mesmo ponto cego que sb() já documenta.
+// array, é idêntico a "genuinamente vazio".
+//
+// ISSO DEIXOU DE SER HIPOTÉTICO EM 17/08/2026: `campaign_adsets` passou a ter
+// política por conta, mais estreita que a das outras tabelas que esta tela lê.
+// Usuário sem acesso àquela conta recebe 200 + [] e lê "classificação
+// provisória" quando a verdade é "sem permissão para ver isto". A frase erra
+// pelo lado seguro (ela diz que o número pode mudar, e pode), mas erra: quem
+// pode consertar é uma política que devolva erro, não esta função — daqui não dá
+// para distinguir os dois casos, e inventar a distinção seria pior.
 export function classificacaoEhProvisoria(linhasDeConjunto) {
   const linhas = linhasDeConjunto || [];
   return linhas.length === 0 && !linhas.erro;
+}
+
+// QUANTAS CAMPANHAS DESTE RECORTE AINDA NÃO TÊM CONJUNTO COLETADO.
+//
+// A tabela cheia não quer dizer classificação fechada. O aviso do perfil inteiro
+// (classificacaoEhProvisoria) só dispara quando NENHUM conjunto foi coletado, e
+// os cinco perfis ativos já têm os seus — então ele nunca mais fala. O risco de
+// verdade é POR CAMPANHA: na Vessel, `TESTE CHAT - LIMEIRA` não tem conjunto
+// nenhum, cai pelo objetivo e vai parar em Seguidores, enquanto a gêmea
+// `TESTE CHAT LIMEIRA 123`, que tem conjunto, vai para Contatos. Toda campanha
+// criada hoje fica exatamente nesse estado até a próxima coleta, e nada na tela
+// dizia isso.
+//
+// Conta só as do RECORTE que está na tela: campanha de outro tipo sem conjunto
+// não muda nenhum número que o dono está olhando agora.
+export function campanhasSemTipoConfirmado(campanhas, idsDoRecorte) {
+  const lista = Array.isArray(campanhas) ? campanhas : [];
+  const noRecorte = new Set((idsDoRecorte || []).map(String));
+  return lista.filter(c => noRecorte.has(String(c && c.campaign_id))
+    && !(Array.isArray(c && c.conjuntos) && c.conjuntos.length > 0)).length;
+}
+
+// A FRASE DEBAIXO DA BARRA — "Campanhas consideradas no cálculo: …".
+//
+// Ela afirma o que está valendo, e por isso tem de saber do TIPO de campanha: na
+// primeira pintura desta obra a tela dizia "Todas as campanhas (126)" logo acima
+// de quatro cartões que falavam de 9 delas. A frase e os números discordavam na
+// mesma tela, e quem lê acredita na frase.
+//
+// `doBalde` = quantas campanhas o tipo escolhido tem, ANTES do filtro manual.
+// Pode chegar null: a pintura que acontece na troca de perfil, antes dos dados,
+// não sabe esse número. Nesse caso a frase diz o tipo e CALA a contagem — em vez
+// de inventar uma.
+export function fraseDoRecorte(balde, contagens) {
+  const c = contagens || {};
+  const total = Number(c.total) || 0;
+  const noRecorte = Number(c.noRecorte) || 0;
+  const doBalde = (c.doBalde == null) ? null : (Number(c.doBalde) || 0);
+  const ehTodos = !balde || balde === 'todos';
+  const rotulo = rotuloDoBalde(balde);
+  // Ordem herdada da frase de hoje: "nenhuma" vem antes de tudo, inclusive de
+  // "a conta não tem campanha" — o dono que desmarca todas tem de ler isso.
+  if (noRecorte === 0 && c.noRecorte != null) return 'Nenhuma campanha selecionada';
+  if (total === 0) return 'Todas as campanhas (0)';
+  if (ehTodos) {
+    if (noRecorte === total) return 'Todas as campanhas (' + total + ')';
+    return noRecorte + ' de ' + total + ' campanhas selecionadas';
+  }
+  if (doBalde == null) {
+    // Sem a contagem do tipo, só dá para afirmar duas coisas: qual é o tipo, e se
+    // o dono deixou algum filtro manual ligado por cima dele.
+    return noRecorte === total
+      ? 'Todas as campanhas de ' + rotulo
+      : 'Campanhas selecionadas, dentro de ' + rotulo;
+  }
+  if (noRecorte === doBalde) return 'Todas as campanhas de ' + rotulo + ' (' + doBalde + ' de ' + total + ')';
+  return noRecorte + ' de ' + doBalde + ' campanhas de ' + rotulo + ' selecionadas';
 }

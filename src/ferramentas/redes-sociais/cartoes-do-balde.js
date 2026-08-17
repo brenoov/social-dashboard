@@ -127,6 +127,26 @@ export function chaveDeMeta(cartaoId, balde) {
   return balde + '.' + cartaoId;
 }
 
+// METAS QUE SÃO TAXA (custo por resultado): valem o MESMO em 1, 7, 14 ou 30 dias.
+// Só as de VOLUME (budget, seguidores, curtidas…) é que a tela recalcula
+// proporcional ao tamanho do período, ao copiar a meta digitada para os outros.
+//
+// Isto não é um alvo, é o FORMATO do indicador: no dia em que o dono digitar
+// R$ 12 por conversa em 7D, os R$ 12 valem também em 30D — não viram R$ 51.
+const METAS_DE_TAXA = ['cps', 'cpi', 'cpl', 'cpm', 'custo_conversa', 'custo_cadastro', 'custo_venda', 'custo_visita'];
+
+// A chave chega com o balde na frente ('contatos.custo_conversa', ver
+// chaveDeMeta). Quem diz se ela é taxa ou volume é o INDICADOR, nunca o balde:
+// sem tirar o prefixo, NENHUMA meta de balde seria reconhecida como taxa e a
+// primeira meta de custo digitada num balde novo sairia multiplicada nos outros
+// períodos. Número gravado errado, não erro de tela — e o dono só descobriria
+// olhando a barra de progresso mentir num período que ele nem editou.
+export function ehMetaDeTaxa(chave) {
+  const s = String(chave);
+  const i = s.lastIndexOf('.');
+  return METAS_DE_TAXA.includes(i >= 0 ? s.slice(i + 1) : s);
+}
+
 export function cartoesDoBalde(balde, numeros) {
   const receita = RECEITAS[balde] || RECEITAS.todos;
   return receita(numeros || {});

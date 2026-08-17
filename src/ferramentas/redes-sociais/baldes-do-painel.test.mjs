@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { BALDES, baldeDaCampanha, rotuloDoBalde, idsDoBalde, idsParaConsulta, conjuntosMaisRecentes, baldesSemGasto, baldeEfetivo, classificacaoEhProvisoria } from './baldes-do-painel.js';
+import { BALDES, baldeDaCampanha, rotuloDoBalde, idsDoBalde, idsParaConsulta, conjuntosMaisRecentes, baldesSemGasto, baldeEfetivo, classificacaoEhProvisoria, campanhasSemTipoConfirmado, fraseDoRecorte } from './baldes-do-painel.js';
 
 // TODAS as campanhas abaixo são REAIS: nome, objetivo e gasto conferidos no banco
 // de produção em 17/08/2026. Os conjuntos são o sinal que a Meta afirma.
@@ -307,3 +307,68 @@ test('classificacaoEhProvisoria: com conjunto coletado, nunca é provisório', (
 // isso como certo estaria fingindo que o ponto cego não existe; o lugar certo
 // pra ele é o comentário da função, não uma asserção que finge resolvido o que
 // não dá pra resolver neste nível.
+
+// ── QUANTAS CAMPANHAS DO RECORTE AINDA NÃO TÊM CONJUNTO ──
+// O par real que motivou a contagem (Vessel, medido em 17/08/2026): duas
+// campanhas gêmeas de WhatsApp, uma com conjunto coletado e outra sem. A sem
+// conjunto cai pelo objetivo e vai parar num balde diferente da irmã.
+const testeChatSemConjunto = { campaign_id: '1', objective: 'OUTCOME_ENGAGEMENT', conjuntos: [] };
+const testeChatComConjunto = { campaign_id: '2', objective: 'OUTCOME_ENGAGEMENT', conjuntos: [{ destination_type: 'WHATSAPP' }] };
+
+test('as gêmeas da Vessel caem em baldes diferentes — e é isso que a contagem denuncia', () => {
+  assert.equal(baldeDaCampanha(testeChatSemConjunto), 'seguidores', 'sem conjunto, o objetivo manda');
+  assert.equal(baldeDaCampanha(testeChatComConjunto), 'contatos', 'com conjunto, o destino manda');
+  assert.equal(campanhasSemTipoConfirmado([testeChatSemConjunto, testeChatComConjunto], ['1', '2']), 1);
+});
+
+test('conta só as campanhas DO RECORTE: sem tipo confirmado fora dele não muda número nenhum na tela', () => {
+  assert.equal(campanhasSemTipoConfirmado([testeChatSemConjunto, testeChatComConjunto], ['2']), 0);
+  assert.equal(campanhasSemTipoConfirmado([testeChatSemConjunto, testeChatComConjunto], ['1']), 1);
+});
+
+test('tabela cheia NÃO quer dizer classificação fechada: o aviso do perfil cala e a contagem fala', () => {
+  const linhasDeConjunto = [{ campaign_id: '2', destination_type: 'WHATSAPP', synced_at: '2026-08-17' }];
+  assert.equal(classificacaoEhProvisoria(linhasDeConjunto), false, 'o aviso do perfil inteiro não dispara');
+  assert.equal(campanhasSemTipoConfirmado([testeChatSemConjunto, testeChatComConjunto], ['1', '2']), 1, 'mas ainda há campanha sem tipo');
+});
+
+test('id que chega como número casa com o id em texto do recorte (o PostgREST devolve os dois jeitos)', () => {
+  assert.equal(campanhasSemTipoConfirmado([{ campaign_id: 120210000000000340, conjuntos: [] }], ['120210000000000340']), 1);
+});
+
+test('entrada ausente não vira contagem: sem lista, nada a afirmar', () => {
+  assert.equal(campanhasSemTipoConfirmado(null, ['1']), 0);
+  assert.equal(campanhasSemTipoConfirmado([testeChatSemConjunto], null), 0);
+});
+
+// ── A FRASE DEBAIXO DA BARRA ──
+// O defeito que ela conserta: na primeira pintura a tela dizia "Todas as
+// campanhas (126)" logo acima de cartões que falavam de 9 delas.
+test('com um tipo escolhido, a frase diz o tipo E o tamanho da fatia', () => {
+  assert.equal(fraseDoRecorte('seguidores', { noRecorte: 9, doBalde: 9, total: 126 }), 'Todas as campanhas de Seguidores (9 de 126)');
+});
+
+test('filtro manual por cima do tipo: a frase conta dentro do tipo, não da conta inteira', () => {
+  assert.equal(fraseDoRecorte('seguidores', { noRecorte: 3, doBalde: 9, total: 126 }), '3 de 9 campanhas de Seguidores selecionadas');
+});
+
+test('em Todos a frase continua exatamente a de hoje', () => {
+  assert.equal(fraseDoRecorte('todos', { noRecorte: 126, doBalde: 126, total: 126 }), 'Todas as campanhas (126)');
+  assert.equal(fraseDoRecorte('todos', { noRecorte: 4, doBalde: 126, total: 126 }), '4 de 126 campanhas selecionadas');
+  assert.equal(fraseDoRecorte(null, { noRecorte: 126, doBalde: null, total: 126 }), 'Todas as campanhas (126)');
+});
+
+test('nenhuma campanha selecionada vence tudo, com tipo ou sem', () => {
+  assert.equal(fraseDoRecorte('todos', { noRecorte: 0, doBalde: 126, total: 126 }), 'Nenhuma campanha selecionada');
+  assert.equal(fraseDoRecorte('contatos', { noRecorte: 0, doBalde: 12, total: 126 }), 'Nenhuma campanha selecionada');
+});
+
+test('sem a contagem do tipo, a frase diz o tipo e CALA o número — não inventa um', () => {
+  // É a pintura da troca de perfil, que acontece antes dos dados chegarem.
+  assert.equal(fraseDoRecorte('site', { noRecorte: 126, doBalde: null, total: 126 }), 'Todas as campanhas de Site e alcance');
+  assert.equal(fraseDoRecorte('site', { noRecorte: 4, doBalde: null, total: 126 }), 'Campanhas selecionadas, dentro de Site e alcance');
+});
+
+test('conta sem campanha nenhuma não vira frase de tipo', () => {
+  assert.equal(fraseDoRecorte('seguidores', { noRecorte: null, doBalde: null, total: 0 }), 'Todas as campanhas (0)');
+});

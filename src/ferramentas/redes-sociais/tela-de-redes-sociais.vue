@@ -476,8 +476,9 @@ import { barraDoDia, diasSemPublicacao } from './estimativa-de-seguidores.js'
 // Em que balde cada campanha entra (Seguidores / Contatos / Site e alcance /
 // Vendas). Puro e com teste ao lado (baldes-do-painel.test.mjs), decidido pelo
 // sinal que a Meta afirma no conjunto — nunca pelo nome da campanha.
-import { BALDES, idsParaConsulta, conjuntosMaisRecentes, baldesSemGasto, baldeEfetivo, classificacaoEhProvisoria } from './baldes-do-painel.js'
-import { cartoesDoBalde, podeDarVeredito, chaveDeMeta } from './cartoes-do-balde.js'
+import { BALDES, idsDoBalde, idsParaConsulta, conjuntosMaisRecentes, baldesSemGasto, baldeEfetivo, classificacaoEhProvisoria, campanhasSemTipoConfirmado, fraseDoRecorte } from './baldes-do-painel.js'
+import { cartoesDoBalde, podeDarVeredito, chaveDeMeta, ehMetaDeTaxa } from './cartoes-do-balde.js'
+import { capturaDoAgregado } from './captura-do-agregado.js'
 
 const router = useRouter()
 
@@ -659,10 +660,26 @@ function desenharBaldeBar(vazios, efetivo) {
 // caixa dos Seguidores. Isso já mede 87% do dinheiro "de engajamento" da
 // Vessel. A tela não pode mostrar o recorte por balde com cara de número
 // fechado enquanto isso for verdade — precisa avisar.
-function desenharAvisoBalde(provisorio) {
+//
+// E ELE QUASE NUNCA É O CASO. Os cinco perfis ativos já têm conjunto coletado,
+// então o aviso do perfil inteiro não fala mais — enquanto o risco de verdade
+// virou POR CAMPANHA: campanha criada agora fica sem conjunto até a próxima
+// rodada e é classificada pelo objetivo, que engana (na Vessel, duas campanhas
+// gêmeas de WhatsApp caem em baldes DIFERENTES por causa disso). Por isso o
+// segundo aviso, com a contagem — ver campanhasSemTipoConfirmado.
+//
+// Um de cada vez, de propósito: quando a tabela está vazia para o perfil, TODAS
+// as campanhas estão sem conjunto, e as duas frases diriam a mesma coisa duas
+// vezes. A do perfil é a mais precisa, então ela vence.
+function desenharAvisoBalde(provisorio, semTipo) {
   const banner = document.getElementById('balde-provisorio-banner'); if (!banner) return
-  banner.style.display = provisorio ? 'flex' : 'none'
-  banner.textContent = provisorio ? '⚠️ Classificação provisória: os tipos de campanha ainda não foram coletados neste perfil. Os valores por tipo de campanha podem mudar depois da próxima coleta.' : ''
+  let texto = ''
+  if (provisorio) texto = '⚠️ Classificação provisória: os tipos de campanha ainda não foram coletados neste perfil. Os valores por tipo de campanha podem mudar depois da próxima coleta.'
+  else if (semTipo > 0) texto = semTipo === 1
+    ? '⚠️ 1 campanha ainda sem tipo confirmado — classificada pelo objetivo. O tipo dela pode mudar depois da próxima coleta.'
+    : '⚠️ ' + semTipo + ' campanhas ainda sem tipo confirmado — classificadas pelo objetivo. O tipo delas pode mudar depois da próxima coleta.'
+  banner.style.display = texto ? 'flex' : 'none'
+  banner.textContent = texto
 }
 
 /* ── OS QUATRO CARTÕES DA SEÇÃO 02 (o conteúdo troca com o balde) ── */
@@ -910,22 +927,11 @@ const _PERF_VAR = { green: 'var(--green)', yellow: 'var(--yellow)', orange: 'var
 function _mcValColor(key, clr) { const pe = document.getElementById('pct-' + key); const card = pe && pe.closest('.card'); const v = card && card.querySelector('.mc-val'); if (!v) return; const col = _PERF_VAR[clr] || ''; if (col) { v.style.setProperty('color', col, 'important'); v.style.setProperty('-webkit-text-fill-color', col, 'important') } else { v.style.removeProperty('color'); v.style.removeProperty('-webkit-text-fill-color') } }
 function _mcBorderColor(key, clr) { const pe = document.getElementById('pct-' + key); const card = pe && pe.closest('.card'); if (!card) return; card.style.borderLeftColor = clr ? (_PERF_VAR[clr] || '') : '' }
 function goalStorageKey(key, period, accountId) { return 'ig_goal_' + (accountId || 'default') + '_' + period + '_' + key }
-// Metas que são TAXA (custo por resultado): valem o mesmo em 1, 7, 14 ou 30 dias.
-// Só as de VOLUME (budget, seguidores, curtidas…) é que o saveGoal recalcula
-// proporcional ao tamanho do período.
-//
-// Os cinco de baixo não têm valor padrão nenhum (ver GOALS) — isto aqui não é um
-// alvo, é o FORMATO do indicador: no dia em que o dono digitar R$ 12 por conversa,
-// os R$ 12 valem em 7D e em 30D, e não viram R$ 51 no mês.
-const RATE_GOALS = ['cps', 'cpi', 'cpl', 'cpm', 'custo_conversa', 'custo_cadastro', 'custo_venda', 'custo_visita']
-// A chave da meta pode vir com o balde na frente ('contatos.custo_conversa'). O que
-// diz se ela é taxa ou volume é o INDICADOR, não o balde: sem tirar o prefixo, os
-// R$ 12 por conversa digitados em 7D virariam R$ 51 no mês.
-function ehMetaDeTaxa(chave) {
-  const s = String(chave)
-  const i = s.lastIndexOf('.')
-  return RATE_GOALS.includes(i >= 0 ? s.slice(i + 1) : s)
-}
+// `ehMetaDeTaxa` mora em cartoes-do-balde.js, ao lado do `chaveDeMeta` que monta
+// a chave que ela lê — e com teste. Ela é a única coisa que impede uma meta de
+// custo de ser MULTIPLICADA de um período para outro (R$ 12 por conversa em 7D
+// virando R$ 51 na linha de 30D): o que ela estraga é um número GRAVADO, não um
+// pixel, e por isso não podia continuar sem prova.
 // comprimento em dias de cada período (pro recálculo proporcional). null = comprimento variável (não escala).
 function periodDays(period) {
   if (period === 0 || period === 1) return 1
@@ -1848,10 +1854,11 @@ async function fetchData(accountId, period, customStart, customEnd) {
     const com = rows.filter(r => r[campo] != null)
     return com.length ? com.reduce((s, r) => s + (parseInt(r[campo]) || 0), 0) : null
   }
-  function aggCi(rows) {
-    if (!rows.length) return null
-    const maxDate = rows[0].captured_at
-    const d = rows.filter(r => r.captured_at === maxDate)
+  // `linhas` já vem de capturaDoAgregado(): ou é a captura inteira que CABE na
+  // janela exibida, ou está vazia. Quem escolhe a captura e quem recusa a velha
+  // demais é o módulo puro — aqui só se soma.
+  function aggCi(d) {
+    if (!d.length) return null
     return { spend: d.reduce((s, r) => s + parseFloat(r.spend || 0), 0), impressions: d.reduce((s, r) => s + parseInt(r.impressions || 0), 0), clicks: d.reduce((s, r) => s + parseInt(r.clicks || 0), 0), reach: d.reduce((s, r) => s + parseInt(r.reach || 0), 0), adEngagement: d.reduce((s, r) => s + parseInt(r.post_engagement || 0), 0), adLikes: d.reduce((s, r) => s + parseInt(r.likes || 0), 0), adComments: d.reduce((s, r) => s + parseInt(r.comments || 0), 0), adShares: d.reduce((s, r) => s + parseInt(r.shares || 0), 0), adSaves: d.reduce((s, r) => s + parseInt(r.saves || 0), 0), conversas: somaOuNulo(d, 'conversas'), cadastros: somaOuNulo(d, 'cadastros'), compras: somaOuNulo(d, 'compras'), visitas: somaOuNulo(d, 'visitas') }
   }
   let spend = 0, impressions = 0, clicks = 0, reach = 0, prevSpend = null, adEngagement = 0, adLikes = 0, adComments = 0, adShares = 0, adSaves = 0
@@ -1865,8 +1872,30 @@ async function fetchData(accountId, period, customStart, customEnd) {
   // Ads dia-preciso p/ HOJE/1D: gasto do DIA exato (period_days=0 de hoje/ontem),
   // em vez do agregado "última captura" (que defasava o HOJE e somava 2 dias no 1D).
   let _adsPd = storedPeriod, _adsCur = `captured_at=lte.${refDateStr}&order=captured_at.desc`, _adsPrev = `captured_at=lte.${prevRefDateStr}&order=captured_at.desc`
-  if (isHoje) { _adsPd = 0; _adsCur = `captured_at=eq.${_hojeBRT}`; _adsPrev = `captured_at=eq.${_ontemBRT}` }
-  else if (period === 1) { const _anteBRT = localDate(new Date(new Date(_ontemBRT + 'T00:00:00').getTime() - 86400000)); _adsPd = 0; _adsCur = `captured_at=eq.${_ontemBRT}`; _adsPrev = `captured_at=eq.${_anteBRT}` }
+  // ATÉ QUE PONTO PARA TRÁS UMA CAPTURA AINDA É "ESTE PERÍODO".
+  //
+  // A consulta acima limita a data só POR CIMA. Isso bastava enquanto ela trazia
+  // TODAS as campanhas da conta: a mais recente era sempre a última rodada do
+  // coletor. Com o recorte por tipo de campanha, a mais recente passou a ser a
+  // mais recente DAQUELE tipo — e um tipo parado devolve uma foto de meses atrás
+  // com o rótulo "últimos 7 dias" (Breno Vale, 08/06 sob 7D: 488 impressões e
+  // R$ 6,32 impressos como a semana). Quem recusa é capturaDoAgregado(), testado
+  // ao lado; aqui só se diz qual é a janela de cada uma das duas consultas.
+  //
+  // A tolerância é o tamanho da própria janela exibida: uma captura de 7 dias
+  // tirada dentro dos últimos 7 dias ainda fala do período; uma de 70 dias atrás
+  // não fala. A do período ANTERIOR usa a MESMA tolerância contada a partir da
+  // data de referência DELA (que é outra: um mês atrás), senão a comparação
+  // "vs período anterior" sumiria de todo mundo.
+  const _tolDias = Math.max(1, Math.round((new Date(refDateStr + 'T00:00:00').getTime() - new Date(followStart + 'T00:00:00').getTime()) / 86400000))
+  let _janCur = { inicio: followStart, fim: refDateStr }
+  let _janPrev = { inicio: localDate(new Date(new Date(prevRefDateStr + 'T00:00:00').getTime() - _tolDias * 86400000)), fim: prevRefDateStr }
+  if (isHoje) { _adsPd = 0; _adsCur = `captured_at=eq.${_hojeBRT}`; _adsPrev = `captured_at=eq.${_ontemBRT}`; _janCur = { inicio: _hojeBRT, fim: _hojeBRT }; _janPrev = { inicio: _ontemBRT, fim: _ontemBRT } }
+  else if (period === 1) { const _anteBRT = localDate(new Date(new Date(_ontemBRT + 'T00:00:00').getTime() - 86400000)); _adsPd = 0; _adsCur = `captured_at=eq.${_ontemBRT}`; _adsPrev = `captured_at=eq.${_anteBRT}`; _janCur = { inicio: _ontemBRT, fim: _ontemBRT }; _janPrev = { inicio: _anteBRT, fim: _anteBRT } }
+  // De quando é a captura que foi RECUSADA por ser de fora da janela. null = não
+  // houve recusa. A tela escreve isso junto dos "—", senão o dono vê traço sem
+  // saber se é falta de coleta, falta de gasto, ou defeito.
+  let capturaAdsFora = null
   if (!_recorteSemCampanha) {
     const [ciCurr, ciPrev] = await Promise.all([
       sb(`campaign_insights?account_id=eq.${accountId}&period_days=eq.${_adsPd}&${_adsCur}&limit=200&select=campaign_id,spend,impressions,clicks,reach,post_engagement,likes,comments,shares,saves,conversas,cadastros,compras,visitas,captured_at${idFilter}`),
@@ -1878,7 +1907,12 @@ async function fetchData(accountId, period, customStart, customEnd) {
     // Só ACRESCENTA: uma falha anterior (campanhas, conjuntos ou gasto do dia) não
     // pode ser apagada por um `|| null` daqui — o dono ficaria sem o aviso.
     erroAds.value = erroAds.value || ciCurr.erro || ciPrev.erro || null
-    const adsAgg = aggCi(ciCurr); const prevAdsAgg = aggCi(ciPrev)
+    // A captura mais recente de CADA consulta, recusada quando é de fora da
+    // janela que a tela está afirmando (ver captura-do-agregado.js).
+    const _capCur = capturaDoAgregado(ciCurr, _janCur)
+    const _capPrev = capturaDoAgregado(ciPrev, _janPrev)
+    capturaAdsFora = _capCur.foraDaJanela ? _capCur.data : null
+    const adsAgg = aggCi(_capCur.linhas); const prevAdsAgg = aggCi(_capPrev.linhas)
     spend = adsAgg?.spend || 0; impressions = adsAgg?.impressions || 0; clicks = adsAgg?.clicks || 0; reach = adsAgg?.reach || 0
     adEngagement = adsAgg?.adEngagement || 0; adLikes = adsAgg?.adLikes || 0; adComments = adsAgg?.adComments || 0; adShares = adsAgg?.adShares || 0; adSaves = adsAgg?.adSaves || 0
     // Sem `|| 0` de propósito: aqui zero é resposta ("ninguém abriu conversa") e
@@ -1902,9 +1936,15 @@ async function fetchData(accountId, period, customStart, customEnd) {
     // duplica pessoa, então aqui é só coerência de fonte, não correção de número.
     if (_todasAsCampanhas) {
       const aiCurr = await sb(`account_insights?account_id=eq.${accountId}&period_days=eq.${_adsPd}&${_adsCur}&limit=1&select=reach,impressions,frequency`).catch(() => [])
-      if (aiCurr && aiCurr.length && aiCurr[0].reach != null) { reach = parseInt(aiCurr[0].reach); alcanceSomado = false }
-      if (aiCurr && aiCurr.length && aiCurr[0].impressions != null) impressions = parseInt(aiCurr[0].impressions)
-      if (aiCurr && aiCurr.length && aiCurr[0].frequency != null) frequencia = parseFloat(aiCurr[0].frequency)
+      // `> 0`, NÃO `!= null`. Estas três colunas são anuláveis MAS têm default 0:
+      // a linha em que a Meta não publicou nada chega com zero, passa por um
+      // teste de "veio número?" e a tela imprime "0,00×" com borda VERDE — um
+      // veredito fabricado a partir de leitura ausente. Zero aqui nunca é
+      // resposta útil (conta com investimento tem impressão e tem alcance), e
+      // trocar um alcance somado por um zero seria apagar número bom.
+      if (aiCurr && aiCurr.length && aiCurr[0].reach > 0) { reach = parseInt(aiCurr[0].reach); alcanceSomado = false }
+      if (aiCurr && aiCurr.length && aiCurr[0].impressions > 0) impressions = parseInt(aiCurr[0].impressions)
+      if (aiCurr && aiCurr.length && aiCurr[0].frequency > 0) frequencia = parseFloat(aiCurr[0].frequency)
     }
     // FREQUÊNCIA em qualquer recorte que não seja a conta inteira: não existe
     // guardada, e a única conta possível é impressões ÷ alcance SOMADO. Como esse
@@ -1964,6 +2004,18 @@ async function fetchData(accountId, period, customStart, customEnd) {
     adsDiario: { inicio: followStart, fim: followEnd, linhasDeGasto: gastoDiarioRows, linhasDeSeguidores: seguidoresDiarioRows },
     // Recorte por balde: o que a barra desenha e o que o ao vivo tem de somar.
     baldesVazios, baldeEfetivo: _efetivo, idsParaAoVivo,
+    // A frase embaixo da barra tem de dizer o que está REALMENTE valendo. Sem
+    // estes três números ela dizia "Todas as campanhas (126)" logo acima de
+    // cartões que falavam de 9 delas.
+    campanhasNoRecorte: idsDoRecorte.length,
+    campanhasDoBalde: idsDoBalde(_campanhas, _efetivo).length,
+    campanhasNoTotal: _campanhas.length,
+    // Quantas campanhas DESTE recorte ainda não têm conjunto coletado — elas
+    // caem pelo objetivo, que às vezes engana (ver desenharAvisoBalde).
+    campanhasSemTipo: campanhasSemTipoConfirmado(_campanhas, idsDoRecorte),
+    // De quando é a captura recusada por ser de fora da janela exibida. A tela
+    // escreve isso junto dos "—": traço sem motivo faz o dono procurar defeito.
+    capturaAdsFora,
     // Sem nenhum conjunto coletado pra este perfil, toda campanha cai pela
     // regra do objetivo — provisório, não fechado (ver desenharAvisoBalde e
     // classificacaoEhProvisoria em baldes-do-painel.js, com o limite do RLS
@@ -2243,7 +2295,13 @@ function update(d, period) {
   // é o que as consultas REALMENTE usaram — pode ser Todos, quando o escolhido
   // não tem dinheiro neste perfil.
   desenharBaldeBar(d.baldesVazios || [], d.baldeEfetivo)
-  desenharAvisoBalde(d.classificacaoProvisoria) // sem conjunto coletado, o balde vem só do objetivo — avisa
+  // Dois avisos possíveis, o do perfil inteiro e o das campanhas soltas — ver
+  // desenharAvisoBalde.
+  desenharAvisoBalde(d.classificacaoProvisoria, d.campanhasSemTipo || 0)
+  // A frase embaixo da barra segue o tipo de campanha que REALMENTE valeu, e é
+  // reescrita a cada update — sem isso ela ficava congelada no que foi pintado na
+  // troca de perfil e contradizia os cartões.
+  updateCampaignFilterBadge(d.campanhasNoRecorte, d.campanhasNoTotal, d.baldeEfetivo, d.campanhasDoBalde)
   applyFreshness(d.trueLastSnap) // frescor = última coleta REAL do coletor, igual em qualquer período
   const totalEl = document.getElementById('total-followers'); if (totalEl) animCountFull(totalEl, (d.live ? d.live.followers_count : d.followerTotal))
   // Status ao vivo × fallback honesto (nunca esconde que é dado coletado quando a Meta falha).
@@ -2426,21 +2484,40 @@ function update(d, period) {
   if (d.clicks > 0) adsChips.push(fmtN(d.clicks) + ' cliques')
   if (d.reach > 0) adsChips.push(fmtN(d.reach) + ' alcance')
   if (_alcanceRepete) adsChips.push({ texto: 'esse alcance conta a mesma pessoa mais de uma vez', classe: 'sec-chip-nota' })
+  // "—" SEM MOTIVO FAZ O DONO PROCURAR DEFEITO. Quando os cartões estão em traço
+  // porque a última coleta deste tipo de campanha é de FORA do período exibido, é
+  // isso que a linha diz — com a data. Antes desta obra a tela fazia o contrário:
+  // imprimia aquela coleta velha como se fosse a semana (Breno Vale, 7D, "Site e
+  // alcance": números de 08/06 rotulados como os últimos 7 dias).
+  if (d.capturaAdsFora) {
+    let _q = d.capturaAdsFora
+    try { _q = new Date(d.capturaAdsFora + 'T00:00:00').toLocaleDateString('pt-BR') } catch (e) {}
+    adsChips.push({ texto: 'a coleta mais recente deste tipo de campanha é de ' + _q + ', fora do período mostrado — por isso os cartões estão em "—"', classe: 'sec-chip-nota' })
+  }
   if (!adsChips.length) adsChips.push('Sem dados de Ads no período')
   setChips('chips-ads', adsChips)
   const custoChips = []
-  if (d.clicks > 0 && d.spend > 0) custoChips.push('CPC ' + fmtR(d.spend / d.clicks))
-  if (d.impressions > 0 && d.spend > 0) custoChips.push('CPM ' + fmtR(d.spend / d.impressions * 1000))
+  // UM NUMERADOR SÓ NA SEÇÃO INTEIRA — a mesma régua dos cartões, agora também
+  // aqui embaixo. Estas linhas dividiam `d.spend` (o gasto COLETADO) enquanto os
+  // cartões dividiam `_inv` (o ao vivo, quando existe). Em "Todos" os dois
+  // apareciam juntos na tela: o cartão "CUSTO POR MIL IMPRESSÕES R$ X" e a
+  // linha "CPM R$ Y", mesmo nome, mesmo denominador, números diferentes — e não
+  // tinham como bater, porque a janela do ao vivo é de N dias e a do agregado
+  // coletado é de N+1. Dois números com o mesmo nome na mesma tela é o dono
+  // perguntando qual dos dois está errado.
+  const _invChips = _inv > 0 ? _inv : 0
+  if (d.clicks > 0 && _invChips > 0) custoChips.push('CPC ' + fmtR(_invChips / d.clicks))
+  if (d.impressions > 0 && _invChips > 0) custoChips.push('CPM ' + fmtR(_invChips / d.impressions * 1000))
   // Este custo divide dinheiro por um alcance que pode repetir pessoa — então ele
   // sai barato demais. O rótulo avisa junto com o número, não seis linhas abaixo.
-  if (d.reach > 0 && d.spend > 0) {
+  if (d.reach > 0 && _invChips > 0) {
     custoChips.push(_alcanceRepete
-      ? { texto: 'Custo/alcance ' + fmtR(d.spend / d.reach) + ' (com pessoa repetida)', classe: 'sec-chip-nota' }
-      : 'Custo/alcance ' + fmtR(d.spend / d.reach))
+      ? { texto: 'Custo/alcance ' + fmtR(_invChips / d.reach) + ' (com pessoa repetida)', classe: 'sec-chip-nota' }
+      : 'Custo/alcance ' + fmtR(_invChips / d.reach))
   }
-  if (d.adComments > 0 && d.spend > 0) custoChips.push('Custo/comentário ' + fmtR(d.spend / d.adComments))
-  if (d.adSaves > 0 && d.spend > 0) custoChips.push('Custo/salvamento ' + fmtR(d.spend / d.adSaves))
-  if (d.adShares > 0 && d.spend > 0) custoChips.push('Custo/compart. ' + fmtR(d.spend / d.adShares))
+  if (d.adComments > 0 && _invChips > 0) custoChips.push('Custo/comentário ' + fmtR(_invChips / d.adComments))
+  if (d.adSaves > 0 && _invChips > 0) custoChips.push('Custo/salvamento ' + fmtR(_invChips / d.adSaves))
+  if (d.adShares > 0 && _invChips > 0) custoChips.push('Custo/compart. ' + fmtR(_invChips / d.adShares))
   if (!custoChips.length) custoChips.push('Sem custos no período')
   setChips('chips-ads-custo', custoChips)
   // Curtidas/Comentários/Salvamentos/Compart. por ABA (Geral/Reels/Posts/Stories/Anúncios). Guarda o contexto
@@ -3015,15 +3092,22 @@ async function saveCampaignFilter() {
     body: JSON.stringify({ account_id: currentAccountId, selected_ids: toSave, updated_at: new Date().toISOString() }),
   })
   document.getElementById('campaign-modal-overlay').style.display = 'none'
-  updateCampaignFilterBadge(toSave === null ? allCbs.length : toSave.length, allCbs.length)
+  // Contagem por tipo desconhecida neste ponto (o recorte só é montado no
+  // fetchData); o refresh() logo abaixo completa a frase.
+  updateCampaignFilterBadge(toSave === null ? allCbs.length : toSave.length, allCbs.length, _baldeAtual, null)
   refresh()
 }
-function updateCampaignFilterBadge(selCount, total) {
+// A FRASE TEM DE FALAR DO TIPO DE CAMPANHA, senão ela contradiz os cartões que
+// estão logo abaixo dela: "Todas as campanhas (126)" em cima de quatro números
+// que falam de 9. Quem monta o texto é `fraseDoRecorte`, pura e testada ao lado.
+//
+// `doBalde` chega null nas pinturas que acontecem ANTES dos dados (troca de
+// perfil, gravação do filtro): ali não existe a contagem por tipo, e a frase
+// omite o número em vez de chutar um. O update() logo em seguida a completa.
+function updateCampaignFilterBadge(selCount, total, balde, doBalde) {
   const info = document.getElementById('camp-filter-info')
   if (!info) return
-  if (selCount === 0 && total >= 0) info.textContent = 'Nenhuma campanha selecionada'
-  else if (selCount === total || total === 0) info.textContent = 'Todas as campanhas (' + total + ')'
-  else info.textContent = selCount + ' de ' + total + ' campanhas selecionadas'
+  info.textContent = fraseDoRecorte(balde, { noRecorte: selCount, total, doBalde: doBalde === undefined ? null : doBalde })
 }
 async function loadCampaignFilterBadge() {
   if (!currentAccountId) return
@@ -3033,7 +3117,9 @@ async function loadCampaignFilterBadge() {
   ])
   const rawIds = filterRows[0]?.selected_ids
   const selCount = rawIds === null || rawIds === undefined ? campaigns.length : rawIds.length
-  updateCampaignFilterBadge(selCount, campaigns.length)
+  // Só o tipo ESCOLHIDO é conhecido aqui; se ele estiver vazio neste perfil, o
+  // update() troca para Todos e reescreve a frase com o tipo que realmente valeu.
+  updateCampaignFilterBadge(selCount, campaigns.length, _baldeAtual, null)
 }
 
 // Equivalente ao showHome() do legado quando chamado a partir do dashboard

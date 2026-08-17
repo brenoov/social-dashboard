@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cartoesDoBalde, podeDarVeredito, chaveDeMeta } from './cartoes-do-balde.js';
+import { cartoesDoBalde, podeDarVeredito, chaveDeMeta, ehMetaDeTaxa } from './cartoes-do-balde.js';
 import { CRITERIOS } from '../gestao-trafego/saude.js';
 
 // Números REAIS de 30 dias, última captura de 17/08/2026.
@@ -220,4 +220,40 @@ test('o cartão de investimento é sempre o primeiro, e é o único com meta de 
     assert.equal(c[0].metaKey, 'spend', b);
     assert.equal(c.filter(x => x.metaKey === 'spend').length, 1, b);
   });
+});
+
+// ── TAXA × VOLUME: o que impede uma meta de custo de ser MULTIPLICADA ──
+// Sem esta distinção, os R$ 12 por conversa digitados em 7D são copiados
+// proporcionalmente para os outros períodos e viram R$ 51 na linha de 30D. É
+// número GRAVADO em social_metas, não pixel — por isso tem teste.
+test('meta de custo é taxa, com e sem o balde na frente da chave', () => {
+  assert.equal(ehMetaDeTaxa('cps'), true, 'chave herdada, sem prefixo');
+  assert.equal(ehMetaDeTaxa('contatos.custo_conversa'), true);
+  assert.equal(ehMetaDeTaxa('site.custo_visita'), true);
+  assert.equal(ehMetaDeTaxa('todos.cpm'), true);
+  assert.equal(ehMetaDeTaxa('vendas.custo_venda'), true);
+});
+
+test('budget é VOLUME: 30 dias custam mais que 7, e a meta acompanha', () => {
+  assert.equal(ehMetaDeTaxa('spend'), false);
+  assert.equal(ehMetaDeTaxa('seguidores.spend'), false);
+  assert.equal(ehMetaDeTaxa('followers'), false);
+});
+
+test('TODO cartão de custo de TODO balde é reconhecido como taxa pela chave que ele mesmo gera', () => {
+  // Derivado das receitas, não repetido à mão: cartão de custo novo que nasça
+  // fora da lista quebra AQUI, e não na conta do dono.
+  const numeros = { investimento: 100, seguidores: 10, interacoes: 10, curtidas: 10, conversas: 10, cadastros: 10, compras: 10, visitas: 10, impressoes: 10000, alcance: 10, frequencia: 2 };
+  for (const balde of ['todos', 'seguidores', 'contatos', 'site', 'vendas']) {
+    for (const cartao of cartoesDoBalde(balde, numeros)) {
+      if (!cartao.metaKey || cartao.formato !== 'dinheiro' || cartao.id === 'investimento') continue;
+      assert.equal(ehMetaDeTaxa(chaveDeMeta(cartao.metaKey, balde)), true, `${balde}.${cartao.id} tinha de ser taxa`);
+    }
+  }
+});
+
+test('chave desconhecida NÃO é taxa: na dúvida, o caminho antigo (volume) continua valendo', () => {
+  assert.equal(ehMetaDeTaxa('inventada'), false);
+  assert.equal(ehMetaDeTaxa('balde.inventada'), false);
+  assert.equal(ehMetaDeTaxa(''), false);
 });
