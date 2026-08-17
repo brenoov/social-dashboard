@@ -745,6 +745,46 @@ Já está especificado, passo a passo, como a **Tarefa 9** do plano
 (`coletor/janelas-de-backfill.mjs` + teste). Entra quando o dono quiser
 comparar período com período anterior nos baldes novos.
 
+### B17 · Redes › o recorte MÊS / ATÉ AGORA nunca vai ter os quatro números novos 🟡 *achado em 17/08*
+Na seção 02 do painel de Redes Sociais, os períodos **MÊS** e **ATÉ AGORA** leem
+uma fatia própria do banco (`campaign_insights` com `period_days = 99`, o
+mês-corrente). Nessa fatia, os quatro números novos — **conversas, cadastros,
+compras e visitas** — são **nulos em 100% das linhas** (0 de 1.876 conferidas em
+17/08), e continuariam nulos mesmo depois do backfill do **B16**.
+
+Consequência para quem usa: um tipo de campanha que funciona em 7D e 30D fica em
+**"—"** ao trocar para MÊS ou ATÉ AGORA. Contatos perde o custo por conversa,
+Site e alcance perde o custo por visita, Vendas perde o custo por venda. Não é
+defeito da tela: o número não existe no banco naquele recorte.
+
+**Por que:** quem escreve essa fatia não é o coletor da nuvem, é o script Python
+antigo `projetos/central-inteligencia/redes-sociais/coletor/coletar.py` — a
+função `coletar_ads_por_campanha` (linha 247), chamada com `store_as=MTD_PERIOD`
+na linha 395 (a chamada das linhas 391 é a dos 7/30 dias). O pedido dele à Meta,
+na **linha 254**, é:
+
+```python
+"fields": "campaign_id,spend,impressions,clicks,reach",
+```
+
+Falta `actions` — e é de dentro do `actions` que saem os quatro números. O
+gravador (linhas 264–279) também só monta as quatro colunas antigas, então mesmo
+com o campo pedido ele precisaria passar a extrair as contagens, como o coletor
+da nuvem já faz em `supabase/functions/_shared/acoes-de-campanha.js`.
+
+**O conserto é de uma linha no pedido:**
+
+```python
+"fields": "campaign_id,spend,impressions,clicks,reach,actions",
+```
+
+**Por que ficou de fora:** é **outro robô**, com janela de datas própria e fora
+do escopo desta obra, e mexer nele por dedução — sem rodar e conferir o que ele
+grava — é exatamente o erro que esta entrega passou o tempo todo evitando. Não é
+chamada nova à Meta (o `actions` vem na mesma resposta), então não há risco de
+limite de taxa; o risco é o de sempre com esse script: **ele reescreve a linha
+inteira**, e uma passada malfeita apaga coluna boa.
+
 ---
 
 ## Parte C — Ideias guardadas (ninguém pediu ainda)

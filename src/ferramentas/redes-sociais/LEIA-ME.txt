@@ -41,7 +41,32 @@ Como funciona (resumido):
   avisa em vermelho que a classificação por tipo ainda é provisória — o
   destino de cada campanha ainda não foi confirmado, então ela cai pelo
   objetivo, que às vezes engana. O aviso some sozinho assim que o coletor
-  passar por aquele perfil pela primeira vez.
+  passar por aquele perfil pela primeira vez. O mesmo aviso aparece, com a
+  contagem, quando só ALGUMAS campanhas estão nesse estado ("3 campanhas
+  ainda sem tipo confirmado") — é o caso de campanha criada agora, que só
+  ganha o tipo definitivo na próxima coleta.
+
+  DOIS TIPOS QUE APARECEM APAGADOS, E ISSO NÃO É DEFEITO:
+
+  "Vendas" fica apagado de propósito e vai continuar assim. As campanhas que
+  vendem nestas contas vendem pelo WhatsApp, e campanha de WhatsApp conta em
+  "Contatos" — medida por custo por conversa, que é o número que interessa
+  ali. O dono viu isso e decidiu manter: faz tempo que não roda campanha de
+  venda. Se um dia rodar uma que venda direto no site ou no catálogo, ela
+  aparece em Vendas sozinha, sem ninguém mexer em nada.
+
+  "Site e alcance" aparece apagado na maior parte dos perfis hoje. Ele tem
+  dinheiro no histórico, mas não nas coletas recentes — e botão apagado quer
+  dizer "não teve dinheiro desse tipo NESTE período", nunca "quebrou". Trocar
+  o período para uma janela maior costuma reacendê-lo.
+
+  MÊS e ATÉ AGORA ainda não mostram os números novos. Nesses dois períodos,
+  custo por conversa, por cadastro, por venda e por visita ficam em "—",
+  mesmo que apareçam normalmente em 7D e 30D. O motivo é que esse recorte é
+  gravado por um robô antigo que ainda não pede essas contagens à Meta —
+  está escrito, com o conserto exato, no item B17 de docs/pendencias.md. Os
+  números de sempre (investimento, impressões, cliques, alcance) continuam
+  normais nesses dois períodos.
 - "03/04/05": engajamento de posts/reels, engajamento de stories, e
   quantidade de conteúdo publicado (stories/posts/reels).
 - Cada card tem uma "META" editável — clique no número da meta, digite o
