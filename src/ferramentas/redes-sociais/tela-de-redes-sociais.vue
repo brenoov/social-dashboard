@@ -1762,6 +1762,13 @@ async function fetchData(accountId, period, customStart, customEnd) {
   // o deixariam para trás. Falha ao buscar as campanhas NÃO pode virar "este perfil
   // não tem campanha nenhuma" em silêncio — isso apagaria dinheiro real da tela.
   erroAds.value = campanhasRows.erro || conjuntosRows.erro || null
+  // Lido AQUI pelo mesmo motivo do erroAds acima: .erro mora no array que o
+  // sb() devolveu, e some se a gente passar por um .map()/.filter() antes de
+  // guardar. "Provisório" só pode significar "a leitura funcionou e veio
+  // vazia" — se ela FALHOU, conjuntosRows também chega com length 0, e aí
+  // quem tem de falar é o banner de erro geral (erroAds acima), não este.
+  // Duas faixas vermelhas discordando entre si seria pior que nenhuma.
+  const _semConjuntoDeVerdade = conjuntosRows.length === 0 && !conjuntosRows.erro
   // Campanha + os conjuntos dela = o que decide o balde. Conjunto ainda não
   // coletado não some: cai pela regra do objetivo (ver baldes-do-painel.js), que é
   // exatamente o que acontece enquanto campaign_adsets ainda está vazia.
@@ -1961,7 +1968,11 @@ async function fetchData(accountId, period, customStart, customEnd) {
     baldesVazios, baldeEfetivo: _efetivo, idsParaAoVivo,
     // Sem nenhum conjunto coletado pra este perfil, toda campanha cai pela
     // regra do objetivo — provisório, não fechado (ver desenharAvisoBalde).
-    classificacaoProvisoria: conjuntosRows.length === 0,
+    // LIMITE CONHECIDO: RLS que nega leitura também devolve 200+[] sem erro
+    // (ver comentário de sb() em buscar-e-salvar-dados.js) — indistinguível
+    // daqui de "ainda não coletado". O aviso vai dizer "provisório" nesse
+    // caso também; é o mesmo ponto cego que o resto da tela já tem.
+    classificacaoProvisoria: _semConjuntoDeVerdade,
     // Nenhuma campanha no recorte → o cartão de dinheiro mostra "—", nunca o
     // total da conta. E o alcance avisa quando repete pessoa.
     recorteSemCampanha: _recorteSemCampanha, alcanceSomado,
