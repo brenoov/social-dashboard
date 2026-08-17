@@ -244,3 +244,48 @@ test('o titulo repetido dentro da mensagem nao vai duas vezes pro banco', () => 
   assert.equal(l.titulo, 'As Páginas não correspondem')
   assert.equal(l.detalhe, 'a Página do anúncio é outra.')
 })
+
+// O MESMO PAR (anúncio, código) NÃO PODE IR DUAS VEZES NA MESMA LISTA.
+//
+// DEFEITO REAL, e foi meu (17/08/2026, poucos minutos depois de subir a tabela):
+// a conta C1 - Vessel Brasil mandou 6 problemas e gravou ZERO. O aviso que eu
+// mesmo tinha posto no console disse o porquê, com todas as letras:
+//
+//   [problemas] não consegui guardar em b6883e82…
+//   ON CONFLICT DO UPDATE command cannot affect row a second time
+//
+// O Postgres recusa o LOTE INTEIRO quando a mesma chave aparece duas vezes num
+// único INSERT ... ON CONFLICT. Não é erro de linha: é erro de comando. Uma
+// repetição derruba a história daquela conta por completo — silenciosamente, se
+// não houvesse o aviso.
+//
+// Acontece porque a Meta pode listar o MESMO código duas vezes no `issues_info`
+// de um anúncio (o mesmo problema visto no nível do anúncio e no do conjunto).
+
+test('par repetido no mesmo anúncio vira UMA linha só', () => {
+  const anuncios = [{
+    id: '777', name: 'anúncio repetido',
+    issues_info: [
+      { error_code: 1885029, error_summary: 'As Páginas não correspondem', error_type: 'HARD_ERROR', level: 'AD' },
+      { error_code: 1885029, error_summary: 'As Páginas não correspondem', error_type: 'HARD_ERROR', level: 'AD_SET' },
+    ],
+  }]
+  const linhas = linhasParaGuardar(anuncios)
+  assert.equal(linhas.length, 1, 'duas vezes o mesmo par derruba o lote inteiro no Postgres')
+})
+
+test('o mesmo anúncio vindo duas vezes na lista também não duplica', () => {
+  // Um anúncio alcançável por dois caminhos do mapa chegava duas vezes aqui.
+  const ad = { id: '888', name: 'x', issues_info: [{ error_code: 1359208, error_summary: 'Y', error_type: 'HARD_ERROR', level: 'AD_SET' }] }
+  const linhas = linhasParaGuardar([ad, { ...ad }])
+  assert.equal(linhas.length, 1)
+})
+
+test('mas dois problemas DIFERENTES no mesmo anúncio continuam sendo duas linhas', () => {
+  // A dedupe não pode engolir informação de verdade.
+  const linhas = linhasParaGuardar([{ id: '999', name: 'x', issues_info: [
+    { error_code: 1885029, error_summary: 'A', error_type: 'HARD_ERROR', level: 'AD' },
+    { error_code: 1443128, error_summary: 'B', error_type: 'SOFT_ERROR', level: 'AD' },
+  ] }])
+  assert.equal(linhas.length, 2)
+})

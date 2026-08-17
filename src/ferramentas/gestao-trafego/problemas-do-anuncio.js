@@ -108,6 +108,18 @@ function tirarOTituloRepetido(mensagem, titulo) {
 // dia em que o objeto não existe mais na Meta, e id órfão não diz nada.
 export function linhasParaGuardar(anuncios, contexto) {
   const ctx = contexto || {};
+  // O MESMO PAR (ad_id, codigo) NÃO PODE SAIR DUAS VEZES.
+  //
+  // Defeito real, meu, em 17/08/2026: a conta Vessel mandou 6 problemas e gravou
+  // ZERO, com "ON CONFLICT DO UPDATE command cannot affect row a second time".
+  // O Postgres recusa o LOTE INTEIRO quando a mesma chave aparece duas vezes num
+  // `INSERT ... ON CONFLICT` — não é erro de linha, é erro de comando. Uma
+  // repetição apaga a história daquela conta por completo.
+  //
+  // A Meta lista o mesmo código duas vezes quando o problema aparece no nível do
+  // anúncio E no do conjunto. Fica a primeira ocorrência: são a mesma coisa dita
+  // duas vezes, e a primeira é a que traz o nível mais específico.
+  const vistos = new Set();
   const linhas = [];
   for (const a of anuncios || []) {
     // Sem id não há chave. Deixar passar derrubaria a gravação da conta inteira
@@ -116,6 +128,9 @@ export function linhasParaGuardar(anuncios, contexto) {
     for (const bruto of (a.issues_info || [])) {
       const p = lerProblema(bruto);
       if (!p.codigo) continue;
+      const chave = `${a.id}::${p.codigo}`;
+      if (vistos.has(chave)) continue;
+      vistos.add(chave);
       linhas.push({
         ad_id: String(a.id),
         codigo: p.codigo,
