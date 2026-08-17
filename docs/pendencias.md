@@ -257,6 +257,18 @@ abusiva — pode ser essa a origem do que chegou como "atividade suspeita".
 **Resolve no Gerenciador de Anúncios**, não aqui — a Central mostra, e de
 propósito não mexe. Ver o painel novo em **Gestão de Tráfego › Fila**.
 
+> ✅ **E agora a Central guarda o motivo (17/08).** A Meta **apaga** o
+> `issues_info` quando o anúncio é excluído ou o problema é resolvido — foi por
+> isso que a campanha da semana de 11/08 não deixou rastro. A tabela
+> `gt_problemas_meta` é a memória que a Meta não tem: guarda **o nome** da
+> campanha e do anúncio junto com os ids (para a linha continuar legível depois
+> que o objeto sumiu da Meta), `primeira_vez` / `ultima_vez` em vez de uma linha
+> por leitura, e `resolvido_em` para saber que o conserto funcionou e quanto
+> tempo ficou parado. Já tem **47 linhas** gravadas.
+>
+> ⚠️ **Ela só enche quando alguém abre a Gestão de Tráfego.** Um problema que
+> nasce e morre entre duas visitas passa batido. Fechar isso é o **B15**.
+
 ---
 
 ## Parte B — Precisa programar
@@ -695,6 +707,21 @@ papel do aceite, ele não vai estar na pasta.
 **O que fazer, se for pedido:** a mesma receita do checklist —
 `frota_uso_pdf` + a fila que a Edge Function `enviar-pdf-checklist` já sabe
 processar. O gerador (`pdf-do-checklist.js`) já tem o papel timbrado pronto.
+
+### B15 · Meta Ads › o histórico de problemas depende de alguém abrir a tela 🟡
+A tabela `gt_problemas_meta` (ver **A13**) já guarda o motivo que a Meta dá, e
+está funcionando — 47 linhas. Mas **quem grava é a tela**: a Gestão de Tráfego
+registra o que leu, a cada carregamento.
+
+Consequência: um problema que **nasce e morre entre duas visitas** não deixa
+rastro nenhum. E é justamente o caso que originou tudo isto — a campanha barrada
+que ninguém viu a tempo.
+
+**O que fecha:** um robô diário que faça a mesma leitura e chame a mesma função
+`gt_registrar_problemas`. A função já existe, já é `security definer` e já sabe
+fechar o que sumiu — falta só quem a chame sem depender de gente. O molde é o
+mesmo dos outros robôs (`coletor/` + cron), e o custo é zero de IA: é só leitura
+do Graph.
 
 ---
 
