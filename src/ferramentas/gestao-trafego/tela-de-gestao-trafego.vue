@@ -212,7 +212,7 @@ import { montarMapa } from './painel-do-mapa.js'
 import { montarPainelDeLugares } from '../../compartilhado/painel-de-lugares.js'
 import { deListas, paraListas } from '../../compartilhado/lugares-do-anuncio.js'
 import { enderecoDeOndeCaiu } from '../../compartilhado/busca-de-lugar.js'
-import { agruparProblemas, fraseDosProblemas } from './problemas-do-anuncio.js'
+import { agruparProblemas, anunciosComProblema, fraseDosProblemas } from './problemas-do-anuncio.js'
 import { montarLeituraDePublico, publicoDaReceita } from './leitura-de-publico.js'
 import { PUBLICO_VAZIO } from './publico-alvo.js'
 // A LISTA do histórico de campanhas começadas por aqui. As regras de leitura
@@ -917,13 +917,26 @@ async function _gtFilaBuscarNomes() {
     const insPorCamp = {};
     for (const i of ins || []) insPorCamp[String(i.campaign_id)] = i;
     const adsPorCamp = {};
+    // TODOS os anúncios, sem filtro de status — ver `anunciosTodos` abaixo.
+    const adsTodosPorCamp = {};
     for (const a of anuncios || []) {
+      (adsTodosPorCamp[String(a.campaign_id)] = adsTodosPorCamp[String(a.campaign_id)] || []).push(a);
       if (String(a.effective_status || '').toUpperCase() !== 'ACTIVE') continue;
       (adsPorCamp[String(a.campaign_id)] = adsPorCamp[String(a.campaign_id)] || []).push(a);
     }
     for (const c of camps || []) {
       const meus = (sets || []).filter((x) => String(x.campaign_id) === String(c.id));
-      mapa.set(String(c.id), { campanha: c, conjuntos: meus, conta, insight: insPorCamp[String(c.id)] || null, anuncios: adsPorCamp[String(c.id)] || [] });
+      mapa.set(String(c.id), {
+        campanha: c, conjuntos: meus, conta, insight: insPorCamp[String(c.id)] || null,
+        // SÓ OS ATIVOS: é o que o robô usa para falar de criativo sem tração —
+        // criativo parado não tem tração para julgar.
+        anuncios: adsPorCamp[String(c.id)] || [],
+        // TODOS: é o que o painel de problemas usa. Um anúncio com problema
+        // GRAVE está fora do ar por definição, então exigir que ele esteja
+        // ativo para aparecer é pedir a contradição — e foi assim que 13 de 13
+        // problemas ficaram invisíveis por cinco dias (17/08/2026).
+        anunciosTodos: adsTodosPorCamp[String(c.id)] || [],
+      });
     }
   }));
   return mapa;
@@ -1068,15 +1081,13 @@ async function _gtCarregarFila() {
     // -- foi o caso dos 5 da Raissa, medidos em 12/08/2026.
     const comProblema = [];
     for (const [, info] of mapa) {
-      for (const ad of info.anuncios || []) {
-        if (!Array.isArray(ad.issues_info) || !ad.issues_info.length) continue;
-        comProblema.push({
-          id: ad.id, nome: ad.name || ad.id,
-          conta_nome: info.conta.display_name || info.conta.name || '',
-          campanha_nome: info.campanha.name || '',
-          issues_info: ad.issues_info,
-        });
-      }
+      // `anunciosTodos`, e NÃO `anuncios`: a segunda lista só tem os ativos, e
+      // anúncio com problema quase nunca está ativo. Medido em 17/08/2026: dos
+      // 13 com `issues_info` nas 5 contas, ZERO estavam ACTIVE.
+      comProblema.push(...anunciosComProblema(info.anunciosTodos, {
+        conta_nome: info.conta.display_name || info.conta.name || '',
+        campanha_nome: info.campanha.name || '',
+      }));
     }
     _gtProblemasDaMeta = agruparProblemas(comProblema);
     const criativos = [];
