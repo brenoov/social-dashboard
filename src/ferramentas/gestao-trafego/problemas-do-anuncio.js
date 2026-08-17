@@ -39,6 +39,33 @@ const O_QUE_FAZER = {
 
 const texto = (v) => (typeof v === 'string' ? v.trim() : '');
 
+// QUAIS ANÚNCIOS TÊM O QUE MOSTRAR — e a resposta NÃO passa por estar ativo.
+//
+// O DEFEITO REAL (17/08/2026): este módulo nasceu em 12/08 para mostrar 13
+// problemas medidos naquele dia, e nunca mostrou nenhum. A lista que o
+// alimentava era filtrada por `effective_status === 'ACTIVE'` — filtro correto
+// para o outro uso da mesma lista (criativos sem tração, que só fazem sentido
+// rodando) e fatalmente errado para este.
+//
+// Medido no Graph em 17/08, nas 5 contas: dos 13 anúncios com `issues_info`,
+// **zero** estão ACTIVE — 10 são WITH_ISSUES e 3 PAUSED. O filtro não escondia
+// parte dos problemas: escondia todos, sempre. E faz sentido que seja assim —
+// um problema GRAVE tira o anúncio do ar por definição, então exigir que ele
+// esteja no ar para aparecer é pedir a contradição.
+//
+// A seleção mora aqui, e não dentro do `.vue`, porque lá ela não tem como
+// quebrar teste nenhum: `node --test` não compila arquivo de tela.
+export function anunciosComProblema(anuncios, contexto) {
+  return (anuncios || [])
+    .filter((a) => a && Array.isArray(a.issues_info) && a.issues_info.length)
+    .map((a) => ({
+      id: a.id,
+      nome: a.name || a.id,
+      issues_info: a.issues_info,
+      ...(contexto || {}),
+    }));
+}
+
 // Normaliza UM problema como a Meta manda.
 export function lerProblema(bruto, contexto) {
   const b = bruto || {};

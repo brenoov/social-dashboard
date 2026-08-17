@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { lerProblema, agruparProblemas, fraseDosProblemas } from './problemas-do-anuncio.js';
+import { lerProblema, agruparProblemas, fraseDosProblemas, anunciosComProblema } from './problemas-do-anuncio.js';
 
 // TODOS OS BRUTOS ABAIXO SAO REAIS, copiados do Graph em 12/08/2026. Inventar
 // aqui esconderia justamente o formato que a Meta manda de verdade.
@@ -115,3 +115,64 @@ test('so graves: a frase nao inventa a metade que nao existe', () => {
   assert.match(f, /impedido/);
   assert.doesNotMatch(f, /limitação/);
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// O PAINEL SÓ OLHAVA ANÚNCIO ATIVO — E ANÚNCIO COM PROBLEMA NUNCA ESTÁ ATIVO.
+//
+// O DEFEITO REAL (17/08/2026): este módulo foi escrito em 12/08 justamente para
+// mostrar os 13 problemas medidos naquele dia, e NUNCA mostrou nenhum. A lista
+// que alimentava `agruparProblemas` vinha de `info.anuncios`, e essa lista era
+// montada com `if (effective_status !== 'ACTIVE') continue` — filtro certo para
+// o outro uso dela (criativos sem tração, que só fazem sentido rodando) e
+// fatalmente errado para este.
+//
+// Medido no Graph em 17/08, nas 5 contas: dos 13 anúncios com `issues_info`,
+// **zero** estão ACTIVE — 10 são WITH_ISSUES e 3 PAUSED. Ou seja, o filtro não
+// escondia parte dos problemas: escondia TODOS, sempre.
+//
+// É a mesma família do pin no mapa: o módulo estava certo, a tela estava certa,
+// e o que ligava os dois entregava uma lista vazia. Defeito que nenhum teste
+// pegava porque a seleção morava dentro do `.vue`, que `node --test` não compila.
+// Por isso ela sai de lá e vira função pura aqui.
+
+test('anúncio com problema NÃO está ativo — é o caso normal, não a exceção', () => {
+  const anuncios = [
+    { id: '1', name: 'pausado pela Meta', effective_status: 'WITH_ISSUES', issues_info: [{ error_code: 1359208, error_summary: 'Público personalizado indisponível', error_type: 'HARD_ERROR', level: 'AD_SET' }] },
+    { id: '2', name: 'vídeo pequeno', effective_status: 'PAUSED', issues_info: [{ error_code: 2643046, error_summary: 'Vídeo abaixo do mínimo', error_type: 'SOFT_ERROR', level: 'AD' }] },
+    { id: '3', name: 'saudável', effective_status: 'ACTIVE', issues_info: null },
+  ]
+  const escolhidos = anunciosComProblema(anuncios)
+  assert.equal(escolhidos.length, 2, 'os dois com problema têm de entrar, ativos ou não')
+  assert.deepEqual(escolhidos.map((a) => a.id).sort(), ['1', '2'])
+})
+
+test('o filtro antigo (só ACTIVE) esconderia os DOIS — é a prova do defeito', () => {
+  const anuncios = [
+    { id: '1', effective_status: 'WITH_ISSUES', issues_info: [{ error_code: 1359208, error_type: 'HARD_ERROR' }] },
+    { id: '2', effective_status: 'PAUSED', issues_info: [{ error_code: 2643046, error_type: 'SOFT_ERROR' }] },
+  ]
+  const comoEra = anuncios.filter((a) => String(a.effective_status).toUpperCase() === 'ACTIVE')
+  assert.deepEqual(agruparProblemas(comoEra), [], 'era assim que a tela ficava vazia')
+  assert.equal(agruparProblemas(anunciosComProblema(anuncios)).length, 2, 'e é assim que ela passa a falar')
+})
+
+test('anúncio sem problema não entra, mesmo parado', () => {
+  const anuncios = [
+    { id: '9', effective_status: 'PAUSED', issues_info: [] },
+    { id: '10', effective_status: 'ARCHIVED' },
+  ]
+  assert.deepEqual(anunciosComProblema(anuncios), [])
+})
+
+test('o contexto da conta e da campanha viaja junto — sem ele o dono não sabe ONDE', () => {
+  const anuncios = [{ id: '1', name: 'meu anúncio', effective_status: 'WITH_ISSUES', issues_info: [{ error_code: 1359208, error_summary: 'X', error_type: 'HARD_ERROR' }] }]
+  const [a] = anunciosComProblema(anuncios, { conta_nome: 'C1 - Raissa', campanha_nome: '[ENGAJAMENTO] HOTEL' })
+  assert.equal(a.conta_nome, 'C1 - Raissa')
+  assert.equal(a.campanha_nome, '[ENGAJAMENTO] HOTEL')
+  assert.equal(a.nome, 'meu anúncio')
+})
+
+test('lista vazia ou nula não quebra', () => {
+  assert.deepEqual(anunciosComProblema(null), [])
+  assert.deepEqual(anunciosComProblema([]), [])
+})
