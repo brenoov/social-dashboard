@@ -2,7 +2,7 @@
 // Exige USUÁRIO autenticado COM permissão social. Trata CORS. verify_jwt=false (auth feita aqui). Atual + anterior.
 // Todas as chamadas à Meta rodam em PARALELO (Promise.all) — latência = a mais lenta, não a soma.
 import { createClient } from 'jsr:@supabase/supabase-js@2'
-import { somarGasto } from '../_shared/gasto-de-campanhas.js'
+import { somarGasto, semRespostaDaMeta, podeBuscarProximaPagina } from '../_shared/gasto-de-campanhas.js'
 
 const GRAPH = 'https://graph.facebook.com/v21.0'
 const cors = {
@@ -55,11 +55,21 @@ async function interacoes(ig: string, eS: string, eU: string, token: string) {
 // level=account, uma linha, o número exato da conta. COM `campanhas`, desce para
 // level=campaign e soma só as escolhidas — é assim que o cartão de investimento
 // passa a obedecer ao balde e ao filtro manual.
+// TETO DE PÁGINAS. 126 campanhas na maior conta com `limit=500` cabem numa
+// página só — vinte é folga de 80x. O teto existe para o caso em que a Graph
+// devolve `paging.next` para sempre: sem ele, esta função ficaria girando dentro
+// de uma Edge Function até o tempo acabar, queimando o limite de taxa que já
+// derrubou esta tela uma vez.
+const MAX_PAGINAS = 20
+
+// NULO É "NÃO SEI", ZERO É "NÃO GASTOU" — quem sabe a diferença é
+// `semRespostaDaMeta`, no módulo puro ao lado do `somarGasto`, com teste.
 async function gasto(adAccountId: string, eS: string, eU: string, token: string, campanhas?: string[]) {
   const dstr = (u: number) => new Date(u * 1000).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
   const janela = JSON.stringify({ since: dstr(Number(eS)), until: dstr(Number(eU) - 1) })
   if (!campanhas || campanhas.length === 0) {
     const ads = await apiGet(`act_${adAccountId}/insights`, { fields: 'spend', level: 'account', time_range: janela }, token)
+    if (semRespostaDaMeta(ads)) return null
     return parseFloat(ads.data?.[0]?.spend ?? '0') || 0
   }
   // level=campaign pode passar de 500 linhas numa conta grande — segue
@@ -67,12 +77,19 @@ async function gasto(adAccountId: string, eS: string, eU: string, token: string,
   // senão as campanhas depois do corte contribuem zero e o cartão mostra menos
   // dinheiro do que o real, calado.
   let pagina = await apiGet(`act_${adAccountId}/insights`, { fields: 'campaign_id,spend', level: 'campaign', time_range: janela, limit: '500' }, token)
-  const linhas: any[] = [...(pagina.data ?? [])]
-  while (pagina.paging?.next) {
+  if (semRespostaDaMeta(pagina)) return null
+  const linhas: any[] = [...pagina.data]
+  let paginas = 1
+  // Quando parar é decisão pura e testada (`podeBuscarProximaPagina`): sem
+  // `paging.next`, com página vazia — a Graph manda `next` em página vazia, e o
+  // laço giraria para sempre — ou no teto de páginas.
+  while (podeBuscarProximaPagina(pagina, paginas, MAX_PAGINAS)) {
     const r = await fetch(pagina.paging.next)
-    if (!r.ok) break
+    if (!r.ok) return null           // meia soma sob rótulo de "ao vivo" é pior que cair no coletado
     pagina = await r.json()
-    linhas.push(...(pagina.data ?? []))
+    if (semRespostaDaMeta(pagina)) return null
+    linhas.push(...pagina.data)
+    paginas++
   }
   return somarGasto({ data: linhas }, campanhas)
 }

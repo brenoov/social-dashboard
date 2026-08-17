@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { somarGasto } from './gasto-de-campanhas.js';
+import { somarGasto, semRespostaDaMeta, podeBuscarProximaPagina } from './gasto-de-campanhas.js';
 
 // Resposta real de act_X/insights com level=campaign: uma linha por campanha,
 // `spend` em TEXTO. Id e valor da campanha 1 são os medidos de verdade na
@@ -60,4 +60,42 @@ test('soma correta com linhas acumuladas de mais de uma página', () => {
   const acumulado = { data: [...pagina1, ...pagina2] };
   assert.equal(somarGasto(acumulado, null).toFixed(2), '176.00');
   assert.equal(somarGasto(acumulado, ['1', '3']).toFixed(2), '125.75');
+});
+
+// ── "A META ENGASGOU" × "NÃO HOUVE GASTO" ──
+// O desenho promete que, se a Meta falhar, a tela cai no coletado. Ela decide
+// isso testando `investimento != null` — então um erro NÃO pode virar zero.
+test('erro da Meta não é gasto zero: sem data, não há número a dar', () => {
+  assert.equal(semRespostaDaMeta({ error: { message: 'Rate limit', code: 17 } }), true);
+  assert.equal(semRespostaDaMeta({}), true, 'resposta sem data nenhuma');
+  assert.equal(semRespostaDaMeta(null), true);
+  assert.equal(semRespostaDaMeta({ data: null }), true);
+});
+
+test('data vazia É resposta: a Meta está dizendo "não gastou nessa janela"', () => {
+  assert.equal(semRespostaDaMeta({ data: [] }), false);
+  assert.equal(somarGasto({ data: [] }, ['1']), 0);
+});
+
+test('erro JUNTO com data ainda é erro — meia resposta não vira número', () => {
+  assert.equal(semRespostaDaMeta({ error: { message: 'parcial' }, data: [{ campaign_id: '1', spend: '10' }] }), true);
+});
+
+// ── O LAÇO DE PAGINAÇÃO ──
+test('página vazia com paging.next NÃO continua: é assim que a Graph faz laço infinito', () => {
+  assert.equal(podeBuscarProximaPagina({ data: [], paging: { next: 'https://graph…' } }, 1, 20), false);
+});
+
+test('página cheia com paging.next continua, até o teto', () => {
+  const cheia = { data: [{ campaign_id: '1', spend: '10' }], paging: { next: 'https://graph…' } };
+  assert.equal(podeBuscarProximaPagina(cheia, 1, 20), true);
+  assert.equal(podeBuscarProximaPagina(cheia, 19, 20), true);
+  assert.equal(podeBuscarProximaPagina(cheia, 20, 20), false, 'teto alcançado');
+  assert.equal(podeBuscarProximaPagina(cheia, 21, 20), false);
+});
+
+test('sem paging.next, acabou — o caminho normal das 126 campanhas em uma página só', () => {
+  assert.equal(podeBuscarProximaPagina({ data: [{ campaign_id: '1', spend: '10' }] }, 1, 20), false);
+  assert.equal(podeBuscarProximaPagina({ data: [{}], paging: {} }, 1, 20), false);
+  assert.equal(podeBuscarProximaPagina(null, 1, 20), false);
 });

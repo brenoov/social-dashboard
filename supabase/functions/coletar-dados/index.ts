@@ -412,7 +412,15 @@ async function sincronizarConjuntos(sb: any, accountId: string, adAccountId: str
     })).filter((r: any) => r.campaign_id);
     if (rows.length) await sb.from('campaign_adsets').upsert(rows, { onConflict: 'adset_id' });
     console.log(`  conjuntos: ${rows.length}`);
-  } catch { /* sem ads, ou a Meta engasgou — a rodada segue */ }
+  } catch (e) {
+    // A rodada SEGUE (falhar aqui não pode derrubar o resto), mas não em
+    // silêncio. Este catch foi deixado calado na premissa de que o sintoma
+    // apareceria na tela como "classificação provisória" — e não aparece: aquele
+    // aviso só fala quando o perfil não tem NENHUM conjunto, e todos já têm. Sem
+    // esta linha, um perfil que parou de sincronizar conjuntos fica classificando
+    // campanha pelo objetivo por tempo indeterminado, sem ninguém ficar sabendo.
+    console.warn(`  conjuntos FALHOU (conta ${accountId} / ads ${adAccountId}):`, e instanceof Error ? e.message : e);
+  }
 }
 
 async function coletarAdsPorCampanha(sb: any, adAccountId: string, accountId: string, token: string, dias: number, hoje: string) {
