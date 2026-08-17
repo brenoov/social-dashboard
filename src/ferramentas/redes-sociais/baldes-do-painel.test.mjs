@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { BALDES, baldeDaCampanha, rotuloDoBalde, idsDoBalde, idsParaConsulta, conjuntosMaisRecentes } from './baldes-do-painel.js';
+import { BALDES, baldeDaCampanha, rotuloDoBalde, idsDoBalde, idsParaConsulta, conjuntosMaisRecentes, baldesSemGasto, baldeEfetivo } from './baldes-do-painel.js';
 
 // TODAS as campanhas abaixo são REAIS: nome, objetivo e gasto conferidos no banco
 // de produção em 17/08/2026. Os conjuntos são o sinal que a Meta afirma.
@@ -171,6 +171,103 @@ test('sem conjunto nenhum, volta vazio — e nada quebra', () => {
   assert.deepEqual(conjuntosMaisRecentes([]), []);
   assert.deepEqual(conjuntosMaisRecentes(null), []);
   assert.deepEqual(conjuntosMaisRecentes(undefined), []);
+});
+
+/* ── Os DEZ destinos que a Meta devolveu de verdade (coleta de 17/08/2026) ──
+   INSTAGRAM_PROFILE, INSTAGRAM_PROFILE_AND_FACEBOOK_PAGE, INSTAGRAM_DIRECT,
+   MESSAGING_INSTAGRAM_DIRECT_MESSENGER_WHATSAPP, WHATSAPP, ON_POST, ON_VIDEO,
+   ON_AD, WEBSITE, WEBSITE_AND_PHONE_CALL e UNDEFINED. O módulo nasceu conhecendo
+   três deles; estes testes prendem os outros. */
+
+test('perfil + página do Facebook é SEGUIDORES (o destino não é só INSTAGRAM_PROFILE)', () => {
+  // Raíssa tem conjuntos com este destino. A comparação exata mandava a campanha
+  // para o objetivo, e ela caía em SITE — o erro exato que este módulo existe
+  // para eliminar.
+  const c = { objective: 'OUTCOME_TRAFFIC', conjuntos: [{ destination_type: 'INSTAGRAM_PROFILE_AND_FACEBOOK_PAGE', optimization_goal: 'PROFILE_VISIT' }] };
+  assert.equal(baldeDaCampanha(c), 'seguidores');
+});
+
+test('INSTAGRAM_DIRECT continua CONTATOS — a conversa é checada ANTES do perfil', () => {
+  // O prefixo de "INSTAGRAM_PROFILE" não pode arrastar o direct junto, e a ordem
+  // das regras é que garante isso. Com os DOIS conjuntos, conversa vence.
+  assert.equal(baldeDaCampanha({ objective: 'OUTCOME_TRAFFIC', conjuntos: [{ destination_type: 'INSTAGRAM_DIRECT' }] }), 'contatos');
+  assert.equal(baldeDaCampanha({ objective: 'OUTCOME_TRAFFIC', conjuntos: [
+    { destination_type: 'INSTAGRAM_PROFILE_AND_FACEBOOK_PAGE' },
+    { destination_type: 'INSTAGRAM_DIRECT' },
+  ] }), 'contatos');
+});
+
+test('o destino comprido de mensagem da Meta é CONTATOS', () => {
+  const c = { objective: 'OUTCOME_ENGAGEMENT', conjuntos: [{ destination_type: 'MESSAGING_INSTAGRAM_DIRECT_MESSENGER_WHATSAPP' }] };
+  assert.equal(baldeDaCampanha(c), 'contatos');
+});
+
+test('engajamento NO ANÚNCIO (ON_AD) é SEGUIDORES, como ON_POST e ON_VIDEO', () => {
+  assert.equal(baldeDaCampanha({ objective: 'OUTCOME_ENGAGEMENT', conjuntos: [{ destination_type: 'ON_AD' }] }), 'seguidores');
+});
+
+test('destino SITE é SITE E ALCANCE por regra própria, não por sorte do objetivo', () => {
+  // Antes, estes dois só acertavam porque o objetivo por acaso levava a 'site'.
+  assert.equal(baldeDaCampanha({ objective: 'OUTCOME_TRAFFIC', conjuntos: [{ destination_type: 'WEBSITE' }] }), 'site');
+  assert.equal(baldeDaCampanha({ objective: 'OUTCOME_TRAFFIC', conjuntos: [{ destination_type: 'WEBSITE_AND_PHONE_CALL' }] }), 'site');
+  // e agora acertam TAMBÉM quando o objetivo levaria para outro lugar: mandar
+  // gente para fora do Instagram não é campanha de seguidor.
+  assert.equal(baldeDaCampanha({ objective: 'OUTCOME_ENGAGEMENT', conjuntos: [{ destination_type: 'WEBSITE' }] }), 'site');
+});
+
+test('mas VENDA para o site continua em VENDAS — a regra do site não rouba a venda', () => {
+  // A regra do destino de site entra DEPOIS de vendas de propósito: quase toda
+  // campanha de venda aponta para o site, e mandá-las para 'site' esvaziaria o
+  // balde de Vendas.
+  assert.equal(baldeDaCampanha({ objective: 'OUTCOME_SALES', conjuntos: [{ destination_type: 'WEBSITE' }] }), 'vendas');
+});
+
+test('UNDEFINED não decide nada: quem manda é o objetivo, de propósito', () => {
+  // "UNDEFINED" é a Meta dizendo que não sabe. Inventar um balde a partir disso
+  // seria responder errado com confiança.
+  assert.equal(baldeDaCampanha({ objective: 'OUTCOME_TRAFFIC', conjuntos: [{ destination_type: 'UNDEFINED' }] }), 'site');
+  assert.equal(baldeDaCampanha({ objective: 'OUTCOME_ENGAGEMENT', conjuntos: [{ destination_type: 'UNDEFINED' }] }), 'seguidores');
+  assert.equal(baldeDaCampanha({ objective: 'OUTCOME_SALES', conjuntos: [{ destination_type: 'UNDEFINED' }] }), 'vendas');
+});
+
+/* ── Qual balde ficou sem gasto, e em qual balde a tela realmente entra ── */
+
+const IDS_POR_BALDE = { seguidores: ['a'], contatos: ['b'], site: ['c'], vendas: [] };
+
+test('SEM série diária nenhuma, NENHUM balde é dado como vazio', () => {
+  // A conta de "vazio" é feita sobre o gasto DIÁRIO (period_days=0), mas os
+  // cartões leem o agregado de 7/30 dias — e as duas fatias não têm o mesmo
+  // frescor. Em 17/08/2026 o último dia solto do Breno Vale e da Raíssa era
+  // 09/08, fora da janela de 7D (10/08..16/08): sem esta guarda, os quatro
+  // botões apareciam apagados dizendo que ninguém gastou, enquanto essas contas
+  // gastaram R$ 80,41 e R$ 297,21 exatamente ali.
+  assert.deepEqual(baldesSemGasto(IDS_POR_BALDE, []), []);
+  assert.deepEqual(baldesSemGasto(IDS_POR_BALDE, null), []);
+});
+
+test('com série diária, só fica de fora o balde que não gastou', () => {
+  const linhas = [
+    { campaign_id: 'a', spend: '10.50' },
+    { campaign_id: 'a', spend: '4.50' },
+    { campaign_id: 'b', spend: '2' },
+  ];
+  // 'site' tem campanha mas não gastou; 'vendas' não tem campanha nenhuma.
+  assert.deepEqual(baldesSemGasto(IDS_POR_BALDE, linhas).sort(), ['site', 'vendas']);
+});
+
+test('gasto zerado no dia conta como vazio; gasto de campanha desconhecida não vira balde', () => {
+  assert.deepEqual(baldesSemGasto({ seguidores: ['a'] }, [{ campaign_id: 'a', spend: '0' }]), ['seguidores']);
+  // id que não está em balde nenhum (campanha fora de `campaigns`) não pode
+  // acender um balde que não é dele.
+  assert.deepEqual(baldesSemGasto({ seguidores: ['a'] }, [{ campaign_id: 'zzz', spend: '99' }]), ['seguidores']);
+});
+
+test('balde vazio faz a tela entrar em Todos, sem apagar a escolha do dono', () => {
+  assert.equal(baldeEfetivo('seguidores', ['seguidores', 'vendas']), 'todos');
+  assert.equal(baldeEfetivo('seguidores', ['vendas']), 'seguidores');
+  assert.equal(baldeEfetivo('todos', ['seguidores', 'contatos', 'site', 'vendas']), 'todos');
+  assert.equal(baldeEfetivo('seguidores', []), 'seguidores');
+  assert.equal(baldeEfetivo(undefined, []), 'todos');
 });
 
 test('linha sem synced_at é descartada: ela não pode ser a mais recente', () => {

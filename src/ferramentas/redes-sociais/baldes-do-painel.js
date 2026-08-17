@@ -49,6 +49,12 @@ function algumConjunto(conjuntos, teste) {
 }
 
 // A ordem aqui É a regra. A primeira que casar vence — ver a tabela do desenho.
+//
+// OS DESTINOS SÃO OS QUE A META DEVOLVEU DE VERDADE, não os que eu imaginei. A
+// coleta de 17/08/2026 (299 conjuntos, 5 contas) trouxe dez: INSTAGRAM_PROFILE,
+// INSTAGRAM_PROFILE_AND_FACEBOOK_PAGE, INSTAGRAM_DIRECT,
+// MESSAGING_INSTAGRAM_DIRECT_MESSENGER_WHATSAPP, WHATSAPP, ON_POST, ON_VIDEO,
+// ON_AD, WEBSITE, WEBSITE_AND_PHONE_CALL — e UNDEFINED.
 export function baldeDaCampanha(campanha) {
   const c = campanha || {};
   const conjuntos = Array.isArray(c.conjuntos) ? c.conjuntos : [];
@@ -56,12 +62,26 @@ export function baldeDaCampanha(campanha) {
 
   if (ehConversa(conjuntos)) return 'contatos';            // 1 — conversa vence tudo
   if (objetivo === 'leads') return 'contatos';             // 2 — cadastro
-  if (algumConjunto(conjuntos, (d, o) => d === 'INSTAGRAM_PROFILE' || o === 'PROFILE_VISIT')) return 'seguidores'; // 3
-  if (algumConjunto(conjuntos, (d, o) => d === 'ON_POST' || d === 'ON_VIDEO' || o === 'POST_ENGAGEMENT' || o === 'THRUPLAY')) return 'seguidores'; // 4
+  // 3 — PERFIL. Prefixo, não igualdade: a Meta também devolve
+  // INSTAGRAM_PROFILE_AND_FACEBOOK_PAGE, e com `===` essa campanha caía no
+  // objetivo e terminava em 'site' — o erro exato que este módulo elimina.
+  // Vem DEPOIS da regra 1 de propósito: INSTAGRAM_DIRECT não é perfil, é conversa.
+  if (algumConjunto(conjuntos, (d, o) => d.startsWith('INSTAGRAM_PROFILE') || o === 'PROFILE_VISIT')) return 'seguidores';
+  // 4 — engajamento na peça. ON_AD é o terceiro lugar onde a Meta põe isso.
+  if (algumConjunto(conjuntos, (d, o) => d === 'ON_POST' || d === 'ON_VIDEO' || d === 'ON_AD' || o === 'POST_ENGAGEMENT' || o === 'THRUPLAY')) return 'seguidores';
   if (objetivo === 'vendas') return 'vendas';              // 5
   if (objetivo === 'mensagens') return 'contatos';         // objetivo antigo MESSAGES
+  // 6 — SITE declarado no conjunto. Mandar gente para FORA do Instagram não é
+  // campanha de seguidor, mesmo com objetivo de engajamento.
+  //
+  // Entra aqui, e não antes da regra 5, porque quase toda campanha de VENDA
+  // aponta para o site: subir esta regra esvaziaria o balde de Vendas.
+  if (algumConjunto(conjuntos, (d) => d === 'WEBSITE' || d === 'WEBSITE_AND_PHONE_CALL')) return 'site';
   if (objetivo === 'engajamento') return 'seguidores';     // sem conjunto: engajamento é do perfil
-  return 'site';                                           // 6 — tráfego, cliques, reconhecimento, desconhecido
+  // 7 — tráfego, cliques, reconhecimento, desconhecido. UNDEFINED cai aqui de
+  // propósito: é a Meta dizendo que não sabe, e inventar um balde a partir disso
+  // seria responder errado com confiança.
+  return 'site';
 }
 
 export function idsDoBalde(campanhas, balde) {
@@ -102,4 +122,45 @@ export function conjuntosMaisRecentes(linhas) {
   if (lista.length === 0) return [];
   const maior = lista.reduce((m, l) => (String(l.synced_at) > m ? String(l.synced_at) : m), '');
   return lista.filter(l => String(l.synced_at) === maior);
+}
+
+// QUAIS BALDES NÃO TÊM DINHEIRO na janela — os que a barra apaga.
+//
+// `idsPorBalde` = { seguidores: [ids], contatos: [ids], … } já com o filtro
+// manual aplicado. `linhasDeGasto` = o gasto DIÁRIO por campanha da janela.
+//
+// SÉRIE DIÁRIA VAZIA NÃO É "NINGUÉM GASTOU". A conta sai do gasto por dia
+// (period_days=0), mas os cartões leem o agregado de 7/30 dias, e as duas fatias
+// não têm o mesmo frescor: em 17/08/2026 o último dia solto do Breno Vale e da
+// Raíssa era 09/08, fora da janela padrão de 7D (10/08..16/08). Sem esta guarda a
+// barra apagava os quatro botões e afirmava que ninguém tinha gastado, enquanto
+// essas contas gastaram R$ 80,41 e R$ 297,21 exatamente ali. Sem medida, não se
+// afirma nada: devolve lista vazia e todos os botões continuam clicáveis.
+export function baldesSemGasto(idsPorBalde, linhasDeGasto) {
+  const mapa = idsPorBalde || {};
+  const linhas = Array.isArray(linhasDeGasto) ? linhasDeGasto : [];
+  if (linhas.length === 0) return [];
+  const baldeDoId = {};
+  const gasto = {};
+  Object.keys(mapa).forEach((b) => {
+    gasto[b] = 0;
+    (mapa[b] || []).forEach((id) => { baldeDoId[String(id)] = b; });
+  });
+  linhas.forEach((l) => {
+    const b = baldeDoId[String(l && l.campaign_id)];
+    if (b) gasto[b] += (parseFloat(l && l.spend) || 0);
+  });
+  return Object.keys(mapa).filter(b => !(gasto[b] > 0));
+}
+
+// EM QUE BALDE A TELA REALMENTE ENTRA. O escolhido pode não existir neste perfil
+// (a Motoeasy não tem campanha de seguidores) ou não ter rodado neste período;
+// nesse caso a tela cai em Todos, em vez de mostrar R$ 0 como se fosse resposta.
+//
+// Repare que ele NÃO devolve uma escolha nova para gravar: quem escolheu continua
+// tendo escolhido. Voltar a um perfil que tem aquele balde devolve a pessoa onde
+// ela estava — é isso que segura o modo vitrine, que troca de perfil sozinho.
+export function baldeEfetivo(escolhido, vazios) {
+  if (!escolhido) return 'todos';
+  return (vazios || []).includes(escolhido) ? 'todos' : escolhido;
 }

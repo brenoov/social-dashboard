@@ -469,7 +469,7 @@ import { barraDoDia, diasSemPublicacao } from './estimativa-de-seguidores.js'
 // Em que balde cada campanha entra (Seguidores / Contatos / Site e alcance /
 // Vendas). Puro e com teste ao lado (baldes-do-painel.test.mjs), decidido pelo
 // sinal que a Meta afirma no conjunto — nunca pelo nome da campanha.
-import { BALDES, idsParaConsulta, conjuntosMaisRecentes } from './baldes-do-painel.js'
+import { BALDES, idsParaConsulta, conjuntosMaisRecentes, baldesSemGasto, baldeEfetivo } from './baldes-do-painel.js'
 
 const router = useRouter()
 
@@ -629,7 +629,10 @@ function desenharBaldeBar(vazios, efetivo) {
     bt.setAttribute('aria-selected', String(b.id === (efetivo || _baldeAtual)))
     if (semGasto.includes(b.id)) {
       bt.disabled = true
-      bt.title = 'Nenhuma campanha desse tipo gastou neste período'
+      // O texto afirma uma MEDIÇÃO, então só pode aparecer onde ela existe: um
+      // balde só entra em `vazios` quando há série diária na janela para medir
+      // (ver baldesSemGasto). Sem série, nada é apagado e nada é afirmado.
+      bt.title = 'Nenhuma campanha desse tipo gastou nos dias deste período'
       bt.setAttribute('aria-disabled', 'true')
     } else {
       bt.addEventListener('click', () => setBalde(b.id))
@@ -1003,9 +1006,19 @@ function applySpend(curr, budget) {
 }
 
 /* ── SECTION CHIPS (legacy L3517-3520, verbatim) ── */
+// Aceita texto solto (o caso de sempre) OU { texto, classe } para o chip que
+// precisa de um tratamento próprio — hoje, o aviso que pode passar de uma linha.
+// O .sec-chip normal é `nowrap` porque carrega número curto; um aviso em nowrap
+// sairia cortado no celular, e texto cortado é justamente o que não pode.
 function setChips(id, chips) {
   const wrap = document.getElementById(id); if (!wrap) return; wrap.textContent = ''
-  chips.forEach(txt => { const c = document.createElement('div'); c.className = 'sec-chip'; c.textContent = txt; wrap.appendChild(c) })
+  chips.forEach(item => {
+    const ehObj = item && typeof item === 'object'
+    const c = document.createElement('div')
+    c.className = 'sec-chip' + (ehObj && item.classe ? ' ' + item.classe : '')
+    c.textContent = ehObj ? item.texto : item
+    wrap.appendChild(c)
+  })
 }
 
 /* ── CHART (legacy L3523-3596, verbatim) ── */
@@ -1522,20 +1535,12 @@ async function fetchData(accountId, period, customStart, customEnd) {
     if (ciDia.erro && !erroAds.value) erroAds.value = ciDia.erro
     if (!ciDia.erro) _diaRows = ciDia.map(r => ({ captured_at: r.captured_at, campaign_id: String(r.campaign_id), spend: r.spend }))
   }
-  const _gastoPorBalde = {}
-  const _baldeDoId = {}
-  Object.keys(_idsPorBalde).forEach(b => { _gastoPorBalde[b] = 0; _idsPorBalde[b].forEach(id => { _baldeDoId[id] = b }) })
-  _diaRows.forEach(r => { const b = _baldeDoId[r.campaign_id]; if (b) _gastoPorBalde[b] += (parseFloat(r.spend) || 0) })
   // Balde sem gasto no período fica APAGADO na barra, com o motivo — nunca some:
   // sumir faz a pessoa procurar o que não está lá. 'todos' nunca entra na lista.
-  const baldesVazios = Object.keys(_idsPorBalde).filter(b => !(_gastoPorBalde[b] > 0))
-  // O balde escolhido pode não existir NESTE perfil (a Motoeasy não tem campanha
-  // de seguidores) ou não ter rodado NESTE período. Aí a tela cai em Todos, em vez
-  // de mostrar R$ 0 como se fosse resposta. A escolha NÃO é regravada: voltar a um
-  // perfil que tem aquele balde devolve a pessoa onde ela estava — é isso que
-  // segura o modo vitrine, que troca de perfil sozinho a cada 40 segundos.
-  const baldeEfetivo = baldesVazios.includes(_baldeAtual) ? 'todos' : _baldeAtual
-  const idsDoRecorte = idsParaConsulta(_campanhas, baldeEfetivo, _selecionadas)
+  // Sem série diária nenhuma, NADA é dado como vazio (ver baldesSemGasto).
+  const baldesVazios = baldesSemGasto(_idsPorBalde, _diaRows)
+  const _efetivo = baldeEfetivo(_baldeAtual, baldesVazios)
+  const idsDoRecorte = idsParaConsulta(_campanhas, _efetivo, _selecionadas)
   // EM TODOS SEM FILTRO MANUAL, nada de lista de ids: fica exatamente no caminho de
   // hoje. Dois motivos, os dois já custaram caro aqui:
   //  • a Vessel tem 126 campanhas, e um in.(...) com 126 ids de 18 dígitos é uma URL
@@ -1543,15 +1548,28 @@ async function fetchData(accountId, period, customStart, customEnd) {
   //  • é o `_todasAsCampanhas` logo abaixo que troca o alcance somado por campanha
   //    pelo alcance DEDUPLICADO da conta — somar por campanha inflava até ~35%.
   //    Mandar a lista mataria essa guarda.
-  const _todasAsCampanhas = baldeEfetivo === 'todos' && _selecionadas == null
-  const idFilter = (!_todasAsCampanhas && idsDoRecorte.length > 0) ? `&campaign_id=in.(${idsDoRecorte.join(',')})` : ''
+  const _todasAsCampanhas = _efetivo === 'todos' && _selecionadas == null
+  // RECORTE VAZIO NUNCA PODE VIRAR "TODAS". `idFilter` vazio quer dizer "a conta
+  // inteira" nestas consultas, então um recorte sem nenhuma campanha cairia
+  // justamente no oposto do que ele pede — e no cartão de dinheiro.
+  //
+  // Isso é alcançável pela armadilha que os comentários deste arquivo já avisam:
+  // o sb() devolve 200 + [] sem .erro quando a RLS esconde tudo. Com `campaigns`
+  // escondida e um filtro manual salvo, o recorte fica vazio e a tela mostraria o
+  // gasto INTEIRO da conta com o rótulo "1 campanha selecionada".
+  //
+  // Sem campanha no recorte, não se mostra nada: é o mesmo tratamento de quando o
+  // dono desmarca todas (noneSelected). Melhor "R$ —" do que dinheiro que não é
+  // daquele recorte.
+  const _recorteSemCampanha = noneSelected || (!_todasAsCampanhas && idsDoRecorte.length === 0)
+  const idFilter = _todasAsCampanhas ? '' : `&campaign_id=in.(${idsDoRecorte.join(',')})`
   // O ao vivo tem de somar o MESMO conjunto que o coletado, senão o cartão de
   // investimento mostra um balde e o de custo por seguidor mostra outro. Lista
   // vazia = a edge volta ao caminho level=account, o número exato e mais barato.
   const idsParaAoVivo = _todasAsCampanhas ? [] : idsDoRecorte
   // As barras do gráfico seguem o mesmo recorte dos cartões.
   const _noRecorte = new Set(idsDoRecorte)
-  const gastoDiarioRows = _diaRows
+  const gastoDiarioRows = _recorteSemCampanha ? [] : _diaRows
     .filter(r => _todasAsCampanhas || _noRecorte.has(r.campaign_id))
     .map(r => ({ captured_at: r.captured_at, spend: r.spend }))
   function aggCi(rows) {
@@ -1561,12 +1579,16 @@ async function fetchData(accountId, period, customStart, customEnd) {
     return { spend: d.reduce((s, r) => s + parseFloat(r.spend || 0), 0), impressions: d.reduce((s, r) => s + parseInt(r.impressions || 0), 0), clicks: d.reduce((s, r) => s + parseInt(r.clicks || 0), 0), reach: d.reduce((s, r) => s + parseInt(r.reach || 0), 0), adEngagement: d.reduce((s, r) => s + parseInt(r.post_engagement || 0), 0), adLikes: d.reduce((s, r) => s + parseInt(r.likes || 0), 0), adComments: d.reduce((s, r) => s + parseInt(r.comments || 0), 0), adShares: d.reduce((s, r) => s + parseInt(r.shares || 0), 0), adSaves: d.reduce((s, r) => s + parseInt(r.saves || 0), 0) }
   }
   let spend = 0, impressions = 0, clicks = 0, reach = 0, prevSpend = null, adEngagement = 0, adLikes = 0, adComments = 0, adShares = 0, adSaves = 0
+  // O alcance saiu da SOMA por campanha (repete quem viu mais de um anúncio) ou do
+  // total deduplicado da conta? Começa em "somado" e só vira false quando o número
+  // nível-conta realmente entra no lugar.
+  let alcanceSomado = true
   // Ads dia-preciso p/ HOJE/1D: gasto do DIA exato (period_days=0 de hoje/ontem),
   // em vez do agregado "última captura" (que defasava o HOJE e somava 2 dias no 1D).
   let _adsPd = storedPeriod, _adsCur = `captured_at=lte.${refDateStr}&order=captured_at.desc`, _adsPrev = `captured_at=lte.${prevRefDateStr}&order=captured_at.desc`
   if (isHoje) { _adsPd = 0; _adsCur = `captured_at=eq.${_hojeBRT}`; _adsPrev = `captured_at=eq.${_ontemBRT}` }
   else if (period === 1) { const _anteBRT = localDate(new Date(new Date(_ontemBRT + 'T00:00:00').getTime() - 86400000)); _adsPd = 0; _adsCur = `captured_at=eq.${_ontemBRT}`; _adsPrev = `captured_at=eq.${_anteBRT}` }
-  if (!noneSelected) {
+  if (!_recorteSemCampanha) {
     const [ciCurr, ciPrev] = await Promise.all([
       sb(`campaign_insights?account_id=eq.${accountId}&period_days=eq.${_adsPd}&${_adsCur}&limit=200&select=campaign_id,spend,impressions,clicks,reach,post_engagement,likes,comments,shares,saves,captured_at${idFilter}`),
       sb(`campaign_insights?account_id=eq.${accountId}&period_days=eq.${_adsPd}&${_adsPrev}&limit=200&select=campaign_id,spend,impressions,clicks,reach,post_engagement,likes,comments,shares,saves,captured_at${idFilter}`),
@@ -1586,10 +1608,13 @@ async function fetchData(accountId, period, customStart, customEnd) {
     // "Sem filtro" agora quer dizer as DUAS coisas: balde Todos E nenhum filtro
     // manual. Com um recorte qualquer não existe alcance deduplicado guardado, e
     // aí a soma por campanha é o melhor que temos — o mesmo que já acontecia
-    // quando o dono marcava campanhas na mão.
+    // quando o dono marcava campanhas na mão. Quando isso acontece, o cartão TEM
+    // de dizer em uma linha que o número repete pessoa — desde que a tela abre em
+    // Seguidores, esse virou o caso PADRÃO, e imprimir um alcance inflado como
+    // fato é pior do que não mostrá-lo.
     if (_todasAsCampanhas) {
       const aiCurr = await sb(`account_insights?account_id=eq.${accountId}&period_days=eq.${_adsPd}&${_adsCur}&limit=1&select=reach`).catch(() => [])
-      if (aiCurr && aiCurr.length && aiCurr[0].reach != null) reach = parseInt(aiCurr[0].reach)
+      if (aiCurr && aiCurr.length && aiCurr[0].reach != null) { reach = parseInt(aiCurr[0].reach); alcanceSomado = false }
     }
   }
   // Novos seguidores por dia: MESMA série resiliente que o gráfico da seção 01 desenha
@@ -1635,7 +1660,10 @@ async function fetchData(accountId, period, customStart, customEnd) {
     spend, prevSpend, cps, prevCps, cpsConsolidando, cpsPrevia, adEngagement, adLikes, adComments, adShares, adSaves,
     adsDiario: { inicio: followStart, fim: followEnd, linhasDeGasto: gastoDiarioRows, linhasDeSeguidores: seguidoresDiarioRows },
     // Recorte por balde: o que a barra desenha e o que o ao vivo tem de somar.
-    baldesVazios, baldeEfetivo, idsParaAoVivo,
+    baldesVazios, baldeEfetivo: _efetivo, idsParaAoVivo,
+    // Nenhuma campanha no recorte → o cartão de dinheiro mostra "—", nunca o
+    // total da conta. E o alcance avisa quando repete pessoa.
+    recorteSemCampanha: _recorteSemCampanha, alcanceSomado,
     eng: { likes: eng.likes, saves: eng.saves, shares: eng.shares, comments: eng.comments ?? 0, reach: eng.reach ?? 0, views: eng.views ?? 0, interactions: eng.total_interactions ?? 0, engaged: eng.accounts_engaged ?? 0, profileViews: eng.profile_views ?? 0, prevLikes: prevEng?.likes ?? null, prevSaves: prevEng?.saves ?? null, prevShares: prevEng?.shares ?? null, prevComments: prevEng?.comments ?? null, prevReach: prevEng?.reach ?? null, prevViews: prevEng?.views ?? null, prevInteractions: prevEng?.total_interactions ?? null, prevEngaged: prevEng?.accounts_engaged ?? null, prevProfileViews: prevEng?.profile_views ?? null },
     cnt: { posts: cnt.posts_count, stories: storiesCount, reels: cnt.reels_count, postsReels: cnt.posts_count + cnt.reels_count, prevPosts: prevCnt != null ? prevCnt.posts_count : null, prevReels: prevCnt != null ? prevCnt.reels_count : null, prevPostsReels: prevCnt != null ? prevCnt.posts_count + prevCnt.reels_count : null, prevStories: prevStoriesCount },
     storyEng: { shares: storyShares, replies: storyRep, prevShares: prevStoryShares, prevReplies: prevStoryRep, reach: storyReach, interactions: storyInter, navigation: storyNav, profileVisits: storyPV, follows: storyFol, navForward: storyNavF, navBack: storyNavB, navExit: storyNavE, navNext: storyNavN, prevReach: prevStoryReach, prevInteractions: prevStoryInter, prevNavigation: prevStoryNav, prevProfileVisits: prevStoryPV, prevFollows: prevStoryFol },
@@ -1986,9 +2014,14 @@ function update(d, period) {
   const prevEngTotal = d.eng.prevLikes + d.eng.prevSaves + d.eng.prevShares + (d.eng.prevComments || 0)
   const _avgShown = (d.effectivePeriod > 0 ? (headlineVal / d.effectivePeriod) : headlineVal).toFixed(1)
   setChips('chips-followers', ['Média: +' + _avgShown + '/dia', 'Taxa de eng.: ' + d.engRate + '%', 'Engajamento total: ' + fmtN(engTotal)])
-  // Investimento AO VIVO = gasto de TODAS as campanhas da conta de anúncio do perfil (exato). null = perfil sem ads.
-  const _inv = (d.live && d.live.investimento != null) ? d.live.investimento : d.spend
-  const _invAnt = (d.live && d.live.anterior) ? d.live.anterior.investimento : d.prevSpend
+  // Investimento AO VIVO = gasto das campanhas do recorte (exato). null = perfil sem ads.
+  //
+  // Quando NÃO há campanha nenhuma no recorte, o ao vivo não pode falar: a edge lê
+  // lista vazia como "a conta inteira", então aceitar o número dela aqui mostraria
+  // o gasto total sob o rótulo de um recorte que não tem ninguém dentro. Nesse
+  // estado o cartão fica em "R$ —", que é a verdade.
+  const _inv = d.recorteSemCampanha ? 0 : ((d.live && d.live.investimento != null) ? d.live.investimento : d.spend)
+  const _invAnt = d.recorteSemCampanha ? null : ((d.live && d.live.anterior) ? d.live.anterior.investimento : d.prevSpend)
   document.getElementById('ads-spend-val').textContent = _inv > 0 ? fmtR(_inv) : 'R$ —'
   setCompare('cmp-spend', _inv, _invAnt, 'R$ ', pl, true)
   applySpend(_inv, getGoal('spend'))
@@ -2064,6 +2097,13 @@ function update(d, period) {
   if (d.impressions > 0) adsChips.push(fmtN(d.impressions) + ' impressões')
   if (d.clicks > 0) adsChips.push(fmtN(d.clicks) + ' cliques')
   if (d.reach > 0) adsChips.push(fmtN(d.reach) + ' alcance')
+  // O alcance DEDUPLICADO só existe no total da conta. Com um balde escolhido (ou
+  // filtro manual) a tela soma o alcance de cada campanha, e aí quem viu dois
+  // anúncios é contado duas vezes — chegava a ~35% a mais no real. Como a tela
+  // abre em Seguidores, esse é o caso PADRÃO: o cartão diz isso com todas as
+  // letras em vez de imprimir o número inflado como se fosse fato.
+  const _alcanceRepete = !!d.alcanceSomado && d.reach > 0
+  if (_alcanceRepete) adsChips.push({ texto: 'esse alcance conta a mesma pessoa mais de uma vez', classe: 'sec-chip-nota' })
   if (!adsChips.length) adsChips.push('Sem dados de Ads no período')
   setChips('chips-ads', adsChips)
   const cpi = (d.adEngagement > 0 && d.spend > 0) ? d.spend / d.adEngagement : 0
@@ -2075,7 +2115,13 @@ function update(d, period) {
   const custoChips = []
   if (d.clicks > 0 && d.spend > 0) custoChips.push('CPC ' + fmtR(d.spend / d.clicks))
   if (d.impressions > 0 && d.spend > 0) custoChips.push('CPM ' + fmtR(d.spend / d.impressions * 1000))
-  if (d.reach > 0 && d.spend > 0) custoChips.push('Custo/alcance ' + fmtR(d.spend / d.reach))
+  // Este custo divide dinheiro por um alcance que pode repetir pessoa — então ele
+  // sai barato demais. O rótulo avisa junto com o número, não seis linhas abaixo.
+  if (d.reach > 0 && d.spend > 0) {
+    custoChips.push(_alcanceRepete
+      ? { texto: 'Custo/alcance ' + fmtR(d.spend / d.reach) + ' (com pessoa repetida)', classe: 'sec-chip-nota' }
+      : 'Custo/alcance ' + fmtR(d.spend / d.reach))
+  }
   if (d.adComments > 0 && d.spend > 0) custoChips.push('Custo/comentário ' + fmtR(d.spend / d.adComments))
   if (d.adSaves > 0 && d.spend > 0) custoChips.push('Custo/salvamento ' + fmtR(d.spend / d.adSaves))
   if (d.adShares > 0 && d.spend > 0) custoChips.push('Custo/compart. ' + fmtR(d.spend / d.adShares))
@@ -2873,6 +2919,10 @@ onUnmounted(() => {
 .tela-redes-sociais :deep(.sec-line){flex:1;height:1px;background:var(--border);}
 .tela-redes-sociais :deep(.sec-chips){display:flex;gap:6px;flex-wrap:wrap;}
 .tela-redes-sociais :deep(.sec-chip){font-family:var(--fonte-principal);font-weight:500;font-size:max(9px, calc(10px * var(--escala-texto, 1)));padding:3px 8px;border-radius:var(--radius-sm);background:var(--surface2);color:var(--muted);border:1px solid var(--border);white-space:nowrap;letter-spacing:.3px;}
+/* Chip de AVISO (ex.: "esse alcance conta a mesma pessoa mais de uma vez"): pode
+   passar de uma linha. O chip comum é nowrap porque carrega número curto; uma
+   frase em nowrap sairia cortada a 375px, e texto cortado é o que não pode. */
+.tela-redes-sociais :deep(.sec-chip.sec-chip-nota){white-space:normal;max-width:100%;line-height:1.35;}
 .tela-redes-sociais :deep(.mb40){margin-bottom:22px;}
 .tela-redes-sociais :deep(.card){background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:22px 24px;border-left:3px solid transparent;animation:fadeUp .55s cubic-bezier(.22,1,.36,1) both;transition:border-color .22s,box-shadow .22s;will-change:transform,opacity;cursor:default;}
 .tela-redes-sociais :deep(.card):hover{border-left-color:var(--accent);border-color:var(--accent-mid);box-shadow:var(--shadow-md);}
