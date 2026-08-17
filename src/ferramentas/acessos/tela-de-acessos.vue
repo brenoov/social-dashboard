@@ -58,6 +58,9 @@ import { volumeDeAcesso } from './auditoria-volume.js'
 // para o Patrimônio mora em bens-e-veiculos-da-pessoa.js.
 import { temAcessoFrota } from '../patrimonio/ligacao-com-frota.js'
 import { temAcessoPatrimonio, pilulaDaSituacaoDoBem, agruparPorPessoa, decidirEstadoDaSecao } from './bens-e-veiculos-da-pessoa.js'
+// Auditoria: as consultas de bens/veículos agora têm limite explícito, e
+// detectam quando o número de linhas bate nele (corte silencioso do PostgREST).
+import { LIMITE_AUDITORIA, foiCortado, avisoDeCorte } from './auditoria-corte.js'
 
 const router = useRouter()
 
@@ -1989,94 +1992,19 @@ function _acTiposFor(categoria){return categoria==='veiculo'?AC_VEI_TIPOS:AC_DEV
 function _acItemTipoLabel(t){const a=AC_DEV_TIPOS.concat(AC_VEI_TIPOS).find(x=>x[0]===t);return a?a[1]:t;}
 function _acWrapId(categoria){return categoria==='veiculo'?'ac-vei-wrap':'ac-disp-wrap';}
 function _acCatTitulo(categoria){return categoria==='veiculo'?'Veículos':'Dispositivos';}
-async function _acRenderItens(pessoaId,categoria){
-  const wrap=document.getElementById(_acWrapId(categoria));if(!wrap)return;
-  const{data,error}=await sbClient.from('acessos_dispositivos').select('*').eq('pessoa_id',pessoaId).eq('categoria',categoria).order('atualizado_em',{ascending:false});
-  if(error){wrap.innerHTML='<div class="ac-card">Erro: '+_acEsc(error.message)+'</div>';return;}
-  const list=(data||[]).map(d=>{
-    const m=_acDstMeta(d.status);
-    const det=(d.detalhes&&typeof d.detalhes==='object')?d.detalhes:{};
-    const chips=_acFieldsFor(d.tipo).filter(f=>det[f[0]]).map(f=>`<span class="ac-chip">${_acEsc(f[1])}: ${_acEsc(det[f[0]])}</span>`).join('');
-    return `<div class="ac-row">
-      <div class="grow">
-        <div><strong>${_acEsc(_acItemTipoLabel(d.tipo))}</strong> — ${_acEsc(d.descricao)} <span class="ac-pill ${m[2]}">${_acEsc(m[1])}</span></div>
-        <div style="margin-top:4px">${chips||'<span class="ac-muted">sem detalhes</span>'}</div>
-        ${d.observacao?'<div class="ac-muted" style="margin-top:3px">'+_acEsc(d.observacao)+'</div>':''}
-      </div>
-      <select class="ac-select" style="width:auto" onchange="_acSetItemStatus('${d.id}','${pessoaId}','${categoria}',this.value)">
-        ${AC_DST.map(s=>`<option value="${s[0]}" ${s[0]===d.status?'selected':''}>${s[1]}</option>`).join('')}
-      </select>
-      <button class="ac-btn ghost" onclick="_acFormItem('${pessoaId}','${categoria}','${d.id}')">Editar</button>
-      <button class="ac-btn danger" onclick="_acDelItem('${d.id}','${pessoaId}','${categoria}')">Excluir</button>
-    </div>`;}).join('');
-  wrap.innerHTML=`<div class="ac-card">
-    <div class="ac-section-h"><h3>${_acCatTitulo(categoria)}</h3>
-      <button class="ac-btn" style="margin-left:auto" onclick="_acFormItem('${pessoaId}','${categoria}')">+ Adicionar</button></div>
-    ${list||'<div class="ac-muted">Nenhum item.</div>'}
-  </div>`;
-}
-function _acRenderVeiculos(pessoaId){return _acRenderItens(pessoaId,'veiculo');}
-function _acRenderDispositivos(pessoaId){return _acRenderItens(pessoaId,'dispositivo');}
-async function _acFormItem(pessoaId,categoria,id){
-  let d={tipo:(categoria==='veiculo'?'carro':'celular'),descricao:'',desde:'',observacao:'',detalhes:{}};
-  if(id){const{data}=await sbClient.from('acessos_dispositivos').select('*').eq('id',id).single();if(data){d=data;d.detalhes=(data.detalhes&&typeof data.detalhes==='object')?data.detalhes:{};}}
-  const wrap=document.getElementById(_acWrapId(categoria));
-  const oldf=document.getElementById('ac-item-form');if(oldf)oldf.remove();
-  const tipos=_acTiposFor(categoria);
-  const form=document.createElement('div');form.className='ac-card';form.id='ac-item-form';
-  form.innerHTML=`<h3 style="margin-top:0">${id?'Editar':'Novo'} ${categoria==='veiculo'?'veículo':'dispositivo'}</h3>
-    <div class="ac-grid2">
-      <label>Tipo<select class="ac-select" id="aci-tipo">${tipos.map(t=>`<option value="${t[0]}" ${t[0]===d.tipo?'selected':''}>${t[1]}</option>`).join('')}</select></label>
-      <label>Identificação / descrição<input class="ac-input" id="aci-desc" value="${_acEsc(d.descricao||'')}"></label>
-      <label>Desde<input class="ac-input" id="aci-desde" type="date" value="${_acEsc(d.desde||'')}"></label>
-      <label style="grid-column:1/-1">Observação<input class="ac-input" id="aci-obs" value="${_acEsc(d.observacao||'')}"></label>
-    </div>
-    <div id="aci-dyn" class="ac-grid2" style="margin-top:10px"></div>
-    <div style="margin-top:12px;display:flex;gap:8px">
-      <button class="ac-btn" id="aci-save">Salvar</button>
-      <button class="ac-btn ghost" id="aci-cancel">Cancelar</button>
-    </div>`;
-  wrap.prepend(form);
-  const renderDyn=()=>{
-    const tipo=form.querySelector('#aci-tipo').value;
-    form.querySelector('#aci-dyn').innerHTML=_acFieldsFor(tipo).map(f=>{
-      const val=(d.tipo===tipo&&d.detalhes[f[0]])?d.detalhes[f[0]]:'';
-      if(f[0]==='combustivel')return `<label>${_acEsc(f[1])}<select class="ac-select" data-fk="${f[0]}"><option value="">—</option>${AC_COMB.map(o=>`<option ${o===val?'selected':''}>${o}</option>`).join('')}</select></label>`;
-      return `<label>${_acEsc(f[1])}<input class="ac-input" data-fk="${f[0]}" value="${_acEsc(val)}"></label>`;
-    }).join('');
-  };
-  renderDyn();
-  form.querySelector('#aci-tipo').onchange=renderDyn;
-  form.querySelector('#aci-cancel').onclick=()=>_acRenderItens(pessoaId,categoria);
-  form.querySelector('#aci-save').onclick=()=>_acSaveItem(pessoaId,categoria,id||null);
-}
-async function _acSaveItem(pessoaId,categoria,id){
-  const form=document.getElementById('ac-item-form');if(!form)return;
-  const tipo=form.querySelector('#aci-tipo').value;
-  const detalhes={};
-  form.querySelectorAll('#aci-dyn [data-fk]').forEach(el=>{const v=el.value.trim();if(v)detalhes[el.dataset.fk]=v;});
-  const rec={pessoa_id:pessoaId,categoria,tipo,descricao:form.querySelector('#aci-desc').value.trim(),desde:form.querySelector('#aci-desde').value||null,observacao:form.querySelector('#aci-obs').value.trim()||null,detalhes,atualizado_em:new Date().toISOString()};
-  if(!rec.descricao){adminToast('Identificação/descrição é obrigatória',false);return;}
-  let err;
-  if(id){({error:err}=await sbClient.from('acessos_dispositivos').update(rec).eq('id',id));}
-  else{({error:err}=await sbClient.from('acessos_dispositivos').insert(rec));}
-  if(err){adminToast('Erro: '+err.message,false);return;}
-  await _acLog(id?'item.editar':'item.criar',categoria+':'+rec.descricao,'ok',tipo);
-  adminToast('Item salvo');_acRenderItens(pessoaId,categoria);
-}
-async function _acSetItemStatus(id,pessoaId,categoria,status){
-  const{error}=await sbClient.from('acessos_dispositivos').update({status,atualizado_em:new Date().toISOString()}).eq('id',id);
-  if(error){adminToast('Erro: '+error.message,false);return;}
-  await _acLog('item.status',categoria+':'+id,'ok',status);
-  adminToast('Status atualizado');_acRenderItens(pessoaId,categoria);
-}
-async function _acDelItem(id,pessoaId,categoria){
-  if(!confirm('Excluir este item?'))return;
-  const{error}=await sbClient.from('acessos_dispositivos').delete().eq('id',id);
-  if(error){adminToast('Erro: '+error.message,false);return;}
-  await _acLog('item.excluir',categoria+':'+id,'ok',null);
-  adminToast('Item excluído');_acRenderItens(pessoaId,categoria);
-}
+// _acRenderItens/_acRenderVeiculos/_acRenderDispositivos/_acFormItem/_acSaveItem/
+// _acSetItemStatus/_acDelItem (CRUD do módulo antigo) foram REMOVIDAS em
+// 13/08/2026: gravavam em acessos_dispositivos (tabela do módulo antigo,
+// ZERO linhas desde sempre) e escreviam por cima de #ac-disp-wrap — o MESMO
+// nó que o painel novo "Bens & Veículos" (abaixo) usa para renderizar dado
+// de verdade. Confirmado por grep no repositório inteiro, antes de apagar,
+// que nada além delas mesmas as chamava: seus únicos pontos de entrada eram
+// os onclick que elas próprias desenhavam no HTML que geravam, e esses
+// botões não eram mais renderizados por ninguém. Usava confirm() nativo,
+// que o padrão da casa proíbe. CSS conferido: nenhuma classe/id fica sem
+// marcação — as classes que usavam (ac-card, ac-row, ac-pill, ac-chip,
+// ac-select, ac-grid2, ac-btn, ac-section-h) seguem em uso pelo resto da
+// tela, e os ids aci-*/#ac-item-form nunca tiveram regra de CSS própria.
 // ==========================================================================
 // BENS & VEÍCULOS na ficha (13/08/2026, pedido do dono): SÓ LEITURA. Lia
 // acessos_dispositivos — tabela do módulo antigo, 0 linhas desde sempre, com
@@ -2275,14 +2203,30 @@ async function _acRenderAuditoria(){
   const body=document.getElementById('ac-body');
   body.innerHTML='<div class="ac-muted">Carregando auditoria…</div>';
   _acAudAviso=null; // recomeça limpo: aviso de carga velha não pode sobrar na nova.
-  const[{data:orgs},{data:setores},{data:pessoas},{data:bens,error:erroBens},{data:veiculosAud,error:erroVeiculosAud},{data:vincs}]=await Promise.all([
-    sbClient.from('acessos_organizacoes').select('*').order('ordem').order('nome'),
-    sbClient.from('acessos_setores').select('*').order('nome'),
-    sbClient.from('acessos_pessoas').select('*').order('nome'),
-    sbClient.from('patrimonio_bens').select('id,nome,pessoa_id'),
-    sbClient.from('frota_veiculos').select('id,nome,pessoa_id'),
-    sbClient.from('acessos_vinculos').select('pessoa_id,papel,estado,acessos_recursos(nome,tipo,arquivado_em)')
-  ]);
+  _acAudData=null; // idem: dado velho não pode sobreviver a uma carga que falhou.
+  let orgs,setores,pessoas,bens,erroBens,veiculosAud,erroVeiculosAud,vincs;
+  try{
+    ([{data:orgs},{data:setores},{data:pessoas},{data:bens,error:erroBens},{data:veiculosAud,error:erroVeiculosAud},{data:vincs}]=await Promise.all([
+      sbClient.from('acessos_organizacoes').select('*').order('ordem').order('nome'),
+      sbClient.from('acessos_setores').select('*').order('nome'),
+      sbClient.from('acessos_pessoas').select('*').order('nome'),
+      // Limite explícito (item C): sem ele o PostgREST corta em 1000 linhas
+      // SEM avisar. foiCortado() abaixo detecta quando a lista voltou exatamente
+      // no limite e transforma o corte silencioso num aviso na tela.
+      sbClient.from('patrimonio_bens').select('id,nome,pessoa_id').limit(LIMITE_AUDITORIA),
+      sbClient.from('frota_veiculos').select('id,nome,pessoa_id').limit(LIMITE_AUDITORIA),
+      sbClient.from('acessos_vinculos').select('pessoa_id,papel,estado,acessos_recursos(nome,tipo,arquivado_em)')
+    ]));
+  }catch(e){
+    // Promise.all sem try/catch deixava a aba presa em "Carregando auditoria…"
+    // pra sempre quando a rejeição era de VERDADE (offline, DNS, aborto) — que
+    // não vira {error} do Supabase, e sim uma promessa rejeitada de fato. A
+    // aba não pode terminar mostrando uma auditoria vazia como se não houvesse
+    // dado: por isso a mensagem substitui o "Carregando…" e _acAudData fica
+    // null (não existe estado inventado pra pintar).
+    body.innerHTML='<div class="ac-fx-empty">Não consegui carregar a auditoria agora ('+_acEsc((e&&e.message)?e.message:'falha na conexão')+'). Recarregue a página; se persistir, avise quem administra.</div>';
+    return;
+  }
   const avisos=[]; // junta OneDrive + Patrimônio + Frota — um só bloco de aviso no topo.
   let odMap={},odByName={};
   try{const r=await _acProxy('microsoft.allShares');((r&&r.items)||[]).forEach(it=>{
@@ -2321,6 +2265,10 @@ async function _acRenderAuditoria(){
   }else if(!temAcessoFrota(estado)&&!(veiculosAud||[]).length){
     avisos.push('Você não tem acesso ao módulo Frota: a coluna "Veículos" abaixo fica sempre vazia pra você — não significa que ninguém está com carro, peça acesso a quem administra.');
   }
+  // Item C: número de linhas bateu igual ao limite explícito → tratamos como
+  // corte do PostgREST e avisamos, em vez de deixar a tela parecer completa.
+  const corteMsg=avisoDeCorte([foiCortado(bens)&&'bens',foiCortado(veiculosAud)&&'veículos']);
+  if(corteMsg)avisos.push(corteMsg);
   if(avisos.length)_acAudAviso=avisos.join(' ');
   const setorById={};(setores||[]).forEach(s=>setorById[s.id]=s);
   // Bens (patrimonio_bens) e veículos (frota_veiculos) de TODAS as pessoas,
@@ -2457,21 +2405,21 @@ function _acAudPaint(){
 // funcionarem (mesma técnica de window._npSetView em tela-de-noticias.vue).
 Object.assign(window, {
   _acAddOrg, _acAddSetor, _acAudPaint, _acAudSetView, _acAudTog, _acAvatar, _acCatTitulo, _acColabPicker,
-  _acConectarOneDrive, _acConectarZoho, _acCopy, _acCopyFallback, _acDelItem, _acDelOrg, _acDelSetor, _acDelTermo,
+  _acConectarOneDrive, _acConectarZoho, _acCopy, _acCopyFallback, _acDelOrg, _acDelSetor, _acDelTermo,
   _acDesligar, _acDownloadTermo, _acDriveAddMarca, _acDriveAddSetor, _acDriveAllSectors, _acDriveBuildTree, _acDriveClassify, _acDriveDelMarca,
   _acDriveDelSetor, _acDriveDragEnd, _acDriveDragLeave, _acDriveDragOver, _acDriveDragStart, _acDriveDrop, _acDriveExplode, _acDriveFlowNode,
   _acDriveFlowTog, _acDriveFolderCard, _acDriveLabelOf, _acDriveLegend, _acDriveLiberarSetor, _acDriveMove, _acDrivePaintShell, _acDriveRenderFlow,
   _acDriveRepaint, _acDriveSecColor, _acDriveSectorOf, _acDriveSelectMarca, _acDriveSetDepth, _acDriveSetView, _acDriveShare, _acDriveToggleSec,
-  _acDriveWire, _acDstMeta, _acEsc, _acExcluirColaborador, _acFieldsFor, _acFixAliases, _acFormColaborador, _acFormItem,
+  _acDriveWire, _acDstMeta, _acEsc, _acExcluirColaborador, _acFieldsFor, _acFixAliases, _acFormColaborador,
   _acFichaEditarCampo, _acFichaCarregarAcessos, _acFichaCarregarContadores, _acFichaAvatarGrande,
   _acFormSetorOpts, _acHandleZohoReturn, _acICAcessos, _acICAddAcesso, _acICAddFolder, _acICLoadFolders, _acICRemoveAcesso, _acICRemoveFolder,
   _acICToggleAcessos, _acICToggleFeito, _acImportarZoho, _acItemTipoLabel, _acLog, _acLogo, _acNorm, _acODAdd,
   _acODBrowse, _acODOpen, _acODPicker, _acODUp,
   _acODStatus, _acOdSummary, _acOpenICloud, _acOpenOrg,
   _acOpenPessoa, _acOpenSetor, _acOrgIco, _acPickAll, _acPickCount, _acPickFilter, _acProvisionar, _acProxy,
-  _acReativar, _acReconcileEmail, _acRender, _acRenderAuditoria, _acRenderColaboradores, _acRenderConfiguracoes, _acRenderDispositivos, _acRenderDrive,
-  _acRenderFicha, _acRenderICloud, _acRenderItens, _acRenderOrganizacoes, _acRenderSetores, _acRenderTermos, _acRenderVeiculos,
-  _acSanitizeName, _acSaveColaborador, _acSaveItem, _acSetItemStatus, _acSetorIco, _acSetTab, _acTiposFor, _acToggleOrg, _acVoltarSel,
+  _acReativar, _acReconcileEmail, _acRender, _acRenderAuditoria, _acRenderColaboradores, _acRenderConfiguracoes, _acRenderDrive,
+  _acRenderFicha, _acRenderICloud, _acRenderOrganizacoes, _acRenderSetores, _acRenderTermos,
+  _acSanitizeName, _acSaveColaborador, _acSetorIco, _acSetTab, _acTiposFor, _acToggleOrg, _acVoltarSel,
   _acUploadAvatar, _acUploadTermo, _acWrapId, _acZohoStatus,
   _acDriveSetProvedor, _acDriveProvedorBar, _acRenderWorkdrive, _acWdCarregarPastas, _acWdRepaint,
   _acWdNo, _acWdAlternar, _acWdImportar,
