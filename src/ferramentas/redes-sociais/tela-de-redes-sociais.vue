@@ -1896,6 +1896,12 @@ async function fetchData(accountId, period, customStart, customEnd) {
   // houve recusa. A tela escreve isso junto dos "—", senão o dono vê traço sem
   // saber se é falta de coleta, falta de gasto, ou defeito.
   let capturaAdsFora = null
+  // QUEM REALMENTE PÔS DINHEIRO NOS CARTÕES desta janela. Sai da MESMA captura
+  // que os cartões somaram — não é uma segunda medição que possa discordar. É a
+  // porta do aviso de "sem tipo confirmado": campanha que não gastou não
+  // distorce número nenhum aqui, e avisar sobre ela acenderia a faixa vermelha
+  // para sempre (medido: 37 das 38 campanhas sem conjunto não gastam nada).
+  let _idsComGastoNaJanela = []
   if (!_recorteSemCampanha) {
     const [ciCurr, ciPrev] = await Promise.all([
       sb(`campaign_insights?account_id=eq.${accountId}&period_days=eq.${_adsPd}&${_adsCur}&limit=200&select=campaign_id,spend,impressions,clicks,reach,post_engagement,likes,comments,shares,saves,conversas,cadastros,compras,visitas,captured_at${idFilter}`),
@@ -1912,6 +1918,10 @@ async function fetchData(accountId, period, customStart, customEnd) {
     const _capCur = capturaDoAgregado(ciCurr, _janCur)
     const _capPrev = capturaDoAgregado(ciPrev, _janPrev)
     capturaAdsFora = _capCur.foraDaJanela ? _capCur.data : null
+    // A captura já vem recortada pelo balde e pelo filtro manual (o idFilter da
+    // consulta), e já vem recusada quando é velha demais — então isto é, com
+    // todas as letras, "as campanhas cujo dinheiro está impresso nesta tela".
+    _idsComGastoNaJanela = _capCur.linhas.filter(r => parseFloat(r.spend || 0) > 0).map(r => String(r.campaign_id))
     const adsAgg = aggCi(_capCur.linhas); const prevAdsAgg = aggCi(_capPrev.linhas)
     spend = adsAgg?.spend || 0; impressions = adsAgg?.impressions || 0; clicks = adsAgg?.clicks || 0; reach = adsAgg?.reach || 0
     adEngagement = adsAgg?.adEngagement || 0; adLikes = adsAgg?.adLikes || 0; adComments = adsAgg?.adComments || 0; adShares = adsAgg?.adShares || 0; adSaves = adsAgg?.adSaves || 0
@@ -2010,9 +2020,11 @@ async function fetchData(accountId, period, customStart, customEnd) {
     campanhasNoRecorte: idsDoRecorte.length,
     campanhasDoBalde: idsDoBalde(_campanhas, _efetivo).length,
     campanhasNoTotal: _campanhas.length,
-    // Quantas campanhas DESTE recorte ainda não têm conjunto coletado — elas
-    // caem pelo objetivo, que às vezes engana (ver desenharAvisoBalde).
-    campanhasSemTipo: campanhasSemTipoConfirmado(_campanhas, idsDoRecorte),
+    // Quantas campanhas COM DINHEIRO NESTA JANELA ainda não têm conjunto
+    // coletado — elas caem pelo objetivo, que às vezes engana (ver
+    // desenharAvisoBalde). Só as que gastaram: campanha parada não move número
+    // nenhum da tela, e avisar sobre ela deixaria a faixa acesa para sempre.
+    campanhasSemTipo: campanhasSemTipoConfirmado(_campanhas, _idsComGastoNaJanela),
     // De quando é a captura recusada por ser de fora da janela exibida. A tela
     // escreve isso junto dos "—": traço sem motivo faz o dono procurar defeito.
     capturaAdsFora,

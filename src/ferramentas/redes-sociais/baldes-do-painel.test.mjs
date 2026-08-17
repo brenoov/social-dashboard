@@ -318,21 +318,45 @@ const testeChatComConjunto = { campaign_id: '2', objective: 'OUTCOME_ENGAGEMENT'
 test('as gêmeas da Vessel caem em baldes diferentes — e é isso que a contagem denuncia', () => {
   assert.equal(baldeDaCampanha(testeChatSemConjunto), 'seguidores', 'sem conjunto, o objetivo manda');
   assert.equal(baldeDaCampanha(testeChatComConjunto), 'contatos', 'com conjunto, o destino manda');
+  // As duas gastaram na janela; só a sem conjunto conta.
   assert.equal(campanhasSemTipoConfirmado([testeChatSemConjunto, testeChatComConjunto], ['1', '2']), 1);
 });
 
-test('conta só as campanhas DO RECORTE: sem tipo confirmado fora dele não muda número nenhum na tela', () => {
-  assert.equal(campanhasSemTipoConfirmado([testeChatSemConjunto, testeChatComConjunto], ['2']), 0);
-  assert.equal(campanhasSemTipoConfirmado([testeChatSemConjunto, testeChatComConjunto], ['1']), 1);
+// ── O TESTE QUE SEGURA A DECISÃO, e o mais provável de alguém desfazer sem
+// perceber: campanha SEM GASTO na janela NÃO acende o aviso, mesmo sem conjunto.
+//
+// Medido em produção (17/08/2026): das 38 campanhas sem conjunto nas cinco
+// contas, UMA tem gasto em 30 dias. Contando as paradas, a faixa vermelha ficaria
+// acesa para sempre em três dos cinco perfis (Raíssa 27, Vessel 8, Breno Vale 3)
+// falando de campanha que não move um centavo em cartão nenhum — e aviso que
+// nunca apaga vira moldura: ninguém o lê no dia em que ele importa.
+test('campanha PARADA e sem conjunto NÃO acende o aviso: ela não distorce número nenhum', () => {
+  const paradaSemConjunto = { campaign_id: '9', objective: 'OUTCOME_TRAFFIC', conjuntos: [] };
+  // Ela está no recorte, mas não aparece entre as que gastaram na janela.
+  assert.equal(campanhasSemTipoConfirmado([paradaSemConjunto], []), 0);
+  assert.equal(campanhasSemTipoConfirmado([paradaSemConjunto, testeChatSemConjunto], ['1']), 1,
+    'só a que gastou conta — a parada fica de fora mesmo estando na mesma lista');
+});
+
+test('o caso que o aviso EXISTE para pegar sobrevive: campanha nova que já está gastando', () => {
+  // Campanha criada agora, gastando, e ainda sem a primeira coleta de conjuntos:
+  // é exatamente "com gasto e sem conjunto". É esta que pode jogar dinheiro no
+  // balde errado, e é esta que continua acendendo a faixa.
+  const novaGastando = { campaign_id: '7', objective: 'OUTCOME_ENGAGEMENT', conjuntos: [] };
+  assert.equal(campanhasSemTipoConfirmado([novaGastando], ['7']), 1);
+});
+
+test('quem gastou mas JÁ TEM conjunto nunca conta: o tipo dela está confirmado', () => {
+  assert.equal(campanhasSemTipoConfirmado([testeChatComConjunto], ['2']), 0);
 });
 
 test('tabela cheia NÃO quer dizer classificação fechada: o aviso do perfil cala e a contagem fala', () => {
   const linhasDeConjunto = [{ campaign_id: '2', destination_type: 'WHATSAPP', synced_at: '2026-08-17' }];
   assert.equal(classificacaoEhProvisoria(linhasDeConjunto), false, 'o aviso do perfil inteiro não dispara');
-  assert.equal(campanhasSemTipoConfirmado([testeChatSemConjunto, testeChatComConjunto], ['1', '2']), 1, 'mas ainda há campanha sem tipo');
+  assert.equal(campanhasSemTipoConfirmado([testeChatSemConjunto, testeChatComConjunto], ['1', '2']), 1, 'mas ainda há campanha com gasto e sem tipo');
 });
 
-test('id que chega como número casa com o id em texto do recorte (o PostgREST devolve os dois jeitos)', () => {
+test('id que chega como número casa com o id em texto (o PostgREST devolve os dois jeitos)', () => {
   assert.equal(campanhasSemTipoConfirmado([{ campaign_id: 120210000000000340, conjuntos: [] }], ['120210000000000340']), 1);
 });
 

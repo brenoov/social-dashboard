@@ -189,23 +189,37 @@ export function classificacaoEhProvisoria(linhasDeConjunto) {
   return linhas.length === 0 && !linhas.erro;
 }
 
-// QUANTAS CAMPANHAS DESTE RECORTE AINDA NÃO TÊM CONJUNTO COLETADO.
+// QUANTAS CAMPANHAS COM DINHEIRO NA JANELA AINDA NÃO TÊM CONJUNTO COLETADO.
 //
 // A tabela cheia não quer dizer classificação fechada. O aviso do perfil inteiro
 // (classificacaoEhProvisoria) só dispara quando NENHUM conjunto foi coletado, e
 // os cinco perfis ativos já têm os seus — então ele nunca mais fala. O risco de
 // verdade é POR CAMPANHA: na Vessel, `TESTE CHAT - LIMEIRA` não tem conjunto
 // nenhum, cai pelo objetivo e vai parar em Seguidores, enquanto a gêmea
-// `TESTE CHAT LIMEIRA 123`, que tem conjunto, vai para Contatos. Toda campanha
-// criada hoje fica exatamente nesse estado até a próxima coleta, e nada na tela
-// dizia isso.
+// `TESTE CHAT LIMEIRA 123`, que tem conjunto, vai para Contatos. Campanha criada
+// agora fica exatamente nesse estado até a próxima coleta, e nada na tela dizia
+// isso.
 //
-// Conta só as do RECORTE que está na tela: campanha de outro tipo sem conjunto
-// não muda nenhum número que o dono está olhando agora.
-export function campanhasSemTipoConfirmado(campanhas, idsDoRecorte) {
+// SÓ ENTRA QUEM GASTOU NA JANELA EXIBIDA, e essa condição é o coração desta
+// função — não um detalhe. Medido em produção (17/08/2026): das 38 campanhas sem
+// conjunto nas cinco contas, UMA tem gasto nos últimos 30 dias. Contando todas,
+// a faixa vermelha do topo ficaria acesa para sempre em três dos cinco perfis
+// (Raíssa 27, Vessel 8, Breno Vale 3) falando de campanha que não move um
+// centavo em cartão nenhum — e aviso que nunca apaga vira moldura: em uma semana
+// ninguém mais o lê, e aí ele fica mudo justamente no dia em que importa.
+//
+// Campanha sem gasto na janela não tem como distorcer número nenhum da tela: não
+// entra no investimento, não entra em denominador nenhum e não decide se um tipo
+// está vazio. O caso que o aviso existe para pegar sobrevive inteiro — campanha
+// nova que JÁ ESTÁ GASTANDO antes da primeira coleta de conjuntos é, por
+// definição, campanha com gasto e sem conjunto, e continua acendendo a faixa.
+//
+// `idsComGastoNaJanela` sai da própria captura que os cartões somaram, então é
+// exatamente o dinheiro que está impresso na tela — não uma segunda medição.
+export function campanhasSemTipoConfirmado(campanhas, idsComGastoNaJanela) {
   const lista = Array.isArray(campanhas) ? campanhas : [];
-  const noRecorte = new Set((idsDoRecorte || []).map(String));
-  return lista.filter(c => noRecorte.has(String(c && c.campaign_id))
+  const comGasto = new Set((idsComGastoNaJanela || []).map(String));
+  return lista.filter(c => comGasto.has(String(c && c.campaign_id))
     && !(Array.isArray(c && c.conjuntos) && c.conjuntos.length > 0)).length;
 }
 
