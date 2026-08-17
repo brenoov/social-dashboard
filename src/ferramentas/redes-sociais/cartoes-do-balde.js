@@ -1,0 +1,87 @@
+// QUAIS indicadores cada balde mostra.
+//
+// A régua é a mesma da Gestão de Tráfego: "custo por resultado, MENOR é melhor",
+// cada balde na SUA unidade. Comparar entre unidades é sem sentido, por isso cada
+// cartão carrega a sua.
+//
+// TODOS não repete os cartões de hoje de propósito (decisão do dono, 17/08/2026):
+// custo por seguidor calculado sobre TODO o dinheiro é sempre meio mentira, porque
+// o denominador só vale para uma parte dele — é a distorção da Motoeasy, onde 98%
+// do dinheiro é de cadastro. No lugar entram quatro indicadores que valem para
+// QUALQUER campanha.
+// PURO: sem rede, sem tela.
+
+// Sem denominador → "—", nunca 0. E sem NUMERADOR também: um recorte sem campanha
+// chega aqui com investimento nulo, e "R$ 0,00 por conversa" seria a mesma mentira
+// que já ficou 17 horas no ar neste projeto.
+const div = (a, b) => (a > 0 && b > 0) ? (a / b) : null;
+const qtd = v => (v == null ? null : v);                   // "não sei" ≠ "zero"
+
+// Frequência ≥ 4 = a mesma pessoa vendo demais. O limiar é o que a régua da Gestão
+// de Tráfego já usa para mandar reduzir verba (saude.js, freqSatura: 4) —
+// conhecimento do negócio, não preferência de conta. Por isso não é meta editável.
+// Sem número não se acende semáforo nenhum: cinza é "não sei", e é o que é.
+const semaforoFrequencia = v => (v == null ? null : (v >= 4 ? 'ruim' : v >= 3 ? 'atencao' : 'bom'));
+
+const investimento = n => ({
+  id: 'investimento', rotulo: 'INVESTIMENTO NO PERÍODO', valor: qtd(n.investimento),
+  formato: 'dinheiro', metaKey: 'spend', semaforo: null,
+  explicacao: 'Quanto foi gasto nas campanhas deste tipo, no período.',
+});
+
+// O texto do alcance e o da frequência param ANTES de dizer de onde o número veio:
+// só a tela sabe se ele é o total deduplicado da conta ou a soma campanha a
+// campanha (que conta a mesma pessoa mais de uma vez). Quem sabe é quem afirma —
+// ver o `_alcanceRepete` da tela-de-redes-sociais.vue.
+const RECEITAS = {
+  todos: n => [
+    investimento(n),
+    { id: 'cpm', rotulo: 'CUSTO POR MIL IMPRESSÕES', valor: div(n.investimento, n.impressoes / 1000), formato: 'dinheiro', metaKey: 'cpm', semaforo: null,
+      explicacao: 'O preço do espaço. Vale para qualquer tipo de campanha. Impressão é cada vez que o anúncio apareceu — a mesma pessoa pode ver várias.' },
+    { id: 'alcance', rotulo: 'ALCANCE', valor: qtd(n.alcance), formato: 'inteiro', metaKey: null, semaforo: null,
+      explicacao: 'Quantas pessoas viram o anúncio no período.' },
+    { id: 'frequencia', rotulo: 'FREQUÊNCIA', valor: qtd(n.frequencia), formato: 'decimal', metaKey: null, semaforo: semaforoFrequencia,
+      explicacao: 'Quantas vezes cada pessoa viu o anúncio. Acima de 4, a mesma gente está vendo demais.' },
+  ],
+  seguidores: n => [
+    investimento(n),
+    { id: 'cps', rotulo: 'CUSTO POR SEGUIDOR', valor: div(n.investimento, n.seguidores), formato: 'dinheiro', metaKey: 'cps', semaforo: null,
+      explicacao: 'Investimento ÷ novos seguidores do período.' },
+    { id: 'cpi', rotulo: 'CUSTO POR INTERAÇÃO', valor: div(n.investimento, n.interacoes), formato: 'dinheiro', metaKey: 'cpi', semaforo: null,
+      explicacao: 'Investimento ÷ interações do anúncio.' },
+    { id: 'cpl', rotulo: 'CUSTO POR CURTIDA', valor: div(n.investimento, n.curtidas), formato: 'dinheiro', metaKey: 'cpl', semaforo: null,
+      explicacao: 'Investimento ÷ curtidas do anúncio.' },
+  ],
+  contatos: n => [
+    investimento(n),
+    { id: 'custo_conversa', rotulo: 'CUSTO POR CONVERSA', valor: div(n.investimento, n.conversas), formato: 'dinheiro', metaKey: 'custo_conversa', semaforo: null,
+      explicacao: 'Cada conversa aberta no WhatsApp ou no Direct. É o resultado que essa campanha compra.' },
+    { id: 'conversas', rotulo: 'CONVERSAS INICIADAS', valor: qtd(n.conversas), formato: 'inteiro', metaKey: null, semaforo: null,
+      explicacao: 'Quantas conversas começaram no período.' },
+    { id: 'custo_cadastro', rotulo: 'CUSTO POR CADASTRO', valor: div(n.investimento, n.cadastros), formato: 'dinheiro', metaKey: 'custo_cadastro', semaforo: null,
+      explicacao: 'Quanto custou cada ficha preenchida. Campanha que só abre conversa não tem cadastro — aparece "—".' },
+  ],
+  site: n => [
+    investimento(n),
+    { id: 'custo_visita', rotulo: 'CUSTO POR VISITA', valor: div(n.investimento, n.visitas), formato: 'dinheiro', metaKey: 'custo_visita', semaforo: null,
+      explicacao: 'Quem realmente chegou no destino. Clique não é visita: parte das pessoas sai antes de a página abrir.' },
+    { id: 'visitas', rotulo: 'VISITAS', valor: qtd(n.visitas), formato: 'inteiro', metaKey: null, semaforo: null,
+      explicacao: 'Quantas pessoas chegaram no destino.' },
+    { id: 'cpm', rotulo: 'CUSTO POR MIL IMPRESSÕES', valor: div(n.investimento, n.impressoes / 1000), formato: 'dinheiro', metaKey: 'cpm', semaforo: null,
+      explicacao: 'O preço do espaço nas campanhas deste tipo.' },
+  ],
+  // TRÊS cartões de propósito: não há quarto indicador honesto para venda.
+  // Inventar um só para preencher o vão seria fingir informação.
+  vendas: n => [
+    investimento(n),
+    { id: 'custo_venda', rotulo: 'CUSTO POR VENDA', valor: div(n.investimento, n.compras), formato: 'dinheiro', metaKey: 'custo_venda', semaforo: null,
+      explicacao: 'Quanto custa trazer uma venda. Usamos custo por venda (e não ROAS) para a régua ser uma só.' },
+    { id: 'compras', rotulo: 'VENDAS', valor: qtd(n.compras), formato: 'inteiro', metaKey: null, semaforo: null,
+      explicacao: 'Quantas compras a Meta registrou no período.' },
+  ],
+};
+
+export function cartoesDoBalde(balde, numeros) {
+  const receita = RECEITAS[balde] || RECEITAS.todos;
+  return receita(numeros || {});
+}

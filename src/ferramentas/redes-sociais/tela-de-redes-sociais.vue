@@ -470,6 +470,7 @@ import { barraDoDia, diasSemPublicacao } from './estimativa-de-seguidores.js'
 // Vendas). Puro e com teste ao lado (baldes-do-painel.test.mjs), decidido pelo
 // sinal que a Meta afirma no conjunto — nunca pelo nome da campanha.
 import { BALDES, idsParaConsulta, conjuntosMaisRecentes, baldesSemGasto, baldeEfetivo } from './baldes-do-painel.js'
+import { cartoesDoBalde } from './cartoes-do-balde.js'
 
 const router = useRouter()
 
@@ -563,6 +564,18 @@ const GOALS = {
   cps: { 1: 2.0, 7: 2.0, 14: 2.0, 30: 2.0 },
   cpi: { 1: 0.15, 7: 0.15, 14: 0.15, 30: 0.15 },
   cpl: { 1: 0.20, 7: 0.20, 14: 0.20, 30: 0.20 },
+  // Metas dos indicadores que só aparecem em alguns baldes (ver cartoes-do-balde.js).
+  // São PONTO DE PARTIDA, do mesmo jeito que os R$ 2,00 de custo por seguidor acima:
+  // o dono edita na tela e o valor dele passa a valer. O que não podia era ficar sem
+  // default — meta 0 faria o cartão pintar de vermelho e escrever "acima da meta"
+  // sem que ninguém tivesse escolhido meta nenhuma.
+  // Mesmo valor em todo período: custo por resultado não cresce com o tamanho da
+  // janela (é por isso que eles também entram em RATE_GOALS).
+  cpm: { 1: 20, 7: 20, 14: 20, 30: 20 },
+  custo_conversa: { 1: 15, 7: 15, 14: 15, 30: 15 },
+  custo_cadastro: { 1: 30, 7: 30, 14: 30, 30: 30 },
+  custo_venda: { 1: 60, 7: 60, 14: 60, 30: 60 },
+  custo_visita: { 1: 1, 7: 1, 14: 1, 30: 1 },
   likes: { 1: 400, 7: 1000, 14: 2000, 30: 12000 },
   saves: { 1: 80, 7: 250, 14: 500, 30: 2500 },
   shares: { 1: 60, 7: 200, 14: 400, 30: 2000 },
@@ -641,6 +654,185 @@ function desenharBaldeBar(vazios, efetivo) {
   })
 }
 
+/* ── OS QUATRO CARTÕES DA SEÇÃO 02 (o conteúdo troca com o balde) ── */
+// Os quatro lugares FÍSICOS da grade. Os ids de dentro (goal-, cmp-, prog-, pct-,
+// diff-, ads-…-val) continuam sendo os de sempre: o que troca com o balde é o
+// CONTEÚDO, não o esqueleto. Assim applyMetric/applySpend/_mcValColor, que
+// procuram elemento por esses ids, seguem valendo sem precisar saber que existe
+// balde. A ordem é a que cartoesDoBalde() devolve.
+const SLOTS_DOS_CARTOES = ['spend', 'cps', 'cpi', 'cpl']
+// Um ícone por indicador. Emoji aqui é o mesmo padrão dos outros cartões da tela
+// (não é ícone de interface — é o desenho decorativo do topo do cartão).
+const ICONE_DO_CARTAO = {
+  investimento: '💰', cps: '🎯', cpi: '🤝', cpl: '❤️', cpm: '📣', alcance: '👁',
+  frequencia: '🔁', custo_conversa: '💬', conversas: '💬', custo_cadastro: '📝',
+  custo_venda: '🛒', compras: '🛒', custo_visita: '🔗', visitas: '🔗',
+}
+// O semáforo do módulo puro fala em bom/atenção/ruim; a tela pinta com as cores
+// que já existem em estilos-globais.css (var(--green)/(--yellow)/(--red)).
+const COR_DO_SEMAFORO = { bom: 'green', atencao: 'yellow', ruim: 'red' }
+
+// "—" nunca pode sair como zero. Em dinheiro fica "R$ —" (é o texto que a seção
+// 02 já usava e que diz de que unidade estamos falando).
+function textoDoCartao(cartao) {
+  if (cartao.valor == null) return cartao.formato === 'dinheiro' ? 'R$ —' : '—'
+  if (cartao.formato === 'dinheiro') return fmtR(cartao.valor)
+  if (cartao.formato === 'decimal') return cartao.valor.toFixed(2).replace('.', ',') + '×'
+  return fmtN(cartao.valor)
+}
+
+// De ONDE veio o alcance muda o que dá para afirmar dele — e só a tela sabe. Em
+// Todos sem filtro nenhum ele é o total DEDUPLICADO da conta; em qualquer recorte
+// é a soma campanha a campanha, e aí quem viu dois anúncios entrou duas vezes. A
+// frequência sai desse mesmo denominador, então herda o aviso: com alcance
+// inflado, ela sai BAIXA demais. Afirmar isso como fato seria mentir com número.
+function explicacaoDoCartao(cartao, ctx) {
+  if (cartao.id === 'alcance') {
+    return cartao.explicacao + (ctx.alcanceRepete
+      ? ' Atenção: aqui ele soma campanha a campanha, então quem viu dois anúncios está contado duas vezes.'
+      : ' Vem do total da conta, já sem repetir gente.')
+  }
+  if (cartao.id === 'frequencia' && ctx.alcanceRepete) {
+    return cartao.explicacao + ' Atenção: calculada sobre um alcance que repete pessoa — a de verdade é maior que esta.'
+  }
+  return cartao.explicacao
+}
+
+function desenharCartoesDoBalde(cartoes, ctx) {
+  SLOTS_DOS_CARTOES.forEach((slot, i) => {
+    const pctEl = document.getElementById('pct-' + slot)
+    const card = pctEl && pctEl.closest('.card')
+    if (!card) return
+    const cartao = cartoes[i] || null
+    // Balde de TRÊS cartões (Vendas): o quarto lugar sai da grade. Deixar um
+    // retângulo vazio ali faria a pessoa procurar o indicador que não existe.
+    card.style.display = cartao ? '' : 'none'
+    // Limpa o que o balde anterior deixou. Sem isto, o "↑ R$ 3,00 acima da meta"
+    // do indicador de ontem ficaria embaixo do número de hoje.
+    _mcValColor(slot, ''); _mcBorderColor(slot, '')
+    const cmpEl = document.getElementById('cmp-' + slot); if (cmpEl) cmpEl.textContent = ''
+    const progEl = document.getElementById('prog-' + slot); if (progEl) { progEl.style.width = '0%'; progEl.className = 'mc-progress-fill' }
+    pctEl.textContent = ''; pctEl.className = 'mc-pct'
+    const diffEl = document.getElementById('diff-' + slot); if (diffEl) { diffEl.textContent = ''; diffEl.className = 'mc-diff' }
+    // O selo de prévia/consolidando mora no segundo cartão e só vale quando ele é
+    // o custo por seguidor (ver desenharCustoPorSeguidor).
+    if (slot === 'cps') { const p = document.getElementById('previa-cps'); if (p) { p.style.display = 'none'; p.innerHTML = '' } }
+    // O campo de meta larga a chave do balde anterior mesmo quando o cartão SOME
+    // (Vendas esconde o quarto). Guardar o id de um indicador que não está na tela
+    // deixaria dois elementos com o mesmo id quando ele voltasse em outro lugar da
+    // grade — e o getGoal leria o escondido.
+    const metaEl = card.querySelector('.mc-goal-val')
+    if (metaEl && !(cartao && cartao.metaKey)) metaEl.id = 'goal-livre-' + slot
+    if (!cartao) return
+    const icone = card.querySelector('.mc-icon'); if (icone) icone.textContent = ICONE_DO_CARTAO[cartao.id] || '📊'
+    const rotulo = card.querySelector('.mc-lbl'); if (rotulo) rotulo.textContent = cartao.rotulo
+    const selo = card.querySelector('.calc-badge'); if (selo) selo.textContent = '⚡ ' + explicacaoDoCartao(cartao, ctx)
+    // ÁREA DE META: só existe onde há meta. Cartão de QUANTIDADE (alcance,
+    // conversas, vendas) e a frequência não têm — desenhar um campo editável vazio
+    // ali convidaria o dono a preencher uma meta que ninguém lê.
+    const temMeta = !!cartao.metaKey
+    const areaMeta = card.querySelector('.mc-goal-area'); if (areaMeta) areaMeta.style.display = temMeta ? '' : 'none'
+    ;['.mc-divider', '.mc-progress-track', '.mc-bottom'].forEach((sel) => { const el = card.querySelector(sel); if (el) el.style.display = temMeta ? '' : 'none' })
+    if (metaEl && temMeta) {
+      // O id DO ELEMENTO é a chave de gravação: watchGoals lê el.id no blur e
+      // getGoal procura por ele. Trocar o id junto com o cartão é o que impede a
+      // meta de custo por conversa de gravar por cima da de custo por seguidor.
+      // (O caso sem meta já foi estacionado lá em cima, antes do `return`.)
+      metaEl.id = 'goal-' + cartao.metaKey
+      metaEl.textContent = loadGoal(cartao.metaKey, currentPeriod, currentAccountId)
+      const lblMeta = card.querySelector('.mc-goal-lbl')
+      if (lblMeta) lblMeta.textContent = cartao.id === 'investimento' ? 'BUDGET' : 'META MÁX'
+    }
+    // O CUSTO POR SEGUIDOR segue com o caminho dele, inteiro: é o único indicador
+    // desta tela cujo denominador a Meta publica com ~1 dia de atraso, e os selos
+    // "⏳ consolidando" e "⏳ prévia" existem por causa disso.
+    if (cartao.id === 'cps') { desenharCustoPorSeguidor(ctx.d, ctx.pl, ctx.inv); return }
+    const valEl = document.getElementById('ads-' + slot + '-val')
+    if (valEl) {
+      if (cartao.valor != null && cartao.formato === 'inteiro') animCount(valEl, cartao.valor)
+      else { valEl.textContent = textoDoCartao(cartao); valEl.removeAttribute('title'); valEl.classList.remove('tem-tooltip') }
+    }
+    // SEM NÚMERO NÃO SE DÁ NOTA. Barra em 0% com veredito seria uma conclusão
+    // tirada de "não sei" — pior do que não dizer nada.
+    if (cartao.valor == null) return
+    if (cartao.id === 'investimento') {
+      setCompare('cmp-' + slot, cartao.valor, ctx.invAnt, 'R$ ', ctx.pl, true)
+      applySpend(cartao.valor, getGoal(cartao.metaKey))
+      return
+    }
+    if (cartao.semaforo) {
+      // Limiar de negócio (frequência ≥ 4), não preferência de conta: pinta o
+      // número e a borda, sem barra de progresso nem meta editável.
+      const cor = COR_DO_SEMAFORO[cartao.semaforo(cartao.valor)] || ''
+      _mcValColor(slot, cor); _mcBorderColor(slot, cor)
+      return
+    }
+    if (!temMeta || !(cartao.valor > 0)) return
+    const meta = getGoal(cartao.metaKey)
+    // Meta 0 (ninguém definiu ainda) não vira veredito: a régua invertida daria
+    // 0% e pintaria de vermelho um custo que ninguém julgou.
+    if (!(meta > 0)) return
+    applyMetricInverse(slot, cartao.valor, meta)
+    _mcBorderColor(slot, perfColor((meta / cartao.valor) * 100))
+  })
+  // Caixa de comparação VAZIA sai da tela. Ela tem fundo próprio, então vazia vira
+  // um retângulo bege no meio do cartão — e retângulo que não diz nada só faz a
+  // pessoa procurar o que deveria estar ali. Só o investimento e o custo por
+  // seguidor têm período anterior guardado; os outros indicadores ainda não.
+  SLOTS_DOS_CARTOES.forEach((slot) => {
+    const el = document.getElementById('cmp-' + slot)
+    if (el) el.style.display = el.textContent.trim() ? '' : 'none'
+  })
+}
+
+// ── CUSTO POR SEGUIDOR: investimento ÷ NOVOS seguidores BRUTOS (soma de gained) do período. ──
+// Nunca usa o líquido. Quando dá pra calcular (soma de gained > 0, caso normal em 7d/30d) → custo
+// real, sem selo. Quando a soma de gained é 0 SÓ porque os dias recentes ainda não consolidaram na
+// Meta (contagem mexeu, mas "quem seguiu" não publicou) → "consolidando" em vez de R$0. Nunca
+// R$0, número negativo, nem valor por líquido.
+function desenharCustoPorSeguidor(d, pl, inv) {
+  const _cpsVal = document.getElementById('ads-cps-val')
+  const _cpsPrev = document.getElementById('previa-cps')
+  const _temInv = (d.spend > 0) || (inv > 0) // só faz sentido falar de custo se houve investimento
+  const _cpsConsolidando = !!d.cpsConsolidando && _temInv
+  if (_cpsConsolidando) {
+    // Sem novos seguidores brutos ainda (dias recentes não fecharam) → não inventa custo, avisa.
+    if (_cpsVal) _cpsVal.textContent = '—'
+    _mcValColor('cps', 'orange')
+    if (_cpsPrev) {
+      _cpsPrev.style.display = 'block'
+      _cpsPrev.innerHTML = '<span class="previa-selo">⏳ consolidando</span>' +
+        '<div class="previa-nota">O custo por seguidor aparece assim que o Instagram publicar quantas pessoas novas seguiram nos dias mais recentes — costuma sair em cerca de 1 dia. Até lá, esses dias ainda não fecharam o número de novos seguidores.</div>'
+    }
+    const _c = document.getElementById('cmp-cps'); if (_c) _c.innerHTML = '' // "anterior" não ajuda enquanto não fecha
+    const _pg = document.getElementById('prog-cps'); if (_pg) { _pg.style.width = '0%'; _pg.className = 'mc-progress-fill' }
+    const _pc = document.getElementById('pct-cps'); if (_pc) { _pc.textContent = 'consolidando'; _pc.className = 'mc-pct c-orange' }
+    const _df = document.getElementById('diff-cps'); if (_df) { _df.textContent = 'aguardando o Instagram publicar os novos seguidores'; _df.className = 'mc-diff c-orange' }
+    _mcBorderColor('cps', 'orange')
+  } else if (d.cpsPrevia && d.cps > 0) {
+    // PRÉVIA: o custo foi calculado pelo crescimento da CONTAGEM de hoje (a Meta ainda não
+    // publicou o bruto oficial de "quem seguiu"). Mostra o número (não zera!) mas avisa que é
+    // prévia e pode ajustar quando fechar. Ex.: R$40 investidos ÷ +5 seguidores hoje = R$8.
+    if (_cpsVal) _cpsVal.textContent = fmtR(d.cps)
+    _mcValColor('cps', 'orange')
+    if (_cpsPrev) {
+      _cpsPrev.style.display = 'block'
+      _cpsPrev.innerHTML = '<span class="previa-selo">⏳ prévia</span>' +
+        '<div class="previa-nota">Prévia: calculado pelo crescimento da contagem de seguidores (o Instagram ainda não publicou o número oficial de quem seguiu nos dias recentes — costuma sair em ~1 dia). O valor pode ajustar quando fechar.</div>'
+    }
+    const _c = document.getElementById('cmp-cps'); if (_c) _c.innerHTML = '' // "anterior" não compara com prévia
+    _mcBorderColor('cps', 'orange')
+    const _pc = document.getElementById('pct-cps'); if (_pc) { _pc.textContent = 'prévia'; _pc.className = 'mc-pct c-orange' }
+  } else {
+    if (_cpsVal) _cpsVal.textContent = d.cps > 0 ? fmtR(d.cps) : 'R$ —'
+    if (_cpsPrev) { _cpsPrev.style.display = 'none'; _cpsPrev.innerHTML = '' }
+    setCompare('cmp-cps', d.cps, d.prevCps, 'R$ ', pl, true)
+    if (d.cps > 0) {
+      applyMetricInverse('cps', d.cps, getGoal('cps')); const gcps = getGoal('cps'); _mcBorderColor('cps', perfColor((gcps / d.cps) * 100))
+    } else { _mcValColor('cps', ''); _mcBorderColor('cps', '') }
+  }
+}
+
 /* ── HELPERS (legacy L3367-3411, verbatim) ── */
 function popEl(el) {
   const tgt = el.closest ? el.closest('.mc-val') || el : el
@@ -687,7 +879,10 @@ const _PERF_VAR = { green: 'var(--green)', yellow: 'var(--yellow)', orange: 'var
 function _mcValColor(key, clr) { const pe = document.getElementById('pct-' + key); const card = pe && pe.closest('.card'); const v = card && card.querySelector('.mc-val'); if (!v) return; const col = _PERF_VAR[clr] || ''; if (col) { v.style.setProperty('color', col, 'important'); v.style.setProperty('-webkit-text-fill-color', col, 'important') } else { v.style.removeProperty('color'); v.style.removeProperty('-webkit-text-fill-color') } }
 function _mcBorderColor(key, clr) { const pe = document.getElementById('pct-' + key); const card = pe && pe.closest('.card'); if (!card) return; card.style.borderLeftColor = clr ? (_PERF_VAR[clr] || '') : '' }
 function goalStorageKey(key, period, accountId) { return 'ig_goal_' + (accountId || 'default') + '_' + period + '_' + key }
-const RATE_GOALS = ['cps', 'cpi', 'cpl']
+// Metas que são TAXA (custo por resultado): valem o mesmo em 1, 7, 14 ou 30 dias.
+// Só as de VOLUME (budget, seguidores, curtidas…) é que o saveGoal recalcula
+// proporcional ao tamanho do período.
+const RATE_GOALS = ['cps', 'cpi', 'cpl', 'cpm', 'custo_conversa', 'custo_cadastro', 'custo_venda', 'custo_visita']
 // comprimento em dias de cada período (pro recálculo proporcional). null = comprimento variável (não escala).
 function periodDays(period) {
   if (period === 0 || period === 1) return 1
@@ -1572,13 +1767,27 @@ async function fetchData(accountId, period, customStart, customEnd) {
   const gastoDiarioRows = _recorteSemCampanha ? [] : _diaRows
     .filter(r => _todasAsCampanhas || _noRecorte.has(r.campaign_id))
     .map(r => ({ captured_at: r.captured_at, spend: r.spend }))
+  // AS QUATRO CONTAGENS NOVAS: NULO NÃO É ZERO.
+  //
+  // conversas/cadastros/compras/visitas só passaram a ser gravadas em 17/08/2026 e
+  // nasceram SEM default (ver a migration). Somar nulo como 0 faria o cartão dizer
+  // "nenhuma conversa" — que é uma afirmação — onde a verdade é "ainda não foi
+  // coletado". Só entra na soma a linha que tem o número; se NENHUMA tiver,
+  // devolve null e o cartão mostra "—".
+  function somaOuNulo(rows, campo) {
+    const com = rows.filter(r => r[campo] != null)
+    return com.length ? com.reduce((s, r) => s + (parseInt(r[campo]) || 0), 0) : null
+  }
   function aggCi(rows) {
     if (!rows.length) return null
     const maxDate = rows[0].captured_at
     const d = rows.filter(r => r.captured_at === maxDate)
-    return { spend: d.reduce((s, r) => s + parseFloat(r.spend || 0), 0), impressions: d.reduce((s, r) => s + parseInt(r.impressions || 0), 0), clicks: d.reduce((s, r) => s + parseInt(r.clicks || 0), 0), reach: d.reduce((s, r) => s + parseInt(r.reach || 0), 0), adEngagement: d.reduce((s, r) => s + parseInt(r.post_engagement || 0), 0), adLikes: d.reduce((s, r) => s + parseInt(r.likes || 0), 0), adComments: d.reduce((s, r) => s + parseInt(r.comments || 0), 0), adShares: d.reduce((s, r) => s + parseInt(r.shares || 0), 0), adSaves: d.reduce((s, r) => s + parseInt(r.saves || 0), 0) }
+    return { spend: d.reduce((s, r) => s + parseFloat(r.spend || 0), 0), impressions: d.reduce((s, r) => s + parseInt(r.impressions || 0), 0), clicks: d.reduce((s, r) => s + parseInt(r.clicks || 0), 0), reach: d.reduce((s, r) => s + parseInt(r.reach || 0), 0), adEngagement: d.reduce((s, r) => s + parseInt(r.post_engagement || 0), 0), adLikes: d.reduce((s, r) => s + parseInt(r.likes || 0), 0), adComments: d.reduce((s, r) => s + parseInt(r.comments || 0), 0), adShares: d.reduce((s, r) => s + parseInt(r.shares || 0), 0), adSaves: d.reduce((s, r) => s + parseInt(r.saves || 0), 0), conversas: somaOuNulo(d, 'conversas'), cadastros: somaOuNulo(d, 'cadastros'), compras: somaOuNulo(d, 'compras'), visitas: somaOuNulo(d, 'visitas') }
   }
   let spend = 0, impressions = 0, clicks = 0, reach = 0, prevSpend = null, adEngagement = 0, adLikes = 0, adComments = 0, adShares = 0, adSaves = 0
+  // Começam em null (não em 0) porque "—" é o estado honesto antes de qualquer
+  // leitura: recorte sem campanha nenhuma nunca sai daqui, e não pode virar zero.
+  let conversas = null, cadastros = null, compras = null, visitas = null, frequencia = null
   // O alcance saiu da SOMA por campanha (repete quem viu mais de um anúncio) ou do
   // total deduplicado da conta? Começa em "somado" e só vira false quando o número
   // nível-conta realmente entra no lugar.
@@ -1590,8 +1799,8 @@ async function fetchData(accountId, period, customStart, customEnd) {
   else if (period === 1) { const _anteBRT = localDate(new Date(new Date(_ontemBRT + 'T00:00:00').getTime() - 86400000)); _adsPd = 0; _adsCur = `captured_at=eq.${_ontemBRT}`; _adsPrev = `captured_at=eq.${_anteBRT}` }
   if (!_recorteSemCampanha) {
     const [ciCurr, ciPrev] = await Promise.all([
-      sb(`campaign_insights?account_id=eq.${accountId}&period_days=eq.${_adsPd}&${_adsCur}&limit=200&select=campaign_id,spend,impressions,clicks,reach,post_engagement,likes,comments,shares,saves,captured_at${idFilter}`),
-      sb(`campaign_insights?account_id=eq.${accountId}&period_days=eq.${_adsPd}&${_adsPrev}&limit=200&select=campaign_id,spend,impressions,clicks,reach,post_engagement,likes,comments,shares,saves,captured_at${idFilter}`),
+      sb(`campaign_insights?account_id=eq.${accountId}&period_days=eq.${_adsPd}&${_adsCur}&limit=200&select=campaign_id,spend,impressions,clicks,reach,post_engagement,likes,comments,shares,saves,conversas,cadastros,compras,visitas,captured_at${idFilter}`),
+      sb(`campaign_insights?account_id=eq.${accountId}&period_days=eq.${_adsPd}&${_adsPrev}&limit=200&select=campaign_id,spend,impressions,clicks,reach,post_engagement,likes,comments,shares,saves,conversas,cadastros,compras,visitas,captured_at${idFilter}`),
     ])
     // Captura o .erro AQUI, colado no await: o .erro é uma propriedade do array
     // que o sb() devolveu — .filter()/.map() (o aggCi abaixo) criam array novo e
@@ -1602,6 +1811,9 @@ async function fetchData(accountId, period, customStart, customEnd) {
     const adsAgg = aggCi(ciCurr); const prevAdsAgg = aggCi(ciPrev)
     spend = adsAgg?.spend || 0; impressions = adsAgg?.impressions || 0; clicks = adsAgg?.clicks || 0; reach = adsAgg?.reach || 0
     adEngagement = adsAgg?.adEngagement || 0; adLikes = adsAgg?.adLikes || 0; adComments = adsAgg?.adComments || 0; adShares = adsAgg?.adShares || 0; adSaves = adsAgg?.adSaves || 0
+    // Sem `|| 0` de propósito: aqui zero é resposta ("ninguém abriu conversa") e
+    // null é ausência de leitura. As duas coisas têm de chegar diferentes na tela.
+    conversas = adsAgg ? adsAgg.conversas : null; cadastros = adsAgg ? adsAgg.cadastros : null; compras = adsAgg ? adsAgg.compras : null; visitas = adsAgg ? adsAgg.visitas : null
     prevSpend = prevAdsAgg ? prevAdsAgg.spend : null
     // Reach DEDUPLICADO: sem filtro de campanhas, usa o total nível-conta (account_insights).
     // Somar reach por campanha infla (mesma pessoa em várias) — chegava a ~35% no real.
@@ -1612,10 +1824,24 @@ async function fetchData(accountId, period, customStart, customEnd) {
     // de dizer em uma linha que o número repete pessoa — desde que a tela abre em
     // Seguidores, esse virou o caso PADRÃO, e imprimir um alcance inflado como
     // fato é pior do que não mostrá-lo.
+    //
+    // Na MESMA viagem vêm impressões e frequência, que os cartões do balde Todos
+    // pedem. Nada de tabela nova nem de segunda ida: as três colunas moram na
+    // linha que já estava sendo lida. As impressões do nível-conta batem EXATO com
+    // a soma por campanha nas 5 contas (conferido em 17/08/2026) — impressão não
+    // duplica pessoa, então aqui é só coerência de fonte, não correção de número.
     if (_todasAsCampanhas) {
-      const aiCurr = await sb(`account_insights?account_id=eq.${accountId}&period_days=eq.${_adsPd}&${_adsCur}&limit=1&select=reach`).catch(() => [])
+      const aiCurr = await sb(`account_insights?account_id=eq.${accountId}&period_days=eq.${_adsPd}&${_adsCur}&limit=1&select=reach,impressions,frequency`).catch(() => [])
       if (aiCurr && aiCurr.length && aiCurr[0].reach != null) { reach = parseInt(aiCurr[0].reach); alcanceSomado = false }
+      if (aiCurr && aiCurr.length && aiCurr[0].impressions != null) impressions = parseInt(aiCurr[0].impressions)
+      if (aiCurr && aiCurr.length && aiCurr[0].frequency != null) frequencia = parseFloat(aiCurr[0].frequency)
     }
+    // FREQUÊNCIA em qualquer recorte que não seja a conta inteira: não existe
+    // guardada, e a única conta possível é impressões ÷ alcance SOMADO. Como esse
+    // alcance conta a mesma pessoa mais de uma vez, a frequência sai BAIXA demais —
+    // por isso ela herda, na tela, o mesmo aviso do alcance (ver _alcanceRepete).
+    // Sem alcance não se divide: fica null, e o cartão mostra "—".
+    if (frequencia == null && impressions > 0 && reach > 0) frequencia = impressions / reach
   }
   // Novos seguidores por dia: MESMA série resiliente que o gráfico da seção 01 desenha
   // (bruto quando a Meta consolidou; senão a variação da contagem) — os dois nunca divergem.
@@ -1664,6 +1890,9 @@ async function fetchData(accountId, period, customStart, customEnd) {
     // Nenhuma campanha no recorte → o cartão de dinheiro mostra "—", nunca o
     // total da conta. E o alcance avisa quando repete pessoa.
     recorteSemCampanha: _recorteSemCampanha, alcanceSomado,
+    // Os números que os cartões de CADA balde dividem (ver cartoes-do-balde.js).
+    // null = não coletado, e null vira "—" na tela — nunca zero.
+    frequencia, conversas, cadastros, compras, visitas,
     eng: { likes: eng.likes, saves: eng.saves, shares: eng.shares, comments: eng.comments ?? 0, reach: eng.reach ?? 0, views: eng.views ?? 0, interactions: eng.total_interactions ?? 0, engaged: eng.accounts_engaged ?? 0, profileViews: eng.profile_views ?? 0, prevLikes: prevEng?.likes ?? null, prevSaves: prevEng?.saves ?? null, prevShares: prevEng?.shares ?? null, prevComments: prevEng?.comments ?? null, prevReach: prevEng?.reach ?? null, prevViews: prevEng?.views ?? null, prevInteractions: prevEng?.total_interactions ?? null, prevEngaged: prevEng?.accounts_engaged ?? null, prevProfileViews: prevEng?.profile_views ?? null },
     cnt: { posts: cnt.posts_count, stories: storiesCount, reels: cnt.reels_count, postsReels: cnt.posts_count + cnt.reels_count, prevPosts: prevCnt != null ? prevCnt.posts_count : null, prevReels: prevCnt != null ? prevCnt.reels_count : null, prevPostsReels: prevCnt != null ? prevCnt.posts_count + prevCnt.reels_count : null, prevStories: prevStoriesCount },
     storyEng: { shares: storyShares, replies: storyRep, prevShares: prevStoryShares, prevReplies: prevStoryRep, reach: storyReach, interactions: storyInter, navigation: storyNav, profileVisits: storyPV, follows: storyFol, navForward: storyNavF, navBack: storyNavB, navExit: storyNavE, navNext: storyNavN, prevReach: prevStoryReach, prevInteractions: prevStoryInter, prevNavigation: prevStoryNav, prevProfileVisits: prevStoryPV, prevFollows: prevStoryFol },
@@ -2022,54 +2251,43 @@ function update(d, period) {
   // estado o cartão fica em "R$ —", que é a verdade.
   const _inv = d.recorteSemCampanha ? 0 : ((d.live && d.live.investimento != null) ? d.live.investimento : d.spend)
   const _invAnt = d.recorteSemCampanha ? null : ((d.live && d.live.anterior) ? d.live.anterior.investimento : d.prevSpend)
-  document.getElementById('ads-spend-val').textContent = _inv > 0 ? fmtR(_inv) : 'R$ —'
-  setCompare('cmp-spend', _inv, _invAnt, 'R$ ', pl, true)
-  applySpend(_inv, getGoal('spend'))
-  // ── CUSTO POR SEGUIDOR: investimento ÷ NOVOS seguidores BRUTOS (soma de gained) do período. ──
-  // Nunca usa o líquido. Quando dá pra calcular (soma de gained > 0, caso normal em 7d/30d) → custo
-  // real, sem selo. Quando a soma de gained é 0 SÓ porque os dias recentes ainda não consolidaram na
-  // Meta (contagem mexeu, mas "quem seguiu" não publicou) → "consolidando" em vez de R$0. Nunca
-  // R$0, número negativo, nem valor por líquido.
-  const _cpsVal = document.getElementById('ads-cps-val')
-  const _cpsPrev = document.getElementById('previa-cps')
-  const _temInv = (d.spend > 0) || (_inv > 0) // só faz sentido falar de custo se houve investimento
-  const _cpsConsolidando = !!d.cpsConsolidando && _temInv
-  if (_cpsConsolidando) {
-    // Sem novos seguidores brutos ainda (dias recentes não fecharam) → não inventa custo, avisa.
-    if (_cpsVal) _cpsVal.textContent = '—'
-    _mcValColor('cps', 'orange')
-    if (_cpsPrev) {
-      _cpsPrev.style.display = 'block'
-      _cpsPrev.innerHTML = '<span class="previa-selo">⏳ consolidando</span>' +
-        '<div class="previa-nota">O custo por seguidor aparece assim que o Instagram publicar quantas pessoas novas seguiram nos dias mais recentes — costuma sair em cerca de 1 dia. Até lá, esses dias ainda não fecharam o número de novos seguidores.</div>'
-    }
-    const _c = document.getElementById('cmp-cps'); if (_c) _c.innerHTML = '' // "anterior" não ajuda enquanto não fecha
-    const _pg = document.getElementById('prog-cps'); if (_pg) { _pg.style.width = '0%'; _pg.className = 'mc-progress-fill' }
-    const _pc = document.getElementById('pct-cps'); if (_pc) { _pc.textContent = 'consolidando'; _pc.className = 'mc-pct c-orange' }
-    const _df = document.getElementById('diff-cps'); if (_df) { _df.textContent = 'aguardando o Instagram publicar os novos seguidores'; _df.className = 'mc-diff c-orange' }
-    _mcBorderColor('cps', 'orange')
-  } else if (d.cpsPrevia && d.cps > 0) {
-    // PRÉVIA: o custo foi calculado pelo crescimento da CONTAGEM de hoje (a Meta ainda não
-    // publicou o bruto oficial de "quem seguiu"). Mostra o número (não zera!) mas avisa que é
-    // prévia e pode ajustar quando fechar. Ex.: R$40 investidos ÷ +5 seguidores hoje = R$8.
-    if (_cpsVal) _cpsVal.textContent = fmtR(d.cps)
-    _mcValColor('cps', 'orange')
-    if (_cpsPrev) {
-      _cpsPrev.style.display = 'block'
-      _cpsPrev.innerHTML = '<span class="previa-selo">⏳ prévia</span>' +
-        '<div class="previa-nota">Prévia: calculado pelo crescimento da contagem de seguidores (o Instagram ainda não publicou o número oficial de quem seguiu nos dias recentes — costuma sair em ~1 dia). O valor pode ajustar quando fechar.</div>'
-    }
-    const _c = document.getElementById('cmp-cps'); if (_c) _c.innerHTML = '' // "anterior" não compara com prévia
-    _mcBorderColor('cps', 'orange')
-    const _pc = document.getElementById('pct-cps'); if (_pc) { _pc.textContent = 'prévia'; _pc.className = 'mc-pct c-orange' }
-  } else {
-    if (_cpsVal) _cpsVal.textContent = d.cps > 0 ? fmtR(d.cps) : 'R$ —'
-    if (_cpsPrev) { _cpsPrev.style.display = 'none'; _cpsPrev.innerHTML = '' }
-    setCompare('cmp-cps', d.cps, d.prevCps, 'R$ ', pl, true)
-    if (d.cps > 0) {
-      applyMetricInverse('cps', d.cps, getGoal('cps')); const gcps = getGoal('cps'); _mcBorderColor('cps', perfColor((gcps / d.cps) * 100))
-    } else { _mcValColor('cps', ''); _mcBorderColor('cps', '') }
+  // O alcance DEDUPLICADO só existe no total da conta. Com um balde escolhido (ou
+  // filtro manual) a tela soma o alcance de cada campanha, e aí quem viu dois
+  // anúncios é contado duas vezes — chegava a ~35% a mais no real. Como a tela
+  // abre em Seguidores, esse é o caso PADRÃO: o cartão diz isso com todas as
+  // letras em vez de imprimir o número inflado como se fosse fato. Fica AQUI, e não
+  // lá embaixo com os chips, porque o selo de cálculo dos cartões de alcance e de
+  // frequência depende dele.
+  const _alcanceRepete = !!d.alcanceSomado && d.reach > 0
+  // ── OS CARTÕES DA SEÇÃO 02 TROCAM COM O BALDE ──
+  // Quais indicadores aparecem sai de cartoes-do-balde.js: em Contatos não faz
+  // sentido custo por seguidor, e em Vendas não existe um quarto indicador honesto.
+  // A grade continua com os mesmos quatro lugares e os mesmos ids por dentro — o
+  // que troca é o CONTEÚDO de cada um.
+  //
+  // Zero vira null de propósito nos números que o coletor grava com default 0
+  // (alcance, impressões, interações): ali o 0 quase sempre quer dizer "não veio
+  // dado", e "custou R$ 0,00" é justamente a mentira que este painel já publicou
+  // por 17 horas. Onde o banco sabe diferenciar (conversas, cadastros, compras,
+  // visitas — colunas sem default), o null vem do banco e o 0 é resposta de
+  // verdade: passa direto.
+  const _numerosDoBalde = {
+    // O investimento aqui é o número do CARTÃO (ao vivo quando existe), não o do
+    // banco: é ele que o dono lê e divide de cabeça. Muda de leve o custo por
+    // interação e por curtida, que antes dividiam o gasto COLETADO — agora os
+    // quatro cartões fecham entre si, e o dono consegue refazer a conta na mão.
+    // (O custo por seguidor segue no caminho próprio dele, com o gasto coletado:
+    // é o único com selo de prévia/consolidação, e mexer nele aqui apagaria isso.)
+    investimento: _inv > 0 ? _inv : null,
+    interacoes: d.adEngagement > 0 ? d.adEngagement : null,
+    curtidas: d.adLikes > 0 ? d.adLikes : null,
+    conversas: d.conversas, cadastros: d.cadastros, compras: d.compras, visitas: d.visitas,
+    alcance: d.reach > 0 ? d.reach : null,
+    impressoes: d.impressions > 0 ? d.impressions : null,
+    frequencia: d.frequencia,
   }
+  const _cartoes = cartoesDoBalde(d.baldeEfetivo, _numerosDoBalde)
+  desenharCartoesDoBalde(_cartoes, { d, pl, inv: _inv, invAnt: _invAnt, alcanceRepete: _alcanceRepete })
   // ── Gráficos diários (abaixo de cada card). As metas são lidas AQUI, na hora de desenhar,
   // porque o dono edita o BUDGET/META MÁX direto na tela (contenteditable). ──
   const _diario = d.adsDiario || { inicio: null, fim: null, linhasDeGasto: [], linhasDeSeguidores: [] }
@@ -2083,35 +2301,30 @@ function update(d, period) {
     textoVazio: 'Nenhum investimento registrado nos dias deste período.',
     textoSemDado: { 'sem-coleta': 'sem informação coletada neste dia' },
   })
-  desenharGraficoDiario('gmad-cps', montarSerieDeCustoPorSeguidor({
-    inicio: _diario.inicio, fim: _diario.fim, linhasDeGasto: _diario.linhasDeGasto, linhasDeSeguidores: _diario.linhasDeSeguidores, metaDeCustoPorSeguidor: getGoal('cps'),
-  }), {
-    titulo: 'Quanto custou cada seguidor novo, dia a dia',
-    rotuloValor: 'Custo por seguidor no dia',
-    rotuloMeta: 'Meta máxima',
-    legendaBase: 'Cada barra é um dia (investido no dia ÷ seguidores novos do dia) · a linha é a meta máxima · barra vermelha = custou mais caro que a meta',
-    textoVazio: 'Nenhum dia deste período teve investimento e seguidor novo ao mesmo tempo — sem custo por seguidor pra mostrar.',
-    textoSemDado: { 'sem-coleta': 'sem informação coletada neste dia', 'sem-seguidor': 'nenhum seguidor novo neste dia — sem como calcular o custo' },
-  })
+  // O gráfico de custo por seguidor por dia mora DENTRO do segundo cartão, e só faz
+  // sentido quando esse cartão É o custo por seguidor. Em Contatos, por exemplo, ali
+  // está o custo por conversa: manter o gráfico embaixo dele diria "quanto custou
+  // cada seguidor novo" sobre um número que não é de seguidor nenhum.
+  const _gmadCps = document.getElementById('gmad-cps')
+  if (_cartoes.some(c => c.id === 'cps')) {
+    desenharGraficoDiario('gmad-cps', montarSerieDeCustoPorSeguidor({
+      inicio: _diario.inicio, fim: _diario.fim, linhasDeGasto: _diario.linhasDeGasto, linhasDeSeguidores: _diario.linhasDeSeguidores, metaDeCustoPorSeguidor: getGoal('cps'),
+    }), {
+      titulo: 'Quanto custou cada seguidor novo, dia a dia',
+      rotuloValor: 'Custo por seguidor no dia',
+      rotuloMeta: 'Meta máxima',
+      legendaBase: 'Cada barra é um dia (investido no dia ÷ seguidores novos do dia) · a linha é a meta máxima · barra vermelha = custou mais caro que a meta',
+      textoVazio: 'Nenhum dia deste período teve investimento e seguidor novo ao mesmo tempo — sem custo por seguidor pra mostrar.',
+      textoSemDado: { 'sem-coleta': 'sem informação coletada neste dia', 'sem-seguidor': 'nenhum seguidor novo neste dia — sem como calcular o custo' },
+    })
+  } else if (_gmadCps) { _gmadCps.textContent = '' }
   const adsChips = []
   if (d.impressions > 0) adsChips.push(fmtN(d.impressions) + ' impressões')
   if (d.clicks > 0) adsChips.push(fmtN(d.clicks) + ' cliques')
   if (d.reach > 0) adsChips.push(fmtN(d.reach) + ' alcance')
-  // O alcance DEDUPLICADO só existe no total da conta. Com um balde escolhido (ou
-  // filtro manual) a tela soma o alcance de cada campanha, e aí quem viu dois
-  // anúncios é contado duas vezes — chegava a ~35% a mais no real. Como a tela
-  // abre em Seguidores, esse é o caso PADRÃO: o cartão diz isso com todas as
-  // letras em vez de imprimir o número inflado como se fosse fato.
-  const _alcanceRepete = !!d.alcanceSomado && d.reach > 0
   if (_alcanceRepete) adsChips.push({ texto: 'esse alcance conta a mesma pessoa mais de uma vez', classe: 'sec-chip-nota' })
   if (!adsChips.length) adsChips.push('Sem dados de Ads no período')
   setChips('chips-ads', adsChips)
-  const cpi = (d.adEngagement > 0 && d.spend > 0) ? d.spend / d.adEngagement : 0
-  const cpl = (d.adLikes > 0 && d.spend > 0) ? d.spend / d.adLikes : 0
-  document.getElementById('ads-cpi-val').textContent = cpi > 0 ? fmtR(cpi) : 'R$ —'
-  document.getElementById('ads-cpl-val').textContent = cpl > 0 ? fmtR(cpl) : 'R$ —'
-  if (cpi > 0) { const g = getGoal('cpi'); applyMetricInverse('cpi', cpi, g); _mcBorderColor('cpi', perfColor((g / cpi) * 100)) } else { _mcBorderColor('cpi', '') }
-  if (cpl > 0) { const g = getGoal('cpl'); applyMetricInverse('cpl', cpl, g); _mcBorderColor('cpl', perfColor((g / cpl) * 100)) } else { _mcBorderColor('cpl', '') }
   const custoChips = []
   if (d.clicks > 0 && d.spend > 0) custoChips.push('CPC ' + fmtR(d.spend / d.clicks))
   if (d.impressions > 0 && d.spend > 0) custoChips.push('CPM ' + fmtR(d.spend / d.impressions * 1000))
@@ -3046,7 +3259,11 @@ onUnmounted(() => {
 .tela-redes-sociais :deep(.tt-cmp-row){display:flex;align-items:center;justify-content:space-between;gap:14px;font-family:'Oswald',sans-serif;font-size:max(9px, calc(12px * var(--escala-texto, 1)));color:var(--muted);font-variant-numeric:tabular-nums;}
 
 /* Calc badge / seletor de período personalizado (compartilhado com Análise de Campanhas) */
-.tela-redes-sociais :deep(.calc-badge){display:inline-flex;align-items:center;gap:5px;font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));background:var(--accent-light);color:var(--accent-forte);padding:3px 10px;border-radius:2px;margin-top:8px;font-weight:500;letter-spacing:.3px;}
+/* O selo de cálculo passou a carregar a EXPLICAÇÃO do indicador (uma frase, não
+   três palavras), e frase quebra linha. `line-height` para as linhas não colarem
+   e `align-items:flex-start` para o texto não centralizar em bloco. Continua sem
+   `nowrap`: texto cortado é o que não pode. */
+.tela-redes-sociais :deep(.calc-badge){display:inline-flex;align-items:flex-start;gap:5px;font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));line-height:1.45;background:var(--accent-light);color:var(--accent-forte);padding:5px 10px;border-radius:2px;margin-top:8px;font-weight:500;letter-spacing:.3px;}
 .tela-redes-sociais :deep(.custom-range-btn){font-family:var(--fonte-principal);font-weight:500;font-size:max(9px, calc(11px * var(--escala-texto, 1)));padding:5px 14px;border-radius:3px;background:transparent;border:1px solid var(--border);color:var(--muted);cursor:pointer;transition:all .18s;white-space:nowrap;}
 .tela-redes-sociais :deep(.custom-range-btn):hover,.tela-redes-sociais :deep(.custom-range-btn.active){border-color:var(--accent);color:var(--accent);}
 .tela-redes-sociais :deep(.custom-date-input){font-family:var(--fonte-principal);font-weight:400;font-size:max(9px, calc(10px * var(--escala-texto, 1)));padding:4px 7px;border-radius:3px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);outline:none;cursor:pointer;flex-shrink:0;}

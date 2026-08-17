@@ -19,9 +19,24 @@ Como funciona (resumido):
   selo "✓ confirmado pelo Instagram" ou "⏳ em consolidação" — explicado no
   botão "?") + gráfico de seguidores ganhos/perdidos por dia (passe o mouse
   pra ver o tooltip com o valor de cada dia).
-- "02 Meta Ads": quanto foi gasto em anúncios, custo por seguidor, por
-  interação e por curtida — só conta as campanhas marcadas no botão
-  "⚙ Filtrar campanhas".
+- "02 Meta Ads": começa por uma fileira de botões (Todos, Seguidores,
+  Contatos, Site e alcance, Vendas). Cada botão é um TIPO de campanha, e ele
+  recorta duas coisas ao mesmo tempo: de quais campanhas vem o dinheiro E
+  quais indicadores os cartões mostram. Em Seguidores são os de sempre
+  (investimento, custo por seguidor, por interação e por curtida); em
+  Contatos entram custo por conversa, conversas iniciadas e custo por
+  cadastro; em Site e alcance, custo por visita, visitas e custo por mil
+  impressões; em Vendas são só TRÊS cartões, porque não existe um quarto
+  indicador honesto para venda; e em Todos entram os quatro que valem para
+  qualquer campanha (investimento, custo por mil impressões, alcance e
+  frequência). Botão apagado = nenhuma campanha daquele tipo gastou no
+  período. O "⚙ Filtrar campanhas" continua valendo e recorta POR DENTRO do
+  tipo escolhido — os dois se somam.
+  Onde não dá para calcular, o cartão mostra "—" e nunca R$ 0,00: número que
+  ainda não foi coletado e número que é zero de verdade são coisas
+  diferentes. A frequência não tem meta editável — ela acende vermelho a
+  partir de 4, que é o mesmo limiar que a Gestão de Tráfego usa para mandar
+  reduzir verba.
 - "03/04/05": engajamento de posts/reels, engajamento de stories, e
   quantidade de conteúdo publicado (stories/posts/reels).
 - Cada card tem uma "META" editável — clique no número da meta, digite o
