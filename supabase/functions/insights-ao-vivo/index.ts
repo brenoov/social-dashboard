@@ -2,6 +2,7 @@
 // Exige USUÁRIO autenticado COM permissão social. Trata CORS. verify_jwt=false (auth feita aqui). Atual + anterior.
 // Todas as chamadas à Meta rodam em PARALELO (Promise.all) — latência = a mais lenta, não a soma.
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { somarGasto } from '../_shared/gasto-de-campanhas.js'
 
 const GRAPH = 'https://graph.facebook.com/v21.0'
 const cors = {
@@ -50,10 +51,19 @@ async function interacoes(ig: string, eS: string, eU: string, token: string) {
   return inter
 }
 
-async function gasto(adAccountId: string, eS: string, eU: string, token: string) {
+// GASTO do período. Sem `campanhas`, continua exatamente como sempre foi:
+// level=account, uma linha, o número exato da conta. COM `campanhas`, desce para
+// level=campaign e soma só as escolhidas — é assim que o cartão de investimento
+// passa a obedecer ao balde e ao filtro manual.
+async function gasto(adAccountId: string, eS: string, eU: string, token: string, campanhas?: string[]) {
   const dstr = (u: number) => new Date(u * 1000).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
-  const ads = await apiGet(`act_${adAccountId}/insights`, { fields: 'spend', level: 'account', time_range: JSON.stringify({ since: dstr(Number(eS)), until: dstr(Number(eU) - 1) }) }, token)
-  return parseFloat(ads.data?.[0]?.spend ?? '0') || 0
+  const janela = JSON.stringify({ since: dstr(Number(eS)), until: dstr(Number(eU) - 1) })
+  if (!campanhas || campanhas.length === 0) {
+    const ads = await apiGet(`act_${adAccountId}/insights`, { fields: 'spend', level: 'account', time_range: janela }, token)
+    return parseFloat(ads.data?.[0]?.spend ?? '0') || 0
+  }
+  const ads = await apiGet(`act_${adAccountId}/insights`, { fields: 'campaign_id,spend', level: 'campaign', time_range: janela, limit: '500' }, token)
+  return somarGasto(ads, campanhas)
 }
 
 // Respostas (replies) de stories — métrica de conta agregada (validado: 7D = 7).
@@ -87,7 +97,9 @@ Deno.serve(async (req) => {
     const podeSocial = !!perfil && (perfil.role === 'admin' || (perfil.features ?? []).includes('social'))
     if (!podeSocial) return json({ meta_erro: 'sem acesso' }, 403)
 
-    const { account_id, engSince, engUntil, folSince, folUntil, prevEngSince, prevEngUntil, prevFolSince, prevFolUntil } = await req.json()
+    const body = await req.json()
+    const { account_id, engSince, engUntil, folSince, folUntil, prevEngSince, prevEngUntil, prevFolSince, prevFolUntil } = body
+    const campanhas: string[] = Array.isArray(body?.campanhas) ? body.campanhas.map(String) : []
     const { data: acc } = await sb.from('accounts').select('instagram_id,access_token,ad_account_id').eq('id', account_id).single()
     if (!acc) return json({ meta_erro: 'conta não encontrada' }, 404)
     const ig = acc.instagram_id as string, token = acc.access_token as string, adAcc = acc.ad_account_id as string | null
@@ -99,13 +111,13 @@ Deno.serve(async (req) => {
       engaj(ig, engSince, engUntil, token),
       interacoes(ig, engSince, engUntil, token),
       novos(ig, folSince, folUntil, token),
-      adAcc ? gasto(adAcc, engSince, engUntil, token) : Promise.resolve(null),
+      adAcc ? gasto(adAcc, engSince, engUntil, token, campanhas) : Promise.resolve(null),
       respostas(ig, engSince, engUntil, token),
       adAcc ? adAcoes(adAcc, engSince, engUntil, token) : Promise.resolve(null),
       wantPrev ? engaj(ig, prevEngSince, prevEngUntil, token) : Promise.resolve(null),
       wantPrev ? interacoes(ig, prevEngSince, prevEngUntil, token) : Promise.resolve(null),
       wantPrev ? novos(ig, prevFolSince, prevFolUntil, token) : Promise.resolve(null),
-      (wantPrev && adAcc) ? gasto(adAcc, prevEngSince, prevEngUntil, token) : Promise.resolve(null),
+      (wantPrev && adAcc) ? gasto(adAcc, prevEngSince, prevEngUntil, token, campanhas) : Promise.resolve(null),
       wantPrev ? respostas(ig, prevEngSince, prevEngUntil, token) : Promise.resolve(null),
       (wantPrev && adAcc) ? adAcoes(adAcc, prevEngSince, prevEngUntil, token) : Promise.resolve(null),
     ])
