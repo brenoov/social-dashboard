@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { lerProblema, agruparProblemas, fraseDosProblemas, anunciosComProblema } from './problemas-do-anuncio.js';
+import { lerProblema, agruparProblemas, fraseDosProblemas, anunciosComProblema, linhasParaGuardar } from './problemas-do-anuncio.js';
 
 // TODOS OS BRUTOS ABAIXO SAO REAIS, copiados do Graph em 12/08/2026. Inventar
 // aqui esconderia justamente o formato que a Meta manda de verdade.
@@ -175,4 +175,72 @@ test('o contexto da conta e da campanha viaja junto — sem ele o dono não sabe
 test('lista vazia ou nula não quebra', () => {
   assert.deepEqual(anunciosComProblema(null), [])
   assert.deepEqual(anunciosComProblema([]), [])
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AS LINHAS QUE VÃO PARA O BANCO.
+//
+// POR QUE GUARDAR (17/08/2026): a Meta APAGA o `issues_info` quando o anúncio é
+// excluído ou o problema é resolvido. O dono pediu para achar uma campanha
+// barrada na semana passada e não deu: o motivo tinha deixado de existir. Esta
+// tabela é a memória que a Meta não tem.
+//
+// O que estes testes protegem, e é a alma da tabela: o NOME viaja junto com o
+// id. Guardar só o id daria uma história ilegível justamente no caso que a
+// tabela existe para atender — quando o objeto já não existe mais lá.
+
+test('cada problema do anúncio vira UMA linha — dois problemas, duas linhas', () => {
+  const anuncios = [{
+    id: '123', name: 'Genspark · Dom Pedro', effective_status: 'WITH_ISSUES',
+    issues_info: [
+      { error_code: 1885029, error_summary: 'As Páginas não correspondem', error_message: 'As Páginas não correspondem: a Página do anúncio…', error_type: 'HARD_ERROR', level: 'AD' },
+      { error_code: 1443128, error_summary: 'Ativos ausentes', error_message: 'Ativos ausentes: falta o CTA', error_type: 'SOFT_ERROR', level: 'AD' },
+    ],
+  }]
+  const linhas = linhasParaGuardar(anuncios, { conta_nome: 'C1 - Vessel Brasil', campanha_nome: '[PROMO] Dom Pedro', campaign_id: '999' })
+  assert.equal(linhas.length, 2)
+  assert.deepEqual(linhas.map((l) => l.codigo).sort(), [1443128, 1885029])
+  assert.equal(linhas[0].ad_id, '123')
+})
+
+test('o NOME viaja junto — é para isso que a tabela existe', () => {
+  const anuncios = [{ id: '123', name: 'Genspark · Dom Pedro', issues_info: [{ error_code: 1885029, error_summary: 'As Páginas não correspondem', error_type: 'HARD_ERROR', level: 'AD' }] }]
+  const [l] = linhasParaGuardar(anuncios, { conta_nome: 'C1 - Vessel Brasil', campanha_nome: '[PROMO] Dom Pedro', campaign_id: '999' })
+  assert.equal(l.ad_nome, 'Genspark · Dom Pedro')
+  assert.equal(l.campanha_nome, '[PROMO] Dom Pedro')
+  assert.equal(l.conta_nome, 'C1 - Vessel Brasil')
+  assert.equal(l.campaign_id, '999')
+})
+
+test('grave e nivel saem traduzidos, do jeito que a tela ja mostra', () => {
+  const anuncios = [{ id: '1', name: 'x', issues_info: [
+    { error_code: 1359208, error_summary: 'Público personalizado indisponível', error_type: 'HARD_ERROR', level: 'AD_SET' },
+    { error_code: 2643046, error_summary: 'Vídeo pequeno', error_type: 'SOFT_ERROR', level: 'AD' },
+  ] }]
+  const linhas = linhasParaGuardar(anuncios)
+  const porCodigo = Object.fromEntries(linhas.map((l) => [l.codigo, l]))
+  assert.equal(porCodigo[1359208].grave, true)
+  assert.equal(porCodigo[1359208].nivel, 'conjunto')
+  assert.equal(porCodigo[2643046].grave, false)
+  assert.equal(porCodigo[2643046].nivel, 'anuncio')
+})
+
+test('anúncio sem problema não gera linha, e lista nula não quebra', () => {
+  assert.deepEqual(linhasParaGuardar([{ id: '1', issues_info: [] }]), [])
+  assert.deepEqual(linhasParaGuardar(null), [])
+})
+
+test('anúncio sem id NÃO vira linha — a chave da tabela é (ad_id, codigo)', () => {
+  // Sem isto, uma linha sem chave estouraria no banco e derrubaria a gravação
+  // inteira da conta, por causa de um item.
+  const linhas = linhasParaGuardar([{ name: 'sem id', issues_info: [{ error_code: 1, error_type: 'HARD_ERROR' }] }])
+  assert.deepEqual(linhas, [])
+})
+
+test('o titulo repetido dentro da mensagem nao vai duas vezes pro banco', () => {
+  const [l] = linhasParaGuardar([{ id: '1', name: 'x', issues_info: [
+    { error_code: 1885029, error_summary: 'As Páginas não correspondem', error_message: 'As Páginas não correspondem: a Página do anúncio é outra.', error_type: 'HARD_ERROR', level: 'AD' },
+  ] }])
+  assert.equal(l.titulo, 'As Páginas não correspondem')
+  assert.equal(l.detalhe, 'a Página do anúncio é outra.')
 })

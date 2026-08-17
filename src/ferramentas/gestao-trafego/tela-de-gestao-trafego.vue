@@ -212,7 +212,7 @@ import { montarMapa } from './painel-do-mapa.js'
 import { montarPainelDeLugares } from '../../compartilhado/painel-de-lugares.js'
 import { deListas, paraListas } from '../../compartilhado/lugares-do-anuncio.js'
 import { enderecoDeOndeCaiu } from '../../compartilhado/busca-de-lugar.js'
-import { agruparProblemas, anunciosComProblema, fraseDosProblemas } from './problemas-do-anuncio.js'
+import { agruparProblemas, anunciosComProblema, fraseDosProblemas, linhasParaGuardar } from './problemas-do-anuncio.js'
 import { montarLeituraDePublico, publicoDaReceita } from './leitura-de-publico.js'
 import { PUBLICO_VAZIO } from './publico-alvo.js'
 // A LISTA do histórico de campanhas começadas por aqui. As regras de leitura
@@ -886,6 +886,29 @@ let _gtLeituraPublico = null;
 // O que a Meta reclama, agrupado por PROBLEMA (nao por anuncio).
 let _gtProblemasDaMeta = [];
 
+// GUARDA NO BANCO O QUE A META RECLAMA, uma chamada por conta.
+//
+// POR QUE EXISTE (17/08/2026): o `issues_info` do Graph SOME quando o anúncio é
+// excluído ou o problema é resolvido. Não há histórico em lugar nenhum — foi por
+// isso que não deu para achar a campanha barrada da semana de 11/08. A tabela
+// `gt_problemas_meta` é a memória que a Meta não tem.
+//
+// NÃO ESPERA e NÃO DERRUBA: guardar histórico é bom, ver a fila é o que a pessoa
+// veio fazer. Se o banco recusar (sem permissão, rede caindo), a fila aparece do
+// mesmo jeito e o erro fica no console — em vez de uma tela em branco por causa
+// de uma gravação de bastidor.
+async function _gtGuardarProblemas(porConta) {
+  for (const [conta, linhas] of porConta) {
+    try {
+      // A lista vai inteira, inclusive vazia: é ela que fecha o que sumiu.
+      const { error } = await sbClient.rpc('gt_registrar_problemas', { p_conta: conta, p_itens: linhas });
+      if (error) console.warn('[problemas] não consegui guardar em', conta, error.message);
+    } catch (e) {
+      console.warn('[problemas] não consegui guardar em', conta, (e && e.message) || e);
+    }
+  }
+}
+
 // Busca as campanhas e os conjuntos SÓ das contas que têm pendência. Sem este
 // recorte seriam duas chamadas por conta em toda abertura da aba, quatro delas
 // para descobrir que não havia nada a decidir ali.
@@ -1080,15 +1103,35 @@ async function _gtCarregarFila() {
     // fila: um conjunto que a Meta pausou sozinha nao aparece em lugar nenhum
     // -- foi o caso dos 5 da Raissa, medidos em 12/08/2026.
     const comProblema = [];
+    // As mesmas reclamações, agora agrupadas POR CONTA, para guardar no banco.
+    const paraGuardar = new Map();
     for (const [, info] of mapa) {
+      const contexto = {
+        conta_nome: info.conta.display_name || info.conta.name || '',
+        campanha_nome: info.campanha.name || '',
+        campaign_id: info.campanha.id || null,
+      };
       // `anunciosTodos`, e NÃO `anuncios`: a segunda lista só tem os ativos, e
       // anúncio com problema quase nunca está ativo. Medido em 17/08/2026: dos
       // 13 com `issues_info` nas 5 contas, ZERO estavam ACTIVE.
-      comProblema.push(...anunciosComProblema(info.anunciosTodos, {
-        conta_nome: info.conta.display_name || info.conta.name || '',
-        campanha_nome: info.campanha.name || '',
-      }));
+      comProblema.push(...anunciosComProblema(info.anunciosTodos, contexto));
+      const conta = String(info.conta.id || '');
+      if (!conta) continue;
+      if (!paraGuardar.has(conta)) paraGuardar.set(conta, []);
+      paraGuardar.get(conta).push(...linhasParaGuardar(info.anunciosTodos, contexto));
     }
+    // GUARDAR O MOTIVO. A Meta APAGA o `issues_info` quando o anúncio é excluído
+    // ou o problema é resolvido — foi por isso que a campanha barrada da semana
+    // de 11/08 não deixou rastro nenhum. Aqui a Central passa a ter a memória
+    // que a Meta não tem.
+    //
+    // Roda para TODA conta do mapa, inclusive as sem problema nenhum: é a lista
+    // vazia que fecha o que sumiu. Mandar só as contas com problema deixaria um
+    // problema resolvido parecendo aberto para sempre.
+    //
+    // Falha aqui NÃO pode derrubar a fila: guardar histórico é bom, mas ver a
+    // fila é o que a pessoa veio fazer.
+    _gtGuardarProblemas(paraGuardar);
     _gtProblemasDaMeta = agruparProblemas(comProblema);
     const criativos = [];
     for (const [id, info] of mapa) {
