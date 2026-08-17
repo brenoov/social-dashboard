@@ -106,6 +106,27 @@ const RECEITAS = {
   ],
 };
 
+// A CHAVE gravada em social_metas.indicador (e no localStorage) para o par
+// indicador+balde. A meta pertence ao recorte em que foi digitada: o mesmo "custo
+// por mil impressões" vale coisas diferentes em Todos e em Site, e uma chave só
+// para os dois faria a meta de um virar veredito sobre o outro.
+//
+// As linhas que JÁ EXISTEM no banco continuam valendo, sem prefixo, no balde
+// contra o qual foram definidas — é migração de LEITURA, sem tocar no banco e sem
+// abandonar meta de ninguém:
+//   • cps, cpi, cpl → foram digitadas nos cartões que hoje moram em SEGUIDORES;
+//   • spend        → foi digitada contra o investimento da conta inteira, que é o
+//                    que TODOS mostra.
+// O BUDGET dos outros baldes é próprio (`seguidores.spend`, `contatos.spend`…) e
+// nasce sem valor: comparar a meta da conta inteira com o dinheiro de um recorte
+// diria "8% do budget" no dia em que o dono gastou exatamente o que queria ali.
+const HERDADAS = { seguidores: ['cps', 'cpi', 'cpl'], todos: ['spend'] };
+
+export function chaveDeMeta(cartaoId, balde) {
+  if ((HERDADAS[balde] || []).includes(cartaoId)) return cartaoId;
+  return balde + '.' + cartaoId;
+}
+
 export function cartoesDoBalde(balde, numeros) {
   const receita = RECEITAS[balde] || RECEITAS.todos;
   return receita(numeros || {});

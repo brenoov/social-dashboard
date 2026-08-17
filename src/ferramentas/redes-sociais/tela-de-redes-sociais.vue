@@ -470,7 +470,7 @@ import { barraDoDia, diasSemPublicacao } from './estimativa-de-seguidores.js'
 // Vendas). Puro e com teste ao lado (baldes-do-painel.test.mjs), decidido pelo
 // sinal que a Meta afirma no conjunto — nunca pelo nome da campanha.
 import { BALDES, idsParaConsulta, conjuntosMaisRecentes, baldesSemGasto, baldeEfetivo } from './baldes-do-painel.js'
-import { cartoesDoBalde, podeDarVeredito } from './cartoes-do-balde.js'
+import { cartoesDoBalde, podeDarVeredito, chaveDeMeta } from './cartoes-do-balde.js'
 
 const router = useRouter()
 
@@ -710,12 +710,17 @@ function desenharCartoesDoBalde(cartoes, ctx) {
     // O selo de prévia/consolidando mora no segundo cartão e só vale quando ele é
     // o custo por seguidor (ver desenharCustoPorSeguidor).
     if (slot === 'cps') { const p = document.getElementById('previa-cps'); if (p) { p.style.display = 'none'; p.innerHTML = '' } }
+    // A CHAVE da meta carrega o balde (ver chaveDeMeta): a meta que o dono digita
+    // em Contatos é `contatos.custo_conversa` e não encosta na de Seguidores. As
+    // que já existiam no banco (cps/cpi/cpl em Seguidores, spend em Todos) seguem
+    // sem prefixo, no balde contra o qual foram definidas.
+    const chaveMeta = (cartao && cartao.metaKey) ? chaveDeMeta(cartao.metaKey, ctx.balde) : null
     // O campo de meta larga a chave do balde anterior mesmo quando o cartão SOME
     // (Vendas esconde o quarto). Guardar o id de um indicador que não está na tela
     // deixaria dois elementos com o mesmo id quando ele voltasse em outro lugar da
-    // grade — e o getGoal leria o escondido.
+    // grade — e quem lê meta por id leria o escondido.
     const metaEl = card.querySelector('.mc-goal-val')
-    if (metaEl && !(cartao && cartao.metaKey)) metaEl.id = 'goal-livre-' + slot
+    if (metaEl && !chaveMeta) metaEl.id = 'goal-livre-' + slot
     if (!cartao) return
     const icone = card.querySelector('.mc-icon'); if (icone) icone.textContent = ICONE_DO_CARTAO[cartao.id] || '📊'
     const rotulo = card.querySelector('.mc-lbl'); if (rotulo) rotulo.textContent = cartao.rotulo
@@ -723,20 +728,20 @@ function desenharCartoesDoBalde(cartoes, ctx) {
     // ÁREA DE META: só existe onde há meta. Cartão de QUANTIDADE (alcance,
     // conversas, vendas) e a frequência não têm — desenhar um campo editável vazio
     // ali convidaria o dono a preencher uma meta que ninguém lê.
-    const temMeta = !!cartao.metaKey
+    const temMeta = !!chaveMeta
     const areaMeta = card.querySelector('.mc-goal-area'); if (areaMeta) areaMeta.style.display = temMeta ? '' : 'none'
     // O ALVO que o dono realmente definiu, ou null. Indicador de balde novo NASCE
     // SEM META: o campo fica em "—", esperando o número dele. Herdar a meta de
     // outro indicador ou inventar um padrão é pior do que não ter — um alvo
     // chutado faz o semáforo responder "de quem é essa conta?" em vez de "essa
     // campanha vai bem?".
-    const meta = temMeta ? metaDefinida(cartao.metaKey, currentPeriod, currentAccountId) : null
+    const meta = temMeta ? metaDefinida(chaveMeta, currentPeriod, currentAccountId) : null
     if (metaEl && temMeta) {
       // O id DO ELEMENTO é a chave de gravação: watchGoals lê el.id no blur e
-      // getGoal procura por ele. Trocar o id junto com o cartão é o que impede a
-      // meta de custo por conversa de gravar por cima da de custo por seguidor.
+      // grava com ela. Trocar o id junto com o cartão é o que impede a meta de
+      // custo por conversa de gravar por cima da de custo por seguidor.
       // (O caso sem meta já foi estacionado lá em cima, antes do `return`.)
-      metaEl.id = 'goal-' + cartao.metaKey
+      metaEl.id = 'goal-' + chaveMeta
       metaEl.textContent = meta == null ? '—' : String(meta)
       const lblMeta = card.querySelector('.mc-goal-lbl')
       if (lblMeta) lblMeta.textContent = cartao.id === 'investimento' ? 'BUDGET' : 'META MÁX'
@@ -895,6 +900,14 @@ function goalStorageKey(key, period, accountId) { return 'ig_goal_' + (accountId
 // alvo, é o FORMATO do indicador: no dia em que o dono digitar R$ 12 por conversa,
 // os R$ 12 valem em 7D e em 30D, e não viram R$ 51 no mês.
 const RATE_GOALS = ['cps', 'cpi', 'cpl', 'cpm', 'custo_conversa', 'custo_cadastro', 'custo_venda', 'custo_visita']
+// A chave da meta pode vir com o balde na frente ('contatos.custo_conversa'). O que
+// diz se ela é taxa ou volume é o INDICADOR, não o balde: sem tirar o prefixo, os
+// R$ 12 por conversa digitados em 7D virariam R$ 51 no mês.
+function ehMetaDeTaxa(chave) {
+  const s = String(chave)
+  const i = s.lastIndexOf('.')
+  return RATE_GOALS.includes(i >= 0 ? s.slice(i + 1) : s)
+}
 // comprimento em dias de cada período (pro recálculo proporcional). null = comprimento variável (não escala).
 function periodDays(period) {
   if (period === 0 || period === 1) return 1
@@ -1092,7 +1105,7 @@ function saveGoal(key, val) {
   const num = parseFloat(String(val).replace(',', '.')); if (isNaN(num)) return
   const anchor = currentPeriod === 0 ? 1 : currentPeriod
   const rows = [[anchor, num]]
-  if (RATE_GOALS.includes(key)) { // taxa (ex.: custo por seguidor) — mesmo valor em todo período
+  if (ehMetaDeTaxa(key)) { // taxa (ex.: custo por seguidor) — mesmo valor em todo período
     PERIODS.forEach(P => { const p = P.value === 0 ? 1 : P.value; if (p !== anchor) rows.push([p, num]) })
   } else {
     const aDays = periodDays(anchor)
@@ -1122,7 +1135,7 @@ function loadGoal(key, period, accountId) {
   if (s !== null && s !== '' && s !== 'NaN') return s                       // valor salvo (ignora corrupção antiga)
   const base = GOALS[key]; if (!base) return '0'
   if (base[pk] != null) return String(base[pk])                     // default exato do período
-  if (RATE_GOALS.includes(key)) return String(base[7] ?? base[30] ?? 0)
+  if (ehMetaDeTaxa(key)) return String(base[7] ?? base[30] ?? 0)
   const refP = base[30] != null ? 30 : (base[7] != null ? 7 : 1)              // default escalado a partir do 30/7
   const d = periodDays(pk), rd = periodDays(refP)
   if (!d || !rd) return String(base[refP] ?? base[7] ?? 0)
@@ -2328,18 +2341,35 @@ function update(d, period) {
     impressoes: d.impressions > 0 ? d.impressions : null,
     frequencia: d.frequencia,
   }
-  const _cartoes = cartoesDoBalde(d.baldeEfetivo, _numerosDoBalde)
-  desenharCartoesDoBalde(_cartoes, { d, pl, inv: _inv, invAnt: _invAnt, alcanceRepete: _alcanceRepete })
+  // UM balde só manda em tudo o que vem abaixo: os cartões, as CHAVES das metas e
+  // os dois gráficos. Se `baldeEfetivo` faltasse, `chaveDeMeta` gravaria numa chave
+  // fantasma ('undefined.spend') enquanto os cartões cairiam em Todos — a meta do
+  // dono iria para uma linha que nenhuma tela lê de volta.
+  const _balde = d.baldeEfetivo || _baldeAtual
+  const _cartoes = cartoesDoBalde(_balde, _numerosDoBalde)
+  desenharCartoesDoBalde(_cartoes, { d, pl, inv: _inv, invAnt: _invAnt, alcanceRepete: _alcanceRepete, balde: _balde })
   // ── Gráficos diários (abaixo de cada card). As metas são lidas AQUI, na hora de desenhar,
   // porque o dono edita o BUDGET/META MÁX direto na tela (contenteditable). ──
+  //
+  // Lidas pela MESMA porta dos cartões (metaDefinida → localStorage), e com a mesma
+  // chave por balde. Antes o gráfico lia pelo texto que estava no elemento da tela
+  // (getGoal), e só batia com o cartão porque o cartão desenhava primeiro: bastava
+  // trocar a ordem de desenho para os dois passarem a afirmar metas diferentes
+  // sobre o mesmo dinheiro.
   const _diario = d.adsDiario || { inicio: null, fim: null, linhasDeGasto: [], linhasDeSeguidores: [] }
+  const _metaBudget = metaDefinida(chaveDeMeta('spend', _balde), currentPeriod, currentAccountId)
   desenharGraficoDiario('gmad-spend', montarSerieDeInvestimento({
-    inicio: _diario.inicio, fim: _diario.fim, linhasDeGasto: _diario.linhasDeGasto, budgetDoPeriodo: getGoal('spend'),
+    inicio: _diario.inicio, fim: _diario.fim, linhasDeGasto: _diario.linhasDeGasto, budgetDoPeriodo: _metaBudget,
   }), {
     titulo: 'Quanto foi investido em cada dia',
     rotuloValor: 'Investido no dia',
     rotuloMeta: 'Meta do dia',
-    legendaBase: 'Cada barra é um dia · a linha é o budget dividido pelos dias do período · barra vermelha = passou do budget do dia',
+    // Sem budget não há linha nem barra vermelha — e a legenda não pode prometer o
+    // que não está desenhado. Balde novo nasce sem budget: mostra o gasto do dia e
+    // cala a nota, até o dono digitar o dele.
+    legendaBase: _metaBudget > 0
+      ? 'Cada barra é um dia · a linha é o budget dividido pelos dias do período · barra vermelha = passou do budget do dia'
+      : 'Cada barra é um dia · sem budget definido para este tipo de campanha, então não há linha de meta',
     textoVazio: 'Nenhum investimento registrado nos dias deste período.',
     textoSemDado: { 'sem-coleta': 'sem informação coletada neste dia' },
   })
@@ -2350,7 +2380,9 @@ function update(d, period) {
   const _gmadCps = document.getElementById('gmad-cps')
   if (_cartoes.some(c => c.id === 'cps')) {
     desenharGraficoDiario('gmad-cps', montarSerieDeCustoPorSeguidor({
-      inicio: _diario.inicio, fim: _diario.fim, linhasDeGasto: _diario.linhasDeGasto, linhasDeSeguidores: _diario.linhasDeSeguidores, metaDeCustoPorSeguidor: getGoal('cps'),
+      inicio: _diario.inicio, fim: _diario.fim, linhasDeGasto: _diario.linhasDeGasto, linhasDeSeguidores: _diario.linhasDeSeguidores,
+      // Mesma porta e mesma chave do cartão de custo por seguidor logo acima.
+      metaDeCustoPorSeguidor: metaDefinida(chaveDeMeta('cps', _balde), currentPeriod, currentAccountId),
     }), {
       titulo: 'Quanto custou cada seguidor novo, dia a dia',
       rotuloValor: 'Custo por seguidor no dia',
@@ -2611,8 +2643,42 @@ function restoreHeaderState() {
     if (btn) btn.querySelector('.ht-arrow').style.transform = 'rotate(180deg)'
   }
 }
-function updateGoalDisplays(period) { Object.keys(GOALS).forEach(k => { const el = document.getElementById('goal-' + k); if (el) el.textContent = loadGoal(k, period, currentAccountId) }) }
-function watchGoals() { document.querySelectorAll('.mc-goal-val').forEach(el => { el.addEventListener('blur', () => { const key = el.id.replace('goal-', ''); saveGoal(key, el.textContent.trim()); updateGoalDisplays(currentPeriod); refresh() }); el.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); el.blur() } }) }) }
+// Reescreve o texto de TODA meta editável da tela quando o período muda ou quando
+// as metas chegam do banco (metasFetchAll). São DUAS famílias, e as duas precisam
+// ser percorridas:
+//
+// 1) as metas de sempre (seção 01 e as de GOALS): o id do elemento é fixo no HTML;
+// 2) as DOS QUATRO CARTÕES da seção 02, cuja chave carrega o balde
+//    ('contatos.custo_conversa'). Essas não estão em GOALS e nunca seriam
+//    alcançadas percorrendo só ele — por isso os cartões são percorridos pelos
+//    lugares da grade, com a chave que o desenho acabou de carimbar no id.
+//    Aqui o texto sai de metaDefinida: sem meta o campo mostra "—", nunca 0 — um
+//    0 na tela seria um alvo que ninguém pôs.
+function updateGoalDisplays(period) {
+  Object.keys(GOALS).forEach(k => { const el = document.getElementById('goal-' + k); if (el) el.textContent = loadGoal(k, period, currentAccountId) })
+  SLOTS_DOS_CARTOES.forEach((slot) => {
+    const pctEl = document.getElementById('pct-' + slot)
+    const card = pctEl && pctEl.closest('.card'); if (!card) return
+    const metaEl = card.querySelector('.mc-goal-val')
+    if (!metaEl || !metaEl.id.startsWith('goal-') || metaEl.id.startsWith('goal-livre-')) return
+    const chave = metaEl.id.slice('goal-'.length)
+    const v = metaDefinida(chave, period, currentAccountId)
+    metaEl.textContent = v == null ? '—' : String(v)
+  })
+}
+function watchGoals() {
+  document.querySelectorAll('.mc-goal-val').forEach(el => {
+    el.addEventListener('blur', () => {
+      const key = el.id.replace('goal-', '')
+      // Cartão sem meta fica com id 'goal-livre-<lugar>' (ver desenharCartoesDoBalde).
+      // Ele está escondido e não deveria receber foco, mas gravar 'livre-cps' seria
+      // uma linha de lixo no social_metas do dono — e o banco aceitaria caladinho.
+      if (!key || key.startsWith('livre-')) return
+      saveGoal(key, el.textContent.trim()); updateGoalDisplays(currentPeriod); refresh()
+    })
+    el.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); el.blur() } })
+  })
+}
 let _refreshId = 0
 async function refresh() {
   if (!currentAccountId) return

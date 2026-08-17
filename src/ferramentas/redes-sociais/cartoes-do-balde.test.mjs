@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cartoesDoBalde, podeDarVeredito } from './cartoes-do-balde.js';
+import { cartoesDoBalde, podeDarVeredito, chaveDeMeta } from './cartoes-do-balde.js';
 import { CRITERIOS } from '../gestao-trafego/saude.js';
 
 // Números REAIS de 30 dias, última captura de 17/08/2026.
@@ -158,6 +158,57 @@ test('veredito também não sai sem número, nem em cartão que não tem meta', 
   const quantidade = cartoesDoBalde('todos', motoeasy).find(x => x.id === 'alcance');
   assert.equal(podeDarVeredito(quantidade, 12), false, 'cartão sem metaKey nunca tem barra');
   assert.equal(podeDarVeredito(null, 12), false);
+});
+
+// ── A CHAVE DA META (o que vai para social_metas.indicador) ──
+
+test('a meta carrega o balde no nome', () => {
+  assert.equal(chaveDeMeta('custo_conversa', 'contatos'), 'contatos.custo_conversa');
+  assert.equal(chaveDeMeta('cpm', 'site'), 'site.cpm');
+});
+
+test('as metas de hoje continuam valendo, sem prefixo, no balde Seguidores', () => {
+  // As linhas cps/cpi/cpl já gravadas foram definidas contra ESTES cartões.
+  assert.equal(chaveDeMeta('cps', 'seguidores'), 'cps');
+  assert.equal(chaveDeMeta('cpi', 'seguidores'), 'cpi');
+  assert.equal(chaveDeMeta('cpl', 'seguidores'), 'cpl');
+});
+
+test('o BUDGET de hoje vale para Todos, que é o número contra o qual foi definido', () => {
+  assert.equal(chaveDeMeta('spend', 'todos'), 'spend');
+});
+
+test('o BUDGET dos demais baldes é PRÓPRIO e nasce sem valor', () => {
+  // Uma meta de conta inteira contra o dinheiro de um balde compararia coisas
+  // diferentes: a barrinha diria 8% batido no dia em que o dono gastou tudo o que
+  // queria em seguidores.
+  assert.equal(chaveDeMeta('spend', 'seguidores'), 'seguidores.spend');
+  assert.equal(chaveDeMeta('spend', 'contatos'), 'contatos.spend');
+  assert.equal(chaveDeMeta('spend', 'site'), 'site.spend');
+  assert.equal(chaveDeMeta('spend', 'vendas'), 'vendas.spend');
+});
+
+test('a herança é do PAR indicador+balde: cps fora de Seguidores é meta nova', () => {
+  // Se `cps` valesse sem prefixo em qualquer balde, a meta de custo por seguidor
+  // do dono viraria alvo de um número que não é de seguidor nenhum.
+  assert.equal(chaveDeMeta('cps', 'contatos'), 'contatos.cps');
+  assert.equal(chaveDeMeta('cpl', 'todos'), 'todos.cpl');
+  assert.equal(chaveDeMeta('spend', 'bugiganga'), 'bugiganga.spend');
+});
+
+test('nenhuma chave de meta se repete entre dois baldes', () => {
+  // Duas telas gravando na MESMA linha de social_metas é como uma meta digitada
+  // em Contatos reapareceria em Vendas. A varredura cobre todo cartão com meta.
+  const dono = {};
+  ['todos', 'seguidores', 'contatos', 'site', 'vendas'].forEach((b) => {
+    cartoesDoBalde(b, {}).filter(c => c.metaKey).forEach((c) => {
+      const chave = chaveDeMeta(c.metaKey, b);
+      assert.equal(dono[chave], undefined, chave + ' é usada por ' + dono[chave] + ' E por ' + b);
+      dono[chave] = b;
+    });
+  });
+  // E as quatro chaves sem prefixo são exatamente as que já existem no banco.
+  assert.deepEqual(Object.keys(dono).filter(k => !k.includes('.')).sort(), ['cpi', 'cpl', 'cps', 'spend']);
 });
 
 test('o cartão de investimento é sempre o primeiro, e é o único com meta de BUDGET', () => {
