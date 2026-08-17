@@ -19,6 +19,11 @@ import { lerPosicionamentos, gravarPosicionamentos, resumoDosPosicionamentos, es
 
 export const PUBLICO_VAZIO = {
   cidades: [], excluidas: [],
+  // PAÍS E ESTADO (13/08/2026). Saíram de CHAVES_DE_LOCALIZACAO — ver o
+  // comentário daquela lista. A FORMA DOS DOIS É DIFERENTE na Meta e isso é
+  // armadilha: `countries` é lista de STRINGS ("BR"), `regions` é lista de
+  // objetos com `key`. Ler as duas do mesmo jeito devolve undefined calado.
+  paises: [], estados: [],
   idadeMin: 18, idadeMax: 65,
   generos: [], interesses: [], comportamentos: [],
   incluir: [], excluir: [],
@@ -117,7 +122,7 @@ function excluidasDe(targeting) {
 // como lugar. Toda chave listada precisa de um nome em português em
 // NOMES_LOCALIZACOES, senão o dono leria a chave crua em inglês no aviso.
 export const CHAVES_DE_LOCALIZACAO = [
-  'regions', 'countries', 'country_groups', 'zips',
+  'country_groups', 'zips',
   'places', 'geo_markets', 'metro_areas', 'electoral_districts',
   'medium_geo_areas', 'small_geo_areas', 'subcities', 'neighborhoods',
   'subneighborhoods', 'location_cluster_ids',
@@ -127,6 +132,11 @@ export const CHAVES_DE_LOCALIZACAO = [
 // passou a GERENCIAR pin, com mapa e tudo. Deixá-lo aqui faria a tela avisar
 // "há localidades que eu não mexo" sobre justamente o que ela agora edita —
 // e o aviso viraria mentira.
+//
+// `countries` e `regions` saíram em 13/08/2026 pelo mesmo motivo: o editor
+// passou a desenhar Brasil e Estado, com escolha entre "a área inteira" e
+// "ponto com raio". A obrigação que vem junto está cumprida logo abaixo — os
+// dois são lidos, gravados e CONTAM no bloqueio de "sem localização".
 
 // Localidades que o editor não gerencia, mas que devem ser preservadas.
 // Devolve os nomes das chaves de geo_locations que são lugar e têm conteúdo.
@@ -154,6 +164,16 @@ export function lerPublico(targeting) {
       unidade: c.distance_unit || 'kilometer',
     })),
     excluidas: excluidasDe(t),
+    // A FORMA DE CADA UM É DIFERENTE, e a diferença é armadilha: `countries` é
+    // lista de strings ("BR"), `regions` é lista de objetos ({key, name}).
+    // `countries` chega da Meta como lista de strings — mas aceitar `{key}`
+    // também custa uma linha e evita gravar "[object Object]" como país se um
+    // dia vier no outro formato. País errado é anúncio no país errado.
+    paises: lista(geo.countries)
+      .map((c) => (c && typeof c === 'object' ? c.key : c))
+      .filter((c) => c != null && String(c) !== '')
+      .map((c) => ({ key: String(c), nome: String(c) })),
+    estados: lista(geo.regions).filter((r) => r && r.key != null).map((r) => ({ key: String(r.key), nome: nomeDe(r) || String(r.key) })),
     idadeMin: t.age_min == null ? PUBLICO_VAZIO.idadeMin : Number.isFinite(Number(t.age_min)) ? Number(t.age_min) : PUBLICO_VAZIO.idadeMin,
     idadeMax: t.age_max == null ? PUBLICO_VAZIO.idadeMax : Number.isFinite(Number(t.age_max)) ? Number(t.age_max) : PUBLICO_VAZIO.idadeMax,
     generos: lista(t.genders).map(Number),
@@ -295,6 +315,16 @@ export function montarTargeting(publico, original) {
   } else {
     delete geoOriginal.custom_locations;
   }
+  // PAÍS E ESTADO, com o mesmo cuidado das cidades: sobrescreve a chave e some
+  // com ela quando não sobra nenhum. Mandar `[]` não é a mesma coisa que não
+  // mandar. País vai como string crua; estado, como objeto com `key`.
+  const paisesFiltrados = (p.paises || []).filter((x) => x != null && x.key != null).map((x) => String(x.key));
+  if (paisesFiltrados.length) geoOriginal.countries = paisesFiltrados;
+  else delete geoOriginal.countries;
+  const estadosFiltrados = (p.estados || []).filter((x) => x != null && x.key != null).map((x) => ({ key: String(x.key) }));
+  if (estadosFiltrados.length) geoOriginal.regions = estadosFiltrados;
+  else delete geoOriginal.regions;
+
   // Deleta geo_locations inteira só se nenhuma outra localização restar
   if (Object.keys(geoOriginal).length) {
     t.geo_locations = geoOriginal;
@@ -398,6 +428,14 @@ export function resumoDasMudancas(antes, depois) {
   const cid = diffLista(a.cidades, d.cidades, (x) => x.key, 'Cidades');
   if (cid) linhas.push(cid);
 
+  // País e estado entram no resumo pela mesma razão das cidades: mudança de
+  // lugar que passa calada pela janela de confirmação é mudança que ninguém
+  // aprovou.
+  const pais = diffLista(a.paises, d.paises, (x) => x.key, 'Países');
+  if (pais) linhas.push(pais);
+  const est = diffLista(a.estados, d.estados, (x) => x.key, 'Estados');
+  if (est) linhas.push(est);
+
   // Onde o anúncio aparece. Sem estas linhas, trocar posicionamento seria a
   // ÚNICA mudança do editor que passaria calada pela janela de confirmação — e
   // é a que muda onde o anúncio é entregue.
@@ -418,6 +456,38 @@ export function resumoDasMudancas(antes, depois) {
       const nomeCidade = nomePara(c, c.key);
       linhas.push(`Raio de ${nomeCidade}: ${valAnt} → ${valNova}`);
     }
+  }
+
+  // O PIN NO MAPA (`custom_locations`). SEM ESTAS LINHAS O RESUMO VINHA VAZIO E
+  // A TELA DESISTIA COM "Nada mudou. Não há o que salvar." — o ponto era
+  // desenhado no mapa, com endereço e raio, e nunca chegava na Meta.
+  //
+  // Defeito real, visto na conta da Vessel em 17/08/2026. As duas outras pontas
+  // já estavam certas o tempo todo: `lerPublico` lê o pin e `montarTargeting` o
+  // manda de volta. Faltava só o resumo enxergá-lo — e é o resumo que decide se
+  // há o que salvar.
+  //
+  // O pin não tem chave da Meta: o que o identifica é ONDE ele caiu. Arredondar
+  // em 5 casas (~1 metro) evita que o mesmo ponto pareça outro por ruído de
+  // ponto flutuante na ida e volta pela API.
+  const chaveDoPin = (p) => `${Number(p.lat).toFixed(5)},${Number(p.lng).toFixed(5)}`;
+  const nomeDoPin = (p) => p.nome || p.endereco
+    || `ponto (${Number(p.lat).toFixed(4)}, ${Number(p.lng).toFixed(4)})`;
+  const pinsValidos = (arr) => (arr || [])
+    .filter((p) => p && Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lng)));
+  const paraDiff = (arr) => pinsValidos(arr).map((p) => ({ key: chaveDoPin(p), nome: nomeDoPin(p) }));
+  const pin = diffLista(paraDiff(a.pins), paraDiff(d.pins), (x) => x.key, 'Pontos no mapa');
+  if (pin) linhas.push(pin);
+
+  // Raio ou unidade do pin que FICOU — mesma necessidade das cidades: mudar o
+  // alcance de um ponto sem tirá-lo do mapa também é mudança de entrega.
+  const pinAntes = new Map(pinsValidos(a.pins).map((p) => [chaveDoPin(p), p]));
+  for (const p of pinsValidos(d.pins)) {
+    const ant = pinAntes.get(chaveDoPin(p));
+    if (!ant) continue;
+    if (Number(ant.raio) === Number(p.raio) && ant.unidade === p.unidade) continue;
+    const un = (u) => (u === 'mile' ? 'mi' : 'km');
+    linhas.push(`Raio de ${nomeDoPin(p)}: ${ant.raio} ${un(ant.unidade)} → ${p.raio} ${un(p.unidade)}`);
   }
 
   const exc = diffLista(a.excluidas, d.excluidas, (x) => x.key, 'Lugares excluídos');
@@ -564,7 +634,12 @@ export function avisosDe(antes, depois, contexto) {
   // Salvar morria sem o dono ter mudado nada. O teste que percorre a lista pegou
   // isso na hora — e e exatamente o beco sem saida que ele existe pra impedir.
   const temPins = (d.pins || []).length > 0;
-  if (!temCidades && !temOutrasLoc && !temPins) {
+  // PAÍS E ESTADO CONTAM COMO LOCALIZAÇÃO. Ver a cicatriz de 12/08 no comentário
+  // de CHAVES_DE_LOCALIZACAO: chave que sai daquela lista sem entrar aqui deixa
+  // o Salvar impossível para quem mira só por ela.
+  const temPaises = (d.paises || []).length > 0;
+  const temEstados = (d.estados || []).length > 0;
+  if (!temCidades && !temOutrasLoc && !temPins && !temPaises && !temEstados) {
     avisos.push({
       tipo: 'sem-lugar',
       texto: 'O público ficou <b>sem nenhuma localização</b>. A Meta não aceita um conjunto sem localização — escolha pelo menos uma cidade, região, país, CEP ou localização customizada.',

@@ -8,7 +8,83 @@ import {
   problemasDoItemDeChecklist,
   telefoneDaCobranca, problemasAbertosHoje, veiculosParaConferir,
   resultadoDoChecklist, porQueDoResultado,
+  oQuePedirNaRetirada, porQuePedirOAceite,
 } from './checklist.js'
+
+/* ── O que pedir a quem está pegando o carro ────────────────────────────────
+   O caso que gerou isto é real e está no banco: 07/08/2026, BMW X1 — Erick
+   Martins assinou o checklist às 7h30, Breno pegou o carro às 17h49, e como o
+   carro "já tinha checklist hoje" a tela não pediu nada a ele. Das 5 retiradas
+   reais da Frota, NENHUMA tinha a assinatura de quem pegou o carro. */
+
+const FICHA_ASSINADA = {
+  id: 'f1', veiculo_id: 'v1', feita_em: '2026-08-07',
+  pessoa_id: 'erick', pessoa_nome: 'Erick Martins', assinada_em: '2026-08-07T10:30:00Z',
+}
+const pedido = (extra) => oQuePedirNaRetirada({
+  veiculoId: 'v1', fichas: [FICHA_ASSINADA], hoje: '2026-08-07', ...extra,
+})
+
+test('ninguém conferiu hoje: pede o checklist inteiro, como sempre foi', () => {
+  const r = oQuePedirNaRetirada({ veiculoId: 'v1', fichas: [], hoje: '2026-08-07', pessoaId: 'breno' })
+  assert.equal(r.pedir, 'checklist')
+  assert.equal(r.porque, 'sem-ficha')
+})
+
+test('O CASO DE 07/08: conferiu Erick, pega Breno — pede o aceite dele', () => {
+  const r = pedido({ pessoaId: 'breno', pessoaNome: 'Breno' })
+  assert.equal(r.pedir, 'aceite')
+  assert.equal(r.porque, 'assinou-outra')
+  assert.equal(r.quemConferiu, 'Erick Martins')
+})
+
+test('quem já conferiu e assinou hoje não é perguntado de novo', () => {
+  // Ninguém confere o mesmo carro duas vezes no mesmo dia — era esta a parte
+  // certa da regra antiga, e ela continua valendo.
+  assert.equal(pedido({ pessoaId: 'erick' }).pedir, 'nada')
+  assert.equal(pedido({ pessoaId: null, pessoaNome: 'erick martins' }).pedir, 'nada')
+})
+
+test('ficha conferida e NÃO assinada: o aceite é o que produz a prova que falta', () => {
+  const r = oQuePedirNaRetirada({
+    veiculoId: 'v1', fichas: [{ ...FICHA_ASSINADA, assinada_em: null }],
+    hoje: '2026-08-07', pessoaId: 'breno',
+  })
+  assert.equal(r.pedir, 'aceite')
+  assert.equal(r.porque, 'ficha-sem-assinatura')
+})
+
+test('dois nomes vazios NÃO são a mesma pessoa', () => {
+  // Se fossem, quem não tem cadastro sairia sem assinar nada — que é
+  // justamente o caso que esta função existe pra cobrir.
+  const r = oQuePedirNaRetirada({
+    veiculoId: 'v1', fichas: [{ ...FICHA_ASSINADA, pessoa_id: null, pessoa_nome: '' }],
+    hoje: '2026-08-07', pessoaId: null, pessoaNome: '   ',
+  })
+  assert.equal(r.pedir, 'aceite')
+})
+
+test('a ficha de OUTRO carro, ou de OUTRO dia, não dispensa ninguém', () => {
+  assert.equal(oQuePedirNaRetirada({
+    veiculoId: 'v2', fichas: [FICHA_ASSINADA], hoje: '2026-08-07', pessoaId: 'erick',
+  }).pedir, 'checklist')
+  assert.equal(oQuePedirNaRetirada({
+    veiculoId: 'v1', fichas: [FICHA_ASSINADA], hoje: '2026-08-08', pessoaId: 'erick',
+  }).pedir, 'checklist')
+})
+
+test('o aceite sempre chega com a frase que explica por que ele está sendo pedido', () => {
+  assert.match(porQuePedirOAceite('assinou-outra', 'Erick Martins'), /Erick Martins/)
+  assert.match(porQuePedirOAceite('assinou-outra', 'Erick Martins'), /não precisa conferir de novo/i)
+  assert.match(porQuePedirOAceite('ficha-sem-assinatura', null), /sem assinatura/i)
+})
+
+test('a regra velha continua intacta para quem só quer saber do carro', () => {
+  // `precisaDeChecklist` segue existindo e segue olhando carro+dia: ela responde
+  // "este carro foi conferido hoje?", que é outra pergunta e continua certa.
+  assert.equal(precisaDeChecklist({ veiculoId: 'v1', fichas: [FICHA_ASSINADA], hoje: '2026-08-07' }), false)
+  assert.equal(precisaDeChecklist({ veiculoId: 'v1', fichas: [], hoje: '2026-08-07' }), true)
+})
 
 // Padrão do banco: semanal na sexta, mensal na 1ª quarta-feira.
 const CONFIG = { dia_semanal: 5, semana_mensal: 1, dia_mensal: 3 }

@@ -206,6 +206,12 @@ import { resumoDoRobo, fraseDaFilaVazia } from './fila.js'
 import { limparPersona, resumoPersona, fraseDaPersona, MAXIMO as PERSONA_MAXIMO } from './persona-da-marca.js'
 import { tipoDoArquivo, textoDoDocx, pareceTexto } from './ler-arquivo-de-texto.js'
 import { montarMapa } from './painel-do-mapa.js'
+// ESCOLHER LUGAR (13/08/2026): o painel é compartilhado com o "Subir para a
+// Meta" da Fábrica — uma peça só, para o dono escolher lugar do mesmo jeito nos
+// dois lugares.
+import { montarPainelDeLugares } from '../../compartilhado/painel-de-lugares.js'
+import { deListas, paraListas } from '../../compartilhado/lugares-do-anuncio.js'
+import { enderecoDeOndeCaiu } from '../../compartilhado/busca-de-lugar.js'
 import { agruparProblemas, fraseDosProblemas } from './problemas-do-anuncio.js'
 import { montarLeituraDePublico, publicoDaReceita } from './leitura-de-publico.js'
 import { PUBLICO_VAZIO } from './publico-alvo.js'
@@ -3640,75 +3646,83 @@ function _gtPubSecaoPublicosSalvos(){
   return bloco;
 }
 
-// A LISTA DOS PONTOS ao lado do mapa. O mapa mostra ONDE; a lista deixa
-// ajustar o RAIO e ler a coordenada -- numero que no mapa ninguem le.
-function _gtPubListaDePins(caixa){
-  const pins=_gtPub.pins||[];
-  caixa.innerHTML='';
-  if(!pins.length){
-    const p=document.createElement('p');
-    p.className='gt-mapa-vazio';
-    p.textContent='Nenhum ponto. As cidades acima continuam valendo.';
-    caixa.appendChild(p);
-    return;
-  }
-  pins.forEach((pin,i)=>{
-    const linha=document.createElement('div');
-    linha.className='gt-mapa-linha';
-    const nome=document.createElement('span');
-    nome.className='gt-mapa-linha-nome';
-    nome.textContent=pin.nome||`${Number(pin.lat).toFixed(5)}, ${Number(pin.lng).toFixed(5)}`;
-    nome.title=`${Number(pin.lat).toFixed(6)}, ${Number(pin.lng).toFixed(6)}`;
-    const raio=document.createElement('input');
-    raio.type='number';raio.min='1';raio.className='gt-mapa-linha-raio';
-    raio.value=String(pin.raio||1);
-    raio.setAttribute('aria-label','Raio do ponto '+(i+1));
-    // NAO redesenha a lista aqui: redesenhar tiraria o cursor do campo no meio
-    // da digitacao (mesmo motivo do raio das cidades, logo acima).
-    raio.onchange=()=>{pin.raio=Number(raio.value)||1;};
-    const un=document.createElement('span');
-    un.className='gt-mapa-linha-un';
-    un.textContent=pin.unidade==='mile'?'mi':'km';
-    const tirar=document.createElement('button');
-    tirar.type='button';tirar.className='gt-mapa-linha-tirar';
-    tirar.textContent='remover';
-    tirar.setAttribute('aria-label','Remover o ponto '+(i+1));
-    tirar.onclick=()=>{pins.splice(i,1);_gtPubRedesenha();};
-    linha.append(nome,raio,un,tirar);
-    caixa.appendChild(linha);
-  });
-}
-
+// ONDE O ANUNCIO APARECE — Brasil, Estado, Cidade ou Local.
+//
+// PEDIDO DO DONO (13/08/2026): "eu preciso selecionar entre Brasil, Estado,
+// Cidade e Local (estabelecimento, comercio, negocio) e aparece o pin automatico
+// no mapa e vice versa, colocar o pin aleatorio mostra onde caiu de fato".
+//
+// O painel e o mapa sao os MESMOS do "Subir para a Meta" da Fabrica.
 function _gtPubSecaoLugar(){
   const cx=document.createElement('div');
   cx.appendChild(_gtPubTitulo('Onde mostrar'));
-  cx.appendChild(_gtPubAjuda('Raio 0 significa a cidade inteira. A Meta não aceita raio menor que 17 km — se você puser menos, eu aviso e ajusto.'));
-  const chips=_gtPubLinha();
-  for(const c of _gtPub.cidades){
-    const raio=_gtPubInput(c.raio,'raio','70px');
-    raio.type='number';raio.min='0';raio.title='Raio em km (0 = cidade inteira)';
-    // De propósito NÃO redesenha: redesenhar aqui tiraria o cursor do campo no
-    // meio da digitação. Raio não gera aviso bloqueante — só o de ajuste, que
-    // é recalculado na confirmação.
-    raio.onchange=()=>{c.raio=Number(raio.value)||0;};
-    chips.appendChild(_gtPubChip(c.nome||c.key,()=>{_gtPub.cidades=_gtPub.cidades.filter(x=>x.key!==c.key);_gtPubRedesenha();},raio));
-  }
-  // "Sem cidade" só é problema de verdade quando NÃO sobra localização
-  // nenhuma. Um conjunto mirado por estado/país/CEP (outrasLocalizacoes,
-  // Task 4) não tem cidade nenhuma e está perfeitamente válido — o vermelho
-  // aqui só quando os dois lados estão vazios.
-  if(!_gtPub.cidades.length&&!(_gtPub.outrasLocalizacoes||[]).length){
-    const vazio=document.createElement('span');
-    vazio.style.cssText='font-size:calc(11px*var(--gt-fs,1.3));color:var(--red,#dc2626);';
-    vazio.textContent='Sem nenhuma cidade — a Meta não aceita assim.';
-    chips.appendChild(vazio);
-  }
-  cx.appendChild(chips);
-  // Aviso calmo (não bloqueante): há localidades que este editor não gerencia
-  // (região, país, CEP…) e que serão preservadas intactas ao salvar. O dono
-  // precisa saber disso AQUI, no corpo, antes de chegar na confirmação — não
-  // só no resumo final. Reusa o texto que avisosDe já traduz para o mesmo
-  // caso, em vez de inventar uma frase nova.
+  cx.appendChild(_gtPubAjuda('Escolha Brasil, Estado, Cidade ou Local. Cada um pode valer como a área inteira ou como um ponto com raio — e o mapa mostra onde cada escolha caiu. Clique no mapa para pôr um ponto: ele descobre sozinho em que rua caiu.'));
+
+  // A LISTA DE LUGARES É UMA SÓ, e o painel e o mapa mexem NELA. As quatro
+  // listas que a Meta entende (`paises`, `estados`, `cidades`, `pins`) são
+  // refeitas a cada mudança — assim `montarTargeting` continua sendo a única
+  // dona da tradução, e a tela nunca escreve na Meta por conta própria.
+  const lugares = deListas(_gtPub);
+  const gravar = () => Object.assign(_gtPub, paraListas(lugares));
+
+  const caixaPainel = document.createElement('div');
+  cx.appendChild(caixaPainel);
+
+  const caixaMapa = document.createElement('div');
+  cx.appendChild(caixaMapa);
+
+  let mapa = null;
+  const painel = montarPainelDeLugares(caixaPainel, {
+    lugares,
+    buscarNaMeta: (params) => metaFetch('/search', params, _gtCurAcc?.id),
+    buscarNoMapa: async (termo) => {
+      const { data, error } = await sbClient.functions.invoke('buscar-lugar', { body: { acao: 'buscar', termo } });
+      // O MOTIVO VAI PRA TELA. Engolir o erro aqui devolveria lista vazia, e
+      // "nada encontrado" quando na verdade a busca falhou é a mentira que o
+      // padrão da casa proíbe.
+      if (error || data?.error) throw new Error(data?.error || error?.message || 'a recepção do mapa não respondeu');
+      return data;
+    },
+    aoMudar: () => { gravar(); if (mapa) mapa.desenhar(); },
+  });
+
+  // Desenha DEPOIS de estar na tela: o mapa mede a propria largura pra decidir
+  // quantos quadradinhos busca, e fora do documento ela e zero.
+  setTimeout(() => {
+    try {
+      mapa = montarMapa(caixaMapa, {
+        lugares,
+        editavel: true,
+        // Nao redesenha o painel inteiro do publico: isso remontaria o mapa e
+        // jogaria a vista de volta pro enquadre, tirando o dono do lugar onde
+        // ele estava.
+        aoMudar: () => { gravar(); painel.redesenhar(); },
+        // O PONTO SE APRESENTA. Ele ja nasceu no mapa; o nome chega depois, e
+        // quando chega o rotulo deixa de ser um par de numeros.
+        aoPorPonto: async (ponto) => {
+          try {
+            const { data, error } = await sbClient.functions.invoke('buscar-lugar', { body: { acao: 'ondeCaiu', lat: ponto.lat, lng: ponto.lng } });
+            if (error || data?.error) throw new Error(data?.error || error?.message || 'sem resposta');
+            const achado = enderecoDeOndeCaiu(data);
+            ponto.nome = achado.nome; ponto.endereco = achado.endereco;
+          } catch (e) {
+            // Sem nome, fica a coordenada — que e feia e verdadeira. E a tela
+            // DIZ que nao conseguiu, em vez de deixar o dono achando que o
+            // endereco em branco e o endereco.
+            painel.dizer('Pus o ponto, mas não consegui o endereço dele: ' + String((e && e.message) || e).slice(0, 120), true);
+          } finally {
+            ponto.procurandoNome = false;
+            gravar(); painel.redesenhar(); if (mapa) mapa.desenhar();
+          }
+        },
+      });
+    } catch (e) { console.warn('[GT] mapa nao abriu:', e); caixaMapa.textContent = 'Nao consegui abrir o mapa.'; }
+  }, 0);
+
+  // Aviso calmo (nao bloqueante): ha localidades que este editor nao gerencia
+  // (CEP, bairro, regiao metropolitana...) e que serao preservadas intactas ao
+  // salvar. O dono precisa saber disso AQUI, no corpo, antes de chegar na
+  // confirmacao. Reusa o texto que avisosDe ja traduz para o mesmo caso.
   if((_gtPub.outrasLocalizacoes||[]).length){
     const notaLocal=avisosDe(_gtPub,_gtPub,{}).find(x=>x.tipo==='outras-localizacoes');
     if(notaLocal){
@@ -3718,34 +3732,6 @@ function _gtPubSecaoLugar(){
       cx.appendChild(nota);
     }
   }
-  cx.appendChild(_gtPubBusca('Buscar cidade…',_gtPubBuscarCidades,
-    c=>{if(!_gtPub.cidades.some(x=>x.key===String(c.key)))_gtPub.cidades.push({key:String(c.key),nome:c.name+(c.region?' · '+c.region:''),raio:0,unidade:'kilometer'});},
-    c=>c.name+(c.region?' · '+c.region:'')));
-
-  // O MAPA DOS PONTOS. Vem depois das cidades porque ponto no mapa e o ajuste
-  // FINO em cima delas -- e porque o pedido do dono e conferir a coordenada:
-  // "apos 25 pins some o mapa e eu fico sem saber se esta correto".
-  cx.appendChild(_gtPubTitulo('Pontos exatos no mapa'));
-  cx.appendChild(_gtPubAjuda('Clique no mapa para pôr um ponto, e no ponto para tirar. Cada ponto tem um raio em volta. Diferente do Gerenciador, aqui não some nada quando passa de 25 pontos.'));
-  const caixaMapa = document.createElement('div');
-  cx.appendChild(caixaMapa);
-  // Desenha DEPOIS de estar na tela: o mapa mede a propria largura pra decidir
-  // quantos quadradinhos busca, e fora do documento ela e zero.
-  setTimeout(() => {
-    try {
-      montarMapa(caixaMapa, {
-        pins: _gtPub.pins,
-        editavel: true,
-        // Nao redesenha o painel inteiro: isso remontaria o mapa e jogaria a
-        // vista de volta pro enquadre, tirando o dono do lugar onde ele estava.
-        aoMudar: () => { _gtPubListaDePins(listaPins); },
-      });
-    } catch (e) { console.warn('[GT] mapa nao abriu:', e); caixaMapa.textContent = 'Nao consegui abrir o mapa.'; }
-  }, 0);
-  const listaPins = document.createElement('div');
-  listaPins.className = 'gt-mapa-lista';
-  _gtPubListaDePins(listaPins);
-  cx.appendChild(listaPins);
 
   cx.appendChild(_gtPubTitulo('Onde NÃO mostrar'));
   const fora=_gtPubLinha();

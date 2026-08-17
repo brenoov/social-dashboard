@@ -1,6 +1,6 @@
 # Pendências do iamundi
 
-Última revisão: **13/08/2026**
+Última revisão: **17/08/2026**
 
 O que é este arquivo: a lista viva do que está **em aberto** no projeto. Cada item
 diz o que falta, **por que importa** e **onde** se resolve. É a memória escrita —
@@ -183,25 +183,85 @@ Adiado porque **o dono é superadmin e já enxerga a aba**. Quando for liberar p
 mais alguém, é aqui. E se alguém disser "a aba não aparece pra mim", é isto —
 antes de suspeitar de defeito.
 
+### A10 · Lugares no mapa › conferir uma vez com o dono junto 🔴 *mexe em conjunto real*
+Subiu em 13/08: escolher **Brasil, Estado, Cidade ou Local**, com o mapa mostrando
+cada escolha e o ponto largado dizendo em que rua caiu. Duas coisas **não se
+provam com teste** e ficaram esperando:
+
+1. **Nome de ponto indo para a Meta.** Quando o ponto tem nome, o app manda `name`
+   e `address_string` junto. Até 13/08 todo ponto criado pelo mapa nasceu SEM
+   nome, então esse caminho **nunca rodou contra a Meta de verdade**. Aplicar uma
+   vez, num conjunto **pausado**, e ver a Meta aceitar.
+2. **Conferir no Gerenciador** que o estado e o ponto ficaram onde deviam. É a
+   mesma pendência que o mapa de 12/08 deixou aberta.
+
+Enquanto isso não acontece, o mapa continua marcado como "não provado ao vivo".
+
+### A11 · ~~Lugares no mapa › a busca de endereço, com um login de verdade~~ ✅ **provado em 17/08**
+A dúvida era a ligação de dentro da função `buscar-lugar` até o serviço de mapa —
+só dava para ver com sessão logada. Conferido, e funciona nos dois sentidos:
+
+- **Buscar por endereço:** "Avenida Paulista 1000, São Paulo" devolveu **HTTP 200**
+  com o resultado real do OpenStreetMap — rua, bairro, cidade, CEP e as
+  coordenadas (`-23.5648865, -46.6519180`).
+- **Clicar no mapa:** o ponto descobre sozinho onde caiu. Clicando no meio do
+  mapa veio *"CBMEG/FEAGRI · Avenida Marechal Cândido Rondon · Cidade
+  Universitária · Campinas · SP"*.
+
+Nenhuma vez apareceu o "não consegui buscar agora". **Não é preciso trocar para
+Google/Mapbox** — aquela saída fica guardada no desenho, sem prazo.
+
+### A12 · Status do Claude › o `breno@` não enxerga a ferramenta 🟢 *achado em 14/08*
+Medido no banco em 14/08, conferindo outra coisa (o B12).
+
+| Super-admin | Tem `claude.status` |
+|---|---|
+| erick@rbvcompany.com | sim |
+| gabriel.gertrudes@rbvcompany.com | sim |
+| **breno@rbvcompany.com** | **não** |
+
+Por quê: a permissão foi concedida por uma migration de julho que varria **quem
+era super-admin naquele dia**. O `breno@` virou super-admin depois, e a concessão
+não voltou a rodar. É o padrão conhecido: **chave nova só chega a quem já
+existia** — quem entra depois nasce sem ela.
+
+Resolve em **Administração › Usuários**, marcando "ver" em Status do Claude para
+o `breno@`. Não mexi: é permissão de pessoa de verdade, e a decisão é sua.
+
 ---
 
 ## Parte B — Precisa programar
 
-### B1 · 15 pastas ainda sem o guarda de import 🔴 *já derrubou tela 4 vezes*
+### B1 · ~~15 pastas ainda sem o guarda de import~~ ✅ **resolvido em 14/08**
 Chamar uma função da pasta vizinha e **esquecer de importar não quebra o build** —
 o Vite supõe que é global do navegador. O erro só nasce quando alguém clica.
 
 Já aconteceu: Gestão de Tráfego (29/07, duas vezes no mesmo dia), Admin (05/08),
 Patrimônio (10/08 — as abas Planilha e Resumo abriam **em branco**).
 
-O guarda é um `imports.test.mjs` na pasta. **Existe em 5**: `admin`,
-`gestao-trafego`, `patrimonio`, `frota` e `compartilhado/relatorios`. **As outras
-~15 de `src/ferramentas/` não têm.** Copiar de
-`src/ferramentas/patrimonio/imports.test.mjs`, que já trata os dois falsos
-positivos conhecidos.
+**O que estava errado era maior do que este item dizia.** Na hora de fazer, a
+conta real era: o guarda existia em **9** pastas (não 5) e faltava em **13** — mas
+as 9 eram **cópias do mesmo código que já tinham divergido entre si**. Quatro nem
+olhavam o miolo compartilhado, e sete olhavam **uma** tela da pasta em vez de
+todas. Copiar a décima cópia, como este item mandava, seria fazer o problema
+crescer.
 
-Regra: pasta nova nasce com o guarda; ao mexer numa sem guarda, criar **antes** e
-ver o que ele acusa.
+**Como ficou:** o motor mora em `src/compartilhado/guarda-de-imports.mjs`, se
+testa em `guarda-de-imports.test.mjs`, e cada uma das **22 pastas** tem um
+`imports.test.mjs` de três linhas. Três buracos foram fechados de quebra: todos
+os blocos `<script>` (e não só o primeiro), `export async function`, e nome vindo
+de desmontagem (`const { x } = y`), que virava acusação falsa.
+
+**Provado, não deduzido:** as 22 pastas foram sabotadas uma a uma (tirei um
+import de verdade de cada) e as 22 acusaram. E com `rotuloDeStatus` fora do
+import do `cartao-peca.vue`, o `npm run build` **passou** e o guarda reprovou —
+que é exatamente o formato do defeito. Suíte: 3043 → 3105 testes, 0 falha.
+
+Nenhum import faltando foi encontrado no código de hoje: o guarda entra
+preventivo, não corretivo.
+
+Regra que continua valendo: **pasta nova nasce com o guarda**; ao mexer numa sem
+guarda, criar **antes** e ver o que ele acusa.
 
 ### B2 · Relatórios › nunca foram vistos na tela real
 O que foi verificado: 2359 testes, build, e os 8 relatórios rodando com os
@@ -258,7 +318,91 @@ a Meta devolver rate limit de verdade. Money-path: na próxima vez que der rate
 limit, conferir no Gerenciador que continuou na MESMA campanha, sem uma segunda
 igual. Só depois disso o item sai daqui.
 
-### B4b · Meta Ads › as seis melhorias subiram sem ninguém ver na tela 🔴
+### B4b · Meta Ads › as seis melhorias subiram sem ninguém ver na tela 🟢 *quase fechado — 17/08*
+
+> 🔴 **O PIN NO MAPA ESTAVA QUEBRADO, e só a tela contava (17/08).** Este era o
+> item nº 1 do B4b, e a suspeita era a errada: o medo era que salvar um ponto
+> **reescrevesse** o `custom_locations` de um conjunto rodando. O defeito era o
+> oposto — **o ponto nunca chegava na Meta.**
+>
+> Na conta da Vessel, conjunto "Criativos Genspark": pus um ponto no mapa, a tela
+> desenhou, descobriu sozinha o endereço (*CBMEG/FEAGRI · Av. Marechal Cândido
+> Rondon · Cidade Universitária · Campinas*) e mostrou "2 lugares no mapa" com
+> raio de 1 km. Ao confirmar: **"Nada mudou. Não há o que salvar."** Reproduzido
+> duas vezes, sem redesenho de painel no meio (o relógio de TEMPO REAL não virou
+> entre o pin e o clique — foi assim que descartei que fosse a tela se remontando).
+>
+> **A causa:** `lerPublico` **lê** o pin e `montarTargeting` **manda** o pin — as
+> duas pontas estavam certas o tempo todo. Faltava `resumoDasMudancas` olhar para
+> `pins`. E é o resumo que decide se há o que salvar: vindo vazio, a tela desiste
+> e volta **antes** de escrever. O ponto morria ali, sem nenhum aviso.
+>
+> É o pior formato de falha que o PADRÃO descreve: **a tela mente por omissão.**
+> Ela desenha o pin, mostra o endereço e o raio, e depois joga fora.
+>
+> **Corrigido e provado em produção** (commit `c08d7eb`, chunk
+> `tela-de-gestao-trafego-Fktk6t_H.js` conferido no ar): o mesmo caminho agora
+> responde **"Confirma estas mudanças? · Pontos no mapa: +Rua Walter August
+> Hadler · Cidade Universitária · Campinas · SP"**, com o botão "Salvar na Meta".
+> 5 testes novos; os 4 primeiros falham sem o conserto, e o quinto guarda a outra
+> metade (pin igual dos dois lados não pode virar mudança falsa).
+>
+> ⚠️ **Cancelei em vez de salvar.** Escrever no conjunto é decisão sua, e conferi
+> na Meta que nada foi gravado: dos 40 conjuntos da conta, só os 2 que já tinham
+> `custom_locations` continuam com eles. **O último passo — clicar "Salvar na
+> Meta" e conferir no Gerenciador — é o que falta, e é seu.**
+>
+> Conferido de quebra que `comportamentos` e `outrasLocalizacoes` **não** têm o
+> mesmo buraco: os dois são lidos e não editados por esta tela, de propósito.
+
+> ✅ **A sugestão de público lendo a persona foi provada (17/08).** Era o item nº 3.
+> Capturei o corpo do pedido à `sugerir-publico-ia`: ele leva `persona` com os
+> **2.326 caracteres** da Vessel, junto com `marca`, `evidencia` e `objetivo`.
+>
+> E a resposta é a prova de que a persona **pesa**: os números mandam mirar
+> 18-24 anos (R$ 3,74 por conversa, 3,7× mais barato), e a IA **recusa** —
+> *"contradiz o público da marca: mulheres de 28-55 com renda própria. Clique
+> barato nessa faixa não significa cliente, significa curiosidade sem conversão
+> real."* Era exatamente o defeito que originou o item ("sugere idades que não
+> casam com a marca").
+
+> ⏸️ **O re-disparo do subir (item nº 2) continua sem prova ao vivo, e não é por
+> falta de tentar.** Ele só acontece quando a Meta devolve rate limit de verdade;
+> forçar isso exigiria martelar a API dela ou criar campanhas reais só para o
+> teste. A lógica tem **5 testes** cobrindo o `campanhaDoRastro`
+> (`coletor/subir-estudio.test.mjs`). Fica como está o B4 manda: na próxima vez
+> que der rate limit, conferir no Gerenciador que continuou na MESMA campanha.
+
+> ✅ **A metade de LEITURA foi vista numa tela logada em 15/08/2026**, com a conta
+> real do dono (`erick@`) e uma trava de rede que abortava toda escrita. Os três
+> defeitos que estavam só "conferidos no bundle" agora estão conferidos na tela:
+>
+> | O que era o defeito | O que a tela mostrou |
+> |---|---|
+> | "Erro ao carregar contas: g is not iterable" (GRANT da coluna `persona`) | A lista abre com as 4 contas, e trocar de conta funciona |
+> | Aba "A régua" MORTA (`Cannot access 'campo' before initialization`) | Pinta inteira: o texto de ajuda, as metas e os campos de peso |
+> | Texto da IA caindo em campo órfão (o `data-conta-id`) | O `<textarea>` carrega `data-conta-id`, e ele bate com a conta ativa |
+>
+> A prova mais forte foi a persona: na conta da Raíssa o campo vem vazio, e o
+> banco confirma `persona` nula — vazio honesto. Trocando para a **Vessel**, os
+> **2.326 caracteres** aparecem no campo e o `data-conta-id` muda junto para o id
+> da Vessel. Se o GRANT ainda estivesse faltando, a linha inteira seria recusada
+> e a lista de contas nem carregaria.
+>
+> **Zero escritas.** A trava abortava tudo que não fosse leitura, e no caminho
+> inteiro ela não precisou barrar nada do app — só os dois disparos falsos que eu
+> mesmo fiz para provar que ela mordia. 92 leituras na Meta, nenhuma escrita.
+>
+> ⚠️ **Uma armadilha do método, que vale guardar:** a primeira trava abortava
+> *todo* POST, e o `meta-proxy` **lê por POST** (o verbo real vai no corpo). A
+> tela apareceu com "0 campanhas / Nenhuma campanha encontrada" — um defeito que
+> não existia, fabricado pela minha própria medição. A trava passou a ler o corpo
+> e deixar passar só `method: 'GET'`; aí vieram as 5 campanhas de verdade.
+>
+> **O que continua sem prova, e é o que sobra deste item:** as três de escrita —
+> pin no mapa (reescreve `custom_locations` na Meta), re-disparo do subir (depende
+> de rate limit real) e sugerir público (gasta IA). Nenhuma dá para provar sem
+> escrever na conta real.
 As seis melhorias que o dono pediu em 12/08/2026 estão **no ar e conferidas no
 bundle de produção**, mas **nenhuma foi vista funcionando com sessão logada**.
 Três são money-path:
@@ -311,8 +455,9 @@ correta — e leva de 10 a 60 segundos, o que importou (ver abaixo).
 > a permissão de leitura de `persona` para quem está logado (`access_token`
 > continua revogado), e a tela passou a olhar o status da resposta — erro de
 > leitura agora vira "sua sessão expirou" / "você não tem permissão", nunca mais
-> jargão. ⚠️ **Não foi visto numa tela logada** (esta máquina não tem sessão e a
-> regra é não mexer em conta real): o primeiro a abrir confirma.
+> jargão. ✅ **Visto numa tela logada em 15/08** — a lista de contas abre e a
+> persona da Vessel (2.326 caracteres) chega ao campo. Ver o quadro no topo deste
+> item.
 >
 > **A lição, que vale pra próxima coluna:** em `accounts`, **coluna nova nasce sem
 > permissão de leitura**. Migration que cria coluna que a tela lê tem que dar o
@@ -397,19 +542,40 @@ Dois efeitos colaterais da mudança de dono, para quem tropeçar neles:
   em outra conta (ele é global — outra sessão pode ter trocado), o erro é
   `Permission to rbv-co/social-dashboard.git denied to <conta>`.
 
-### B12 · Migrations › o runner acha que 57 estão pendentes 🔴 *não rodar*
-`cd coletor && node run-migrations.mjs --dry` lista **57 migrations como
-pendentes**, incluindo as que obviamente já rodaram. A tabela de controle
-`public.schema_migrations` tem **23 registros para 80 arquivos** — as outras
-foram aplicadas na mão e nunca registradas.
+### B12 · ~~Migrations › o runner acha que 57 estão pendentes~~ ✅ **resolvido em 14/08**
+Eram **60**, não 57 (a lista tinha envelhecido: 26 registros para 86 arquivos).
+`node run-migrations.mjs --dry` listava todas elas como pendentes, incluindo as
+que obviamente já tinham rodado — as outras foram aplicadas na mão, pelo painel
+ou pelo MCP, e ninguém registrou.
 
-**Rodar o runner replicaria 57 migrations em produção.** Muitas são
-`if not exists`, mas nem todas, e nenhuma foi conferida uma a uma. Enquanto isso
-não for arrumado, migration nova vai **dirigida pelo MCP** e se registra na mão
-no mesmo SQL (foi assim com as duas de 12/08).
+**A conferência, uma a uma (não por amostra):** de cada arquivo foram extraídos
+os objetos que ele cria — **227 alvos** entre tabela, coluna, função, policy,
+índice, trigger, tipo, view, job de cron e bucket — e cada alvo foi perguntado ao
+banco. **50 arquivos** bateram inteiros. **3** apareceram como parciais e os três
+eram erro da minha leitura, não do banco (a coluna era em `accounts` e não em
+`push_preferencias`; uma policy nasce dentro de um bloco `DO`, então o nome da
+tabela não está no texto; e duas policies "sumidas" são as que a migration
+seguinte trocou de nome de propósito). **7** não criam objeto nenhum — são UPDATE
+de permissão, INSERT de segredo, GRANT de coluna e COMMENT — e foram conferidas
+pelo efeito.
 
-Arrumar de verdade é conferir as 57 contra o banco e registrar as que já valem.
-É trabalho próprio, não coisa pra fazer de passagem.
+**Nenhuma das 60 precisava rodar.** As 61 (com a de acerto) foram carimbadas em
+`db/migrations/2026-08-14-registrar-migrations-ja-aplicadas.sql`, aplicado pelo
+MCP. Hoje: `✓ Tudo em dia. Nenhuma migration pendente. (87 já aplicadas)`.
+
+**O que era perigoso, e agora está escrito:** três das 60 fariam estrago se
+rodassem de novo — uma recriaria policies de escrita que uma migration posterior
+substituiu (afrouxando quem pode gravar a config da Gestão de Tráfego), duas são
+`UPDATE` em `profiles`, e a `conteudo-11` **tira** a permissão de Conteúdo de
+todo mundo: rodá-la hoje tomaria o acesso da única pessoa que o tem.
+
+A tabela de controle ganhou a coluna `observacao`, porque `applied_at` nessas 60
+é a data do **carimbo**, não a da aplicação de verdade — essa ninguém sabe mais.
+Sem ela, quem lesse a tabela daqui a um mês concluiria que 60 migrations rodaram
+todas no dia 14/08.
+
+Continua valendo: **migration nova vai dirigida pelo MCP** e se registra no mesmo
+SQL. O runner agora só existe como conferência (`--dry`), e essa passou a valer.
 
 ### B5 · Fábrica Hero-IA › trocar a composição pelo relight da foto real 💰
 O motor `coletor/hero-ia/hero-ia.mjs` hoje compõe `[cena de fundo, recorte da
@@ -470,6 +636,36 @@ Ou seja: **ligar o aviso do A1 é o que destrava estas duas.**
 
 O que está em jogo: das 26 multas (R$ 4.653,76), **5 são "não identificação do
 condutor", R$ 1.301,60** — dinheiro perdido puramente por não saber quem dirigia.
+
+### B13 · Frota › quem decidiu a reserva nem sempre tem nome na tela
+
+O histórico da aba Gestão mostra quem pediu, quem decidiu e quem encerrou cada
+reserva. O nome sai de `acessos_pessoas.profile_id` — a ficha de colaborador
+ligada à conta de login, que a tela já carrega. **Quem tem login e não tem ficha
+de colaborador ligada aparece só como data, sem nome.**
+
+Não é defeito de tela: é o mesmo elo que o A2 trata pelo outro lado (gente sem
+login). Enquanto o elo não existir, a tela escreve a data e cala sobre o nome —
+o que ela não faz é inventar um nome plausível.
+
+**Como resolver:** ligar a ficha de colaborador ao login de cada pessoa em
+Acessos. Sem código.
+
+### B14 · Frota › o aceite de retirada não tem cópia em PDF no Zoho
+
+Desde 13/08/2026 quem pega um carro conferido por **outra pessoa** assina o
+*aceite de retirada* (ver o desenho em
+`docs/superpowers/specs/2026-08-13-frota-gestao-reservas-design.md`). Ele fica
+gravado em `frota_uso`, com o rabisco e o código da ficha do dia congelado.
+
+**O que não existe: o PDF dele na pasta do Zoho.** Foi decisão consciente — o
+dono aprovou "uma assinatura por viagem e nenhum PDF a mais", e a prova mora no
+banco, não no papel. Fica anotado porque, no dia em que uma multa precisar do
+papel do aceite, ele não vai estar na pasta.
+
+**O que fazer, se for pedido:** a mesma receita do checklist —
+`frota_uso_pdf` + a fila que a Edge Function `enviar-pdf-checklist` já sabe
+processar. O gerador (`pdf-do-checklist.js`) já tem o papel timbrado pronto.
 
 ---
 

@@ -44,6 +44,10 @@ import { linkDoWhatsapp, telefoneLegivel, porQueNaoDaLink } from '../../comparti
 // é resolvida automaticamente pelo <script setup> por causa do prefixo `v`.
 import { vTravaRolagem } from '../../compartilhado/travar-rolagem-de-fundo.js'
 import PainelDeChecklist from './painel-de-checklist.vue'
+// O mesmo campo de desenhar do checklist, reaproveitado no aceite de retirada.
+// A proporção dele (2:1) é o que faz o rabisco sair no papel do jeito que foi
+// feito na tela — ver o comentário do quadro em pdf-do-checklist.js.
+import CampoDeRabisco from './campo-de-rabisco.vue'
 import EditorDeChecklist from './editor-de-checklist.vue'
 import SanfonaDeRevisoes from './sanfona-de-revisoes.vue'
 // Os botões grandes do topo das duas abas (D33): estado embaixo do nome, e
@@ -74,7 +78,14 @@ import {
 import {
   quemFaltaHoje, resumoDaCobranca, precisaDeChecklist,
   problemasAbertosHoje, veiculosParaConferir, cadenciasDoDia,
+  oQuePedirNaRetirada, porQuePedirOAceite,
 } from '../../../supabase/functions/_shared/checklist.js'
+// O histórico da aba Gestão: a linha do tempo de reservas e retiradas, com a
+// prova de cada uma e o que o admin pode fazer com ela.
+import {
+  linhaDoTempo, filtrar, resumoDoHistorico, FILTROS,
+  rotuloDaSituacao, porQueNaoDaEmPortugues, diaEmBrasilia,
+} from './historico-de-reservas.js'
 import { bensLivresParaFrota, patchDoBem } from './bens-para-veiculo.js'
 import { dadosDoLocal, insertDaArvore } from './local-do-veiculo.js'
 import { contatoParaCobranca, podeCopiarTelefoneDoCarro } from './contato-do-motorista.js'
@@ -280,6 +291,27 @@ const gavetasDaGestao = computed(() => gavetasVisiveis([
     vazia: !podeAprovar.value || !filaDeAprovacao.value.length,
   },
   {
+    chave: 'historico',
+    titulo: 'Reservas e retiradas',
+    // O título fechado já responde à pergunta que o dono fez ("não sei se está
+    // indo tudo pro Zoho"): quantas saídas ficaram sem a assinatura de quem
+    // pegou o carro. Um "38 movimentos" não ajudaria ninguém a decidir nada.
+    estado: (() => {
+      const sem = contagemDosFiltros.value['sem-assinatura'] || 0
+      if (!historico.value.length) return 'nada registrado ainda'
+      if (!sem) return 'tudo com assinatura'
+      return sem === 1 ? '1 sem assinatura' : `${sem} sem assinatura`
+    })(),
+    // NÃO é urgente, mesmo com saída sem assinatura. Urgente abre a gaveta à
+    // força e tira da pessoa o direito de fechá-la — isso se reserva pro que
+    // apareceu HOJE e pede providência hoje. O histórico é consulta: ele conta
+    // o que já passou, e quase tudo aqui não tem mais conserto.
+    padraoAberta: false,
+    // "Não tem nada" é diferente de "não carreguei": aqui é medida — sem
+    // reserva e sem retirada nenhuma, não há linha do tempo pra mostrar.
+    vazia: !historico.value.length,
+  },
+  {
     chave: 'cobranca',
     titulo: 'Checklist de hoje',
     estado: botoesGestao.value.find((b) => b.chave === 'conferir-checklists')?.estado || null,
@@ -441,11 +473,29 @@ const copias = computed(() => resumoDasCopias({
   linhas: copiasPendentes.value, entregues: copiasEntregues.value,
   fichas: fichas.value, veiculos: veiculos.value, falhaLeitura: falhaCopias.value }))
 
-// O detalhe de uma ficha de hoje, aberto ao clicar num carro já feito.
+// TODAS as linhas de `frota_checklist_pdf`, e não só as que ainda não chegaram.
+// O quadro de cópias (D23) só precisa das pendentes — ele existe pra mostrar
+// problema. O histórico precisa das entregues também: a pergunta que ele
+// responde é "esta ficha chegou no Zoho?", e "não está na lista de pendentes"
+// não é resposta, é dedução.
+const copiasDetalhadas = ref([])
+
+// O detalhe de uma ficha, aberto ao clicar num carro já feito (quadro de
+// cobrança) ou numa linha do histórico.
 const fichaDetalhe = ref(null)   // { veiculo, ficha } | null
+/* As respostas da ficha ABERTA no detalhe.
+ *
+ * `respostasDeHoje` cobre só o dia de hoje, e isso bastava quando o detalhe só
+ * abria pelo quadro de cobrança. O histórico abre ficha de qualquer dia dos
+ * últimos 120 — e ali `respostasDeHoje` estaria vazia, o que faria o modal
+ * dizer "nenhum item respondido" sobre uma ficha cheia. Por isso a ficha de
+ * outro dia traz as respostas dela junto, buscadas na hora de abrir. */
+const respostasDaFichaAberta = ref(null)   // null = usar as de hoje
+const falhaRespostasDoDetalhe = ref(false)
 const respostasDoDetalhe = computed(() => {
   if (!fichaDetalhe.value) return []
-  return respostasDeHoje.value
+  const base = respostasDaFichaAberta.value ?? respostasDeHoje.value
+  return base
     .filter((r) => r.checklist_id === fichaDetalhe.value.ficha.id)
     .slice()
     .sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0))
@@ -453,7 +503,28 @@ const respostasDoDetalhe = computed(() => {
 function abrirDetalheChecklist(c) {
   const ficha = fichaDoVeiculoHoje(c.veiculo.id)
   if (!ficha) return  // defensivo: card "feito" sempre tem ficha de hoje por trás
+  respostasDaFichaAberta.value = null
+  falhaRespostasDoDetalhe.value = false
   fichaDetalhe.value = { veiculo: c.veiculo, ficha }
+}
+
+/** O mesmo detalhe, aberto a partir de uma ficha qualquer do histórico. */
+async function abrirFichaDoHistorico(ficha) {
+  if (!ficha) return
+  const veiculo = veiculos.value.find((v) => v.id === ficha.veiculo_id)
+    || { id: ficha.veiculo_id, nome: 'carro que saiu do cadastro', placa: '' }
+  falhaRespostasDoDetalhe.value = false
+  // Ficha de hoje já tem as respostas carregadas: não vale uma ida ao banco.
+  respostasDaFichaAberta.value = ficha.feita_em === hoje.value ? null : []
+  fichaDetalhe.value = { veiculo, ficha }
+  if (ficha.feita_em === hoje.value) return
+  const { data, error } = await sbClient.from('frota_checklist_respostas')
+    .select('*').eq('checklist_id', ficha.id).order('ordem')
+  // Falhar aqui NÃO pode virar "nenhum item respondido": é a mentira que o
+  // padrão da central proíbe por escrito. A marca faz o modal dizer que não
+  // conseguiu ler.
+  falhaRespostasDoDetalhe.value = !!error
+  respostasDaFichaAberta.value = error ? [] : (data || [])
 }
 
 /* A ficha de HOJE de um carro. Existe como função (e não repetida em três
@@ -490,7 +561,20 @@ const avisoDeTempoDoDetalhe = computed(() => {
   const f = fichaDetalhe.value.ficha
   return avisoDeTempo(tempoDePreenchimento(f.aberta_em, f.assinada_em))
 })
-function fecharDetalheChecklist() { fichaDetalhe.value = null; passeioFichaDetalheAberto.value = false }
+/* Qual das duas marcas de falha vale para a ficha que está aberta. */
+const detalheNaoLeu = computed(() => {
+  if (!fichaDetalhe.value) return false
+  return fichaDetalhe.value.ficha.feita_em === hoje.value
+    ? falhaRespostas.value
+    : falhaRespostasDoDetalhe.value
+})
+
+function fecharDetalheChecklist() {
+  fichaDetalhe.value = null
+  passeioFichaDetalheAberto.value = false
+  respostasDaFichaAberta.value = null
+  falhaRespostasDoDetalhe.value = false
+}
 
 const ROTULOS_RESULTADO = { liberado: 'Liberado', com_ressalvas: 'Com ressalvas', nao_liberado: 'Não liberado' }
 const rotuloResultado = (r) => ROTULOS_RESULTADO[r] || r
@@ -899,13 +983,24 @@ async function carregar() {
  * faz o quadro dizer que não conseguiu olhar, em vez de dizer "está tudo em
  * dia" sem ter olhado. */
 async function carregarCopiasNoZoho() {
-  const [pend, ent] = await Promise.all([
+  const [pend, ent, todas] = await Promise.all([
     sbClient.from('frota_checklist_pdf')
       .select('checklist_id,situacao,tentativas,ultimo_erro,criado_em')
       .neq('situacao', 'enviado').order('criado_em').limit(200),
     sbClient.from('frota_checklist_pdf')
       .select('checklist_id', { count: 'exact', head: true }).eq('situacao', 'enviado'),
+    // A terceira leitura é do HISTÓRICO, não do quadro de problemas: ele
+    // precisa saber que uma ficha específica CHEGOU, e "não está na lista de
+    // pendentes" não é a mesma coisa que "chegou" — a linha pode nem ter
+    // entrado na fila ainda. 300 é a mesma ordem de grandeza das fichas que a
+    // tela carrega (120 dias).
+    sbClient.from('frota_checklist_pdf')
+      .select('checklist_id,situacao,ultimo_erro,enviado_em')
+      .order('criado_em', { ascending: false }).limit(300),
   ])
+  // Falhar aqui não apaga o histórico: as linhas continuam, só sem a coluna de
+  // "chegou no Zoho". Dizer "não chegou" porque a leitura falhou seria pior.
+  copiasDetalhadas.value = todas && !todas.error ? (todas.data || []) : []
   // A contagem pode falhar sozinha sem invalidar a lista: nesse caso ela vira
   // zero e a frase cai no texto de "nenhuma ficha assinada ainda". A lista é a
   // que manda — é nela que mora o problema, se houver.
@@ -937,6 +1032,17 @@ async function carregarArvoreDeLocais() {
 }
 
 const nomeDaPessoa = (id) => (pessoas.value.find((x) => x.id === id) || {}).nome || null
+
+/* O nome de quem está por trás de uma CONTA DE LOGIN (`criada_por`,
+ * `decidida_por`, `encerrada_por`), que é um id de usuário e não de colaborador.
+ *
+ * Sai de `acessos_pessoas.profile_id`, que a tela já carrega — nada de uma
+ * leitura nova em `profiles` só pra isto. Quem não tem ficha de colaborador
+ * ligada ao login não tem nome pra mostrar, e aí a tela escreve a data sem
+ * inventar um nome plausível. */
+const nomeDoUsuario = (userId) => (userId
+  ? ((pessoas.value.find((x) => x.profile_id === userId) || {}).nome || null)
+  : null)
 
 // A árvore de locais do Patrimônio, no formato que `localCurto()` entende.
 // `carregarArvoreDeLocais()` já roda junto com `carregar()` (linha 514), então
@@ -1005,6 +1111,35 @@ const form = reactive({ pessoaId: '', km: '', tanque: '', destino: '', finalidad
 const problemas = ref([])
 const gravando = ref(false)
 
+/* ── O ACEITE DE RETIRADA: a assinatura de QUEM PEGA (13/08/2026) ────────────
+ *
+ * O que foi medido, e que fez isto existir: das 5 retiradas reais da Frota,
+ * NENHUMA tinha a assinatura de quem pegou o carro. No único dia em que houve
+ * ficha assinada — 07/08, BMW X1 — quem assinou foi Erick Martins às 7h30 e
+ * quem pegou o carro foi Breno às 17h49. Como o carro "já tinha checklist
+ * hoje", a tela não pedia nada a ele.
+ *
+ * A regra passa a ser por PESSOA (oQuePedirNaRetirada, testada em
+ * checklist.js). Continua sendo UMA assinatura por viagem e NENHUM PDF a mais:
+ * o aceite mora na própria viagem, não numa segunda ficha — `frota_checklist`
+ * tem `unique (veiculo_id, feita_em)` de propósito, e ninguém confere o mesmo
+ * carro duas vezes no mesmo dia. */
+const aceiteDaRetirada = ref(null)   // os traços do rabisco, ou nulo
+
+/** O que a ficha de retirada tem de pedir a quem está com ela aberta agora. */
+const pedidoDaRetirada = computed(() => {
+  if (!ficha.value || ficha.value.modo !== 'retirar') return { pedir: 'nada' }
+  return oQuePedirNaRetirada({
+    veiculoId: ficha.value.linha.veiculo.id,
+    fichas: fichas.value,
+    hoje: hoje.value,
+    // Quem está PEGANDO, que nem sempre é quem está com a tela: a Gestão
+    // registra retirada por outra pessoa, e nesse caso o aceite é dela.
+    pessoaId: form.pessoaId || null,
+    pessoaNome: form.pessoaId ? nomeDaPessoa(form.pessoaId) : null,
+  })
+})
+
 /* O carro tem reserva APROVADA pra esta pessoa, agora? É o que acende o
  * "Peguei o carro" — ver reservaParaPegar() em requisicoes.js, onde a regra
  * mora testada. `usoAberto` impede o botão de continuar aceso depois de ela
@@ -1031,6 +1166,7 @@ function abrirRetirada(linha) {
     minhaPessoaId: euId.value, agoraIso: new Date().toISOString(), usoJaAberto: linha.naRua,
   })
   ficha.value = { modo: 'retirar', linha, reserva }
+  aceiteDaRetirada.value = null
   Object.assign(form, {
     // Da reserva quando há; do próprio usuário quando é avulso.
     pessoaId: (reserva && reserva.pessoa_id) || meuId() || '',
@@ -1049,7 +1185,10 @@ function abrirDevolucao(linha) {
   Object.assign(form, { pessoaId: '', km: '', tanque: '', destino: '', finalidade: '', observacao: '' })
   problemas.value = []
 }
-function fecharFicha() { descerCamada('ficha'); ficha.value = null; problemas.value = []; passeioFichaAberto.value = false }
+function fecharFicha() {
+  descerCamada('ficha'); ficha.value = null; problemas.value = []
+  passeioFichaAberto.value = false; aceiteDaRetirada.value = null
+}
 
 /* ── Passar o carro (F6b) ─────────────────────────────────────────────────
    Quem tem carro fixo não "retira" e "devolve" — a posse é uma linha aberta
@@ -1199,6 +1338,23 @@ async function confirmar() {
   gravando.value = true
   let erro = null
   if (f.modo === 'retirar') {
+    const p = pedidoDaRetirada.value
+    // O ACEITE vai na MESMA gravação da viagem, e isso não é economia de
+    // chamada: gravar a viagem e depois o aceite deixaria uma janela em que o
+    // carro saiu e a assinatura não existe — que é exatamente o buraco que
+    // este aceite veio fechar. O gatilho do banco carimba quem e quando.
+    const aceite = (p.pedir === 'aceite' && aceiteDaRetirada.value && podeAssinar.value)
+      ? {
+        aceite_em: new Date().toISOString(),
+        aceite_nome: (form.pessoaId ? nomeDaPessoa(form.pessoaId) : null) || null,
+        aceite_rabisco: normalizarRabisco(aceiteDaRetirada.value),
+        aceite_checklist_id: p.ficha ? p.ficha.id : null,
+        // O código da ficha CONGELADO no instante do aceite: se a ficha for
+        // alterada depois, o código dela muda e a divergência fica visível em
+        // vez de sumir.
+        aceite_checklist_hash: p.ficha ? (p.ficha.assinatura_hash || null) : null,
+      }
+      : {}
     const r = await sbClient.from('frota_uso').insert({
       veiculo_id: f.linha.veiculo.id,
       pessoa_id: form.pessoaId || null,
@@ -1208,8 +1364,25 @@ async function confirmar() {
       destino: form.destino || null,
       finalidade: form.finalidade || null,
       observacao: form.observacao || null,
-    })
+      ...aceite,
+    }).select('id').single()
     erro = r.error
+
+    /* A RESERVA PASSA A APONTAR PRA VIAGEM. Até 13/08/2026 nada na tela fazia
+       isso: `uso_id` e a situação 'usada' existiam na tabela desde o primeiro
+       dia e NUNCA eram gravados. O efeito era o histórico não conseguir dizer
+       qual viagem saiu de qual reserva, e a reserva ficar "aprovada" para
+       sempre depois de já ter sido usada.
+
+       Falhar aqui NÃO desfaz a viagem nem trava a pessoa no estacionamento: o
+       carro saiu, e é isso que importa registrar. O elo é conveniência do
+       histórico, e o histórico tem o segundo caminho (casar pela janela da
+       reserva) justamente para as viagens que nasceram sem ele. */
+    if (!erro && f.reserva && r.data && r.data.id) {
+      await sbClient.from('frota_requisicoes')
+        .update({ uso_id: r.data.id, situacao: 'usada' })
+        .eq('id', f.reserva.id)
+    }
   } else {
     const r = await sbClient.from('frota_uso')
       .update({ volta_em: new Date().toISOString(), km_volta: km, tanque_quartos: tanque })
@@ -1626,6 +1799,179 @@ async function confirmarDecisao() {
     return
   }
   fecharDecisao()
+  carregar()
+}
+
+/* ── O HISTÓRICO DE RESERVAS E RETIRADAS (aba Gestão) ────────────────────────
+ *
+ * Desenho: docs/superpowers/specs/2026-08-13-frota-gestao-reservas-design.md
+ *
+ * POR QUE ISTO NASCEU. Medido no banco em 13/08/2026: 2 reservas — uma aprovada
+ * e uma recusada — e NENHUMA pendente. Como a única lista da aba era a fila de
+ * aprovação, e a fila só mostra pendentes, a aba Gestão exibia uma fila vazia
+ * com as duas reservas invisíveis atrás dela. Não havia caminho nenhum na tela
+ * pra editar, cancelar ou revogar o que já tinha sido decidido.
+ *
+ * A FILA CONTINUA ONDE ESTAVA. Ela é o que pede ação hoje; o histórico é o que
+ * responde "o que andou acontecendo". Juntar as duas faria a decisão pendente
+ * se perder no meio do passado — e o padrão da casa proíbe perder o que já
+ * existia ao reorganizar. */
+const filtroDoHistorico = ref('tudo')
+
+const historico = computed(() => linhaDoTempo({
+  requisicoes: requisicoes.value,
+  usos: usos.value,
+  veiculos: veiculos.value,
+  fichas: fichas.value,
+  copias: copiasDetalhadas.value,
+  temPermissaoAprovar: podeAprovar.value,
+  agoraIso: new Date().toISOString(),
+}))
+const historicoFiltrado = computed(() => filtrar(historico.value, filtroDoHistorico.value))
+
+/* Quantas linhas cada filtro tem — vai no rótulo do próprio botão do filtro.
+ * A resposta ANTES do clique, mesma ideia dos botões rápidos que o dono já
+ * aprovou: sem isso a pessoa toca em "Sem assinatura" pra descobrir se há algo
+ * lá, e o filtro vira adivinhação. */
+const contagemDosFiltros = computed(() => {
+  const c = {}
+  for (const f of FILTROS) c[f.chave] = filtrar(historico.value, f.chave).length
+  return c
+})
+
+/* ── Editar uma reserva ────────────────────────────────────────────────────── */
+
+const edicao = ref(null)   // { requisicao } | null
+const edicaoForm = reactive({
+  veiculoId: '', pessoaId: '', nomeDeFora: '', departamento: '',
+  destino: '', finalidade: '', retirada: '', devolucao: '', observacao: '',
+})
+const avisosDaEdicao = ref([])
+const erroDaEdicao = ref('')
+const jaAvisadoNaEdicao = ref(false)
+
+/* O contrário de `paraIso`: o instante gravado virando o texto que o
+ * <input type="datetime-local"> entende — que é hora LOCAL, sem fuso.
+ * Sem descontar o fuso aqui, uma reserva das 8h da manhã abriria no formulário
+ * como 11h, e quem só clicasse em "Salvar" empurraria a viagem três horas. */
+const paraLocal = (iso) => {
+  const t = Date.parse(iso)
+  if (!Number.isFinite(t)) return ''
+  return new Date(t - new Date(t).getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+}
+
+function abrirEdicao(r) {
+  subirCamada('edicao')
+  edicao.value = { requisicao: r }
+  avisosDaEdicao.value = []
+  erroDaEdicao.value = ''
+  jaAvisadoNaEdicao.value = false
+  Object.assign(edicaoForm, {
+    veiculoId: r.veiculo_id || '',
+    // Reserva de gente de fora não tem `pessoa_id`: o seletor abre em "de fora"
+    // com o nome já escrito, senão editar o destino apagaria o motorista.
+    pessoaId: r.pessoa_id || (r.pessoa_nome ? DE_FORA : ''),
+    nomeDeFora: r.pessoa_id ? '' : (r.pessoa_nome || ''),
+    departamento: r.departamento || '',
+    destino: r.destino || '',
+    finalidade: r.finalidade || '',
+    retirada: paraLocal(r.retirada_prevista),
+    devolucao: paraLocal(r.devolucao_prevista),
+    observacao: r.observacao || '',
+  })
+}
+function fecharEdicao() { descerCamada('edicao'); edicao.value = null; avisosDaEdicao.value = []; erroDaEdicao.value = '' }
+
+const motoristaDaEdicao = computed(() => motoristaParaGravar({
+  pessoaId: edicaoForm.pessoaId === DE_FORA ? null : edicaoForm.pessoaId,
+  nomeDeFora: edicaoForm.pessoaId === DE_FORA ? edicaoForm.nomeDeFora : '',
+  nomeDaPessoa,
+}))
+
+/* O rascunho da edição passa pela MESMA validação do pedido novo — inclusive o
+ * aviso de conflito de viagens. `id` vai junto de propósito: é ele que faz
+ * `conflitosDe` não acusar a reserva de conflitar com ela mesma. */
+const rascunhoDaEdicao = computed(() => ({
+  id: edicao.value ? edicao.value.requisicao.id : null,
+  veiculo_id: edicaoForm.veiculoId || null,
+  ...motoristaDaEdicao.value,
+  destino: edicaoForm.destino,
+  retirada_prevista: paraIso(edicaoForm.retirada),
+  devolucao_prevista: paraIso(edicaoForm.devolucao),
+}))
+
+async function salvarEdicao() {
+  if (!edicao.value || gravando.value) return
+  avisosDaEdicao.value = problemasDaRequisicao(
+    rascunhoDaEdicao.value, requisicoes.value, new Date().toISOString())
+  if (bloqueios(avisosDaEdicao.value).length) return
+  // Igual ao pedido novo: aviso pede uma segunda confirmação em vez de travar.
+  // São combinados entre pessoas, não impossibilidades.
+  if (avisosDaEdicao.value.length && !jaAvisadoNaEdicao.value) { jaAvisadoNaEdicao.value = true; return }
+
+  gravando.value = true
+  erroDaEdicao.value = ''
+  const { error } = await sbClient.from('frota_requisicoes').update({
+    veiculo_id: edicaoForm.veiculoId,
+    ...motoristaDaEdicao.value,
+    departamento: edicaoForm.departamento || null,
+    destino: edicaoForm.destino || null,
+    finalidade: edicaoForm.finalidade || null,
+    retirada_prevista: paraIso(edicaoForm.retirada),
+    devolucao_prevista: paraIso(edicaoForm.devolucao),
+    observacao: edicaoForm.observacao || null,
+  }).eq('id', edicao.value.requisicao.id)
+  gravando.value = false
+  if (error) {
+    // O gatilho do banco é quem barra de verdade (sem permissão, reserva já
+    // encerrada, reserva que já virou viagem) e a mensagem dele já vem escrita
+    // em português dizendo o que aconteceu. Trocá-la por um texto genérico
+    // jogaria fora justamente a parte que explica.
+    erroDaEdicao.value = error.message || 'Não consegui salvar. Confira a conexão e tente de novo.'
+    return
+  }
+  fecharEdicao()
+  carregar()
+}
+
+/* ── Cancelar e revogar ────────────────────────────────────────────────────── */
+
+const encerramento = ref(null)   // { requisicao, acao: 'cancelada'|'revogada' } | null
+const motivoDoEncerramento = ref('')
+const erroDoEncerramento = ref('')
+
+function abrirEncerramento(r, acao) {
+  subirCamada('encerramento')
+  encerramento.value = { requisicao: r, acao }
+  motivoDoEncerramento.value = ''
+  erroDoEncerramento.value = ''
+}
+function fecharEncerramento() {
+  descerCamada('encerramento'); encerramento.value = null; erroDoEncerramento.value = ''
+}
+
+async function confirmarEncerramento() {
+  const e = encerramento.value
+  if (!e || gravando.value) return
+  // O motivo é exigido AQUI e no banco, e os dois de propósito: aqui pra
+  // pessoa não descobrir a regra pelo erro, e lá porque a tela não é a única
+  // porta da tabela.
+  if (!motivoDoEncerramento.value.trim()) {
+    erroDoEncerramento.value = e.acao === 'cancelada'
+      ? 'Escreva por que está cancelando. Quem pediu o carro precisa saber.'
+      : 'Escreva por que está revogando. Quem está com a reserva precisa saber.'
+    return
+  }
+  gravando.value = true
+  const { error } = await sbClient.from('frota_requisicoes')
+    .update({ situacao: e.acao, encerrada_motivo: motivoDoEncerramento.value.trim() })
+    .eq('id', e.requisicao.id)
+  gravando.value = false
+  if (error) {
+    erroDoEncerramento.value = error.message || 'Não consegui gravar. Confira a conexão e tente de novo.'
+    return
+  }
+  fecharEncerramento()
   carregar()
 }
 
@@ -2630,6 +2976,155 @@ onMounted(async () => {
         </div>
       </Gaveta>
 
+      <!-- RESERVAS E RETIRADAS — o histórico (13/08/2026).
+           A fila acima é o que pede decisão HOJE; isto aqui é o que já
+           aconteceu. As duas listas são separadas de propósito: juntar faria a
+           decisão pendente se perder no meio do passado. -->
+      <Gaveta v-if="gv('historico')" :titulo="gv('historico').titulo" :estado="gv('historico').estado"
+              :aberta="gv('historico').aberta" :travada-aberta="gv('historico').travadaAberta"
+              id="gv-historico" @alternar="alternarGaveta('historico')">
+
+        <p class="fr-aviso">{{ resumoDoHistorico(historico) }}</p>
+
+        <!-- O FILTRO TRAZ A CONTA NO PRÓPRIO BOTÃO. Sem ela a pessoa toca em
+             "Sem assinatura" pra descobrir se há algo lá, e o filtro vira
+             adivinhação. Filtro com zero linha fica visível e desligado: sumir
+             faria a barra mudar de forma a cada carregamento. -->
+        <div class="fr-filtros">
+          <button v-for="f in FILTROS" :key="f.chave" type="button" class="fr-filtro"
+                  :class="{ on: filtroDoHistorico === f.chave }"
+                  :disabled="!contagemDosFiltros[f.chave] && f.chave !== 'tudo'"
+                  @click="filtroDoHistorico = f.chave">
+            {{ f.rotulo }} <span class="fr-filtro-n">{{ contagemDosFiltros[f.chave] }}</span>
+          </button>
+        </div>
+
+        <p class="fr-aviso" v-if="!historicoFiltrado.length">
+          Nenhuma linha com este filtro. Toque em “Tudo” para ver a lista inteira.
+        </p>
+
+        <div class="fr-lista" v-else>
+          <div v-for="l in historicoFiltrado" :key="l.chave" class="fr-card"
+               :class="{ espera: l.situacao === 'pendente', ruimzao: ['recusada','cancelada','revogada'].includes(l.situacao), parado: l.tipo === 'retirada' }">
+
+            <div class="fr-card-topo">
+              <div class="fr-card-ident">
+                <span class="fr-card-nome">{{ l.veiculoNome }}</span>
+                <span class="fr-placa">{{ l.veiculoPlaca || 'sem placa' }}</span>
+              </div>
+              <span class="fr-selo">{{ l.tipo === 'retirada' ? 'Sem reserva' : rotuloDaSituacao(l.situacao) }}</span>
+            </div>
+
+            <!-- O QUE FOI PEDIDO. Só existe quando houve reserva: retirada
+                 avulsa não tem pedido nenhum atrás, e inventar uma linha
+                 "Destino: —" faria parecer que alguém deixou o campo em
+                 branco. -->
+            <template v-if="l.reserva">
+              <div class="fr-dados">
+                <div class="fr-dado">
+                  <span class="fr-dado-lab">Quem vai dirigir</span>
+                  <span class="fr-dado-val">{{ l.reserva.pessoa_nome || 'não informado' }}</span>
+                </div>
+                <div class="fr-dado">
+                  <span class="fr-dado-lab">Retirada prevista</span>
+                  <span class="fr-dado-val">{{ quando(l.reserva.retirada_prevista) }}</span>
+                </div>
+                <div class="fr-dado" v-if="l.reserva.devolucao_prevista">
+                  <span class="fr-dado-lab">Devolução prevista</span>
+                  <span class="fr-dado-val">{{ quando(l.reserva.devolucao_prevista) }}</span>
+                </div>
+              </div>
+              <p class="fr-hist-linha" v-if="l.reserva.destino">
+                <strong>Destino:</strong> {{ l.reserva.destino }}
+              </p>
+              <p class="fr-hist-linha" v-if="l.reserva.finalidade">
+                <strong>Para quê:</strong> {{ l.reserva.finalidade }}
+              </p>
+              <p class="fr-hist-linha" v-if="l.reserva.departamento">
+                <strong>Departamento:</strong> {{ l.reserva.departamento }}
+              </p>
+            </template>
+
+            <!-- O QUE ACONTECEU DE VERDADE. É a metade que faltava: a reserva
+                 diz o que foi combinado, e isto diz o que o carro fez. -->
+            <div class="fr-prova">
+              <p class="fr-hist-titulo">O que aconteceu</p>
+
+              <p class="fr-hist-linha" v-if="l.uso">
+                Saiu {{ quando(l.uso.saida_em) }} com
+                <strong>{{ l.uso.pessoa_nome || 'motorista não informado' }}</strong><template
+                  v-if="l.uso.volta_em">, devolvido {{ quando(l.uso.volta_em) }}</template><template
+                  v-else> — <strong>ainda não voltou</strong></template>.
+              </p>
+              <p class="fr-hist-linha" v-else-if="l.reserva">
+                O carro <strong>ainda não foi retirado</strong> com esta reserva.
+              </p>
+
+              <!-- A PROVA, e ela NUNCA vira um "✔ assinado" genérico. Foi
+                   medindo isto que a entrega nasceu: em 07/08/2026 havia
+                   assinatura na ficha do dia, mas ela era do Erick, e quem
+                   pegou o carro foi o Breno. Um selo verde ali teria dito uma
+                   coisa que não aconteceu. -->
+              <p v-if="l.prova" class="fr-prova-frase"
+                 :class="{ boa: ['aceite','assinada-por-quem-pegou'].includes(l.prova.estado),
+                           atencao: ['assinada-por-outra','ficha-sem-assinatura'].includes(l.prova.estado),
+                           ruim: l.prova.estado === 'sem-ficha' }">
+                {{ l.prova.frase }}
+              </p>
+
+              <p class="fr-hist-linha fr-hist-zoho" v-if="l.zoho && l.zoho.frase">{{ l.zoho.frase }}</p>
+
+              <div class="fr-acoes" v-if="l.prova && l.prova.ficha">
+                <button class="fr-btn" @click="abrirFichaDoHistorico(l.prova.ficha)">Ver a ficha assinada</button>
+              </div>
+            </div>
+
+            <!-- O RASTRO. Quem pediu, quem decidiu, quem encerrou e por quê.
+                 Sem o motivo escrito, uma reserva que some da agenda é
+                 exatamente o que a pasta de papéis fazia: a folha sumia da
+                 gaveta e ninguém sabia dizer por quê. -->
+            <template v-if="l.reserva">
+              <p class="fr-hist-rastro">
+                Pedido em {{ quando(l.reserva.criada_em) }}<template
+                  v-if="nomeDoUsuario(l.reserva.criada_por)"> por {{ nomeDoUsuario(l.reserva.criada_por) }}</template>.
+              </p>
+              <p class="fr-hist-rastro" v-if="l.reserva.decidida_em">
+                {{ rotuloDaSituacao(l.reserva.situacao === 'recusada' ? 'recusada' : 'aprovada') }}
+                em {{ quando(l.reserva.decidida_em) }}<template
+                  v-if="nomeDoUsuario(l.reserva.decidida_por)"> por {{ nomeDoUsuario(l.reserva.decidida_por) }}</template><template
+                  v-if="l.reserva.motivo_decisao">: {{ l.reserva.motivo_decisao }}</template>
+              </p>
+              <p class="fr-hist-rastro" v-if="l.reserva.encerrada_em">
+                {{ rotuloDaSituacao(l.reserva.situacao) }} em {{ quando(l.reserva.encerrada_em) }}<template
+                  v-if="nomeDoUsuario(l.reserva.encerrada_por)"> por {{ nomeDoUsuario(l.reserva.encerrada_por) }}</template><template
+                  v-if="l.reserva.encerrada_motivo">: {{ l.reserva.encerrada_motivo }}</template>
+              </p>
+            </template>
+
+            <!-- AS AÇÕES. Cancelar e revogar nunca aparecem juntas: uma ação
+                 principal por bloco, e só uma das duas cabe em cada momento —
+                 o que ainda não começou se cancela, o que já vale se revoga.
+                 Quando nada dá, o card DIZ por quê, em vez de sumir com os
+                 botões e deixar a pessoa achando que a tela quebrou. -->
+            <div class="fr-acoes" v-if="l.acoes && (l.acoes.editar.pode || l.acoes.cancelar.pode || l.acoes.revogar.pode)">
+              <!-- Botão COMUM, não vermelho, e é regra escrita do padrão:
+                   botão de perigo não fica solto na lista — ele mora atrás de
+                   um passo a mais. O passo a mais existe: os dois abrem um
+                   modal que exige o motivo escrito antes de gravar, e é lá que
+                   a confirmação é vermelha. -->
+              <button v-if="l.acoes.editar.pode" class="fr-btn" @click="abrirEdicao(l.reserva)">Editar</button>
+              <button v-if="l.acoes.cancelar.pode" class="fr-btn"
+                      @click="abrirEncerramento(l.reserva, 'cancelada')">Cancelar reserva</button>
+              <button v-if="l.acoes.revogar.pode" class="fr-btn"
+                      @click="abrirEncerramento(l.reserva, 'revogada')">Revogar reserva</button>
+            </div>
+            <p class="fr-ajuda" v-else-if="l.acoes">
+              {{ porQueNaoDaEmPortugues(l.acoes.editar.motivo, l.situacao) }}
+            </p>
+          </div>
+        </div>
+      </Gaveta>
+
       <Gaveta v-if="gv('cobranca')" :titulo="gv('cobranca').titulo" :estado="gv('cobranca').estado"
               :aberta="gv('cobranca').aberta" :travada-aberta="gv('cobranca').travadaAberta"
               id="gv-cobranca" data-ancora="fr-ancora-cobranca" @alternar="alternarGaveta('cobranca')">
@@ -3395,10 +3890,14 @@ onMounted(async () => {
           </p>
 
           <h3 class="fr-grupo" data-tour="fdet-itens">O que foi conferido</h3>
-          <!-- `falhaRespostas` distingue "não consegui carregar" de "não tinha
-               item nenhum" — uma ficha sem resposta carregada NUNCA pode virar
-               "vazio" na tela, senão o dado inventado parece dado real. -->
-          <p class="fr-erro" v-if="falhaRespostas">
+          <!-- `detalheNaoLeu` escolhe a marca de falha certa: ficha de hoje é
+               lida no carregamento da tela, ficha de outro dia é lida na hora
+               de abrir. Somar as duas com um "ou" faria uma leitura de hoje que
+               falhou acusar erro numa ficha antiga que carregou perfeitamente.
+               De um jeito ou de outro, "não consegui carregar" NUNCA pode virar
+               "não tinha item nenhum": dado inventado com cara de dado real é a
+               mentira mais cara que uma tela conta. -->
+          <p class="fr-erro" v-if="detalheNaoLeu">
             Não consegui carregar as respostas deste checklist. Recarregue a página; se continuar
             assim, avise quem administra a Frota.
           </p>
@@ -3519,6 +4018,134 @@ onMounted(async () => {
       </div>
     </div>
 
+    <!-- EDITAR UMA RESERVA (13/08/2026).
+         Os mesmos campos do pedido, e a MESMA validação — inclusive o aviso de
+         conflito de viagens. Uma segunda regra de validação, mais frouxa, aqui,
+         permitiria consertar uma reserva pra cima de outra. -->
+    <div class="fr-ficha-fundo" v-if="edicao" v-trava-rolagem :style="{ zIndex: camadas.edicao }" @click.self="fecharEdicao">
+      <div class="fr-ficha" role="dialog">
+        <div class="fr-ficha-topo">
+          <span class="fr-ficha-titulo">Editar reserva</span>
+          <button class="fr-fechar" @click="fecharEdicao" aria-label="Fechar">✕</button>
+        </div>
+        <div class="fr-ficha-corpo">
+          <p class="fr-tutorial-fixo">
+            Toda alteração fica registrada: o que mudou, de quê pra quê, quem mudou e quando.
+            Quem já tinha visto a reserva antiga não é avisado — se a mudança atrapalha alguém,
+            fale com a pessoa.
+          </p>
+          <label class="fr-campo">
+            <span class="fr-lab">Veículo</span>
+            <select v-model="edicaoForm.veiculoId">
+              <option value="">— escolha —</option>
+              <option v-for="v in veiculos.filter((x) => x.situacao === 'ativo')" :key="v.id" :value="v.id">
+                {{ v.nome }} · {{ v.placa }}
+              </option>
+            </select>
+          </label>
+          <label class="fr-campo">
+            <span class="fr-lab">Quem vai dirigir</span>
+            <select v-model="edicaoForm.pessoaId">
+              <option value="">— escolha —</option>
+              <option v-for="p in pessoas" :key="p.id" :value="p.id">{{ p.nome }}</option>
+              <option :value="DE_FORA">— outra pessoa, de fora da empresa —</option>
+            </select>
+          </label>
+          <label class="fr-campo" v-if="edicaoForm.pessoaId === DE_FORA">
+            <span class="fr-lab">Nome de quem vai dirigir</span>
+            <input v-model="edicaoForm.nomeDeFora" type="text" list="fr-nomes-de-fora">
+            <span class="fr-ajuda">Ex.: Felipe modelista</span>
+          </label>
+          <label class="fr-campo">
+            <span class="fr-lab">Retirada</span>
+            <input v-model="edicaoForm.retirada" type="datetime-local">
+          </label>
+          <label class="fr-campo">
+            <span class="fr-lab">Devolução prevista</span>
+            <input v-model="edicaoForm.devolucao" type="datetime-local">
+          </label>
+          <label class="fr-campo">
+            <span class="fr-lab">Destino</span>
+            <input v-model="edicaoForm.destino" type="text">
+          </label>
+          <label class="fr-campo">
+            <span class="fr-lab">Para quê</span>
+            <input v-model="edicaoForm.finalidade" type="text">
+          </label>
+          <label class="fr-campo">
+            <span class="fr-lab">Departamento</span>
+            <input v-model="edicaoForm.departamento" type="text">
+          </label>
+
+          <ul class="fr-problemas" v-if="avisosDaEdicao.length">
+            <li v-for="(a, i) in avisosDaEdicao" :key="i">{{ a.texto }}</li>
+          </ul>
+          <!-- O erro do banco sai como ele veio: o gatilho escreve em português
+               dizendo exatamente o que aconteceu ("esta reserva já virou
+               viagem"), e trocar isso por "não consegui salvar" jogaria fora a
+               parte que explica. -->
+          <ul class="fr-problemas" v-if="erroDaEdicao"><li>{{ erroDaEdicao }}</li></ul>
+        </div>
+        <div class="fr-ficha-rodape">
+          <button class="fr-btn" @click="fecharEdicao">Fechar sem salvar</button>
+          <button class="fr-btn primario" :disabled="gravando" @click="salvarEdicao">
+            {{ gravando ? 'Salvando…' : (jaAvisadoNaEdicao && avisosDaEdicao.length ? 'Salvar assim mesmo' : 'Salvar') }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CANCELAR OU REVOGAR.
+         É AQUI que a ação é vermelha, e não no card: o padrão manda o botão de
+         perigo morar atrás de um passo a mais, e o passo é este — com o motivo
+         escrito, que o banco também exige. -->
+    <div class="fr-ficha-fundo" v-if="encerramento" v-trava-rolagem :style="{ zIndex: camadas.encerramento }" @click.self="fecharEncerramento">
+      <div class="fr-ficha" role="dialog">
+        <div class="fr-ficha-topo">
+          <span class="fr-ficha-titulo">
+            {{ encerramento.acao === 'cancelada' ? 'Cancelar reserva' : 'Revogar reserva' }}
+          </span>
+          <button class="fr-fechar" @click="fecharEncerramento" aria-label="Fechar">✕</button>
+        </div>
+        <div class="fr-ficha-corpo">
+          <!-- As duas frases são DIFERENTES porque as duas ações são
+               diferentes, e a pessoa precisa saber qual está fazendo. -->
+          <p class="fr-tutorial-fixo" v-if="encerramento.acao === 'cancelada'">
+            Esta reserva ainda não começou. Cancelar desmarca o carro para essa data, e ele volta
+            a ficar livre para outra pessoa reservar. A reserva não some do histórico: fica
+            registrada como cancelada, com o motivo que você escrever.
+          </p>
+          <p class="fr-tutorial-fixo" v-else>
+            Esta reserva já está valendo. Revogar tira a autorização e libera o carro na hora
+            para outra pessoa reservar. <strong>Revogar não devolve o carro:</strong> se ele
+            estiver na rua, continua na rua, e a devolução tem de ser registrada por quem está
+            com ele.
+          </p>
+          <p class="fr-recado">
+            {{ (veiculos.find((v) => v.id === encerramento.requisicao.veiculo_id) || {}).nome }}
+            para {{ encerramento.requisicao.pessoa_nome || 'motorista não informado' }},
+            {{ quando(encerramento.requisicao.retirada_prevista) }}<span
+              v-if="encerramento.requisicao.destino">, {{ encerramento.requisicao.destino }}</span>.
+          </p>
+          <label class="fr-campo">
+            <span class="fr-lab">Motivo (obrigatório)</span>
+            <input v-model="motivoDoEncerramento" type="text"
+                   :placeholder="encerramento.acao === 'cancelada' ? 'A viagem foi desmarcada…' : 'O carro foi para a oficina…'">
+            <span class="fr-ajuda">
+              Quem for ler isto daqui a seis meses precisa da frase, não do carimbo.
+            </span>
+          </label>
+          <ul class="fr-problemas" v-if="erroDoEncerramento"><li>{{ erroDoEncerramento }}</li></ul>
+        </div>
+        <div class="fr-ficha-rodape">
+          <button class="fr-btn" @click="fecharEncerramento">Voltar</button>
+          <button class="fr-btn fr-btn-perigo" :disabled="gravando" @click="confirmarEncerramento">
+            {{ gravando ? 'Gravando…' : (encerramento.acao === 'cancelada' ? 'Cancelar a reserva' : 'Revogar a reserva') }}
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- APROVAR OU RECUSAR -->
     <div class="fr-ficha-fundo" v-if="decisao" v-trava-rolagem :style="{ zIndex: camadas.decisao }" @click.self="fecharDecisao">
       <div class="fr-ficha" role="dialog">
@@ -3580,6 +4207,39 @@ onMounted(async () => {
                qualquer carro, no momento de pegar). `pegando-agora` avisa o
                componente que isso é uma retirada de verdade, senão ele calcula
                pelo calendário e no fim de semana devolveria zero itens. -->
+          <!-- O ACEITE DE RETIRADA (13/08/2026): quando o carro JÁ foi
+               conferido hoje, mas por outra pessoa. Aqui não se repete a lista
+               — quem conferiu já conferiu. O que falta é a segunda frase:
+               "eu recebi este carro assim". Sem isto, quem pega um carro
+               conferido às 7h30 pelo dono sai sem assinar nada, que foi o
+               achado de 13/08: 5 retiradas reais, zero assinaturas de quem
+               pegou. -->
+          <div class="fr-aceite" v-if="ficha.modo === 'retirar' && pedidoDaRetirada.pedir === 'aceite'">
+            <p class="fr-hist-titulo">Aceite de retirada</p>
+            <p class="fr-hist-linha">
+              {{ porQuePedirOAceite(pedidoDaRetirada.porque, pedidoDaRetirada.quemConferiu) }}
+            </p>
+            <p class="fr-ajuda" v-if="form.pessoaId && form.pessoaId !== euId">
+              Você está registrando a retirada de {{ nomeDaPessoa(form.pessoaId) }}. A assinatura
+              fica no seu nome, e o registro diz que o carro foi entregue a ela.
+            </p>
+            <template v-if="podeAssinar">
+              <CampoDeRabisco v-model="aceiteDaRetirada" :desabilitado="gravando" />
+              <!-- Nunca some com o campo nem trava a retirada: assinatura em
+                   branco vira "sem aceite", e a linha do histórico DIZ isso.
+                   Travar aqui deixaria alguém a pé no estacionamento por causa
+                   de um dedo que não pegou na tela. -->
+              <p class="fr-ajuda" v-if="!aceiteDaRetirada">
+                Sem a assinatura o carro sai do mesmo jeito — mas o histórico vai registrar esta
+                retirada como <strong>sem prova de quem pegou</strong>.
+              </p>
+            </template>
+            <p class="fr-ajuda" v-else>
+              Para assinar é preciso estar com login próprio no aplicativo. Esta retirada vai ficar
+              registrada sem assinatura de quem pegou o carro.
+            </p>
+          </div>
+
           <PainelDeChecklist
             v-if="ficha.modo === 'retirar' && precisaDeChecklist({ veiculoId: ficha.linha.veiculo.id, fichas, hoje })"
             data-tour="ficha-checklist"
@@ -3803,7 +4463,14 @@ onMounted(async () => {
 /* Cor pelo token, nunca chumbada: o app tem modo escuro, e verde-claro fixo
    sobre fundo preto é ilegível. Mesmo motivo que fez o painel do motorista
    inteiro precisar ser refeito. */
-.tela-frota .fr-cobranca-selo{font-size:.8rem;font-weight:600;padding:2px 10px;border-radius:999px;background:var(--surface2);color:var(--green);white-space:nowrap;}
+/* MESMA MEDIDA DO `.fr-selo`, e isso foi bronca do dono (13/08/2026: tamanhos
+   divergentes no computador). Os dois selos aparecem na MESMA aba, um embaixo
+   do outro, e estavam em medidas diferentes: este tinha `.8rem` cravado e
+   `padding:2px`, enquanto o outro usa a escala de texto do app e `padding:4px`.
+   Pior que a diferença: `rem` cravado IGNORA o ajuste de tamanho de letra da
+   Central (`--escala-texto`) — quem aumenta a letra via ajuste via este selo
+   ficar para trás dos outros. */
+.tela-frota .fr-cobranca-selo{font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));font-weight:700;letter-spacing:.4px;padding:4px 10px;border-radius:999px;background:var(--surface2);color:var(--green);white-space:nowrap;}
 .tela-frota .fr-cobranca-selo.pendente{color:var(--red);}
 /* "feito, sem assinatura" (D22): laranja, não vermelho. Vermelho é FALTA, e
    sem assinatura não é falta de ninguém — três donos de carro não têm login.
@@ -3914,6 +4581,75 @@ onMounted(async () => {
 .tela-frota .fr-recado{margin:0 0 4px;font-family:var(--fonte-principal);font-size:max(9px, calc(13.5px * var(--escala-texto, 1)));line-height:1.6;color:var(--text);}
 .tela-frota .fr-card.espera{border-left-color:var(--orange,#d97706);}
 .tela-frota .fr-card.ruimzao{border-left-color:var(--red,#c0392b);}
+
+/* ── O HISTÓRICO DE RESERVAS E RETIRADAS (13/08/2026) ──────────────────────
+
+   A BARRA DE FILTRO. Cada botão traz a própria conta: a resposta antes do
+   clique, mesma ideia dos botões rápidos do topo que o dono já aprovou.
+   Filtro com zero linha fica VISÍVEL e desligado, em vez de sumir — barra que
+   muda de forma a cada carregamento é barra que a pessoa reaprende toda vez.
+   40px de altura porque é alvo de dedo, como tudo o mais nesta ferramenta. */
+.tela-frota .fr-filtros{display:flex;flex-wrap:wrap;gap:var(--sp-2);padding:0 14px var(--sp-3);}
+.tela-frota .fr-filtro{display:inline-flex;align-items:center;gap:6px;min-height:40px;
+  padding:8px 13px;border:1px solid var(--border);border-radius:999px;background:var(--surface);
+  color:var(--text);font-family:var(--fonte-principal);
+  font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));font-weight:600;
+  cursor:pointer;touch-action:manipulation;}
+.tela-frota .fr-filtro.on{background:var(--accent-light);border-color:var(--accent-mid);color:var(--accent-forte);}
+.tela-frota .fr-filtro:disabled{opacity:.45;cursor:default;}
+.tela-frota .fr-filtro-n{font-family:var(--fonte-dados);font-variant-numeric:tabular-nums;
+  font-size:max(9px, calc(11px * var(--escala-texto, 1)));color:var(--muted);}
+.tela-frota .fr-filtro.on .fr-filtro-n{color:var(--accent-forte);}
+
+/* O bloco "o que aconteceu": separado do que foi PEDIDO por um fio, porque são
+   duas coisas diferentes — o combinado e o que o carro realmente fez. */
+.tela-frota .fr-prova{margin-top:var(--sp-3);padding-top:var(--sp-3);border-top:1px solid var(--border);
+  display:flex;flex-direction:column;gap:6px;}
+.tela-frota .fr-hist-titulo{margin:0;font-family:var(--fonte-principal);
+  font-size:max(9px, calc(10px * var(--escala-texto, 1)));font-weight:700;letter-spacing:1.5px;
+  text-transform:uppercase;color:var(--muted);}
+.tela-frota .fr-hist-linha{margin:0;font-family:var(--fonte-principal);
+  font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));line-height:1.55;color:var(--text);
+  overflow-wrap:anywhere;}
+.tela-frota .fr-hist-zoho{color:var(--muted);}
+/* O rastro (quem pediu, quem decidiu, quem encerrou) é o miúdo do card: existe
+   pra ser consultado, não pra competir com o que aconteceu. */
+.tela-frota .fr-hist-rastro{margin:var(--sp-2) 0 0;font-family:var(--fonte-principal);
+  font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));line-height:1.5;color:var(--muted);
+  overflow-wrap:anywhere;}
+
+/* A FRASE DA PROVA. Fundo tingido com o texto em --text, nunca texto colorido:
+   `--orange` como texto sobre a superfície mede 4,06 de contraste no tema
+   claro — medido nesta mesma tela, ver o comentário do .fr-cobranca-selo — e o
+   mínimo é 4,5. A cor continua sendo o sinal; o texto é pra ler.
+   Os três tons dizem coisas diferentes, e a diferença é o ponto:
+     verde    — a assinatura é de quem pegou o carro. É a prova completa.
+     laranja  — existe assinatura, mas não é de quem pegou. Dado a saber.
+     vermelho — não ficou prova nenhuma daquela saída. */
+.tela-frota .fr-prova-frase{margin:0;padding:9px 11px;border-radius:10px;
+  font-family:var(--fonte-principal);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));
+  line-height:1.55;color:var(--text);overflow-wrap:anywhere;
+  background:var(--surface2);border:1px solid var(--border);}
+.tela-frota .fr-prova-frase.boa{background:color-mix(in srgb,var(--green) 12%,var(--surface));
+  border-color:color-mix(in srgb,var(--green) 34%,var(--surface));}
+.tela-frota .fr-prova-frase.atencao{background:color-mix(in srgb,var(--orange) 12%,var(--surface));
+  border-color:color-mix(in srgb,var(--orange) 34%,var(--surface));}
+.tela-frota .fr-prova-frase.ruim{background:color-mix(in srgb,var(--red) 12%,var(--surface));
+  border-color:color-mix(in srgb,var(--red) 34%,var(--surface));}
+
+/* O botão de perigo desta tela. Ele NÃO aparece em lista: mora no rodapé dos
+   dois modais que exigem motivo escrito, que é o "passo a mais" que o padrão
+   manda. `--sobre-cor`, nunca `#fff`: no tema escuro os tokens de cor são
+   claros de propósito, e branco em cima deles não se lê. */
+.tela-frota .fr-btn-perigo{background:var(--red);border-color:var(--red);color:var(--sobre-cor);}
+
+/* O ACEITE DE RETIRADA, dentro da ficha. Caixa própria porque ele é uma
+   pergunta a mais no meio de um formulário — sem a moldura, o campo de
+   desenhar apareceria solto e pareceria parte do campo de cima. */
+.tela-frota .fr-aceite{display:flex;flex-direction:column;gap:var(--sp-2);
+  padding:12px 13px;border-radius:12px;
+  background:color-mix(in srgb,var(--accent) 7%,var(--surface));
+  border:1px solid color-mix(in srgb,var(--accent) 26%,var(--surface));}
 .tela-frota .fr-itens{margin:12px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;}
 .tela-frota .fr-itens li{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-family:var(--fonte-principal);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));color:var(--muted);padding-left:10px;border-left:2px solid var(--border);}
 /* A cor fica na BORDA, não no texto: item vencido em vermelho sobre fundo
@@ -3970,7 +4706,15 @@ onMounted(async () => {
 .tela-frota .fr-checklist-editor{padding:4px 14px 40px;}
 
 .tela-frota .fr-lista{display:flex;flex-direction:column;gap:10px;padding:4px 14px 40px;}
-.tela-frota .fr-card{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--green,#16a34a);border-radius:12px;padding:14px 16px;}
+/* CARTÃO EM COLUNA, e isso não é preferência de escrita: é o que permite ao
+   `.fr-acoes` empurrar-se pro rodapé com `margin-top:auto` lá embaixo. Sem
+   `flex-direction:column` aqui, o `auto` não tem eixo pra empurrar e o botão
+   fica onde o texto acabar — que é o que deixava, no computador, cada coluna
+   da grade com o botão numa altura diferente. (Bronca do dono, 13/08/2026:
+   "os cards e botões no computador estão feios".)
+   Medida do respiro e do raio pela ESCALA, não no olho: `--card-pad` e
+   `--card-radius` são os mesmos que o resto da Central usa. */
+.tela-frota .fr-card{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--green,#16a34a);border-radius:var(--card-radius);padding:var(--card-pad);display:flex;flex-direction:column;}
 .tela-frota .fr-card.rua{border-left-color:var(--accent);}
 .tela-frota .fr-card.parado{border-left-color:var(--muted);opacity:.72;}
 .tela-frota .fr-card-topo{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;}
@@ -3986,7 +4730,20 @@ onMounted(async () => {
 .tela-frota .fr-dado-lab{font-family:var(--fonte-principal);font-size:max(9px, calc(9.5px * var(--escala-texto, 1)));letter-spacing:.8px;text-transform:uppercase;color:var(--muted);}
 .tela-frota .fr-dado-val{font-family:var(--fonte-dados);font-size:max(9px, calc(13px * var(--escala-texto, 1)));font-weight:600;color:var(--text);font-variant-numeric:tabular-nums;}
 .tela-frota .fr-dado-val.alerta{color:var(--orange,#d97706);}
-.tela-frota .fr-acoes{display:flex;gap:8px;margin-top:14px;}
+/* `flex-wrap` porque um cartão pode ter quatro botões ("Abrir ficha",
+   "Devolver", "Passar, devolver ou recolher", "WhatsApp") e sem quebra o
+   último sairia pela borda — e `overflow-x:clip` cortaria isso em silêncio. */
+.tela-frota .fr-acoes{display:flex;gap:var(--sp-2);margin-top:var(--sp-3);flex-wrap:wrap;}
+/* `margin-top:auto` = a ação COLA NO RODAPÉ do cartão. Na grade do computador
+   os cartões de uma mesma linha já têm a mesma altura (é o padrão do grid), e
+   é isto que faz os botões pararem todos na mesma altura em vez de subirem e
+   descerem conforme o texto de cada carro.
+
+   FILHO DIRETO do cartão, de propósito. `.fr-acoes` também aparece DENTRO de
+   outros blocos (a caixa da senha do convite, por exemplo), no meio de outros
+   parágrafos — ali um `auto` empurraria a linha de botões e tudo o que vem
+   depois pro pé da caixa, abrindo um buraco no meio. */
+.tela-frota .fr-card > .fr-acoes{margin-top:auto;padding-top:var(--sp-3);}
 
 /* 44px de altura em tudo que se toca: é o alvo que o dedo acerta. Esta
    ferramenta é usada em pé, no estacionamento, com uma mão só. */
@@ -4069,6 +4826,23 @@ onMounted(async () => {
   .tela-frota .fr-topbar{padding:12px 24px;}
   .tela-frota .fr-resumo{padding:12px 24px;}
   .tela-frota .fr-lista{padding:4px 24px 40px;display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;}
+
+  /* O BOTÃO PARA DE ESTICAR NO COMPUTADOR (bronca do dono, 13/08/2026).
+     `.fr-btn` nasce com `flex:1 1 auto` porque no celular o dedo quer a
+     largura toda — e ali isso está certo, não se mexe. Mas dentro da grade do
+     computador aquilo dava o efeito que ele viu: cartão com UM botão ficava
+     com um botão de ponta a ponta, cartão com TRÊS ficava com três larguras
+     diferentes, e a lista inteira parecia montada no olho.
+
+     Aqui o botão passa a ter a largura do que ele diz, com um mínimo IGUAL
+     pra todos — é o mínimo que dá a harmonia, e o conteúdo é quem cresce
+     quando o rótulo é longo ("Passar, devolver ou recolher").
+
+     132px, e não mais: a coluna da grade tem 320px, menos 32px de respiro do
+     cartão sobram 288px. Dois botões de 132 com 8 de intervalo dão 272 e
+     cabem na mesma linha; a 148 já não caberiam, e dois botões curtos
+     quebrariam em duas linhas sem necessidade. Contado, não estimado. */
+  .tela-frota .fr-lista .fr-acoes .fr-btn{flex:0 1 auto;min-width:132px;}
   .tela-frota .fr-checklist-editor{padding:4px 24px 40px;}
   /* Ponteiro do mouse acerta 24px sem esforço — ver o comentário no fr-btn-ajuda. */
   /* O "?" e o "✕" dividem a linha do topo do modal, com 10px entre eles: no
