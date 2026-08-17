@@ -247,7 +247,8 @@ diz a unidade e o rótulo de cada tipo de resultado:
 
 | Balde | Cartão 2 | Cartão 3 | Cartão 4 |
 |---|---|---|---|
-| Todos · Seguidores | Custo por seguidor | Custo por interação | Custo por curtida |
+| Todos | Custo por mil impressões | Alcance | Frequência |
+| Seguidores | Custo por seguidor | Custo por interação | Custo por curtida |
 | Contatos | Custo por conversa | Conversas | Custo por cadastro |
 | Site e alcance | Custo por visita | Visitas | Custo por mil impressões |
 | Vendas | Custo por venda | Vendas | *(não tem)* |
@@ -264,19 +265,57 @@ Regras que valem para todos:
 - **Denominador zero não vira R$ 0** — vira "—" com o motivo escrito. O selo
   "⏳ consolidando" que já existe no custo por seguidor continua valendo no balde
   Seguidores.
-- **"Todos" mantém exatamente os cartões de hoje**, para o painel não mudar de
-  cara para quem não usar a barra. Isso inclui manter a distorção conhecida: em
-  "Todos", o custo por seguidor da Motoeasy continua sendo dinheiro de cadastro
-  dividido por seguidores. É o preço de não mexer no que já está no ar — e é
-  exatamente o que o balde Seguidores existe para resolver, a um clique de
-  distância.
+### "Todos" passa a mostrar só o que vale para qualquer campanha
+
+Decisão do dono nesta conversa. O "Todos" **não** repete os cartões de hoje: um
+custo por seguidor calculado sobre todo o dinheiro é sempre meio mentira, porque o
+denominador só vale para uma parte dele — é exatamente a distorção da Motoeasy
+(dinheiro de cadastro dividido por seguidores).
+
+No lugar entram quatro indicadores que valem para **qualquer** tipo de campanha,
+todos já em `account_insights`, **já deduplicados por pessoa e já coletados**
+(gasto, alcance, impressões, cliques e frequência). Zero coleta nova para este
+balde.
+
+Medido em 30 dias, na última captura:
+
+| Perfil | Investimento | Alcance | Custo/mil impressões | Frequência |
+|---|---|---|---|---|
+| Raíssa Herculano | R$ 14.548 | 1.306.633 | R$ 5,04 | 2,21 |
+| Vessel | R$ 7.791 | 596.446 | R$ 5,55 | 2,36 |
+| **Motoeasy** | R$ 6.212 | 85.367 | **R$ 14,51** | **5,02** |
+| Breno Vale | R$ 2.882 | 237.272 | R$ 7,17 | 1,69 |
+| Mantova Móveis | R$ 732 | 80.074 | R$ 4,75 | 1,93 |
+
+O quadro se justifica sozinho: a Motoeasy paga **três vezes** o preço de mil
+impressões dos outros e cada pessoa já viu o anúncio **cinco vezes** — acima do
+limiar 4 que a régua usa para mandar reduzir verba. Nada disso é visível no painel
+de hoje.
+
+- **Alcance** vem do nível-conta (`account_insights.reach`), nunca da soma por
+  campanha — somar infla até ~35%, porque a mesma pessoa aparece em várias.
+- **Frequência** entra com semáforo no limiar já provado (≥4 = a mesma pessoa
+  vendo demais), **sem meta editável**: o limiar é conhecimento do negócio, não
+  preferência de conta.
+- **Custo por mil impressões** ganha meta máxima editável, como os outros custos.
+- Com um balde escolhido, alcance volta a ser a soma por campanha (não há
+  deduplicação por recorte na Meta) e o cartão diz isso em uma linha.
 
 ### As metas
 
 `social_metas.indicador` passa a carregar o balde: `seguidores.cps`,
-`contatos.custo_conversa`, `site.custo_visita`. As linhas de hoje (`cps`, `spend`,
-`cpi`, `cpl`) continuam sendo lidas como sendo do balde Seguidores/Todos —
-migração de leitura, **sem tocar no banco e sem apagar meta nenhuma**.
+`contatos.custo_conversa`, `site.custo_visita`, `todos.cpm`. As linhas de hoje
+(`cps`, `cpi`, `cpl`) continuam sendo lidas como do balde **Seguidores** — que é
+onde esses três cartões passam a viver. Migração de leitura, **sem tocar no banco
+e sem apagar meta nenhuma**.
+
+**O BUDGET também é por balde**, e é obrigatório que seja: se o investimento passa
+a ser o do balde, uma meta de conta inteira compararia coisas diferentes — a
+barrinha de progresso mostraria 8% de meta batida quando o dono gastou tudo que
+queria em seguidores. A linha `spend` de hoje passa a valer para **Todos**, que é
+o número contra o qual ela foi definida. **Os demais baldes nascem sem meta**:
+mostram o valor sem barrinha, até o dono digitar a dele. Herdar meta de outro
+recorte seria pior do que não ter.
 
 `goalStorageKey` ganha o balde junto com conta e período, pela mesma razão.
 
@@ -294,11 +333,17 @@ BALDE:  [ Todos ]  [ Seguidores ]  [ Contatos ]  [ Site e alcance ]  [ Vendas ]
 Campanhas consideradas no cálculo: Todas as campanhas de Seguidores   ⚙ Filtrar
 ```
 
+- **A tela abre em Seguidores** (decisão do dono). É o painel de redes sociais: o
+  que ele responde primeiro é quanto custa crescer. Quem quiser o retrato geral
+  clica em Todos.
+- **Perfil sem dinheiro em Seguidores abre em Todos** — a Motoeasy é o caso real
+  hoje (R$ 0 no balde). Abrir num balde vazio seria abrir numa tela de traços.
 - **Balde sem dinheiro no período fica apagado, com o motivo** ("sem campanha
   desse tipo neste período") — **não some**. Sumir faria a pessoa procurar o que
   não está lá.
 - A escolha fica no navegador, por perfil (`localStorage`), e **não** vai para o
-  banco: é recorte de leitura, não configuração da conta.
+  banco: é recorte de leitura, não configuração da conta. Sessão nova volta a
+  abrir em Seguidores.
 - O modo **AUTO** (a TV passeando entre os perfis) continua funcionando: ao trocar
   de perfil, o balde escolhido é mantido se aquele perfil tiver dinheiro nele, e
   cai para "Todos" se não tiver.
@@ -328,7 +373,10 @@ Campanhas consideradas no cálculo: Todas as campanhas de Seguidores   ⚙ Filtr
    WhatsApp medidos hoje; o de Seguidores, os R$ 842.
 4. **Breno Vale:** os R$ 2.584 têm que cair inteiros em Seguidores (é
    tráfego-para-o-perfil) — se caírem em Site e alcance, a regra 3 não pegou.
-5. **Motoeasy:** balde Seguidores tem que ficar vazio e dizer por quê.
+5. **Motoeasy:** balde Seguidores vazio, com o motivo escrito, e a tela abrindo em
+   Todos por causa disso. No Todos, os R$ 14,51 de custo por mil impressões e a
+   frequência 5,02 têm que aparecer com o semáforo aceso — se saírem cinzas, o
+   limiar não foi ligado.
 6. A tela aberta a 375px e no desktop, com o CSS do build.
 7. `verificarTravaJanelas()` continua passando: esta obra não encosta em
    `janelasDoPeriodo`.
