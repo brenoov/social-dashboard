@@ -29,6 +29,11 @@
 .serena/
 **/.temp/
 
+# retomada do backfill dos quatro números de campanha (estado local de execução,
+# não é fonte; some sem prejuízo — o UPDATE só toca linha ainda nula)
+coletor/.preencher-numeros-de-campanha.json
+coletor/.preencher-numeros-de-campanha.json.tmp
+
 # node
 **/node_modules/
 
