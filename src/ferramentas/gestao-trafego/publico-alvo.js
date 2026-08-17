@@ -458,6 +458,38 @@ export function resumoDasMudancas(antes, depois) {
     }
   }
 
+  // O PIN NO MAPA (`custom_locations`). SEM ESTAS LINHAS O RESUMO VINHA VAZIO E
+  // A TELA DESISTIA COM "Nada mudou. Não há o que salvar." — o ponto era
+  // desenhado no mapa, com endereço e raio, e nunca chegava na Meta.
+  //
+  // Defeito real, visto na conta da Vessel em 17/08/2026. As duas outras pontas
+  // já estavam certas o tempo todo: `lerPublico` lê o pin e `montarTargeting` o
+  // manda de volta. Faltava só o resumo enxergá-lo — e é o resumo que decide se
+  // há o que salvar.
+  //
+  // O pin não tem chave da Meta: o que o identifica é ONDE ele caiu. Arredondar
+  // em 5 casas (~1 metro) evita que o mesmo ponto pareça outro por ruído de
+  // ponto flutuante na ida e volta pela API.
+  const chaveDoPin = (p) => `${Number(p.lat).toFixed(5)},${Number(p.lng).toFixed(5)}`;
+  const nomeDoPin = (p) => p.nome || p.endereco
+    || `ponto (${Number(p.lat).toFixed(4)}, ${Number(p.lng).toFixed(4)})`;
+  const pinsValidos = (arr) => (arr || [])
+    .filter((p) => p && Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lng)));
+  const paraDiff = (arr) => pinsValidos(arr).map((p) => ({ key: chaveDoPin(p), nome: nomeDoPin(p) }));
+  const pin = diffLista(paraDiff(a.pins), paraDiff(d.pins), (x) => x.key, 'Pontos no mapa');
+  if (pin) linhas.push(pin);
+
+  // Raio ou unidade do pin que FICOU — mesma necessidade das cidades: mudar o
+  // alcance de um ponto sem tirá-lo do mapa também é mudança de entrega.
+  const pinAntes = new Map(pinsValidos(a.pins).map((p) => [chaveDoPin(p), p]));
+  for (const p of pinsValidos(d.pins)) {
+    const ant = pinAntes.get(chaveDoPin(p));
+    if (!ant) continue;
+    if (Number(ant.raio) === Number(p.raio) && ant.unidade === p.unidade) continue;
+    const un = (u) => (u === 'mile' ? 'mi' : 'km');
+    linhas.push(`Raio de ${nomeDoPin(p)}: ${ant.raio} ${un(ant.unidade)} → ${p.raio} ${un(p.unidade)}`);
+  }
+
   const exc = diffLista(a.excluidas, d.excluidas, (x) => x.key, 'Lugares excluídos');
   if (exc) linhas.push(exc);
 
