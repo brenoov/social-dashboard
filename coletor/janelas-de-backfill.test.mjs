@@ -60,6 +60,28 @@ test('alvo de recorte desconhecido é descartado, não vira chamada', () => {
   assert.deepEqual(alvosPendentes([{ account_id: 'A', captured_at: '2026-08-01', period_days: 3 }]), []);
 });
 
+test('--desde na seleção de alvos: mantém o alvo NA data limite, descarta o de um dia antes', () => {
+  // O risco inteiro desta mudança é off-by-one: um "antes" que devia virar
+  // "inclusive" preencheria o dia errado sem avisar. Por isso o dia exatamente
+  // na fronteira TEM de sobreviver, e o dia anterior TEM de sumir.
+  const linhas = [
+    { account_id: 'A', captured_at: '2026-07-17', period_days: 7 }, // um dia antes da fronteira
+    { account_id: 'A', captured_at: '2026-07-18', period_days: 7 }, // exatamente na fronteira
+    { account_id: 'A', captured_at: '2026-07-19', period_days: 7 }, // depois da fronteira
+  ];
+  const alvos = alvosPendentes(linhas, '2026-07-18');
+  assert.deepEqual(alvos.map((a) => a.captured_at), ['2026-07-18', '2026-07-19']);
+});
+
+test('sem desde, alvosPendentes não filtra nada (comportamento de sempre)', () => {
+  const linhas = [
+    { account_id: 'A', captured_at: '2026-07-17', period_days: 7 },
+    { account_id: 'A', captured_at: '2026-07-18', period_days: 7 },
+  ];
+  assert.equal(alvosPendentes(linhas).length, 2);
+  assert.equal(alvosPendentes(linhas, null).length, 2);
+});
+
 // ----------------------------------------------------------- as bandeiras
 
 test('--dry-run vale tanto quanto --dry', () => {
@@ -105,6 +127,41 @@ test('--pausa sem número é erro, não volta para o padrão em silêncio', () =
   assert.ok(interpretarArgumentos(['--pausa']).erro);
   assert.ok(interpretarArgumentos(['--pausa', 'abc']).erro);
   assert.ok(interpretarArgumentos(['--pausa', '3000ms']).erro);
+});
+
+test('--desde aceita as duas grafias e devolve a data', () => {
+  assert.equal(interpretarArgumentos(['--desde', '2026-07-18']).desde, '2026-07-18');
+  assert.equal(interpretarArgumentos(['--desde=2026-07-18']).desde, '2026-07-18');
+  assert.equal(interpretarArgumentos(['--desde', '2026-07-18']).erro, null);
+});
+
+test('sem --desde não há filtro nenhum', () => {
+  assert.equal(interpretarArgumentos([]).desde, null);
+  assert.equal(interpretarArgumentos(['--dry']).desde, null);
+});
+
+test('--desde malformado, impossível ou sem valor é RECUSADO, nunca virado em outra coisa', () => {
+  // Formato errado: nunca coage para uma data vizinha — coagir aqui é encher o
+  // período errado, em silêncio.
+  assert.ok(interpretarArgumentos(['--desde', 'ontem']).erro);
+  assert.ok(interpretarArgumentos(['--desde', '18-07-2026']).erro);
+  assert.ok(interpretarArgumentos(['--desde', '2026/07/18']).erro);
+  // Formato certo, calendário impossível: mês 13 e dia 45 não existem, e o
+  // construtor Date rolaria por cima disso em silêncio se não fosse conferido.
+  assert.ok(interpretarArgumentos(['--desde', '2026-13-45']).erro);
+  assert.ok(interpretarArgumentos(['--desde', '2026-02-30']).erro);
+  assert.ok(interpretarArgumentos(['--desde', '2026-00-10']).erro);
+  // --desde solto no fim, sem data nenhuma depois.
+  assert.ok(interpretarArgumentos(['--desde']).erro);
+  assert.ok(interpretarArgumentos(['--pausa', '3000', '--desde']).erro);
+});
+
+test('--desde convive com --dry e --pausa', () => {
+  const a = interpretarArgumentos(['--desde', '2026-07-18', '--pausa', '3000', '--dry']);
+  assert.equal(a.desde, '2026-07-18');
+  assert.equal(a.pausa, 3000);
+  assert.equal(a.dry, true);
+  assert.equal(a.erro, null);
 });
 
 // ------------------------------------------- a resposta pela metade da Meta

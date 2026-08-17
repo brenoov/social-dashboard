@@ -25,6 +25,7 @@
 //   node coletor/preencher-numeros-de-campanha.mjs --dry-run      (idem; as duas grafias valem)
 //   node coletor/preencher-numeros-de-campanha.mjs                (tudo, grava)
 //   node coletor/preencher-numeros-de-campanha.mjs --pausa 3000   (pausa em ms, padrão 2000, piso 250)
+//   node coletor/preencher-numeros-de-campanha.mjs --desde 2026-07-18   (só captured_at >= essa data; sem a bandeira, é tudo)
 //
 // Bandeira que o script não conhece FAZ ELE PARAR com um recado, em vez de ser
 // ignorada. Um "--dry-run" digitado errado não pode ser a diferença entre uma
@@ -61,7 +62,7 @@ const AS_QUATRO = ['conversas', 'cadastros', 'compras', 'visitas'];
 const ARGS = interpretarArgumentos(process.argv.slice(2));
 if (ARGS.erro) {
   console.error(`✗ ${ARGS.erro}`);
-  console.error('  node coletor/preencher-numeros-de-campanha.mjs [--dry|--dry-run] [--pausa <ms>]');
+  console.error('  node coletor/preencher-numeros-de-campanha.mjs [--dry|--dry-run] [--pausa <ms>] [--desde AAAA-MM-DD]');
   process.exit(1);
 }
 const DRY = ARGS.dry;
@@ -198,13 +199,24 @@ async function main() {
   const porId = Object.fromEntries(contas.map((c) => [c.id, c]));
 
   const linhas = await lerLinhasNulas();
-  const todos = alvosPendentes(linhas);
+  // Sem --desde: comportamento de sempre, todo alvo. Com --desde: o filtro entra
+  // na SELEÇÃO dos alvos (dentro de alvosPendentes), não depois — assim a
+  // contagem que o dono lê na primeira linha já é a do que vai rodar de verdade.
+  const semFiltroDeData = alvosPendentes(linhas);
+  const todos = ARGS.desde ? alvosPendentes(linhas, ARGS.desde) : semFiltroDeData;
+  const excluidosPorDesde = semFiltroDeData.length - todos.length;
   // --dry LÊ a retomada (para prever o próximo alvo de verdade, não um já feito),
   // mas nunca a escreve.
   const feitos = lerRetomada();
   const alvos = todos.filter((a) => !feitos.has(chaveDoAlvo(a)));
 
-  console.log(`${linhas.length} linha(s) nula(s) → ${todos.length} alvo(s); ${todos.length - alvos.length} já feito(s); ${alvos.length} pela frente.`);
+  // Sem --desde a linha fica exatamente como sempre foi. Com --desde, ela ganha
+  // o "excluído(s)" ANTES do resto — é a primeira coisa que o dono lê, e é o
+  // número que prova que o filtro pegou.
+  const prefixoFiltro = ARGS.desde
+    ? `${linhas.length} linha(s) nula(s) → ${semFiltroDeData.length} alvo(s); ${excluidosPorDesde} excluído(s) por --desde ${ARGS.desde} (fora do período); ${todos.length} no recorte`
+    : `${linhas.length} linha(s) nula(s) → ${todos.length} alvo(s)`;
+  console.log(`${prefixoFiltro}; ${todos.length - alvos.length} já feito(s); ${alvos.length} pela frente.`);
   if (ARGS.pausaPedida !== null && ARGS.pausaPedida < PAUSA_MINIMA) {
     console.log(`⚠ pausa pedida de ${ARGS.pausaPedida}ms elevada para o piso de ${PAUSA_MINIMA}ms (a Meta é compartilhada com a tela ao vivo).`);
   }

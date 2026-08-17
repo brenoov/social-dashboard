@@ -49,11 +49,18 @@ export function janelaDoRecorte(capturedAt, periodDays) {
 // alvo é conta + data + recorte, e não a linha (que é por campanha).
 // Do mais antigo para o mais novo: se a Meta interromper no meio, o que sobra é o
 // pedaço recente, que a própria rodada seguinte do coletor cobre.
-export function alvosPendentes(linhas) {
+//
+// `desde` (opcional, "AAAA-MM-DD") é o filtro do dono para rodar só o pedaço
+// recente agora e deixar o resto para a passada de madrugada. Comparação de
+// texto basta porque captured_at já vem em "AAAA-MM-DD": ordena igual a data.
+// O filtro entra ANTES da deduplicação/ordenação — aqui mesmo, no ponto onde os
+// alvos nascem — para a contagem que o script imprime no início já saber dele.
+export function alvosPendentes(linhas, desde) {
   const vistos = new Set();
   const alvos = [];
   for (const l of (linhas || [])) {
     if (!janelaDoRecorte(l.captured_at, l.period_days)) continue;
+    if (desde && l.captured_at < desde) continue;
     const chave = `${l.account_id}|${l.captured_at}|${l.period_days}`;
     if (vistos.has(chave)) continue;
     vistos.add(chave);
@@ -70,6 +77,24 @@ export const PAUSA_PADRAO = 2000;
 // intenção — então o piso vence em silêncio, e o script avisa que venceu.
 export const PAUSA_MINIMA = 250;
 
+// AAAA-MM-DD estrito, e a data tem de existir de verdade: "2026-13-45" tem o
+// formato certo mas mês 13 e dia 45 não existem, e o construtor Date rola por
+// cima disso em silêncio (mês 13 vira janeiro do ano seguinte) em vez de avisar.
+// Por isso o round-trip: monta a data a partir dos três números e confere se
+// ano/mês/dia voltam iguais. Se algo rolou por cima, não bate, e é recusado —
+// nunca coagido para uma data vizinha que preencheria o período errado.
+// UTC de propósito (não T12:00:00 local): aqui não há fuso a proteger, só os
+// três números soltos; Date.UTC não deixa hora nenhuma entrar na conta.
+const FORMATO_DESDE = /^(\d{4})-(\d{2})-(\d{2})$/;
+function dataDeCalendarioValida(texto) {
+  const m = FORMATO_DESDE.exec(texto);
+  if (!m) return false;
+  const [, aTxt, mTxt, dTxt] = m;
+  const ano = Number(aTxt), mes = Number(mTxt), dia = Number(dTxt);
+  const d = new Date(Date.UTC(ano, mes - 1, dia));
+  return d.getUTCFullYear() === ano && d.getUTCMonth() === mes - 1 && d.getUTCDate() === dia;
+}
+
 // Por que um interpretador em vez de process.argv.includes(): `includes` é
 // comparação exata, então `--dry-run` — a grafia que quase todo mundo tenta
 // primeiro — passava batido e o script começava a gravação de verdade, 2.179
@@ -78,15 +103,28 @@ export const PAUSA_MINIMA = 250;
 export function interpretarArgumentos(argv) {
   let dry = false;
   let pausaPedida = null;
+  let desde = null;
 
   for (let i = 0; i < (argv || []).length; i++) {
     const arg = argv[i];
     if (arg === '--dry' || arg === '--dry-run') { dry = true; continue; }
 
+    if (arg === '--desde' || (typeof arg === 'string' && arg.startsWith('--desde='))) {
+      const bruto = arg === '--desde' ? argv[++i] : arg.slice('--desde='.length);
+      const texto = String(bruto ?? '').trim();
+      // Data malformada ou impossível PARA o script — nunca vira "sem filtro"
+      // (preencheria tudo) nem "data mais próxima" (preencheria o período errado).
+      if (!dataDeCalendarioValida(texto)) {
+        return { erro: `--desde precisa de uma data real no formato AAAA-MM-DD; veio "${texto}".` };
+      }
+      desde = texto;
+      continue;
+    }
+
     let bruto;
     if (arg === '--pausa') bruto = argv[++i];
     else if (typeof arg === 'string' && arg.startsWith('--pausa=')) bruto = arg.slice('--pausa='.length);
-    else return { erro: `não reconheço "${arg}". Só existem --dry (ou --dry-run) e --pausa <ms>.` };
+    else return { erro: `não reconheço "${arg}". Só existem --dry (ou --dry-run), --pausa <ms> e --desde AAAA-MM-DD.` };
 
     const texto = String(bruto ?? '').trim();
     const n = parseInt(texto, 10);
@@ -99,7 +137,7 @@ export function interpretarArgumentos(argv) {
   }
 
   const pausa = pausaPedida === null ? PAUSA_PADRAO : Math.max(pausaPedida, PAUSA_MINIMA);
-  return { dry, pausa, pausaPedida, erro: null };
+  return { dry, pausa, pausaPedida, desde, erro: null };
 }
 
 // --------------------------------------------- a resposta pela metade da Meta
