@@ -198,6 +198,9 @@
       <div class="sec-header">
         <div class="section-label">02 · Meta Ads</div>        <div class="sec-line"></div>
       </div>
+      <!-- Recorte por TIPO de campanha. O balde recorta o tipo; o "⚙ Filtrar
+           campanhas" logo abaixo recorta DENTRO dele — os dois se somam. -->
+      <div class="balde-bar" id="balde-bar" role="tablist" aria-label="Tipo de campanha"></div>
       <div class="camp-filter-bar">
         <span class="camp-filter-lbl">Campanhas consideradas no cálculo:</span>
         <span class="camp-filter-info" id="camp-filter-info">Todas as campanhas</span>
@@ -463,6 +466,10 @@ import { montarSerieDeInvestimento, montarSerieDeCustoPorSeguidor } from './seri
 // teste ao lado (estimativa-de-seguidores.test.mjs), usando a contagem REAL do
 // Breno nos dias em que a Meta parou de publicar.
 import { barraDoDia, diasSemPublicacao } from './estimativa-de-seguidores.js'
+// Em que balde cada campanha entra (Seguidores / Contatos / Site e alcance /
+// Vendas). Puro e com teste ao lado (baldes-do-painel.test.mjs), decidido pelo
+// sinal que a Meta afirma no conjunto — nunca pelo nome da campanha.
+import { BALDES, idsParaConsulta, conjuntosMaisRecentes } from './baldes-do-painel.js'
 
 const router = useRouter()
 
@@ -584,6 +591,52 @@ let currentAccountId = null
 let currentStartDate = null
 let currentEndDate = null
 let activeChartData = null
+
+/* ── BALDE DE CAMPANHA (seção 02 · Meta Ads) ──
+   O balde escolhido é recorte de LEITURA, não configuração de conta: fica no
+   navegador de quem olha, por perfil, e não vira ajuste compartilhado. Sessão
+   nova abre em Seguidores — este é o painel de redes sociais, e o que ele
+   responde primeiro é quanto custa crescer. */
+let _baldeAtual = 'seguidores'
+const _baldeKey = id => 'ig_balde_' + (id || 'default')
+function carregarBalde(accountId) {
+  let salvo = null
+  try { salvo = localStorage.getItem(_baldeKey(accountId)) } catch (e) {}
+  // Só aceita id de balde que existe: um valor velho no localStorage (ou editado
+  // à mão) recortaria as consultas por um tipo que ninguém conhece e a seção 02
+  // ficaria vazia sem explicação.
+  _baldeAtual = BALDES.some(b => b.id === salvo) ? salvo : 'seguidores'
+}
+function setBalde(id) {
+  _baldeAtual = id
+  try { localStorage.setItem(_baldeKey(currentAccountId), id) } catch (e) {}
+  refresh()
+}
+// `vazios` = ids de balde sem gasto no período. Ficam APAGADOS com o motivo —
+// nunca somem: sumir faz a pessoa procurar o que não está lá.
+// `efetivo` é o balde que as consultas REALMENTE usaram: quando o escolhido está
+// vazio neste perfil/período, a tela cai em Todos e a barra precisa dizer isso,
+// senão ela marcaria um balde que não é o dos números na tela.
+function desenharBaldeBar(vazios, efetivo) {
+  const bar = document.getElementById('balde-bar'); if (!bar) return
+  const semGasto = vazios || []
+  bar.textContent = ''
+  BALDES.forEach(b => {
+    const bt = document.createElement('button')
+    bt.className = 'balde-btn'; bt.type = 'button'; bt.dataset.balde = b.id
+    bt.textContent = b.rotulo
+    bt.setAttribute('role', 'tab')
+    bt.setAttribute('aria-selected', String(b.id === (efetivo || _baldeAtual)))
+    if (semGasto.includes(b.id)) {
+      bt.disabled = true
+      bt.title = 'Nenhuma campanha desse tipo gastou neste período'
+      bt.setAttribute('aria-disabled', 'true')
+    } else {
+      bt.addEventListener('click', () => setBalde(b.id))
+    }
+    bar.appendChild(bt)
+  })
+}
 
 /* ── HELPERS (legacy L3367-3411, verbatim) ── */
 function popEl(el) {
@@ -755,13 +808,19 @@ function verificarTravaJanelas() {
 // KPIs AO VIVO (exatos da Meta) via edge function insights-ao-vivo. Token fica no servidor.
 // Cache leve por (conta+período) por 3min; null se a Meta falhar (a tela cai no coletado).
 const _kpiCache = {}
-async function buscarKpisAoVivo(accountId, period, customStart, customEnd) {
-  const chave = accountId + '|' + String(period) + '|' + (customStart || '') + '|' + (customEnd || '')
+async function buscarKpisAoVivo(accountId, period, customStart, customEnd, campanhas) {
+  // `campanhas` = o recorte de balde+filtro. Lista VAZIA é o caminho de sempre:
+  // a edge soma level=account, que é o número exato e mais barato da conta.
+  const ids = (campanhas || []).map(String)
+  // Os ids entram na CHAVE DO CACHE, não só no corpo: sem isso, trocar de balde
+  // devolveria o número do balde anterior por até 3 minutos. A lista inteira e
+  // ordenada (não o tamanho dela) — dois baldes de mesmo tamanho colidiriam.
+  const chave = accountId + '|' + String(period) + '|' + (customStart || '') + '|' + (customEnd || '') + '|' + ids.slice().sort().join(',')
   const agora = Date.now()
   if (_kpiCache[chave] && (agora - _kpiCache[chave].t) < 180000) return _kpiCache[chave].v
   try {
     const jan = janelasDoPeriodo(period, new Date(), customStart, customEnd)
-    const { data, error } = await sbClient.functions.invoke('insights-ao-vivo', { body: { account_id: accountId, ...jan } })
+    const { data, error } = await sbClient.functions.invoke('insights-ao-vivo', { body: { account_id: accountId, ...jan, campanhas: ids } })
     if (error || !data || data.meta_erro || data.followers_count == null) return null
     _kpiCache[chave] = { t: agora, v: data }
     return data
@@ -1318,7 +1377,7 @@ async function fetchData(accountId, period, customStart, customEnd) {
   const _spanDays = Math.round((new Date(followEnd + 'T00:00:00').getTime() - _fsMs) / 86400000) + 1
   const prevEndStr = localDate(new Date(_fsMs - 86400000))
   const prevStartStr = localDate(new Date(_fsMs - _spanDays * 86400000))
-  const [snaps, engCurr, engPrev, cntCurr, cntPrev, filterRow, storyDailyCurr, storyDailyPrev, trueLastRows] = await Promise.all([
+  const [snaps, engCurr, engPrev, cntCurr, cntPrev, filterRow, storyDailyCurr, storyDailyPrev, trueLastRows, campanhasRows, conjuntosRows] = await Promise.all([
     sb(`daily_snapshots?account_id=eq.${accountId}&captured_at=gte.${histStartStr}&captured_at=lte.${refDateStr}&order=captured_at.asc&select=followers_count,captured_at,gained,lost`),
     sb(`engagement_snapshots?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${refDateStr}&order=captured_at.desc&limit=1&select=likes,saves,shares,comments,reach,views,total_interactions,accounts_engaged,profile_views,captured_at`),
     sb(`engagement_snapshots?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${prevRefDateStr}&order=captured_at.desc&limit=1&select=likes,saves,shares,comments,reach,views,total_interactions,accounts_engaged,profile_views,captured_at`),
@@ -1330,6 +1389,12 @@ async function fetchData(accountId, period, customStart, customEnd) {
     // FRESCOR = saúde do coletor (global por perfil), NÃO o fim da janela escolhida.
     // Sem limite superior: pega a última coleta REAL, independente do período exibido.
     sb(`daily_snapshots?account_id=eq.${accountId}&order=captured_at.desc&limit=1&select=captured_at,followers_count`),
+    // Campanha + os conjuntos dela = o que decide o BALDE. Limite folgado de
+    // propósito: a maior conta (Vessel) tem 126 campanhas e 5 contas somam 299
+    // conjuntos — nenhuma chega perto de 5000, e um corte silencioso aqui faria
+    // campanha sumir do recorte sem ninguém perceber.
+    sb(`campaigns?account_id=eq.${accountId}&limit=5000&select=campaign_id,objective`),
+    sb(`campaign_adsets?account_id=eq.${accountId}&limit=5000&select=campaign_id,destination_type,optimization_goal,synced_at`),
   ])
   const eng = engCurr[0] || { likes: 0, saves: 0, shares: 0, comments: 0 }
   const prevEng = engPrev[0] || null
@@ -1412,11 +1477,83 @@ async function fetchData(accountId, period, customStart, customEnd) {
   const pLabel = customStart && customEnd ? effectivePeriod + 'D' : _perShort(period, effectivePeriod)
   const followerDeltas = [{ p: pLabel, v: (newFollowers >= 0 ? '+' : '') + fmtN(newFollowers), dir: newFollowers >= 0 ? 'up' : 'down' }]
   if (prevNewFollowers > 0) { followerDeltas.push({ p: 'vs per. ant.', v: pctDiff(newFollowers, prevNewFollowers), dir: newFollowers >= prevNewFollowers ? 'up' : 'down' }) }
-  // Ads: lê de campaign_insights aplicando o filtro de campanhas em tempo real
+  // ── SEÇÃO 02 · META ADS: quem entra na conta ──
+  // Dois recortes que se SOMAM: o BALDE recorta o tipo de campanha (Seguidores,
+  // Contatos, Site e alcance, Vendas) e o "⚙ Filtrar campanhas" recorta DENTRO
+  // dele. Quem faz a interseção é idsParaConsulta(), testada à parte.
   const selectedIds = filterRow[0]?.selected_ids // null=todas, []=nenhuma, [ids]=filtradas
   const noneSelected = Array.isArray(selectedIds) && selectedIds.length === 0
   const safeIds = Array.isArray(selectedIds) ? selectedIds.filter(id => /^\d+$/.test(String(id))) : []
-  const idFilter = safeIds.length > 0 ? `&campaign_id=in.(${safeIds.join(',')})` : ''
+  // .erro lido AQUI, colado no await do Promise.all lá de cima: ele mora no array
+  // que o sb() devolveu, e o forEach/Object.values abaixo criam coleções novas que
+  // o deixariam para trás. Falha ao buscar as campanhas NÃO pode virar "este perfil
+  // não tem campanha nenhuma" em silêncio — isso apagaria dinheiro real da tela.
+  erroAds.value = campanhasRows.erro || conjuntosRows.erro || null
+  // Campanha + os conjuntos dela = o que decide o balde. Conjunto ainda não
+  // coletado não some: cai pela regra do objetivo (ver baldes-do-painel.js), que é
+  // exatamente o que acontece enquanto campaign_adsets ainda está vazia.
+  const _porCampanha = {}
+  campanhasRows.forEach(c => { _porCampanha[String(c.campaign_id)] = { campaign_id: String(c.campaign_id), objective: c.objective, conjuntos: [] } })
+  conjuntosMaisRecentes(conjuntosRows).forEach(s => { const c = _porCampanha[String(s.campaign_id)]; if (c) c.conjuntos.push(s) })
+  const _campanhas = Object.values(_porCampanha)
+  const _selecionadas = Array.isArray(selectedIds) ? safeIds : null
+  // A lista de ids de CADA balde, já com o filtro manual aplicado por dentro.
+  // Sai da mesma função que monta o recorte final: assim a conta de "balde vazio"
+  // e a consulta do dinheiro nunca podem discordar.
+  const _idsPorBalde = {}
+  BALDES.forEach(b => { if (b.id !== 'todos') _idsPorBalde[b.id] = idsParaConsulta(_campanhas, b.id, _selecionadas) })
+  const _filtroManual = safeIds.length > 0 ? `&campaign_id=in.(${safeIds.join(',')})` : ''
+
+  // ── GRÁFICOS DIÁRIOS DA SEÇÃO 02 (barras por dia + linha de meta) ──
+  // period_days = 0 guarda o gasto do DIA isolado (uma linha por campanha por dia). O agregado dos
+  // cards abaixo NÃO é tocado — isto aqui é leitura à parte. O recorte é sempre a
+  // janela exibida (followStart..followEnd), igual pra todo perfil e todo período.
+  //
+  // Esta busca virou a base de DUAS coisas, e por isso subiu para antes dos
+  // agregados: as barras por dia e a conta de qual balde ficou sem dinheiro no
+  // período. Ela traz o campaign_id porque é o gasto POR CAMPANHA que diz em que
+  // balde o dinheiro caiu — o agregado da Meta não separa por tipo. O recorte por
+  // balde é feito aqui na memória, não na URL, para não pagar duas viagens.
+  let _diaRows = []
+  if (!noneSelected) {
+    const ciDia = await sb(`campaign_insights?account_id=eq.${accountId}&period_days=eq.0&captured_at=gte.${followStart}&captured_at=lte.${followEnd}&order=captured_at.asc&limit=5000&select=captured_at,campaign_id,spend${_filtroManual}`)
+    // .erro lido AQUI, colado no await: ele mora no array que o sb() devolveu e o .map() abaixo
+    // cria um array novo, deixando o .erro pra trás.
+    if (ciDia.erro && !erroAds.value) erroAds.value = ciDia.erro
+    if (!ciDia.erro) _diaRows = ciDia.map(r => ({ captured_at: r.captured_at, campaign_id: String(r.campaign_id), spend: r.spend }))
+  }
+  const _gastoPorBalde = {}
+  const _baldeDoId = {}
+  Object.keys(_idsPorBalde).forEach(b => { _gastoPorBalde[b] = 0; _idsPorBalde[b].forEach(id => { _baldeDoId[id] = b }) })
+  _diaRows.forEach(r => { const b = _baldeDoId[r.campaign_id]; if (b) _gastoPorBalde[b] += (parseFloat(r.spend) || 0) })
+  // Balde sem gasto no período fica APAGADO na barra, com o motivo — nunca some:
+  // sumir faz a pessoa procurar o que não está lá. 'todos' nunca entra na lista.
+  const baldesVazios = Object.keys(_idsPorBalde).filter(b => !(_gastoPorBalde[b] > 0))
+  // O balde escolhido pode não existir NESTE perfil (a Motoeasy não tem campanha
+  // de seguidores) ou não ter rodado NESTE período. Aí a tela cai em Todos, em vez
+  // de mostrar R$ 0 como se fosse resposta. A escolha NÃO é regravada: voltar a um
+  // perfil que tem aquele balde devolve a pessoa onde ela estava — é isso que
+  // segura o modo vitrine, que troca de perfil sozinho a cada 40 segundos.
+  const baldeEfetivo = baldesVazios.includes(_baldeAtual) ? 'todos' : _baldeAtual
+  const idsDoRecorte = idsParaConsulta(_campanhas, baldeEfetivo, _selecionadas)
+  // EM TODOS SEM FILTRO MANUAL, nada de lista de ids: fica exatamente no caminho de
+  // hoje. Dois motivos, os dois já custaram caro aqui:
+  //  • a Vessel tem 126 campanhas, e um in.(...) com 126 ids de 18 dígitos é uma URL
+  //    de mais de 2 mil caracteres por nada;
+  //  • é o `_todasAsCampanhas` logo abaixo que troca o alcance somado por campanha
+  //    pelo alcance DEDUPLICADO da conta — somar por campanha inflava até ~35%.
+  //    Mandar a lista mataria essa guarda.
+  const _todasAsCampanhas = baldeEfetivo === 'todos' && _selecionadas == null
+  const idFilter = (!_todasAsCampanhas && idsDoRecorte.length > 0) ? `&campaign_id=in.(${idsDoRecorte.join(',')})` : ''
+  // O ao vivo tem de somar o MESMO conjunto que o coletado, senão o cartão de
+  // investimento mostra um balde e o de custo por seguidor mostra outro. Lista
+  // vazia = a edge volta ao caminho level=account, o número exato e mais barato.
+  const idsParaAoVivo = _todasAsCampanhas ? [] : idsDoRecorte
+  // As barras do gráfico seguem o mesmo recorte dos cartões.
+  const _noRecorte = new Set(idsDoRecorte)
+  const gastoDiarioRows = _diaRows
+    .filter(r => _todasAsCampanhas || _noRecorte.has(r.campaign_id))
+    .map(r => ({ captured_at: r.captured_at, spend: r.spend }))
   function aggCi(rows) {
     if (!rows.length) return null
     const maxDate = rows[0].captured_at
@@ -1429,7 +1566,6 @@ async function fetchData(accountId, period, customStart, customEnd) {
   let _adsPd = storedPeriod, _adsCur = `captured_at=lte.${refDateStr}&order=captured_at.desc`, _adsPrev = `captured_at=lte.${prevRefDateStr}&order=captured_at.desc`
   if (isHoje) { _adsPd = 0; _adsCur = `captured_at=eq.${_hojeBRT}`; _adsPrev = `captured_at=eq.${_ontemBRT}` }
   else if (period === 1) { const _anteBRT = localDate(new Date(new Date(_ontemBRT + 'T00:00:00').getTime() - 86400000)); _adsPd = 0; _adsCur = `captured_at=eq.${_ontemBRT}`; _adsPrev = `captured_at=eq.${_anteBRT}` }
-  erroAds.value = null
   if (!noneSelected) {
     const [ciCurr, ciPrev] = await Promise.all([
       sb(`campaign_insights?account_id=eq.${accountId}&period_days=eq.${_adsPd}&${_adsCur}&limit=200&select=campaign_id,spend,impressions,clicks,reach,post_engagement,likes,comments,shares,saves,captured_at${idFilter}`),
@@ -1438,29 +1574,23 @@ async function fetchData(accountId, period, customStart, customEnd) {
     // Captura o .erro AQUI, colado no await: o .erro é uma propriedade do array
     // que o sb() devolveu — .filter()/.map() (o aggCi abaixo) criam array novo e
     // deixam o .erro para trás.
-    erroAds.value = ciCurr.erro || ciPrev.erro || null
+    // Só ACRESCENTA: uma falha anterior (campanhas, conjuntos ou gasto do dia) não
+    // pode ser apagada por um `|| null` daqui — o dono ficaria sem o aviso.
+    erroAds.value = erroAds.value || ciCurr.erro || ciPrev.erro || null
     const adsAgg = aggCi(ciCurr); const prevAdsAgg = aggCi(ciPrev)
     spend = adsAgg?.spend || 0; impressions = adsAgg?.impressions || 0; clicks = adsAgg?.clicks || 0; reach = adsAgg?.reach || 0
     adEngagement = adsAgg?.adEngagement || 0; adLikes = adsAgg?.adLikes || 0; adComments = adsAgg?.adComments || 0; adShares = adsAgg?.adShares || 0; adSaves = adsAgg?.adSaves || 0
     prevSpend = prevAdsAgg ? prevAdsAgg.spend : null
     // Reach DEDUPLICADO: sem filtro de campanhas, usa o total nível-conta (account_insights).
     // Somar reach por campanha infla (mesma pessoa em várias) — chegava a ~35% no real.
-    if (safeIds.length === 0) {
+    // "Sem filtro" agora quer dizer as DUAS coisas: balde Todos E nenhum filtro
+    // manual. Com um recorte qualquer não existe alcance deduplicado guardado, e
+    // aí a soma por campanha é o melhor que temos — o mesmo que já acontecia
+    // quando o dono marcava campanhas na mão.
+    if (_todasAsCampanhas) {
       const aiCurr = await sb(`account_insights?account_id=eq.${accountId}&period_days=eq.${_adsPd}&${_adsCur}&limit=1&select=reach`).catch(() => [])
       if (aiCurr && aiCurr.length && aiCurr[0].reach != null) reach = parseInt(aiCurr[0].reach)
     }
-  }
-  // ── GRÁFICOS DIÁRIOS DA SEÇÃO 02 (barras por dia + linha de meta) ──
-  // period_days = 0 guarda o gasto do DIA isolado (uma linha por campanha por dia). O agregado dos
-  // cards acima NÃO é tocado — isto aqui é leitura à parte, só pro gráfico. O recorte é sempre a
-  // janela exibida (followStart..followEnd), igual pra todo perfil e todo período.
-  let gastoDiarioRows = []
-  if (!noneSelected) {
-    const ciDia = await sb(`campaign_insights?account_id=eq.${accountId}&period_days=eq.0&captured_at=gte.${followStart}&captured_at=lte.${followEnd}&order=captured_at.asc&limit=5000&select=captured_at,spend${idFilter}`)
-    // .erro lido AQUI, colado no await: ele mora no array que o sb() devolveu e o .map() abaixo
-    // cria um array novo, deixando o .erro pra trás.
-    if (ciDia.erro && !erroAds.value) erroAds.value = ciDia.erro
-    if (!ciDia.erro) gastoDiarioRows = ciDia.map(r => ({ captured_at: r.captured_at, spend: r.spend }))
   }
   // Novos seguidores por dia: MESMA série resiliente que o gráfico da seção 01 desenha
   // (bruto quando a Meta consolidou; senão a variação da contagem) — os dois nunca divergem.
@@ -1504,6 +1634,8 @@ async function fetchData(accountId, period, customStart, customEnd) {
     chart: { gained: chartGained, lost: chartLost, labels: chartLabels, dates: chartDates },
     spend, prevSpend, cps, prevCps, cpsConsolidando, cpsPrevia, adEngagement, adLikes, adComments, adShares, adSaves,
     adsDiario: { inicio: followStart, fim: followEnd, linhasDeGasto: gastoDiarioRows, linhasDeSeguidores: seguidoresDiarioRows },
+    // Recorte por balde: o que a barra desenha e o que o ao vivo tem de somar.
+    baldesVazios, baldeEfetivo, idsParaAoVivo,
     eng: { likes: eng.likes, saves: eng.saves, shares: eng.shares, comments: eng.comments ?? 0, reach: eng.reach ?? 0, views: eng.views ?? 0, interactions: eng.total_interactions ?? 0, engaged: eng.accounts_engaged ?? 0, profileViews: eng.profile_views ?? 0, prevLikes: prevEng?.likes ?? null, prevSaves: prevEng?.saves ?? null, prevShares: prevEng?.shares ?? null, prevComments: prevEng?.comments ?? null, prevReach: prevEng?.reach ?? null, prevViews: prevEng?.views ?? null, prevInteractions: prevEng?.total_interactions ?? null, prevEngaged: prevEng?.accounts_engaged ?? null, prevProfileViews: prevEng?.profile_views ?? null },
     cnt: { posts: cnt.posts_count, stories: storiesCount, reels: cnt.reels_count, postsReels: cnt.posts_count + cnt.reels_count, prevPosts: prevCnt != null ? prevCnt.posts_count : null, prevReels: prevCnt != null ? prevCnt.reels_count : null, prevPostsReels: prevCnt != null ? prevCnt.posts_count + prevCnt.reels_count : null, prevStories: prevStoriesCount },
     storyEng: { shares: storyShares, replies: storyRep, prevShares: prevStoryShares, prevReplies: prevStoryRep, reach: storyReach, interactions: storyInter, navigation: storyNav, profileVisits: storyPV, follows: storyFol, navForward: storyNavF, navBack: storyNavB, navExit: storyNavE, navNext: storyNavN, prevReach: prevStoryReach, prevInteractions: prevStoryInter, prevNavigation: prevStoryNav, prevProfileVisits: prevStoryPV, prevFollows: prevStoryFol },
@@ -1767,6 +1899,11 @@ function renderInteracoes() {
 /* ── MAIN UPDATE (legacy L4045-4157, verbatim) ── */
 function update(d, period) {
   const pl = d.pl
+  // Balde sem gasto no período fica apagado, com o motivo. A conta usa o gasto
+  // COLETADO por campanha (o ao vivo não sabe separar por tipo). `baldeEfetivo`
+  // é o que as consultas REALMENTE usaram — pode ser Todos, quando o escolhido
+  // não tem dinheiro neste perfil.
+  desenharBaldeBar(d.baldesVazios || [], d.baldeEfetivo)
   applyFreshness(d.trueLastSnap) // frescor = última coleta REAL do coletor, igual em qualquer período
   const totalEl = document.getElementById('total-followers'); if (totalEl) animCountFull(totalEl, (d.live ? d.live.followers_count : d.followerTotal))
   // Status ao vivo × fallback honesto (nunca esconde que é dado coletado quando a Meta falha).
@@ -2010,7 +2147,7 @@ async function buildProfiles() {
       btn.classList.add('active')
       _acIdx = idx
       try { localStorage.setItem('dash_account', String(acc.id)) } catch (e) {}
-      currentAccountId = acc.id; applyProfileTheme(acc.name); updateGoalDisplays(currentPeriod); metasFetchAll(acc.id); loadCampaignFilterBadge()
+      currentAccountId = acc.id; applyProfileTheme(acc.name); updateGoalDisplays(currentPeriod); metasFetchAll(acc.id); carregarBalde(acc.id); loadCampaignFilterBadge()
       const wrapper = document.querySelector('.wrapper')
       _fadeSwap(wrapper, () => refresh())
     })
@@ -2021,7 +2158,7 @@ async function buildProfiles() {
     let selIdx = 0
     try { const savedId = localStorage.getItem('dash_account'); if (savedId != null) { const i = accounts.findIndex(a => String(a.id) === savedId); if (i >= 0) selIdx = i } } catch (e) {}
     _acIdx = selIdx
-    currentAccountId = accounts[selIdx].id; applyProfileTheme(accounts[selIdx].name)
+    currentAccountId = accounts[selIdx].id; applyProfileTheme(accounts[selIdx].name); carregarBalde(accounts[selIdx].id)
     document.querySelectorAll('.profile-btn').forEach((b, i) => b.classList.toggle('active', i === selIdx))
     setTimeout(loadCampaignFilterBadge, 100)
   }
@@ -2061,7 +2198,10 @@ function _acSwitchTo(idx) {
     _acIdx = idx
     const acc = _allAccounts[idx]
     document.querySelectorAll('.profile-btn').forEach((b, i) => b.classList.toggle('active', i === idx))
-    currentAccountId = acc.id; applyProfileTheme(acc.name); updateGoalDisplays(currentPeriod); metasFetchAll(acc.id); refresh(); loadCampaignFilterBadge()
+    // carregarBalde ANTES do refresh: o balde é POR PERFIL, e o refresh já
+    // consulta com ele. Depois, o vitrine mostraria o perfil novo com o balde do
+    // perfil anterior por uma rodada inteira.
+    currentAccountId = acc.id; applyProfileTheme(acc.name); updateGoalDisplays(currentPeriod); metasFetchAll(acc.id); carregarBalde(acc.id); refresh(); loadCampaignFilterBadge()
     _acSecsLeft = AC_DURATION
   })
 }
@@ -2178,9 +2318,15 @@ async function refresh() {
   const myId = ++_refreshId
   const _ls = document.getElementById('live-status'); if (_ls) _ls.innerHTML = '<span style="opacity:.7">⟳ atualizando ao vivo…</span>'
   // PARALELO: coletado (gráficos/histórico) + KPIs ao vivo + série do gráfico — juntos, não em fila.
+  //
+  // ÚNICA exceção: o ao vivo espera o coletado. Quem classifica as campanhas em
+  // baldes é o fetchData, e o ao vivo PRECISA somar exatamente o mesmo conjunto —
+  // senão o cartão de investimento mostraria um balde e o de custo por seguidor,
+  // outro. Os outros três continuam saindo junto, como sempre.
+  const _pDados = fetchData(currentAccountId, currentPeriod, currentStartDate, currentEndDate)
   const [data, live, serie, seriePrev, collabs] = await Promise.all([
-    fetchData(currentAccountId, currentPeriod, currentStartDate, currentEndDate),
-    buscarKpisAoVivo(currentAccountId, currentPeriod, currentStartDate, currentEndDate),
+    _pDados,
+    _pDados.then(d => buscarKpisAoVivo(currentAccountId, currentPeriod, currentStartDate, currentEndDate, d.idsParaAoVivo)),
     buscarSerieNovos(currentAccountId, currentPeriod, currentStartDate, currentEndDate),
     buscarSerieNovos(currentAccountId, currentPeriod, currentStartDate, currentEndDate, 1), // mesmos dias, mês anterior
     buscarCollabs(currentAccountId, currentPeriod, currentStartDate, currentEndDate), // posts/reels em collab (não vêm no /media)
@@ -2892,6 +3038,17 @@ onUnmounted(() => {
 .tela-redes-sociais :deep(.overall-bar-pct){font-family:'Oswald',sans-serif;font-size:max(9px, calc(13px * var(--escala-texto, 1)));font-weight:500;white-space:nowrap;}
 .tela-redes-sociais :deep(#insight-card.loading .insight-list){opacity:.4;}
 
+/* Balde de campanha — recorta a seção 02 por TIPO (exclusivo desta tela).
+   ROLA na horizontal em vez de quebrar linha ou encolher a fonte: a 375px os
+   cinco rótulos não cabem lado a lado, e quebrar linha empurraria os cartões
+   de dinheiro para fora da primeira tela. Aparência copiada da .profile-btn
+   desta mesma tela (surface + border + muted), que já é a pílula do app. */
+.tela-redes-sociais :deep(.balde-bar){display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:4px 0 10px;margin-bottom:4px;}
+.tela-redes-sociais :deep(.balde-btn){flex:0 0 auto;min-height:40px;padding:9px 16px;border:1px solid var(--border);border-radius:999px;background:var(--surface);color:var(--muted);font-family:var(--fonte-principal);font-size:max(11px, calc(11.5px * var(--escala-texto, 1)));font-weight:600;letter-spacing:.4px;cursor:pointer;white-space:nowrap;transition:background .16s,color .16s,border-color .16s;}
+.tela-redes-sociais :deep(.balde-btn:hover:not(:disabled):not([aria-selected="true"])){color:var(--text);border-color:var(--accent-mid);background:var(--accent-light);}
+.tela-redes-sociais :deep(.balde-btn[aria-selected="true"]){background:var(--accent);color:var(--sobre-cor);border-color:var(--accent);}
+.tela-redes-sociais :deep(.balde-btn:disabled){opacity:.45;cursor:not-allowed;}
+
 /* Filtro de campanhas — barra + modal (exclusivo desta tela) */
 .tela-redes-sociais :deep(.camp-filter-bar){display:flex;align-items:center;gap:10px;background:var(--accent-light);border:1px solid var(--accent-mid);border-radius:4px;padding:9px 14px;margin-bottom:14px;flex-wrap:wrap;}
 .tela-redes-sociais :deep(.camp-filter-lbl){font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));font-weight:500;color:var(--muted);white-space:nowrap;text-transform:uppercase;letter-spacing:.8px;}
@@ -2977,6 +3134,9 @@ onUnmounted(() => {
   .tela-redes-sociais :deep(.sec-header){margin:14px 12px 8px;padding-bottom:0;}
   .tela-redes-sociais :deep(.section-label){font-size:max(9px, calc(8px * var(--escala-texto, 1)));letter-spacing:2px;}
   .tela-redes-sociais :deep(.sec-chip){font-size:max(9px, calc(8px * var(--escala-texto, 1)));padding:2px 6px;}
+  /* Os 12px laterais alinham as pílulas com os cartões (que ganham
+     `padding:0 12px` no celular) e tiram a primeira de cima da borda da tela. */
+  .tela-redes-sociais :deep(.balde-bar){padding:6px 12px 8px;margin-bottom:0;}
   .tela-redes-sociais :deep(.camp-filter-bar){padding:6px 12px;font-size:max(9px, calc(10px * var(--escala-texto, 1)));gap:5px;}
   .tela-redes-sociais :deep(.camp-filter-lbl){display:none;}
   .tela-redes-sociais :deep(.btn-campaign-filter){font-size:max(9px, calc(9px * var(--escala-texto, 1)));padding:4px 8px;}

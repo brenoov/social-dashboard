@@ -69,3 +69,37 @@ export function idsDoBalde(campanhas, balde) {
   if (balde === 'todos' || !balde) return lista.map(c => String(c.campaign_id));
   return lista.filter(c => baldeDaCampanha(c) === balde).map(c => String(c.campaign_id));
 }
+
+// O balde recorta o TIPO; o "⚙ Filtrar campanhas" recorta DENTRO dele. Os dois se
+// somam.
+//
+// `selecionadas` segue a régua que já existe no painel: null = todas as campanhas,
+// [] = NENHUMA (escolha do dono, não ausência de escolha).
+export function idsParaConsulta(campanhas, balde, selecionadas) {
+  const doBalde = idsDoBalde(campanhas, balde);
+  if (selecionadas == null) return doBalde;
+  const marcadas = new Set(selecionadas.map(String));
+  return doBalde.filter(id => marcadas.has(id));
+}
+
+// SÓ A ÚLTIMA COLETA DE CONJUNTOS VOTA.
+//
+// campaign_adsets nunca encolhe: o coletor grava o que a Meta devolve e não apaga
+// o que sumiu de lá. Sem esta peneira, um conjunto de WhatsApp desligado há meses
+// continuaria classificando a campanha como Contatos para sempre — e o dinheiro
+// dela nunca mais voltaria ao balde certo.
+//
+// A régua é o MAIOR `synced_at` que está DENTRO do próprio dado, nunca a data de
+// hoje: se a coleta falhar por alguns dias, o maior é simplesmente a última rodada
+// boa e nada se perde. Linha sem `synced_at` cai fora — ela não tem como provar
+// que é a mais recente. Se TODAS caírem, a tela usa o mesmo caminho de quando a
+// tabela está vazia: cada campanha classificada pelo objetivo. Ninguém some.
+//
+// Comparação por texto de propósito: `synced_at` chega do PostgREST como data ISO
+// ('2026-08-17'), e ISO ordena igual em texto e no calendário.
+export function conjuntosMaisRecentes(linhas) {
+  const lista = Array.isArray(linhas) ? linhas.filter(l => l && l.synced_at) : [];
+  if (lista.length === 0) return [];
+  const maior = lista.reduce((m, l) => (String(l.synced_at) > m ? String(l.synced_at) : m), '');
+  return lista.filter(l => String(l.synced_at) === maior);
+}

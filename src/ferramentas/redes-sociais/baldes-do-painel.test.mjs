@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { BALDES, baldeDaCampanha, rotuloDoBalde, idsDoBalde } from './baldes-do-painel.js';
+import { BALDES, baldeDaCampanha, rotuloDoBalde, idsDoBalde, idsParaConsulta, conjuntosMaisRecentes } from './baldes-do-painel.js';
 
 // TODAS as campanhas abaixo são REAIS: nome, objetivo e gasto conferidos no banco
 // de produção em 17/08/2026. Os conjuntos são o sinal que a Meta afirma.
@@ -105,4 +105,81 @@ test('id real de 18 dígitos atravessa sem perder um algarismo', () => {
   // Id real da campanha marcada no filtro da Vessel, conferido no banco em 17/08/2026.
   const ids = idsDoBalde([{ campaign_id: '120249301837840342', objective: 'OUTCOME_SALES', conjuntos: [] }], 'vendas');
   assert.deepEqual(ids, ['120249301837840342']);
+});
+
+/* ── O balde + o "⚙ Filtrar campanhas" se somam ── */
+
+const campanhas = [
+  { campaign_id: 'a', objective: 'OUTCOME_TRAFFIC', conjuntos: [{ destination_type: 'INSTAGRAM_PROFILE' }] },
+  { campaign_id: 'b', objective: 'OUTCOME_ENGAGEMENT', conjuntos: [{ destination_type: 'WHATSAPP' }] },
+  { campaign_id: 'c', objective: 'OUTCOME_TRAFFIC', conjuntos: [] },
+];
+
+test('o balde recorta o tipo e o filtro manual recorta DENTRO dele', () => {
+  assert.deepEqual(idsParaConsulta(campanhas, 'seguidores', null), ['a']);
+  assert.deepEqual(idsParaConsulta(campanhas, 'todos', ['a', 'c']), ['a', 'c']);
+  assert.deepEqual(idsParaConsulta(campanhas, 'seguidores', ['b', 'c']), []);
+  assert.deepEqual(idsParaConsulta(campanhas, 'contatos', ['b', 'c']), ['b']);
+});
+
+test('filtro manual vazio (nenhuma marcada) NÃO vira "todas"', () => {
+  // [] no banco significa "nenhuma campanha" de propósito; virar "todas" faria a
+  // tela mostrar dinheiro que o dono tirou da conta.
+  assert.deepEqual(idsParaConsulta(campanhas, 'todos', []), []);
+  assert.deepEqual(idsParaConsulta(campanhas, 'seguidores', []), []);
+});
+
+test('sem filtro manual (null = todas), o balde manda sozinho', () => {
+  assert.deepEqual(idsParaConsulta(campanhas, 'todos', null), ['a', 'b', 'c']);
+});
+
+/* ── Só a coleta MAIS RECENTE de conjuntos vota ── */
+
+test('conjunto de uma coleta VELHA não vota mais', () => {
+  // campaign_adsets só CRESCE: o conjunto que a Meta apagou continuaria no banco
+  // e classificaria a campanha para sempre. Uma campanha que já foi de WhatsApp
+  // ficaria em Contatos pela eternidade.
+  const linhas = [
+    { adset_id: '1', campaign_id: 'x', destination_type: 'WHATSAPP', synced_at: '2026-08-10' },
+    { adset_id: '2', campaign_id: 'x', destination_type: 'INSTAGRAM_PROFILE', synced_at: '2026-08-17' },
+  ];
+  assert.deepEqual(conjuntosMaisRecentes(linhas).map(l => l.adset_id), ['2']);
+  // e o veredito muda junto: sem a limpeza, esta campanha ficaria em 'contatos'.
+  assert.equal(baldeDaCampanha({ objective: 'OUTCOME_TRAFFIC', conjuntos: conjuntosMaisRecentes(linhas) }), 'seguidores');
+});
+
+test('a régua é o MAIOR synced_at do próprio dado, nunca a data de hoje', () => {
+  // Se a coleta de conjuntos falhar por três dias, o maior é a última rodada boa
+  // e nada se perde — comparar com "hoje" esvaziaria a tela sem motivo.
+  const linhas = [
+    { adset_id: '1', campaign_id: 'x', synced_at: '2026-01-02' },
+    { adset_id: '2', campaign_id: 'y', synced_at: '2026-01-05' },
+    { adset_id: '3', campaign_id: 'z', synced_at: '2026-01-05' },
+  ];
+  assert.deepEqual(conjuntosMaisRecentes(linhas).map(l => l.adset_id), ['2', '3']);
+});
+
+test('coleta única (tudo da mesma data) volta inteira', () => {
+  const linhas = [
+    { adset_id: '1', campaign_id: 'x', synced_at: '2026-08-17' },
+    { adset_id: '2', campaign_id: 'y', synced_at: '2026-08-17' },
+  ];
+  assert.deepEqual(conjuntosMaisRecentes(linhas), linhas);
+});
+
+test('sem conjunto nenhum, volta vazio — e nada quebra', () => {
+  assert.deepEqual(conjuntosMaisRecentes([]), []);
+  assert.deepEqual(conjuntosMaisRecentes(null), []);
+  assert.deepEqual(conjuntosMaisRecentes(undefined), []);
+});
+
+test('linha sem synced_at é descartada: ela não pode ser a mais recente', () => {
+  const linhas = [
+    { adset_id: '1', campaign_id: 'x', synced_at: null },
+    { adset_id: '2', campaign_id: 'y', synced_at: '2026-08-17' },
+  ];
+  assert.deepEqual(conjuntosMaisRecentes(linhas).map(l => l.adset_id), ['2']);
+  // TODAS sem data = nenhuma vota. A tela cai na regra do objetivo, que é o
+  // mesmo caminho de quando campaign_adsets ainda está vazia. Não some ninguém.
+  assert.deepEqual(conjuntosMaisRecentes([{ adset_id: '1', synced_at: null }, { adset_id: '2' }]), []);
 });
