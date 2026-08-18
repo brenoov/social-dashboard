@@ -15,26 +15,29 @@ Cada item tem um código fixo (A1, B3...) pra dar pra citar em conversa.
 
 ---
 
+## O que o dono decidiu em 18/08 (para não virar dúvida de novo)
+
+Numa triagem item a item, ele **encerrou** dez itens da Parte A. Fica aqui o
+motivo, porque "sumiu da lista" sem explicação é o que faz alguém reabrir o
+assunto daqui a um mês:
+
+| Item | Por que saiu |
+|---|---|
+| A2b · carro sem dono | **É de propósito.** O `OLW4I46` não tem dono fixo por decisão. |
+| A2c · seguro vazio nos 10 | **É de propósito.** Não vão preencher valor de seguro. |
+| A3 · empresa e local | **FEITO em 18/08.** Os 10 carros têm empresa e local — zero vazios. |
+| A12 · Status do Claude | **É de propósito.** O `breno@` não vai receber a permissão. |
+| A13 · anúncios parados | Encerrado a pedido dele. |
+| A1, A4, A5, A6, A7 | Mandou apagar. Eram os que já estavam fora de recomendação. |
+
+⚠️ **A2c e A12 tinham número medido contra eles** (10 de 10 carros sem seguro; a
+permissão faltando de fato). Não saíram por estarem resolvidos — saíram porque o
+dono decidiu que é assim que fica. Se um dia alguém estranhar o custo do carro sair
+por baixo, ou você não enxergar o Status do Claude, **é isto, e é intencional.**
+
+---
+
 ## Parte A — Só o dono resolve (clique, sem código)
-
-> **O selo 🔇 que aparece em alguns itens** quer dizer que o dono mandou parar de
-> oferecê-los. Eles não somem: item adiado fica, com a data e o motivo. O que muda
-> é que ninguém os empurra de novo.
-
-### A1 · Frota › ligar o aviso do "Checklist do carro" ⚠️ *o que trava mais coisa*
-> 🔇 **Fora de recomendação (pedido do dono).** Continua registrado, mas não
-> entra em "por onde começar", em resumo de status nem em sugestão. Se ele
-> perguntar direto por ele ou pela lista inteira, responder normal.
-
-Em **Administração › Usuários**. O aviso nasce desligado: o robô roda todo dia às
-7h30, não manda nada e ninguém sabe que não mandou.
-
-**A prova de que ninguém usa** (medido em 11/08): a ferramenta está no ar desde
-06/08 e existem **2 checklists gravados no total**, 1 assinado, o mais recente de
-**07/08**. Ou seja: fizeram o teste e parou. Sem o aviso, ninguém lembra.
-
-E é isso que segura o **B10** — sem checklist diário não nasce o registro de quem
-estava com o carro, que é o que faltava pras multas e pro custo por km.
 
 ### A2 · Frota › 3 donos de carro não têm login 🟢 *o bloqueio saiu em 18/08*
 Medido em 11/08, **remedido em 18/08**.
@@ -68,43 +71,6 @@ Então o primeiro convite é também o teste. **Se algo falhar, é neste item.**
 > mesma regra, com o e-mail como resgate. Ligar o elo na ficha dela continua sendo
 > boa arrumação, mas **não é mais requisito** pra ela receber o aviso.
 
-### A2b · Frota › 1 carro sem dono 🟢 *era 2, remedido em 18/08*
-Sobrou o `OLW4I46` **Fiat Bravo Essence**. O `QQT9B68` Fiat Doblo ganhou dono.
-Sem dono fixo não há de quem cobrar o checklist — ele nunca entra no quadro de
-cobrança nem no aviso.
-
-### A2c · Frota › o valor do seguro está vazio nos 10 carros ⚠️ *remedido em 18/08: não mudou*
-Medido em 12/08 e **de novo em 18/08: continua 10 de 10 sem valor de seguro.** O `DCH1J89` BMW X1 também
-está sem aluguel e sem FIPE — é o único; os outros 9 têm os dois.
-
-Enquanto o seguro estiver vazio, qualquer conta de custo do carro sai por baixo:
-falta uma das três parcelas fixas (aluguel, FIPE, seguro).
-
-> ✅ **Susto que não era susto, conferido em 12/08.** Havia um defeito de leitura de
-> dinheiro na ficha: ele jogava fora todo ponto, tratando como separador de milhar.
-> Fui conferir os 10 carros esperando encontrar valores 100× maiores — **não tem
-> nenhum errado.** O motivo: quem preenche digita no jeito brasileiro
-> (`157.995,00`), e aí o ponto **é** milhar mesmo, então jogar fora estava certo por
-> acidente. O defeito só morderia quem digitasse no jeito americano (`157995.00`).
-> Já está corrigido de todo jeito. Nada a arrumar no banco.
-
-### A3 · Frota › apontar Empresa e Local 🟢 *quase lá — 18/08*
-Remedido em 18/08. Sobraram **dois buracos, em dois carros**:
-
-| Placa | Carro | Falta |
-|---|---|---|
-| FEF0C13 | Volvo XC90 | só a **empresa** |
-| FFK9E60 | Fiat Bravo Blackmotion | só o **local** |
-
-Em 11/08 eram 3 carros sem empresa e 4 sem local. O XC60 e o Cayenne saíram.
-
-Preencher **na ficha, na mão** — decisão do dono: nada de migration mexendo em dado.
-
-> ⚠️ **Cuidado com a palavra "Marca".** Na Frota, `marca` é o **fabricante**
-> (VOLVO, BMW, FIAT) e **está preenchida nos 10**. A empresa do grupo (Vessel,
-> RB Builders, RBV Company) é outro campo, e é esse que está vazio. Isso já
-> confundiu uma vez.
-
 ### A3c · Perfis de Acesso › o teste da primeira vez ⚠️ *antes do primeiro perfil de verdade*
 A ferramenta está no ar e **nunca foi usada**. Antes de criar um perfil com gente dentro,
 vale rodar o roteiro — ele prova que a trava funciona:
@@ -117,120 +83,6 @@ vale rodar o roteiro — ele prova que a trava funciona:
 6. Desfazer tudo.
 
 Precisa ser feito por `erick@` ou `gabriel.gertrudes@` (ver A3b).
-
-### A4 · Segurança › ligar MFA e a proteção de senha vazada 🔴 *risco nº 1*
-> 🔇 **Fora de recomendação (pedido do dono).** Continua registrado, mas não
-> entra em "por onde começar", em resumo de status nem em sugestão. Se ele
-> perguntar direto por ele ou pela lista inteira, responder normal.
-
-No painel do Supabase:
-- **Authentication › Password security** → ligar "Leaked password protection" +
-  tamanho mínimo ≥ 10.
-- **Authentication › MFA** → ligar TOTP e os admins se cadastrarem.
-
-Por que é o risco nº 1: as três frentes grandes já foram fechadas (repo privado,
-token da Meta fora do navegador, guarda de admin). O que sobra de porta aberta é
-login de admin com senha fraca ou phishada.
-
-### A5 · Segurança › rotacionar os segredos
-> 🔇 **Fora de recomendação (pedido do dono).** Continua registrado, mas não
-> entra em "por onde começar", em resumo de status nem em sugestão. Se ele
-> perguntar direto por ele ou pela lista inteira, responder normal.
-
-Circularam em transcrição de sessão: **token do System User da Meta**,
-**client_secret** do app da Meta e o **token do Bling**.
-
-**Piorou em 18/08.** Ao listar só os NOMES das chaves do `coletor/.env`, pedaços
-de um token da Meta apareceram na tela — o arquivo tem linhas quebradas, e o
-comando que mostrava os nomes mostrou junto os restos delas. Erro meu. Não muda o
-que fazer, muda a pressa: **os tokens da Meta deste arquivo devem entrar na
-rotação.** Nunca mais listar chave de `.env` sem cortar a linha.
-
-### A6 · Central de Conteúdo › decidir se liga os 2 crons
-> 🔇 **Fora de recomendação (pedido do dono).** Continua registrado, mas não
-> entra em "por onde começar", em resumo de status nem em sugestão. Se ele
-> perguntar direto por ele ou pela lista inteira, responder normal.
-
-As duas Edge Functions estão no ar mas **dormentes** de propósito — as migrations
-`06-cron-hora-h.sql` e `09-cron-espelho.sql` nunca foram aplicadas.
-- `conteudo-hora-h`: **dispara push em 6 aparelhos reais.** Decisão do dono.
-- `conteudo-espelho`: inofensiva (só lê a Meta). Pode ligar quando quiser.
-
-### A7 · Meta › pedir o App Review 🟡 *"pra outra hora" (dono, 11/08)*
-> 🔇 **Fora de recomendação (pedido do dono).** Continua registrado, mas não
-> entra em "por onde começar", em resumo de status nem em sugestão. Se ele
-> perguntar direto por ele ou pela lista inteira, responder normal.
-
-Falta **uma só permissão: `instagram_content_publish`.** As outras 7 que o sistema
-usa já funcionam. O pacote está pronto (texto de justificativa, roteiro do vídeo,
-pré-requisitos) em `docs/app-review-meta.md`.
-
-**Não pedir `pages_manage_posts`** junto — nenhum código publica em Página do
-Facebook, e permissão sem uso visível no vídeo reprova; uma reprovada derruba o
-pedido inteiro.
-
-Sem isso, a Central de Conteúdo **avisa** na hora H em vez de publicar. A
-publicação já está escrita e desligada (`ESCOPOS_DE_PUBLICACAO_LIBERADOS = false`).
-
-### A12 · Status do Claude › o `breno@` não enxerga a ferramenta 🟢 *achado em 14/08*
-Medido no banco em 14/08, conferindo outra coisa (o B12).
-
-| Super-admin | Tem `claude.status` |
-|---|---|
-| erick@rbvcompany.com | sim |
-| gabriel.gertrudes@rbvcompany.com | sim |
-| **breno@rbvcompany.com** | **não** |
-
-Por quê: a permissão foi concedida por uma migration de julho que varria **quem
-era super-admin naquele dia**. O `breno@` virou super-admin depois, e a concessão
-não voltou a rodar. É o padrão conhecido: **chave nova só chega a quem já
-existia** — quem entra depois nasce sem ela.
-
-Resolve em **Administração › Usuários**, marcando "ver" em Status do Claude para
-o `breno@`. Não mexi: é permissão de pessoa de verdade, e a decisão é sua.
-
-### A13 · Meta Ads › 47 anúncios parados, e agora dá pra ver 🔴 *remedido em 18/08*
-O dono relatou que uma campanha foi barrada "por atividade suspeita". Medido no
-Graph em 17/08, e a medição corrige a premissa em dois pontos:
-
-- **Nenhuma conta está restringida.** As 7 contas de anúncio estão ATIVAS, com
-  `disable_reason: 0`. Não houve bloqueio de conta.
-- **Nenhum anúncio está recusado por política.** O que existe são **47 itens
-  parados por motivo operacional** (eram 49 em 17/08) — e a Meta diz cada um com
-  todas as letras. Contagem de 18/08, lida pelo robô-vigia do **B15**, que agora
-  refaz essa leitura todo dia às 04h07 sem depender de ninguém abrir a tela.
-
-| Quantos | O que a Meta diz | Onde resolve |
-|---|---|---|
-| **33 anúncios** | As Páginas não correspondem | A Página do anúncio é diferente da Página do post que ele promove. Escolher a mesma nos dois. |
-| **5 conjuntos** | Público personalizado indisponível | Abrir o conjunto na Meta e tirar o público que sumiu — enquanto ele estiver lá, não reativa. |
-| 3 anúncios | Vídeo abaixo do mínimo | Trocar por um com mais de 500px de largura (roda, mas não no Instagram). |
-| 2 anúncios | Não está sendo veiculado | Público pequeno ou concorrência entre conjuntos. |
-| 1 anúncio | Cartão de imagem sem link de CTA | Preencher o destino. |
-| 1 anúncio | Mídia orgânica excluída | — |
-
-Os **33 das Páginas** são a maior parte, e 32 deles nasceram numa rajada só:
-**13/08, entre 13h15 e 13h18**, na conta `C2 - La Vessel`. Trinta e dois anúncios
-inválidos em quatro minutos é o padrão que costuma ser lido como automação
-abusiva — pode ser essa a origem do que chegou como "atividade suspeita".
-
-⚠️ **Não foi a nossa Fábrica:** `fabrica_jobs` não tem rodada nenhuma depois de
-**29/07**. Esses anúncios não saíram por ali.
-
-**Resolve no Gerenciador de Anúncios**, não aqui — a Central mostra, e de
-propósito não mexe. Ver o painel novo em **Gestão de Tráfego › Fila**.
-
-> ✅ **E agora a Central guarda o motivo (17/08).** A Meta **apaga** o
-> `issues_info` quando o anúncio é excluído ou o problema é resolvido — foi por
-> isso que a campanha da semana de 11/08 não deixou rastro. A tabela
-> `gt_problemas_meta` é a memória que a Meta não tem: guarda **o nome** da
-> campanha e do anúncio junto com os ids (para a linha continuar legível depois
-> que o objeto sumiu da Meta), `primeira_vez` / `ultima_vez` em vez de uma linha
-> por leitura, e `resolvido_em` para saber que o conserto funcionou e quanto
-> tempo ficou parado. Já tem **47 linhas** gravadas.
->
-> ⚠️ **Ela só enche quando alguém abre a Gestão de Tráfego.** Um problema que
-> nasce e morre entre duas visitas passa batido. Fechar isso é o **B15**.
 
 ---
 
@@ -362,16 +214,25 @@ ter ido para o GitHub, e não para cá.
 
 ## Parte C — Ideias guardadas (ninguém pediu ainda)
 
-### C2 · Gestor de Tráfego › subir campanha por upload de criativo
-Ideia do dono (12/07): subir campanha no Gestor com o criativo vindo de **upload**
-(1 arquivo ou em massa), não gerado como no Estúdio. Requisito-chave é
-**normalizar o formato sozinho** (PNG→JPG, achatar transparência, redimensionar
-pros ratios de Feed 1:1 e Story 9:16).
+### C2 · Gestor de Tráfego › subir campanha por upload 🟡 *metade já está de pé — conferido em 18/08*
+Ideia do dono (12/07). **Conferido no código em 18/08, e a premissa mudou: o
+upload de UM arquivo já existe e funciona.**
+
+**O que já está no ar** (`_gtNovoEnviarImagem`, na tela da Gestão de Tráfego):
+escolher um arquivo → Storage do projeto → Meta → hash. Aceita PNG, JPEG, MP4 e
+MOV. Vídeo segue outro caminho de propósito (quem baixa é a Meta, pelo `file_url`,
+porque dezenas de MB estourariam o limite da função). Confere o tamanho **antes**
+de subir (`imagemServe`), porque descobrir que a Meta recusa depois do upload é o
+pior momento. Provado em `validar-envio-de-imagem.mjs` (4/4).
+
+**O que falta, e é o que sobra do C2:**
+1. **Em massa.** O seletor não tem `multiple` — é um arquivo por vez.
+2. **Normalizar o formato sozinho.** Hoje `imagemServe` só **recusa** o que não
+   serve. O pedido era converter: PNG→JPG, achatar transparência e redimensionar
+   para Feed 1:1 e Story 9:16. Nada disso existe.
 
 Reaproveitar, não reconstruir: `fabrica_objetivos`, `criarCampanhaNova` e
 `coletor/lib/meta-subir.mjs` já fazem a subida.
-
----
 
 ## Como manter esta lista
 
