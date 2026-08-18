@@ -147,7 +147,7 @@ pode não existir mesmo; o que mudou é que **falha agora sobe**.
 para tentar de novo com recuo, não para consertar daqui. Enquanto ninguém pedir,
 fica só medido.
 
-### B8 · Status do Claude › o gasto da OpenAI 🟡 *a mentira saiu em 18/08 — falta o valor*
+### B8 · Status do Claude › o gasto da OpenAI ✅ *fechado em 18/08 — o valor está na tela*
 Pedido do dono em 27/07. Medido em 18/08, e o item era **maior do que dizia**: a
 tela não só omitia a OpenAI — ela **afirmava** que "tarefas que criam imagens não
 usam a API paga, então custam R$ 0". A Fábrica gera criativo com **gpt-image-2**,
@@ -186,23 +186,34 @@ a tela mostrava como R$ 0,00.**
 Ela nunca passou pela transcrição da sessão: o dono a deixou como **nome de uma
 pasta no Downloads**, e ela foi lida do disco direto para o cofre.
 
-⚠️ **A pasta em `~/Downloads` ainda tem a chave no nome.** Nome de pasta é texto
-puro: aparece em qualquer listagem, em captura de tela e em backup. Renomear ou
-apagar essa pasta é o último passo — a chave já está guardada.
+✅ **A pasta do Downloads foi apagada em 18/08**, depois de conferir que a chave
+já estava no cofre (133 caracteres, formato `sk-admin`). Nome de pasta é texto
+puro — aparece em listagem, captura de tela e backup. Não sobrou vestígio no
+histórico do terminal nem no Lixo.
 
-🔴 **O que falta: uma Edge Function `custo-openai`**, espelhando a
-`custo-anthropic` (189 linhas), lendo `openai_admin_key` do cofre e chamando
-`https://api.openai.com/v1/organization/costs`. O formato da resposta já foi
-conferido ao vivo: `data[] → results[] → amount.value`, com `bucket_width=1d`.
+✅ **FECHADO em 18/08: o valor está na tela.**
+- **Edge Function `custo-openai`** (172 linhas), irmã da `custo-anthropic`:
+  mesma segurança (verify_jwt + só admin), lê `openai_admin_key` do cofre.
+  **Subiu pelo MCP** — a trava do deploy era da CLI (conta errada, 403), e o MCP
+  nunca dependeu dela. Não era preciso esperar o B14.
+- **A pegadinha que mudaria o valor em 100×:** na Anthropic o `amount` vem em
+  CENTAVOS; na OpenAI, `amount.value` vem em DÓLARES. Medido contra a API antes
+  de escrever: 90 dias = **US$ 98,71**, o mesmo número da medição manual.
+- **A OpenAI dá o que a Anthropic não dá:** custo REAL por chave de API
+  (`group_by=api_key_id`). O "quem gastou" da OpenAI é a conta de verdade, não
+  um rateio — e a tela diz essa diferença em letras.
+- **Na tela:** o número grande do topo virou **gasto real de IA** (as duas contas
+  somadas), com Anthropic e OpenAI discriminadas embaixo; o Extrato ganhou os dois
+  cards e mais dois detalhamentos ("para onde o dinheiro foi" e "quem gastou", da
+  OpenAI). A legenda que dizia *"falta a chave"* foi reescrita.
+- **A soma tem teste** (`somarFornecedores`, 4 casos): fornecedor que falhou
+  **não entra como zero** — o total se declara *parcial* e diz quem faltou. Sem
+  isso, uma falha de rede viraria um total menor com cara de número exato, que é
+  a mesma família de defeito que este item veio consertar.
 
-⚠️ **A função nova cai na MESMA fila de deploy do B14**: Edge Function não sobe
-com `git push`, e a CLI deste Mac está na conta errada (`emsilva99`, do erickIA)
-e leva 403. Por isso ela **não foi escrita ainda** — escrever mais código que não
-sobe só aumenta a distância entre o repositório e o que está no ar, que é um
-problema que este projeto já teve.
-
-**Ordem certa:** resolver o acesso de deploy → subir o B14 → então escrever e
-subir o `custo-openai` na mesma leva.
+**O que ainda NÃO se sabe, e continua honesto na tela:** quanto custou **cada
+execução** da Fábrica. A OpenAI não dá custo por chamada; só por dia, modelo e
+chave. As 23 execuções seguem marcadas como *"custo ainda não conhecido"*.
 
 ---
 

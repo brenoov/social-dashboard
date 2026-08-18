@@ -72,3 +72,31 @@ export function porFornecedor(execucoes) {
   }
   return saida;
 }
+
+/* O TOTAL REAL DE IA — e por que somar dois fornecedores é perigoso.
+ *
+ * São duas contas separadas (Anthropic e OpenAI), cada uma vinda de uma chamada
+ * de rede própria. Se a da OpenAI falhar e a soma tratar a ausência como zero, a
+ * tela mostra um total MENOR que o verdadeiro, com cara de número exato — é a
+ * mesma família de defeito que fez 473 criativos pagos aparecerem como R$ 0, e
+ * a mesma que já transformou uma falha 500 em "R$ 0,00" por 17 horas.
+ *
+ * Por isso a resposta não é só um número: ela diz também se está COMPLETA e
+ * quem faltou, para a tela poder avisar em vez de mentir com confiança. */
+export function somarFornecedores(porFornecedor) {
+  const faltando = [], conhecidos = [];
+  let total = 0;
+  for (const [nome, valor] of Object.entries(porFornecedor || {})) {
+    const n = numero(valor);
+    if (n === null || !Number.isFinite(n)) { faltando.push(nome); continue; }
+    total += n;
+    conhecidos.push(nome);
+  }
+  return {
+    // Nada conhecido não é zero: é "não sei", e a tela mostra "indisponível".
+    total: conhecidos.length ? total : null,
+    completo: conhecidos.length > 0 && faltando.length === 0,
+    conhecidos,
+    faltando,
+  };
+}

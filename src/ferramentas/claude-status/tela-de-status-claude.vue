@@ -31,13 +31,18 @@
           </p>
         </div>
         <div class="csc-hero-gasto">
-          <span class="csc-hero-gasto-lbl">Gasto real da Anthropic · últimos 30 dias</span>
-          <span v-if="gastoRealMesCarregando" class="csc-hero-gasto-val csc-carregando">…</span>
-          <span v-else-if="gastoRealMes" class="csc-hero-gasto-val">{{ fmtBRL(gastoRealMes.totalBrl) }}</span>
+          <span class="csc-hero-gasto-lbl">Gasto real de IA · últimos 30 dias</span>
+          <span v-if="carregandoAlgumRealMes" class="csc-hero-gasto-val csc-carregando">…</span>
+          <span v-else-if="totalRealMes.total !== null" class="csc-hero-gasto-val">{{ fmtBRL(totalRealMes.total) }}</span>
           <span v-else class="csc-hero-gasto-val csc-hero-gasto-indisp">indisponível</span>
-          <span v-if="gastoRealMes && !gastoRealMesCarregando" class="csc-hero-gasto-sub">valor de verdade cobrado — inclui <b>tudo</b>: os robôs, as buscas na web e as sessões de desenvolvimento com IA.</span>
-          <span v-else-if="gastoRealMesErro && !gastoRealMesCarregando" class="csc-hero-gasto-erro">Não consegui puxar o gasto real da Anthropic agora. Tente recarregar a página em instantes.</span>
-          <span class="csc-hero-gasto-est">Estimativa só dos robôs deste painel: <b>{{ fmtBRL(kpis.usdMes * CAMBIO) }}</b>. O número real acima costuma ser maior porque inclui muito mais que os robôs.<template v-if="kpis.semCustoMes"> E <b>{{ kpis.semCustoMes }}</b> {{ kpis.semCustoMes === 1 ? 'execução ficou' : 'execuções ficaram' }} de fora desta estimativa: {{ kpis.semCustoMes === 1 ? 'ela usou' : 'elas usaram' }} a API paga da OpenAI, cujo custo ainda não é conhecido aqui.</template></span>
+          <span v-if="!carregandoAlgumRealMes && totalRealMes.total !== null && !totalRealMes.completo" class="csc-hero-gasto-parcial">total <b>parcial</b>: falta a conta {{ totalRealMes.faltando.length === 1 ? 'da' : 'de' }} <b>{{ totalRealMes.faltando.join(' e ') }}</b>, então o de verdade é maior que este.</span>
+          <span v-if="!carregandoAlgumRealMes" class="csc-hero-gasto-quebra">
+            <span class="csc-hero-forn"><i>Anthropic</i>{{ gastoRealMes ? fmtBRL(gastoRealMes.totalBrl) : 'indisponível' }}</span>
+            <span class="csc-hero-forn"><i>OpenAI</i>{{ gastoOaMes ? fmtBRL(gastoOaMes.totalBrl) : 'indisponível' }}</span>
+          </span>
+          <span v-if="!carregandoAlgumRealMes && totalRealMes.total !== null" class="csc-hero-gasto-sub">valor de verdade cobrado pelas duas — inclui <b>tudo</b>: os robôs, as imagens da Fábrica, as buscas na web e as sessões de desenvolvimento com IA.</span>
+          <span v-if="(gastoRealMesErro || gastoOaMesErro) && !carregandoAlgumRealMes" class="csc-hero-gasto-erro">Não consegui puxar {{ gastoRealMesErro && gastoOaMesErro ? 'nenhuma das duas contas' : (gastoRealMesErro ? 'a conta da Anthropic' : 'a conta da OpenAI') }} agora. Tente recarregar a página em instantes.</span>
+          <span class="csc-hero-gasto-est">Estimativa só dos robôs deste painel: <b>{{ fmtBRL(kpis.usdMes * CAMBIO) }}</b>. O número real acima costuma ser maior porque inclui muito mais que os robôs.<template v-if="kpis.semCustoMes"> E <b>{{ kpis.semCustoMes }}</b> {{ kpis.semCustoMes === 1 ? 'execução ficou' : 'execuções ficaram' }} de fora desta estimativa: {{ kpis.semCustoMes === 1 ? 'ela usou' : 'elas usaram' }} a API paga da OpenAI: o custo <b>de cada uma</b> segue desconhecido, mas o <b>total</b> cobrado pela OpenAI já está contado no número acima.</template></span>
         </div>
       </section>
 
@@ -45,7 +50,7 @@
       <div class="csc-legenda">
         <span class="csc-tag csc-tag-zero">Custo zero</span>
         <p><b>Sobem anúncios</b> não usa API paga nenhuma: custa <b>R$ 0</b> de verdade. Os <b>textos</b> (relatórios, análises, resumos) usam a API paga da Anthropic e têm custo em reais.</p>
-          <p><b>Criar imagens usa a API paga da OpenAI</b> (gpt-image-2) e <b>tem custo</b> — até 18/08/2026 esta tela dizia que era R$ 0, e estava errada. O valor ainda não aparece porque falta a chave de administrador da OpenAI; enquanto isso, essas tarefas mostram <b>“custo ainda não conhecido”</b>, que é a verdade. Elas <b>nunca</b> voltam a aparecer como R$ 0.</p>
+          <p><b>Criar imagens usa a API paga da OpenAI</b> (gpt-image-2) e <b>tem custo</b> — até 18/08/2026 esta tela dizia que era R$ 0, e estava errada. Desde então o <b>total cobrado pela OpenAI</b> aparece aqui, ao lado do da Anthropic. O que ainda não dá para saber é <b>quanto custou cada tarefa</b> separadamente: por isso elas continuam marcadas como <b>“custo ainda não conhecido”</b> no extrato detalhado, e <b>nunca</b> voltam a aparecer como R$ 0.</p>
       </div>
 
       <!-- SAÚDE DOS ROBÔS: só aparece quando há problema.
@@ -197,17 +202,40 @@
           </div>
         </div>
 
-        <!-- GASTO REAL: o número que realmente importa (a fatura da Anthropic). -->
+        <!-- GASTO REAL: o número que realmente importa — as DUAS faturas, e o total.
+             Cada fornecedor tem a sua própria chamada de rede: uma pode falhar sem a
+             outra. Por isso cada card diz o seu próprio estado, e o total lá em cima
+             se declara PARCIAL quando falta alguém, em vez de encolher calado. -->
         <div class="csc-real">
           <div class="csc-real-main">
-            <span class="csc-real-lbl">Gasto real cobrado pela Anthropic · {{ periodoLabel }}</span>
-            <span v-if="gastoRealCarregando" class="csc-real-val csc-carregando">…</span>
-            <span v-else-if="gastoReal" class="csc-real-val">{{ fmtBRL(gastoReal.totalBrl) }}</span>
+            <span class="csc-real-lbl">Gasto real de IA · {{ periodoLabel }}</span>
+            <span v-if="carregandoAlgumReal" class="csc-real-val csc-carregando">…</span>
+            <span v-else-if="totalRealPeriodo.total !== null" class="csc-real-val">{{ fmtBRL(totalRealPeriodo.total) }}</span>
             <span v-else class="csc-real-val csc-real-indisp">indisponível</span>
-            <span v-if="gastoReal && !gastoRealCarregando" class="csc-real-sub">equivale a {{ fmtUsd(gastoReal.totalUsd) }} · de {{ fmtDataCurta(gastoReal.desde) }} a {{ fmtDataCurta(gastoReal.ate) }}</span>
+            <span v-if="!carregandoAlgumReal && totalRealPeriodo.total !== null && !totalRealPeriodo.completo" class="csc-real-parcial">Total <b>parcial</b>: falta a conta {{ totalRealPeriodo.faltando.length === 1 ? 'da' : 'de' }} <b>{{ totalRealPeriodo.faltando.join(' e ') }}</b> — o valor de verdade é maior que este.</span>
           </div>
-          <p class="csc-real-exp">Este é o <b>valor de verdade</b> que a Anthropic cobrou no período. Inclui <b>tudo</b>: os robôs deste painel, as buscas na web, o cache e, principalmente, as <b>sessões de desenvolvimento com IA</b> (quando alguém programa junto com o Claude). Por isso costuma ser bem maior que a estimativa dos robôs logo abaixo.</p>
-          <p v-if="gastoRealErro && !gastoRealCarregando" class="csc-real-erro-box">Não consegui puxar o gasto real da Anthropic agora — tente recarregar em instantes. Os números abaixo são só a <b>estimativa dos robôs</b>, não o total cobrado.</p>
+
+          <div class="csc-real-cards">
+            <div class="csc-real-card">
+              <span class="csc-real-card-lbl">Anthropic</span>
+              <span v-if="gastoRealCarregando" class="csc-real-card-val csc-carregando">…</span>
+              <span v-else-if="gastoReal" class="csc-real-card-val">{{ fmtBRL(gastoReal.totalBrl) }}</span>
+              <span v-else class="csc-real-card-val csc-real-indisp">indisponível</span>
+              <span v-if="gastoReal && !gastoRealCarregando" class="csc-real-sub">{{ fmtUsd(gastoReal.totalUsd) }} · de {{ fmtDataCurta(gastoReal.desde) }} a {{ fmtDataCurta(gastoReal.ate) }}</span>
+              <span class="csc-real-card-oq">textos, análises e as sessões de desenvolvimento com IA</span>
+            </div>
+            <div class="csc-real-card">
+              <span class="csc-real-card-lbl">OpenAI</span>
+              <span v-if="gastoOaCarregando" class="csc-real-card-val csc-carregando">…</span>
+              <span v-else-if="gastoOa" class="csc-real-card-val">{{ fmtBRL(gastoOa.totalBrl) }}</span>
+              <span v-else class="csc-real-card-val csc-real-indisp">indisponível</span>
+              <span v-if="gastoOa && !gastoOaCarregando" class="csc-real-sub">{{ fmtUsd(gastoOa.totalUsd) }} · de {{ fmtDataCurta(gastoOa.desde) }} a {{ fmtDataCurta(gastoOa.ate) }}</span>
+              <span class="csc-real-card-oq">as imagens da Fábrica de Anúncios (gpt-image-2)</span>
+            </div>
+          </div>
+
+          <p class="csc-real-exp">Este é o <b>valor de verdade</b> que os dois fornecedores cobraram no período. Inclui <b>tudo</b>: os robôs deste painel, os criativos que a Fábrica gerou, as buscas na web, o cache e, principalmente, as <b>sessões de desenvolvimento com IA</b> (quando alguém programa junto com o Claude). Por isso costuma ser bem maior que a estimativa dos robôs logo abaixo.</p>
+          <p v-if="(gastoRealErro || gastoOaErro) && !carregandoAlgumReal" class="csc-real-erro-box">Não consegui puxar {{ gastoRealErro && gastoOaErro ? 'nenhuma das duas contas' : (gastoRealErro ? 'a conta da Anthropic' : 'a conta da OpenAI') }} agora — tente recarregar em instantes. O total acima está <b>incompleto</b>, e os números abaixo são só a <b>estimativa dos robôs</b>.</p>
         </div>
 
         <!-- DETALHAMENTO 1 — "Para onde o dinheiro foi" (por categoria): é o valor REAL
@@ -216,7 +244,7 @@
              — nunca inventamos um valor. -->
         <div class="csc-det">
           <div class="csc-det-head">
-            <h2 class="csc-sec-t">Para onde o dinheiro foi</h2>
+            <h2 class="csc-sec-t">Para onde o dinheiro foi · Anthropic</h2>
             <span class="csc-det-selo csc-det-selo-real">valor real</span>
           </div>
           <p class="csc-sec-d">É o valor <b>real</b> cobrado pela Anthropic, quebrado por modelo e tipo de uso (texto que entra, resposta que sai, cache…). A Anthropic não detalha chamada por chamada — <b>isto é o mais fino que existe</b>.</p>
@@ -235,7 +263,7 @@
              atribuição, não fatura por robô. Deixamos isso explícito, sem esconder. -->
         <div class="csc-det">
           <div class="csc-det-head">
-            <h2 class="csc-sec-t">Quem gastou</h2>
+            <h2 class="csc-sec-t">Quem gastou · Anthropic</h2>
             <span class="csc-det-selo csc-det-selo-rateado">rateado por uso</span>
           </div>
           <p class="csc-sec-d">A Anthropic <b>não</b> cobra separado por robô. Este valor é o custo real <b>rateado</b> pelo uso de cada chave (quanto cada uma consumiu) — é uma <b>estimativa de atribuição, não uma fatura por robô</b>.</p>
@@ -250,6 +278,43 @@
             </div>
           </div>
           <div v-else class="csc-det-vazio">Detalhamento por robô indisponível agora.</div>
+        </div>
+
+        <!-- DETALHAMENTO 3 — a OpenAI por modelo. Mesma ideia do da Anthropic, e
+             também valor REAL cobrado. -->
+        <div class="csc-det">
+          <div class="csc-det-head">
+            <h2 class="csc-sec-t">Para onde o dinheiro foi · OpenAI</h2>
+            <span class="csc-det-selo csc-det-selo-real">valor real</span>
+          </div>
+          <p class="csc-sec-d">É o valor <b>real</b> cobrado pela OpenAI, quebrado por modelo e tipo de uso. <b>Imagem</b> é o que a Fábrica gera; <b>texto</b> é o que o modelo lê e escreve em volta.</p>
+          <div v-if="gastoOaCarregando" class="csc-det-vazio">Carregando…</div>
+          <div v-else-if="detCategoriaOa.length" class="csc-det-lista">
+            <div v-for="(c, i) in detCategoriaOa" :key="'oacat' + i" class="csc-det-linha">
+              <span class="csc-det-nome">{{ traduzCategoriaOa(c.item) }}</span>
+              <span class="csc-det-val">{{ fmtBRL(Number(c.usd) * CAMBIO) }}</span>
+            </div>
+          </div>
+          <div v-else class="csc-det-vazio">Detalhamento por modelo indisponível agora.</div>
+        </div>
+
+        <!-- DETALHAMENTO 4 — quem gastou, na OpenAI. Aqui, ao contrário da
+             Anthropic, NÃO é rateio: a OpenAI cobra separado por chave de API,
+             então cada linha é a conta de verdade daquela chave. -->
+        <div class="csc-det">
+          <div class="csc-det-head">
+            <h2 class="csc-sec-t">Quem gastou · OpenAI</h2>
+            <span class="csc-det-selo csc-det-selo-real">valor real</span>
+          </div>
+          <p class="csc-sec-d">A OpenAI <b>cobra separado por chave</b> — então, diferente da Anthropic logo acima, isto <b>não é rateio</b>: cada linha é a conta de verdade daquela chave.</p>
+          <div v-if="gastoOaCarregando" class="csc-det-vazio">Carregando…</div>
+          <div v-else-if="detChaveOa.length" class="csc-det-lista">
+            <div v-for="(k, i) in detChaveOa" :key="'oachave' + i" class="csc-det-linha">
+              <span class="csc-det-nome">{{ traduzChaveOa(k.nome) }}</span>
+              <span class="csc-det-val">{{ fmtBRL(Number(k.usd) * CAMBIO) }}</span>
+            </div>
+          </div>
+          <div v-else class="csc-det-vazio">Detalhamento por chave indisponível agora.</div>
         </div>
 
         <div class="csc-kpis">
@@ -309,7 +374,7 @@
 </template>
 
 <script setup>
-import { fraseDoCusto, ehZeroDeVerdade } from './custo-do-extrato.js'
+import { fraseDoCusto, ehZeroDeVerdade, somarFornecedores } from './custo-do-extrato.js'
 import { onMounted, onUnmounted, ref, reactive, computed, watch } from 'vue'
 import BarraDeTopo from '../../compartilhado/barra-de-topo.vue'
 import { useRouter } from 'vue-router'
@@ -484,9 +549,9 @@ const periodoLabel = computed(() => {
 // desenvolvimento com IA (Claude Code), as buscas na web e o cache. A edge
 // function `custo-anthropic` devolve esse número real (só admin tem acesso).
 // Nunca inventamos um número: se a busca falhar, mostramos o erro, nunca R$ 0.
-async function _buscarCustoReal(dias) {
+async function _buscarCustoReal(funcao, dias) {
   try {
-    const { data, error } = await sbClient.functions.invoke('custo-anthropic', { body: { dias } })
+    const { data, error } = await sbClient.functions.invoke(funcao, { body: { dias } })
     if (error) return { erro: error.message || 'não consegui falar com o servidor' }
     if (data && data.error) return { erro: data.detalhe || data.error }
     if (!data || typeof data.totalBrl !== 'number') return { erro: 'resposta sem valor' }
@@ -503,7 +568,7 @@ const gastoRealMesErro = ref(null)
 async function carregarGastoRealMes() {
   gastoRealMesCarregando.value = true
   gastoRealMesErro.value = null
-  const r = await _buscarCustoReal(30)
+  const r = await _buscarCustoReal('custo-anthropic', 30)
   gastoRealMesCarregando.value = false
   if (r.erro) { gastoRealMesErro.value = r.erro; gastoRealMes.value = null }
   else gastoRealMes.value = r.dados
@@ -519,14 +584,63 @@ async function carregarGastoReal() {
   const seq = ++_gastoRealSeq
   gastoRealCarregando.value = true
   gastoRealErro.value = null
-  const r = await _buscarCustoReal(dias)
+  const r = await _buscarCustoReal('custo-anthropic', dias)
   if (seq !== _gastoRealSeq) return // chegou uma resposta mais nova; descarta esta
   gastoRealCarregando.value = false
   if (r.erro) { gastoRealErro.value = r.erro; gastoReal.value = null }
   else gastoReal.value = r.dados
 }
-// Ao trocar o período, rebusca o gasto real daquela janela.
-watch(periodo, () => { carregarGastoReal() })
+// ── GASTO REAL da OpenAI (a outra fatura) ─────────────────────────────────
+// A Fábrica cria os criativos com gpt-image-2, que é API PAGA da OpenAI. O custo
+// POR EXECUÇÃO continua desconhecido (ninguém precificou o motor), mas o TOTAL
+// cobrado é conhecido desde 18/08/2026 — é o que a função `custo-openai` traz.
+// Ela é irmã da `custo-anthropic`: mesma segurança, mesmo formato de resposta.
+const gastoOaMes = ref(null)
+const gastoOaMesCarregando = ref(false)
+const gastoOaMesErro = ref(null)
+async function carregarGastoOaMes() {
+  gastoOaMesCarregando.value = true
+  gastoOaMesErro.value = null
+  const r = await _buscarCustoReal('custo-openai', 30)
+  gastoOaMesCarregando.value = false
+  if (r.erro) { gastoOaMesErro.value = r.erro; gastoOaMes.value = null }
+  else gastoOaMes.value = r.dados
+}
+
+const gastoOa = ref(null)
+const gastoOaCarregando = ref(false)
+const gastoOaErro = ref(null)
+let _gastoOaSeq = 0 // ignora respostas antigas se o período mudar durante a busca
+async function carregarGastoOa() {
+  const dias = periodo.value >= 3650 ? 90 : periodo.value
+  const seq = ++_gastoOaSeq
+  gastoOaCarregando.value = true
+  gastoOaErro.value = null
+  const r = await _buscarCustoReal('custo-openai', dias)
+  if (seq !== _gastoOaSeq) return // chegou uma resposta mais nova; descarta esta
+  gastoOaCarregando.value = false
+  if (r.erro) { gastoOaErro.value = r.erro; gastoOa.value = null }
+  else gastoOa.value = r.dados
+}
+
+// ── O TOTAL DOS DOIS ──────────────────────────────────────────────────────────
+// Somar aqui na mão seria o jeito de repetir o defeito: fornecedor que falhou
+// entraria como zero e o total apareceria menor que o verdadeiro, com cara de
+// número exato. Quem decide isso é `somarFornecedores`, que tem teste e devolve
+// também se a conta está COMPLETA — a tela avisa quando não está.
+const totalRealMes = computed(() => somarFornecedores({
+  Anthropic: gastoRealMes.value ? gastoRealMes.value.totalBrl : null,
+  OpenAI: gastoOaMes.value ? gastoOaMes.value.totalBrl : null,
+}))
+const totalRealPeriodo = computed(() => somarFornecedores({
+  Anthropic: gastoReal.value ? gastoReal.value.totalBrl : null,
+  OpenAI: gastoOa.value ? gastoOa.value.totalBrl : null,
+}))
+const carregandoAlgumReal = computed(() => gastoRealCarregando.value || gastoOaCarregando.value)
+const carregandoAlgumRealMes = computed(() => gastoRealMesCarregando.value || gastoOaMesCarregando.value)
+
+// Ao trocar o período, rebusca o gasto real daquela janela — os dois fornecedores.
+watch(periodo, () => { carregarGastoReal(); carregarGastoOa() })
 
 function fmtDataCurta(iso) {
   if (!iso) return ''
@@ -543,6 +657,10 @@ function fmtDataCurta(iso) {
 // "indisponível", nunca inventa número.
 const detCategoria = computed(() => Array.isArray(gastoReal.value?.porCategoria) ? gastoReal.value.porCategoria : [])
 const detChave = computed(() => Array.isArray(gastoReal.value?.porChave) ? gastoReal.value.porChave : [])
+// Na OpenAI os dois detalhamentos são REAIS: ela cobra separado por chave de API,
+// então "quem gastou" aqui é a conta de verdade, não um rateio como na Anthropic.
+const detCategoriaOa = computed(() => Array.isArray(gastoOa.value?.porCategoria) ? gastoOa.value.porCategoria : [])
+const detChaveOa = computed(() => Array.isArray(gastoOa.value?.porChave) ? gastoOa.value.porChave : [])
 
 // Traduz o nome técnico da categoria da Anthropic pra algo que o dono entende.
 // Nomes não reconhecidos voltam como vieram (nunca inventamos rótulo).
@@ -578,6 +696,38 @@ const ROBO_CHAVE = {
   sugeririnteresses: 'Sugestões de Interesse (Fábrica de Anúncios)',
 }
 const traduzChave = (nome) => ROBO_CHAVE[String(nome || '').toLowerCase()] || nome || '—'
+
+// ── OpenAI: os mesmos dois tradutores, para o vocabulário DELA ───────────────
+// A OpenAI nomeia a linha assim: "gpt-image-2-2026-04-21 image, output". Traduzir
+// importa mais aqui do que na Anthropic: numa tela sobre dinheiro, "image,
+// output" não diz a ninguém que aquilo é o criativo que a Fábrica gerou.
+function traduzCategoriaOa(item) {
+  const raw = String(item || '').trim()
+  const low = raw.toLowerCase()
+  // "gpt-image-2-2026-04-21" → "gpt-image-2" (a data da versão só polui a leitura)
+  const modelo = raw.split(',')[0].split(' ')[0].replace(/-\d{4}-\d{2}-\d{2}$/, '')
+  let tipo = ''
+  if (low.includes('cache write')) tipo = 'gravação de cache'
+  else if (low.includes('cached input')) tipo = 'cache reaproveitado (mais barato)'
+  else if (low.includes('image, output')) tipo = 'imagens geradas (saída)'
+  else if (low.includes('image, input')) tipo = 'imagem enviada (entrada)'
+  else if (low.includes('audio, input')) tipo = 'áudio enviado (entrada)'
+  else if (low.includes('text, output')) tipo = 'texto gerado (saída)'
+  else if (low.includes('text, input')) tipo = 'texto enviado (entrada)'
+  else if (low.includes('output')) tipo = 'respostas geradas (saída)'
+  else if (low.includes('input')) tipo = 'texto enviado (entrada)'
+  return tipo ? `${modelo} · ${tipo}` : (modelo || raw)
+}
+
+// Nome da chave na OpenAI (elas foram criadas sem espaço, como "FabricadeAnuncios").
+// Chave que ninguém mapeou aparece como veio — some do painel seria pior.
+const CHAVE_OA = {
+  fabricadeanuncios: 'Fábrica de Anúncios (criativos)',
+  engenhariadebolsas: 'Engenharia de Bolsas',
+  transiçãoaudioagentemotoeasy: 'Transição de áudio (agente Moto Easy)',
+  transicaoaudioagentemotoeasy: 'Transição de áudio (agente Moto Easy)',
+}
+const traduzChaveOa = (nome) => CHAVE_OA[String(nome || '').toLowerCase()] || nome || '—'
 
 // Cada robô pertence a uma "área" (o que o usuário chama de projeto) — pra consolidar o gasto.
 const AREA = {
@@ -732,7 +882,9 @@ onMounted(() => {
   carregar()
   carregarGastoRealMes()
   carregarGastoReal()
-  _refreshTimer = setInterval(() => { carregar(); carregarGastoRealMes(); carregarGastoReal() }, 60000)
+  carregarGastoOaMes()
+  carregarGastoOa()
+  _refreshTimer = setInterval(() => { carregar(); carregarGastoRealMes(); carregarGastoReal(); carregarGastoOaMes(); carregarGastoOa() }, 60000)
 })
 onUnmounted(() => {
   if (_clockTimer) clearInterval(_clockTimer)
@@ -787,6 +939,12 @@ onUnmounted(() => {
 .csc-hero-gasto-sub b { color: var(--text); font-weight: 600; }
 .csc-hero-gasto-indisp { font-size: clamp(20px, 3vw, 28px); color: var(--red); }
 .csc-hero-gasto-erro { font-size: 12.5px; color: var(--red); line-height: 1.5; max-width: 300px; font-weight: 500; }
+.csc-hero-gasto-parcial { font-size: 12px; line-height: 1.45; color: var(--orange); font-weight: 500; max-width: 300px; }
+.csc-hero-gasto-parcial b { font-weight: 700; }
+/* As duas contas por baixo do total: rótulo pequeno em cima, valor embaixo. */
+.csc-hero-gasto-quebra { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 2px; }
+.csc-hero-forn { display: flex; flex-direction: column; font-family: var(--fm); font-size: 14.5px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+.csc-hero-forn i { font-family: inherit; font-style: normal; font-size: 10.5px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
 .csc-hero-gasto-est { margin-top: 8px; font-size: 11.5px; color: var(--muted); line-height: 1.5; max-width: 300px; padding-top: 8px; border-top: 1px dashed var(--border); }
 .csc-hero-gasto-est b { color: var(--text); font-weight: 600; }
 .csc-carregando { color: var(--muted); }
@@ -830,6 +988,17 @@ onUnmounted(() => {
 .csc-real-exp b { color: var(--text); font-weight: 600; }
 .csc-real-erro-box { font-size: 12.5px; line-height: 1.55; color: var(--red); background: color-mix(in srgb, var(--red) 8%, transparent); border: 1px solid color-mix(in srgb, var(--red) 28%, transparent); border-radius: var(--radius-md); padding: 10px 13px; }
 .csc-real-erro-box b { font-weight: 700; }
+/* Total parcial: precisa ser visível sem parecer erro — é um número certo,
+   só que incompleto. Por isso âmbar, e não vermelho. */
+.csc-real-parcial { font-size: 12.5px; line-height: 1.5; color: var(--orange); font-weight: 500; }
+.csc-real-parcial b { font-weight: 700; }
+/* As duas contas lado a lado; no celular viram uma embaixo da outra sozinhas,
+   sem media query — o minmax cuida disso. */
+.csc-real-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); gap: 12px; }
+.csc-real-card { display: flex; flex-direction: column; gap: 3px; padding: 13px 15px; border: 1px solid var(--border); border-radius: var(--radius-md); background: color-mix(in srgb, var(--accent) 4%, transparent); min-width: 0; }
+.csc-real-card-lbl { font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: var(--accent); }
+.csc-real-card-val { font-family: var(--fm); font-size: clamp(22px, 3.2vw, 30px); font-weight: 600; color: var(--text); line-height: 1.1; letter-spacing: -.8px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.csc-real-card-oq { font-size: 11.5px; color: var(--muted); line-height: 1.45; margin-top: 2px; }
 
 /* DETALHAMENTO do gasto real: por categoria (real) e por robô (rateado) */
 .csc-det { display: flex; flex-direction: column; gap: 10px; }

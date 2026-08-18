@@ -61,3 +61,35 @@ test('modelo desconhecido não some: entra como "outros"', () => {
   const g = porFornecedor([{ modelo: 'motor-novo', usd: null, itens: 4 }]);
   assert.equal(g.outros.itensSemCusto, 4);
 });
+
+// ── O total dos dois fornecedores ────────────────────────────────────────────
+import { somarFornecedores } from './custo-do-extrato.js';
+
+test('os dois fornecedores conhecidos somam, e o total é completo', () => {
+  const r = somarFornecedores({ Anthropic: 10, OpenAI: 45.4 });
+  assert.equal(r.total, 55.4);
+  assert.equal(r.completo, true);
+  assert.deepEqual(r.faltando, []);
+});
+
+// O DEFEITO QUE ISTO IMPEDE: se a busca da OpenAI falhar e virar zero, a tela
+// mostra um total menor que o real — com cara de número exato.
+test('fornecedor que falhou NÃO entra como zero: o total fica marcado incompleto', () => {
+  const r = somarFornecedores({ Anthropic: 10, OpenAI: null });
+  assert.equal(r.total, 10);
+  assert.equal(r.completo, false);
+  assert.deepEqual(r.faltando, ['OpenAI']);
+});
+
+test('nenhum fornecedor conhecido não é R$ 0 — é "não sei"', () => {
+  const r = somarFornecedores({ Anthropic: null, OpenAI: undefined });
+  assert.equal(r.total, null);
+  assert.equal(r.completo, false);
+  assert.equal(r.faltando.length, 2);
+});
+
+test('zero de verdade continua sendo um valor conhecido', () => {
+  const r = somarFornecedores({ Anthropic: 0, OpenAI: 45.4 });
+  assert.equal(r.total, 45.4);
+  assert.equal(r.completo, true);
+});
