@@ -13,6 +13,18 @@ Arquivos ".mjs" = módulos JavaScript que rodam no Node.
 
 O que é cada arquivo?
 ---------------------
+  retomar-backfill-madrugada.sh   (TEMPORARIO)
+     -> Casca em volta do "preencher-numeros-de-campanha.mjs", para a
+        madrugada. O robo para sozinho depois de 5 erros seguidos (de
+        proposito: erro em serie e quase sempre limite de taxa da
+        Meta), e foi isso que acabou com a noite de 18/08 pela
+        metade. A casca faz ate 3 passadas, com 10 min de pausa. Ela
+        se desliga sozinha quando o robo anunciar "0 pela frente":
+        apaga o arquivo de retomada, deixa o marcador
+        ".backfill-numeros-PRONTO" e tira o proprio agendamento.
+        Agendada em ~/Library/LaunchAgents/com.iamundi.backfill-numeros.plist
+        para 03h07. APAGUE os dois quando o backfill terminar.
+
   vigia-problemas-meta.mjs
      -> Robô VIGIA DOS PROBLEMAS DA META. Todo dia de madrugada ele
         pergunta à Meta o que ela está reclamando dos anúncios de
