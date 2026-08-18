@@ -1,6 +1,6 @@
 # Pendências do iamundi
 
-Última revisão: **17/08/2026**
+Última revisão: **18/08/2026**
 
 O que é este arquivo: a lista viva do que está **em aberto** no projeto. Cada item
 diz o que falta, **por que importa** e **onde** se resolve. É a memória escrita —
@@ -148,6 +148,12 @@ login de admin com senha fraca ou phishada.
 ### A5 · Segurança › rotacionar os segredos
 Circularam em transcrição de sessão: **token do System User da Meta**,
 **client_secret** do app da Meta e o **token do Bling**.
+
+**Piorou em 18/08.** Ao listar só os NOMES das chaves do `coletor/.env`, pedaços
+de um token da Meta apareceram na tela — o arquivo tem linhas quebradas, e o
+comando que mostrava os nomes mostrou junto os restos delas. Erro meu. Não muda o
+que fazer, muda a pressa: **os tokens da Meta deste arquivo devem entrar na
+rotação.** Nunca mais listar chave de `.env` sem cortar a linha.
 
 ### A6 · Central de Conteúdo › decidir se liga os 2 crons
 As duas Edge Functions estão no ar mas **dormentes** de propósito — as migrations
@@ -708,93 +714,127 @@ papel do aceite, ele não vai estar na pasta.
 `frota_uso_pdf` + a fila que a Edge Function `enviar-pdf-checklist` já sabe
 processar. O gerador (`pdf-do-checklist.js`) já tem o papel timbrado pronto.
 
-### B15 · Meta Ads › o histórico de problemas depende de alguém abrir a tela 🟡
-A tabela `gt_problemas_meta` (ver **A13**) já guarda o motivo que a Meta dá, e
-está funcionando — 47 linhas. Mas **quem grava é a tela**: a Gestão de Tráfego
-registra o que leu, a cada carregamento.
+### B15 · Meta Ads › o vigia diário 🟢 *escrito e agendado em 18/08 — falta ver rodar sozinho*
+A tabela `gt_problemas_meta` (ver **A13**) guarda o motivo que a Meta dá, mas até
+18/08 **quem gravava era a tela**: só ficava registrado o que alguém via ao abrir
+a Gestão de Tráfego. Problema que nascia e morria entre duas visitas não deixava
+rastro — o caso que originou tudo isto.
 
-Consequência: um problema que **nasce e morre entre duas visitas** não deixa
-rastro nenhum. E é justamente o caso que originou tudo isto — a campanha barrada
-que ninguém viu a tempo.
+**Feito em 18/08:** o robô `coletor/vigia-problemas-meta.mjs` faz a mesma leitura
+e chama a mesma função. Roda no GitHub Actions às **04h07** de Brasília (e não
+neste Mac: vigia que só roda com a máquina ligada falta justo no dia ruim). Custo
+zero de IA.
 
-**O que fecha:** um robô diário que faça a mesma leitura e chame a mesma função
-`gt_registrar_problemas`. A função já existe, já é `security definer` e já sabe
-fechar o que sumiu — falta só quem a chame sem depender de gente. O molde é o
-mesmo dos outros robôs (`coletor/` + cron), e o custo é zero de IA: é só leitura
-do Graph.
+A regra que mais importa, e que está testada: **conta cuja leitura falha é
+PULADA, nunca mandada vazia.** É a lista vazia que fecha o que sumiu — um erro de
+rede virando lista vazia daria por resolvido, todo dia, um problema que continua
+aberto.
 
-### B16 · Redes › backfill dos números novos de campanha 🟢 *quase fechado — rodou em 17/08*
+⚠️ **O portão da função precisou mudar, e o desenho inicial estava errado.** Eu
+conferi que o `service_role` podia *executar* `gt_registrar_problemas` e não olhei
+o corpo dela, que exige **usuário logado** com admin ou `meta.gestor`. A migration
+`2026-08-18-vigia-de-problemas-pode-gravar.sql` faz a função aceitar também quem
+chega com a chave de serviço. Isso **não abre porta nova**: quem tem essa chave já
+escreve na tabela direto. Provado nos três casos antes de agendar — logado sem
+permissão recusa, sem token recusa, chave de serviço entra.
+
+**O que falta para riscar:** ver a rodada automática das 04h07 acontecer (a
+primeira é 19/08). A rodada à mão de 18/08 confirmou os **mesmos 47 problemas**
+que a tela já tinha registrado, com **0 fechados por engano**.
+
+### B16 · Redes › backfill dos números novos de campanha 🟡 *pela metade — reagendado para 19/08*
 As colunas conversas, cadastros, compras e visitas só passaram a ser gravadas em
 17/08/2026. Sem preencher o passado, a comparação com o período anterior e o
-gráfico diário desses quatro indicadores ficariam vazios nos baldes Contatos,
-Site e alcance e Vendas.
+gráfico diário desses quatro indicadores ficam vazios nos baldes Contatos, Site e
+alcance e Vendas.
 
-**O que já foi feito (17/08):** o robô foi escrito, revisado e endurecido
-(`coletor/preencher-numeros-de-campanha.mjs` + `coletor/janelas-de-backfill.mjs`,
-com teste). Ele escreve **só as quatro colunas**, pula resposta vazia em vez de
-gravar zero, recusa opção de linha de comando desconhecida, tem piso de pausa e
-para sozinho quando a Meta começa a engasgar.
+**Onde parou (medido no banco em 18/08):** a passada da madrugada rodou, fez
+**593 alvos de 1.407**, gravou **5.076 linhas** em 45 min e **parou às ~08h13
+depois de 5 erros seguidos de rede** — o robô desiste de propósito, para não
+martelar a Meta. Sobram **814 alvos** e **5.372 linhas** sem os quatro números,
+com um corte nítido: tudo o que é anterior a **12/06/2026** ficou.
 
-A passada dos **últimos 30 dias rodou**: 664 alvos, **3.910 linhas preenchidas**,
-40 minutos, **0 vazios · 0 meia-resposta · 0 sem linha casada**. Ou seja, os
-períodos 7D, 14D, 30D e MÊS já comparam com o período anterior nos baldes novos.
+| Recorte | Linhas sem número | Vai até |
+|---|---|---|
+| Dia (p0) | 508 | 17/07 |
+| 1 dia | 549 | 17/07 |
+| 7 dias | 784 | 17/07 |
+| 14 dias | 1.004 | 27/07 |
+| 30 dias | 1.612 | 17/07 |
+| MÊS (p99) | 915 | 18/08 → **este era o B17, e foi resolvido** |
 
-**O que falta para fechar:**
-1. A passada do histórico mais antigo — **~1.400 alvos, agendada para 03h07 de
-   18/08**, rodando fora de qualquer sessão. Registro em
-   `coletor/backfill-madrugada.log`.
-2. **1 alvo que deu erro** e não foi marcado como feito: Vessel, 27/07, recorte
-   de 14 dias (7 linhas). A passada da madrugada tenta de novo sozinha.
+**O que mudou em 18/08:** o agendamento voltou, e desta vez de verdade — o de
+ontem era um processo solto de sessão, que morreu com ela. Agora é
+`~/Library/LaunchAgents/com.iamundi.backfill-numeros.plist`, 03h07, chamando
+`coletor/retomar-backfill-madrugada.sh`, que faz **até 3 passadas** com 10 min de
+pausa: uma oscilação de rede deixa de custar a noite inteira.
 
-**Como conferir e riscar este item:** `tail -20 coletor/backfill-madrugada.log`
+**Ele se apaga sozinho** quando o robô anunciar "0 pela frente" — apaga o arquivo
+de retomada, deixa o marcador `coletor/.backfill-numeros-PRONTO` e tira o próprio
+agendamento do launchd.
+
+**Como conferir e riscar este item:** `tail -30 coletor/backfill-madrugada.log`
 e, no banco, `select count(*) from campaign_insights where conversas is null` —
-se sobrar só o que a Meta não devolve, acabou.
+se sobrar só o que a Meta não devolve, acabou. Se o marcador `PRONTO` existir,
+acabou também.
 
 Para preencher um recorte específico à mão:
 `node coletor/preencher-numeros-de-campanha.mjs --desde AAAA-MM-DD`.
 
-⚠️ **Nunca usar o Python legado** (`projetos/central-inteligencia/redes-sociais/coletor/coletar.py`)
-como backfill: ele grava a linha inteira e sobrescreveria coluna boa.
+⚠️ Se o Mac estiver **desligado** às 03h07, o launchd roda a tarefa quando ele
+acordar — mas dormindo o dia inteiro ela não roda. É a razão de o vigia do B15
+ter ido para o GitHub, e não para cá.
 
-### B17 · Redes › o recorte MÊS / ATÉ AGORA nunca vai ter os quatro números novos 🟡 *achado em 17/08*
-Na seção 02 do painel de Redes Sociais, os períodos **MÊS** e **ATÉ AGORA** leem
-uma fatia própria do banco (`campaign_insights` com `period_days = 99`, o
-mês-corrente). Nessa fatia, os quatro números novos — **conversas, cadastros,
-compras e visitas** — são **nulos em 100% das linhas** (0 de 1.876 conferidas em
-17/08), e continuariam nulos mesmo depois do backfill do **B16**.
+### B17 · ~~O recorte MÊS / ATÉ AGORA nunca vai ter os quatro números novos~~ ✅ **resolvido em 18/08**
+Era verdade e deixou de ser. Os períodos **MÊS** e **ATÉ AGORA** liam uma fatia
+própria (`period_days = 99`) em que conversas, cadastros, compras e visitas eram
+**nulos em 100% das linhas** — então Contatos ficava sem custo por conversa, Site
+e alcance sem custo por visita, Vendas sem custo por venda.
 
-Consequência para quem usa: um tipo de campanha que funciona em 7D e 30D fica em
-**"—"** ao trocar para MÊS ou ATÉ AGORA. Contatos perde o custo por conversa,
-Site e alcance perde o custo por visita, Vendas perde o custo por venda. Não é
-defeito da tela: o número não existe no banco naquele recorte.
+**O conserto:** quem escreve essa fatia é o coletor Python deste Mac
+(`projetos/central-inteligencia/redes-sociais/coletor/coletar.py`), e o pedido dele
+à Meta não incluía `actions`. Agora inclui, e ele extrai as quatro contagens.
+Não é chamada nova — `actions` vem na mesma resposta.
 
-**Por que:** quem escreve essa fatia não é o coletor da nuvem, é o script Python
-antigo `projetos/central-inteligencia/redes-sociais/coletor/coletar.py` — a
-função `coletar_ads_por_campanha` (linha 247), chamada com `store_as=MTD_PERIOD`
-na linha 395 (a chamada das linhas 391 é a dos 7/30 dias). O pedido dele à Meta,
-na **linha 254**, é:
+**Medido rodando uma vez à mão em 18/08:** o recorte MÊS do dia saiu de **0 de 36**
+linhas com os quatro números para **39 de 39** (540 conversas, 23 visitas no mês).
 
-```python
-"fields": "campaign_id,spend,impressions,clicks,reach",
-```
+Duas coisas que este item ensinou, e que valem mais que ele:
 
-Falta `actions` — e é de dentro do `actions` que saem os quatro números. O
-gravador (linhas 264–279) também só monta as quatro colunas antigas, então mesmo
-com o campo pedido ele precisaria passar a extrair as contagens, como o coletor
-da nuvem já faz em `supabase/functions/_shared/acoes-de-campanha.js`.
+1. **O aviso dele estava errado.** Ele dizia "esse script reescreve a linha
+   inteira, e uma passada malfeita apaga coluna boa". **Não apaga** — medido:
+   depois da rodada, engajamento, curtidas e salvos dos outros recortes
+   continuaram todos preenchidos. A gravação só toca as colunas que manda.
+2. **O LEIA-ME da pasta dizia "referência histórica".** Não é: o robô roda **5×
+   por dia** pelo launchd (`com.iamundi.coletor`), e é o único que escreve o
+   recorte MÊS. Foi essa frase que manteve o defeito fora de escopo. Corrigida.
 
-**O conserto é de uma linha no pedido:**
+A regra de quais nomes de ação da Meta valem agora existe em duas linguagens
+(`acoes_de_campanha.py` e `acoes-de-campanha.js`), porque são dois robôs e Python
+não importa JavaScript. O vigia contra divergência é o teste
+`coletor/lib/acoes-python-e-nuvem-batem.test.mjs`, provado quebrando de propósito.
 
-```python
-"fields": "campaign_id,spend,impressions,clicks,reach,actions",
-```
+### B18 · Redes › o recorte MÊS não tem engajamento, curtidas nem salvos por campanha 🟡 *achado em 18/08*
+Medido no banco em 18/08: nas 39 linhas de `period_days = 99` do dia, `spend` está
+em 39, e `post_engagement`, `likes`, `comments`, `shares` e `saves` estão em
+**zero delas**. Nos recortes 0/1/7/14/30 do mesmo dia, estão em todas.
 
-**Por que ficou de fora:** é **outro robô**, com janela de datas própria e fora
-do escopo desta obra, e mexer nele por dedução — sem rodar e conferir o que ele
-grava — é exatamente o erro que esta entrega passou o tempo todo evitando. Não é
-chamada nova à Meta (o `actions` vem na mesma resposta), então não há risco de
-limite de taxa; o risco é o de sempre com esse script: **ele reescreve a linha
-inteira**, e uma passada malfeita apaga coluna boa.
+É o mesmo tipo de buraco que o B17 era, na mesma fatia e pelo mesmo motivo — o
+coletor Python nunca escreveu essas colunas no recorte do mês. Não foi consertado
+junto de propósito: o B17 tinha dono e pedido, este ninguém pediu ainda, e mexer
+em mais colunas na mesma passada era ampliar sozinho o que estava combinado.
+
+**Antes de mexer:** conferir na tela se algum cartão do MÊS mostra engajamento por
+campanha. Se nenhum mostrar, isto aqui não é defeito, é coluna que ninguém lê.
+
+### B19 · Robôs › a linha morta do `crontab` 🟢 *achado em 18/08, custa 1 minuto*
+O `crontab` deste Mac tem uma linha chamando o coletor Python numa pasta do
+iCloud (`~/Library/Mobile Documents/.../IAmundi/coletor`) que **não existe mais**.
+Ela falha calada todo dia às 08h. Quem realmente roda o coletor é o launchd
+(`com.iamundi.coletor`), 5× por dia, a partir do repositório.
+
+Não faz mal nenhum além de confundir quem for procurar o agendamento — e já
+confundiu uma vez. `crontab -e` e apagar a linha.
 
 ---
 
