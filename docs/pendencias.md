@@ -138,20 +138,6 @@ Pedido do dono em 27/07, marcado como "pra depois". Hoje o extrato só mostra a
 Anthropic. A OpenAI entra pela Fábrica (gpt-image-2 do Hero-IA) e está invisível
 no painel. Ao fazer: manter a **fonte única de preço** e a linguagem literal.
 
-### B13 · Frota › quem decidiu a reserva nem sempre tem nome na tela
-
-O histórico da aba Gestão mostra quem pediu, quem decidiu e quem encerrou cada
-reserva. O nome sai de `acessos_pessoas.profile_id` — a ficha de colaborador
-ligada à conta de login, que a tela já carrega. **Quem tem login e não tem ficha
-de colaborador ligada aparece só como data, sem nome.**
-
-Não é defeito de tela: é o mesmo elo que o A2 trata pelo outro lado (gente sem
-login). Enquanto o elo não existir, a tela escreve a data e cala sobre o nome —
-o que ela não faz é inventar um nome plausível.
-
-**Como resolver:** ligar a ficha de colaborador ao login de cada pessoa em
-Acessos. Sem código.
-
 ### B14 · Frota › o aceite de retirada não tem cópia em PDF no Zoho
 
 Desde 13/08/2026 quem pega um carro conferido por **outra pessoa** assina o

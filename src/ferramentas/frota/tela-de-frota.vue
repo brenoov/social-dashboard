@@ -20,6 +20,7 @@ import { useRouter } from 'vue-router'
 import { sbClient, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { hasPermission, estado } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { estadoDoVeiculo, resumoDoEstado, ordenarEstados, rotuloDoTanque, NIVEIS_TANQUE, problemasDaDevolucao, ultimoHodometro } from './estado-do-veiculo.js'
+import { nomeDeQuemAgiu } from './nome-de-quem-agiu.js'
 import { montarArvore } from '../../compartilhado/arvore-de-locais.js'
 import { localCurto } from './onde-o-carro-fica.js'
 import { AREAS, areasVisiveis, areaInicial, painelDoMotorista, resumoDoMotorista } from './areas-da-frota.js'
@@ -126,6 +127,16 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 const veiculos = ref([])
 const usos = ref([])
 const pessoas = ref([])
+// As CONTAS DE LOGIN, só id e nome. Existe para o histórico nunca deixar uma
+// linha muda: quem agiu e não tem ficha de colaborador ligada é identificado por
+// aqui. Ver nome-de-quem-agiu.js.
+//
+// `email` NÃO vem de propósito. Ele resolveria mais um caso (conta sem nome),
+// mas medido em 18/08 os 20 perfis TÊM nome — então o degrau nunca dispararia, e
+// trazer e-mail para uma tela nova espalharia dado que já é a pendência aberta
+// de `profiles.email`. A escada continua completa na função pura, sem tela nova
+// pagando por isso.
+const perfisDeLogin = ref([])
 const setores = ref([])
 const criandoPessoa = ref(false)
 const erroDePessoa = ref('')
@@ -842,7 +853,7 @@ function voltar() { router.push({ name: 'gestao-interna' }) }
 async function carregar() {
   carregando.value = true
   falha.value = ''
-  const [v, ua, uh, p, pe, se, q, pl, rv, bn, ci, cc, cf, catv] = await Promise.all([
+  const [v, ua, uh, p, pe, pf, se, q, pl, rv, bn, ci, cc, cf, catv] = await Promise.all([
     sbClient.from('frota_veiculos').select('*').order('nome'),
     // frota_uso vem em DUAS consultas de propósito, e não numa só com limite.
     //
@@ -883,6 +894,7 @@ async function carregar() {
     // como pessoaDoUsuario() acha a ficha de quem está logado), sem abrir
     // e-mail nem telefone.
     sbClient.rpc('pessoas_para_escolher'),
+    sbClient.from('profiles').select('id,name'),
     sbClient.rpc('setores_para_escolher'),
     // A agenda de reservas: quem vê a Frota vê a agenda inteira. Saber que o
     // carro está reservado é o que evita o conflito de viagens — esconder isso
@@ -923,6 +935,7 @@ async function carregar() {
   // inteira; quem tem um só recebe o que pode — e nunca uma lista vazia por
   // falta de permissão.
   pessoas.value = mesclarPessoas(pe && !pe.error ? (pe.data || []) : [], p.data || [])
+  perfisDeLogin.value = (pf && !pf.error ? (pf.data || []) : [])
   setores.value = se && !se.error ? (se.data || []) : []
   // A RPC falhou E a leitura direta não trouxe ninguém: as duas coisas juntas
   // são o "eu não vejo essa lista" — se só a RPC tivesse falhado mas a leitura
@@ -1036,13 +1049,12 @@ const nomeDaPessoa = (id) => (pessoas.value.find((x) => x.id === id) || {}).nome
 /* O nome de quem está por trás de uma CONTA DE LOGIN (`criada_por`,
  * `decidida_por`, `encerrada_por`), que é um id de usuário e não de colaborador.
  *
- * Sai de `acessos_pessoas.profile_id`, que a tela já carrega — nada de uma
- * leitura nova em `profiles` só pra isto. Quem não tem ficha de colaborador
- * ligada ao login não tem nome pra mostrar, e aí a tela escreve a data sem
- * inventar um nome plausível. */
-const nomeDoUsuario = (userId) => (userId
-  ? ((pessoas.value.find((x) => x.profile_id === userId) || {}).nome || null)
-  : null)
+ * A regra (e o porquê de cada degrau) mora em `nome-de-quem-agiu.js`, com
+ * teste. O comentário que estava aqui dizia "nada de uma leitura nova em
+ * `profiles` só pra isto" — a leitura passou a existir em 18/08, por decisão do
+ * dono ("sempre mostre um nome"), depois de medir que 8 das 20 contas não têm
+ * ficha ligada e duas delas são admin. */
+const nomeDoUsuario = (userId) => nomeDeQuemAgiu(userId, pessoas.value, perfisDeLogin.value)
 
 // A árvore de locais do Patrimônio, no formato que `localCurto()` entende.
 // `carregarArvoreDeLocais()` já roda junto com `carregar()` (linha 514), então
