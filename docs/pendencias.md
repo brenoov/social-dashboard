@@ -95,10 +95,36 @@ Precisa ser feito por `erick@` ou `gabriel.gertrudes@` (ver A3b).
 
 ## Parte B — Precisa programar
 
-### B7 · Robôs › a causa do `546 WORKER_RESOURCE_LIMIT` ainda é hipótese
-A suspeita é que a função roda ~120s, varre 7 contas e baixa fotos pra memória.
-Não houve perda de dado (a coleta roda 4×/dia e regrava). Agora dá pra **medir a
-frequência antes de mexer** — medir primeiro.
+### B20 · Bling › o `bling-proxy` falha em 2,2% das chamadas 🟡 *medido em 18/08, no lugar do B7*
+Este item **substitui o B7**, que dizia que a causa do erro `546
+WORKER_RESOURCE_LIMIT` ainda era hipótese. Medido em 18/08, a hipótese
+**envelheceu**: o 546 não aparece em **~8.000 disparos** desde 31/07, nem em 24h
+do registro da Supabase. E a suspeita de que "a função roda ~120s" está errada —
+o `coletar-dados` roda em **21,4s de média**, com **0 erros** em 29 chamadas.
+
+**O que falha de verdade, hoje**, nas últimas 24h de registro:
+
+| Função | Chamadas | Não-200 | Taxa |
+|---|---|---|---|
+| **bling-proxy** | 721 | **16** | **2,2%** |
+| todas as outras (13) | 626 | 0 | 0% |
+
+Os 16 são: **8 tempos esgotados** (504, batendo em ~30s), **5 recusas por excesso**
+(429, o Bling limitando) e **3 não encontrado** (404).
+
+**Por que isso importa mais do que parece:** este projeto já teve falha virando
+número — 500 virando R$ 0,00 por 17 horas. O caminho compartilhado
+(`src/compartilhado/chamada-do-bling.js`) **já foi endurecido** e hoje levanta o
+erro em vez de devolver lista vazia; as telas de dinheiro estão cobertas.
+
+⚠️ **Mas sobraram duas chamadas que ainda engolem a falha**, na Gestão Comercial
+(`tela-de-gestao-comercial.vue`, linhas 177–178): `catch(e){return []}` e
+`catch(e){return null}`. Um 504 ali vira "não tem produto", em silêncio — a mesma
+família de defeito que o caminho compartilhado já corrigiu. **Esse é o pedaço com
+conserto claro.**
+
+O resto (o Bling estourando 30s em 1% das chamadas) é do lado de lá: dá para
+tentar de novo com recuo, não para consertar.
 
 ### B8 · Status do Claude › trazer os gastos da API da OpenAI
 Pedido do dono em 27/07, marcado como "pra depois". Hoje o extrato só mostra a
