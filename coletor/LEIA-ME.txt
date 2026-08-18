@@ -13,6 +13,18 @@ Arquivos ".mjs" = módulos JavaScript que rodam no Node.
 
 O que é cada arquivo?
 ---------------------
+  conferir-a-madrugada.mjs
+     -> Confere de manha o que os robos fizeram de madrugada (o
+        backfill das 03h07 e o vigia das 04h07) e avisa por
+        notificacao do macOS, com o resultado pronto. Nao conserta
+        nada: so le. Sobre o vigia ele NAO pergunta ao GitHub se
+        rodou -- pergunta ao banco quando foi a ultima vez que um
+        problema foi visto, porque um job verde que gravou nada
+        seria "sucesso" na aba Actions e mentira aqui.
+        Agendado em ~/Library/LaunchAgents/com.iamundi.conferir-madrugada.plist
+        para 19/08 as 9h. Para virar conferencia de TODA manha, e so
+        apagar as chaves <Month> e <Day> desse arquivo.
+
   retomar-backfill-madrugada.sh   (TEMPORARIO)
      -> Casca em volta do "preencher-numeros-de-campanha.mjs", para a
         madrugada. O robo para sozinho depois de 5 erros seguidos (de
