@@ -138,21 +138,57 @@ Pedido do dono em 27/07, marcado como "pra depois". Hoje o extrato só mostra a
 Anthropic. A OpenAI entra pela Fábrica (gpt-image-2 do Hero-IA) e está invisível
 no painel. Ao fazer: manter a **fonte única de preço** e a linguagem literal.
 
-### B14 · Frota › o aceite de retirada não tem cópia em PDF no Zoho
+### B14 · Frota › o PDF do aceite 🟡 *escrito e provado em 18/08 — falta SUBIR a Edge*
+Desde 13/08 quem pega um carro conferido por **outra pessoa** assina o aceite de
+retirada. Ele fica em `frota_uso`, com o rabisco e o código da ficha congelado.
+O papel não existia — decisão consciente na época ("uma assinatura por viagem e
+nenhum PDF a mais"), revista pelo dono em 18/08.
 
-Desde 13/08/2026 quem pega um carro conferido por **outra pessoa** assina o
-*aceite de retirada* (ver o desenho em
-`docs/superpowers/specs/2026-08-13-frota-gestao-reservas-design.md`). Ele fica
-gravado em `frota_uso`, com o rabisco e o código da ficha do dia congelado.
+**Feito em 18/08, e tudo com teste:**
+- `frota_uso_pdf` — a fila, cópia fiel da do checklist (mesmas situações, mesma
+  trava de dono, mesmo `unique` que impede papel duplicado)
+- `trg_frota_uso_enfileirar_pdf` — enfileira quando o aceite é assinado. **Provado
+  nos 5 passos com `rollback`**, satisfazendo a trava de imutabilidade em vez de
+  desarmá-la: nasce `na_fila`, e um segundo update não enfileira de novo
+- `frota_pdf_aceite_pegar_da_fila` — com a mesma auto-cura da outra: enfileira
+  aceite assinado que o gatilho tiver perdido
+- `_shared/pdf-do-aceite.js` — o roteiro do papel, 13 testes. Reusa o `montarPdf`
+  do checklist: mesmo timbre, mesma fonte, mesmo rodapé
+- A Edge `enviar-pdf-checklist` passou a processar **as duas filas**. Não virou
+  função nova de propósito: mesma pasta, mesmo token, mesma regra de tentar e
+  desistir
 
-**O que não existe: o PDF dele na pasta do Zoho.** Foi decisão consciente — o
-dono aprovou "uma assinatura por viagem e nenhum PDF a mais", e a prova mora no
-banco, não no papel. Fica anotado porque, no dia em que uma multa precisar do
-papel do aceite, ele não vai estar na pasta.
+**O conteúdo, decidido pelo dono:** o aceite **mais o resumo** da vistoria
+(hodômetro, tanque, resultado e só os itens com problema). A lista inteira já está
+no PDF do checklist, na mesma pasta.
 
-**O que fazer, se for pedido:** a mesma receita do checklist —
-`frota_uso_pdf` + a fila que a Edge Function `enviar-pdf-checklist` já sabe
-processar. O gerador (`pdf-do-checklist.js`) já tem o papel timbrado pronto.
+🔴 **O QUE FALTA, e não consigo fazer daqui: SUBIR a Edge Function.** Ela não sobe
+com `git push`. A CLI deste Mac está logada como `emsilva99` (a conta do erickIA)
+e o Supabase responde **403 sem privilégio**. Subir pelo MCP exigiria colar 94 mil
+caracteres à mão, incluindo o gerador de 846 linhas — e copiar isso à mão é como
+se corrompe uma função que hoje funciona.
+
+**O comando, com a conta certa do iamundi:**
+```
+supabase login                 # com a conta do iamundi, não a emsilva99
+supabase functions deploy enviar-pdf-checklist \
+  --project-ref kounqtdoioootxqegkij --no-verify-jwt
+```
+⚠️ `--no-verify-jwt` é obrigatório: esta função confere um segredo próprio, e o
+cron chama com um bearer que **não** é JWT. Com verificação ligada, o portão da
+Supabase recusa antes de a função rodar.
+
+⚠️ **Enquanto não subir, o banco já enfileira e ninguém processa.** Isso é
+inofensivo: a fila espera, e a primeira rodada depois do deploy pega o acumulado.
+
+⚠️ **Nada disto foi visto num papel de verdade**, e é honesto dizer: medido em
+18/08, **não existe nenhum aceite assinado** (0 de 12 linhas de `frota_uso`). A
+geração tem teste; a entrega no Zoho só se prova no primeiro aceite real — igual
+ao A2, onde o primeiro convite é também o teste.
+
+✅ **De brinde, um aviso do código foi corrigido:** ele dizia que a escrita no
+WorkDrive "nunca foi provada contra a API real". **Já foi** — 3 PDFs do checklist
+chegaram lá, na primeira tentativa, sem erro.
 
 ### B15 · Meta Ads › o vigia diário 🟢 *escrito e agendado em 18/08 — falta ver rodar sozinho*
 A tabela `gt_problemas_meta` (ver **A13**) guarda o motivo que a Meta dá, mas até
