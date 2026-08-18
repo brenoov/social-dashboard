@@ -257,8 +257,13 @@
             <span class="mc-diff" id="diff-spend"></span>
           </div>
           <div class="calc-badge">⚡ Menor gasto com mais resultado = ideal</div>
-          <!-- Um bloco de gráfico por LUGAR da grade (ver SLOTS_DOS_CARTOES). -->
-          <div class="gmad-bloco" id="gmad-spend"></div>
+          <!-- Um bloco de gráfico por LUGAR da grade (ver SLOTS_DOS_CARTOES).
+               NASCE FORA DA TELA: `.gmad-bloco` tem borda em cima e respiro
+               próprio, então vazio e visível ele é um risco solto no pé do
+               cartão — o que a pessoa veria entre o primeiro pintar e o fim da
+               primeira leitura, e para sempre se a leitura falhar. Quem o traz
+               de volta é desenharGraficosDosCartoes, ao ter o que desenhar. -->
+          <div class="gmad-bloco" id="gmad-spend" style="display:none"></div>
         </div>
         <div class="card">
           <div class="mc-header">
@@ -280,7 +285,7 @@
             <span class="mc-diff" id="diff-cps"></span>
           </div>
           <div class="calc-badge">⚡ Menor é melhor · investimento ÷ novos seguidores</div>
-          <div class="gmad-bloco" id="gmad-cps"></div>
+          <div class="gmad-bloco" id="gmad-cps" style="display:none"></div>
         </div>
         <div class="card">
           <div class="mc-header">
@@ -304,7 +309,7 @@
           <!-- O bloco do gráfico é do LUGAR, não do indicador: em Contatos aqui
                mora o custo por cadastro, em Site o custo por mil impressões. Ver
                SLOTS_DOS_CARTOES e desenharGraficosDosCartoes. -->
-          <div class="gmad-bloco" id="gmad-cpi"></div>
+          <div class="gmad-bloco" id="gmad-cpi" style="display:none"></div>
         </div>
         <div class="card">
           <div class="mc-header">
@@ -325,7 +330,7 @@
             <span class="mc-diff" id="diff-cpl"></span>
           </div>
           <div class="calc-badge">⚡ Menor é melhor · investimento ÷ curtidas do anúncio</div>
-          <div class="gmad-bloco" id="gmad-cpl"></div>
+          <div class="gmad-bloco" id="gmad-cpl" style="display:none"></div>
         </div>
       </div>
 
@@ -498,7 +503,7 @@ import { estado, hasPermission, contasPermitidas } from '../../compartilhado/con
 import { adminToast } from '../../compartilhado/avisos.js'
 import { sb } from '../../compartilhado/buscar-e-salvar-dados.js'
 import { hojeLocal } from '../../compartilhado/datas.js'
-import { montarSerieDeInvestimento, montarSerieDeCustoPorSeguidor, montarSerieDeCustoPorResultado, diasComCusto, valeDesenharOGrafico } from './series-diarias-de-meta-ads.js'
+import { montarSerieDeInvestimento, montarSerieDeCustoPorSeguidor, montarSerieDeCustoPorResultado, diasComInvestimentoEResultado, valeDesenharOGrafico } from './series-diarias-de-meta-ads.js'
 import { graficoDoCartao, opcoesDoGrafico } from './graficos-de-custo-diario.js'
 // Quanta largura um gráfico de um ponto por dia precisa ter, e se ele passa a
 // rolar para o lado. Puro e com teste ao lado (largura-do-grafico.test.mjs).
@@ -935,15 +940,20 @@ function desenharGraficosDosCartoes(cartoes, balde, diario) {
       linhasDeResultado: (diario.linhasDeGasto || []).map(r => ({ captured_at: r.captured_at, quantidade: r[receita.campo] })),
       meta, divisorDoResultado: receita.divisor,
     })
-    // DOIS DIAS É O MÍNIMO. Abaixo disso entra a frase, não um gráfico de um
-    // pontinho. Medido em 30 dias (17/08/2026): custo por venda não desenha em
-    // perfil NENHUM — a Vessel teve 2 compras no mês inteiro e é a única com
-    // alguma — e custo por cadastro não desenha em Breno Vale (1 cadastro),
+    // DOIS DIAS PAGOS É O MÍNIMO. Abaixo disso entra a frase, não um gráfico de
+    // um pontinho — e o dia que teve resultado sem gastar nada NÃO conta para
+    // liberar, senão o gráfico inteiro poderia ser de barras de R$ 0,00, que não
+    // dizem nada sobre custo. Ele continua sendo desenhado como ponto quando o
+    // gráfico existe: é medida, não buraco.
+    //
+    // Medido em 30 dias (17/08/2026): custo por venda não desenha em perfil
+    // NENHUM, e custo por cadastro não desenha em Breno Vale (1 cadastro),
     // Motoeasy, Raíssa nem Mantova (nenhum). Isso é a regra funcionando, não
     // gráfico faltando: não se baixa o mínimo para preencher o vão.
     desenharGraficoDiario(host.id, serie, {
-      ...opcoesDoGrafico(cartao.id, { temMeta: serie.meta > 0, diasComCusto: diasComCusto(serie) }),
+      ...opcoesDoGrafico(cartao.id, { temMeta: serie.meta > 0, diasComCusto: diasComInvestimentoEResultado(serie) }),
       minimoDeDias: 2,
+      exigirInvestimento: true,
     })
   })
 }
@@ -1653,7 +1663,7 @@ function desenharGraficoDiario(hostId, serie, opcoes) {
   // solto não mostra tendência nenhuma e ainda ocupa a altura inteira de um
   // gráfico fingindo que mostra. Quem manda é `valeDesenharOGrafico`, que é puro e
   // testado — a tela não tem regra própria sobre isso.
-  if (!valeDesenharOGrafico(serie, opcoes.minimoDeDias || 1)) {
+  if (!valeDesenharOGrafico(serie, opcoes.minimoDeDias || 1, { exigirInvestimento: !!opcoes.exigirInvestimento })) {
     const v = document.createElement('div'); v.className = 'gmad-vazio'; v.textContent = opcoes.textoVazio
     host.appendChild(v); return
   }

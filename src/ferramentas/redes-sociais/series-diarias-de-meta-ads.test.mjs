@@ -9,6 +9,7 @@ import {
   montarSerieDeCustoPorSeguidor,
   montarSerieDeCustoPorResultado,
   diasComCusto,
+  diasComInvestimentoEResultado,
   valeDesenharOGrafico,
 } from './series-diarias-de-meta-ads.js';
 
@@ -364,14 +365,77 @@ test('vale desenhar: série ausente ou estragada não quebra a tela', () => {
 });
 
 test('vale desenhar: dia com custo ZERO conta como dia com número', () => {
-  // Custo zero é medida ("teve resultado sem gastar"), não ausência.
+  // Custo zero é medida ("teve resultado sem gastar"), não ausência: ele é
+  // DESENHADO como ponto quando o gráfico existe.
   const s1 = montarSerieDeCustoPorResultado({
     inicio: '2026-07-01', fim: '2026-07-02',
     linhasDeGasto: [g('2026-07-01', '0'), g('2026-07-02', '0')],
     linhasDeResultado: [r('2026-07-01', 3), r('2026-07-02', 3)],
   });
   assert.equal(diasComCusto(s1), 2);
-  assert.equal(valeDesenharOGrafico(s1), true);
+});
+
+/* ── DIA DE GRAÇA DESENHA, MAS NÃO AUTORIZA ──
+   Dia com resultado e ZERO investimento é medida de verdade e vira ponto quando
+   o gráfico existe. O que ele não pode é ser um dos dois dias que AUTORIZAM o
+   gráfico: senão o gráfico inteiro pode ser feito de barras de R$ 0,00, que não
+   dizem nada sobre custo nenhum. Medido: acontece pouco, mas acontece — 2 dias
+   assim na Vessel e 1 na Motoeasy nos últimos 30 dias. */
+test('autorizar: só conta o dia que teve investimento E resultado', () => {
+  const s1 = montarSerieDeCustoPorResultado({
+    inicio: '2026-07-01', fim: '2026-07-03',
+    linhasDeGasto: [g('2026-07-01', '0'), g('2026-07-02', '0'), g('2026-07-03', '20')],
+    linhasDeResultado: [r('2026-07-01', 3), r('2026-07-02', 3), r('2026-07-03', 4)],
+  });
+  assert.equal(diasComCusto(s1), 3);                    // três pontos desenháveis
+  assert.equal(diasComInvestimentoEResultado(s1), 1);   // um só autoriza
+});
+
+test('autorizar: dois dias de graça NÃO viram gráfico', () => {
+  const s1 = montarSerieDeCustoPorResultado({
+    inicio: '2026-07-01', fim: '2026-07-02',
+    linhasDeGasto: [g('2026-07-01', '0'), g('2026-07-02', '0')],
+    linhasDeResultado: [r('2026-07-01', 3), r('2026-07-02', 3)],
+  });
+  assert.equal(valeDesenharOGrafico(s1, 2, { exigirInvestimento: true }), false);
+});
+
+test('autorizar: um dia pago + um de graça ainda não bastam', () => {
+  const s1 = montarSerieDeCustoPorResultado({
+    inicio: '2026-07-01', fim: '2026-07-02',
+    linhasDeGasto: [g('2026-07-01', '20'), g('2026-07-02', '0')],
+    linhasDeResultado: [r('2026-07-01', 4), r('2026-07-02', 3)],
+  });
+  assert.equal(valeDesenharOGrafico(s1, 2, { exigirInvestimento: true }), false);
+});
+
+test('autorizar: dois dias pagos bastam, e o dia de graça continua no desenho', () => {
+  const s1 = montarSerieDeCustoPorResultado({
+    inicio: '2026-07-01', fim: '2026-07-03',
+    linhasDeGasto: [g('2026-07-01', '20'), g('2026-07-02', '0'), g('2026-07-03', '30')],
+    linhasDeResultado: [r('2026-07-01', 4), r('2026-07-02', 3), r('2026-07-03', 3)],
+  });
+  assert.equal(valeDesenharOGrafico(s1, 2, { exigirInvestimento: true }), true);
+  assert.equal(s1.pontos[1].valor, 0);
+  assert.equal(s1.pontos[1].semDado, false);
+});
+
+test('autorizar: sem exigir investimento, a conta é a de sempre (é o padrão)', () => {
+  // O gráfico de investimento e o de custo por seguidor seguem pelo caminho de
+  // sempre, com mínimo 1 e sem esta exigência — mexer neles não estava em jogo.
+  const s1 = montarSerieDeCustoPorResultado({
+    inicio: '2026-07-01', fim: '2026-07-02',
+    linhasDeGasto: [g('2026-07-01', '0'), g('2026-07-02', '0')],
+    linhasDeResultado: [r('2026-07-01', 3), r('2026-07-02', 3)],
+  });
+  assert.equal(valeDesenharOGrafico(s1, 2), true);
+  assert.equal(valeDesenharOGrafico(s1, 2, {}), true);
+});
+
+test('autorizar: série ausente ou estragada não quebra a contagem', () => {
+  assert.equal(diasComInvestimentoEResultado(null), 0);
+  assert.equal(diasComInvestimentoEResultado({}), 0);
+  assert.equal(valeDesenharOGrafico(null, 2, { exigirInvestimento: true }), false);
 });
 
 test('vale desenhar: o mínimo é ajustável, mas o padrão é 2', () => {

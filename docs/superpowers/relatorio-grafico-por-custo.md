@@ -171,11 +171,14 @@ $ node --test 'src/ferramentas/redes-sociais/graficos-de-custo-diario.test.mjs'
 
 ```
 $ npm test        (base, antes de tudo)   ℹ tests 3287 · pass 3287 · fail 0
-$ npm test        (agora)                 ℹ tests 3319 · pass 3319 · fail 0
+$ npm test        (1ª entrega)            ℹ tests 3319 · pass 3319 · fail 0
+$ npm test        (com os 4 ajustes)      ℹ tests 3327 · pass 3327 · fail 0
 $ npm run build                           ✓ built (sem erro nem aviso)
 ```
 
-A conta: 3287 + 18 + 14 = **3319**. A suíte não encolheu.
+A conta: 3287 + 18 + 14 = 3319, mais 8 dos ajustes da revisão (6 da regra do dia
+pago, 1 da frase de "poucos dias", 1 da guarda dos baldes) = **3327**. A suíte
+não encolheu em nenhum passo.
 
 ---
 
@@ -207,20 +210,27 @@ O que o total permite **afirmar com certeza**:
   cadastro e venda, Dom Pedro em visita e venda, Breno Vale e Raíssa em visita e
   venda, Raíssa em cadastro.
 - **Total 1 → nunca desenha** (no máximo um dia). É o cadastro do Breno Vale.
-- **Total 2 → só desenha se os dois caíram em dias diferentes**, os dois com
-  gasto. É a venda da Vessel: **o custo por venda essencialmente nunca desenha
-  hoje, em perfil nenhum.**
+- **Total 2 → o custo por venda não desenha hoje em perfil nenhum** — mas o
+  motivo que eu tinha escrito estava errado, e a revisão foi ao banco conferir.
+  As 2 compras da Vessel **estão em dias diferentes** (31/07 e 01/08), então a
+  regra dos 2 dias sozinha não as barraria. O que barra é o **recorte por
+  balde**: as duas estão na campanha `TESTE CHAT - LIMEIRA`, objetivo
+  `OUTCOME_ENGAGEMENT`, que não cai em Vendas. Conclusão certa, razão errada —
+  corrigida aqui.
 - **Totais altos (658, 629) → praticamente certo que passam**: ~22 conversas por
   dia em 30 dias.
 - **Totais no meio (37, 20, 16, 9, 7, 3)** dependem de como se espalharam pelos
   dias — o total sozinho não decide, e eu não fui ao banco contar dia a dia.
   Marquei "provável"/"possível" e **não afirmo mais do que isso.**
 
-**`cpm` (Todos e Site), `cpi` e `cpl` (Seguidores) não estão na tabela.** Os
-denominadores deles (`impressions`, `post_engagement`, `likes`) são gravados com
-default 0 e vêm em qualquer entrega, então tendem a desenhar em todo perfil com
-gasto em ≥ 2 dias — e em nenhum sem gasto (Mantova). **Isso é a leitura do
-código, não uma medição: não conferi esses três no banco.**
+**`cpm` (Todos e Site), `cpi` e `cpl` (Seguidores) não estavam na tabela, mas
+foram medidos na revisão:** de **3 a 30 dias com número** nos seis perfis. **Os
+três desenham para TODOS os perfis, sempre.** Eu tinha escrito que não havia
+medição atrás disso — havia, e a linha foi corrigida.
+
+Ou seja: a seção 02 ganha gráfico novo em todo perfil pelos baldes Todos, Site e
+Seguidores; os que dependem de conversão (cadastro, visita, venda) é que ficam
+calados na maioria.
 
 **Isso é a regra funcionando.** Na maioria dos perfis a seção 02 ganha poucos
 gráficos hoje, e o custo por venda não ganha nenhum. Baixar o mínimo para
@@ -310,3 +320,115 @@ Isso também consertou o caso que **já existia no `main`**: em Contatos, o
   medido, mas não repeti a bateria de rolagem da obra anterior.
 - **Qual balde e período o dono realmente usa mais.** Escolhi Seguidores como
   pior caso por ser o balde de quatro cartões com gráfico em todos.
+
+---
+
+## 6. Os quatro ajustes da revisão (17/08/2026)
+
+Revisão sem nenhum Critical. Quatro ajustes pedidos, os quatro feitos, todos com
+teste antes do código.
+
+### 1 · A guarda dos baldes copiava a lista, então não guardava nada
+
+`graficos-de-custo-diario.test.mjs` tinha
+`const BALDES = ['todos','seguidores','contatos','site','vendas']` **cravado à
+mão**, enquanto a lista de verdade é exportada por `baldes-do-painel.js`. Balde
+novo entraria lá e o teste continuaria rodando os cinco antigos — verde, sem ter
+olhado para o cartão novo. Era exatamente o caso que o comentário da guarda
+prometia pegar.
+
+Agora o teste **importa `BALDES`** e itera `BALDES.map(b => b.id)` nos dois
+cruzamentos.
+
+**E um teste a mais, pelo buraco que a revisão apontou junto:** `cartoesDoBalde`
+cai **calada** na receita de Todos para balde que ela não conhece. Balde novo sem
+receita própria mostraria os cartões de Todos com o rótulo dele, e o cruzamento
+passaria verde sem ter examinado cartão nenhum do balde novo. O teste novo
+reprova qualquer balde cuja lista de cartões seja idêntica à de Todos.
+
+### 2 · O risco de 13px ainda saía no HTML
+
+Eu tinha consertado **na hora de desenhar**, mas os quatro blocos nasciam
+**visíveis no template**. Como `.gmad-bloco` tem `border-top`, `margin-top:14px` e
+`padding-top:12px`, entre o primeiro pintar e a primeira leitura cada cartão
+mostrava o risco solto — agora em **quatro** cartões, não dois. E `refresh()` não
+tem `try/catch`: se `fetchData` rejeitasse, ficaria lá para sempre, embaixo de uma
+seção já mostrando R$ 0.
+
+Os quatro blocos passaram a nascer com `style="display:none"`. Quem os traz de
+volta é `desenharGraficosDosCartoes`, que já punha `display=''` antes de desenhar.
+
+**Medido a 375px, primeiro pintar, sem nenhum desenho:**
+
+| | ANTES (`main`) | DEPOIS |
+|---|---|---|
+| Blocos na tela | **2** (`gmad-spend`, `gmad-cps`) | **0** |
+| Altura de cada bloco vazio | 13px, com `border-top: 1px` | — |
+| Cartões | `[229, 229, 202, 202]` | `[202, 202, 202, 202]` |
+| Seção | 884px | **830px** |
+
+### 3 · A frase do vazio só estava certa porque o mínimo era 2
+
+`opcoesDoGrafico` decidia com `diasComCusto >= 1`. Subindo o mínimo para 3, dois
+dias medidos sairiam como *"Só um dia deste período…"* — a tela mentindo baixinho,
+que é o defeito que esta obra inteira existe para evitar. Agora são **três casos
+escritos**, e o número sai impresso em vez de deduzido do mínimo:
+
+- 0 → *"Nenhum dia deste período teve investimento e conversa ao mesmo tempo — sem
+  custo por conversa pra mostrar."*
+- 1 → *"Só um dia deste período teve investimento e cadastro ao mesmo tempo — um
+  dia sozinho não mostra tendência nenhuma, então não há gráfico."*
+- ≥ 2 (abaixo do mínimo) → *"Só 2 dias deste período tiveram investimento e
+  conversas ao mesmo tempo — poucos dias pra mostrar tendência, então não há
+  gráfico."*
+
+### 4 · Dia de graça desenha, mas não AUTORIZA
+
+Dia com resultado e **zero investimento** continua virando ponto (`custo 0`) —
+é medida, não buraco. O que ele não pode é ser um dos dois dias que **liberam** o
+gráfico: senão o gráfico inteiro poderia ser de barras de R$ 0,00, que não dizem
+nada sobre custo nenhum. Acontece pouco e acontece: **2 dias assim na Vessel e 1
+na Motoeasy** nos últimos 30 dias.
+
+`diasComInvestimentoEResultado(serie)` conta só os dias com `gasto > 0`, e
+`valeDesenharOGrafico(serie, minimo, { exigirInvestimento })` liga a regra. Ela
+**nasce desligada**: o gráfico de investimento e o de custo por seguidor entram
+pela mesma porta com mínimo 1, e mexer no que eles desenham não estava em jogo —
+os pontos do investimento nem carregam `gasto` separado, porque o gasto **é** o
+valor deles.
+
+De brinde, a frase ficou literalmente verdadeira: o número que ela imprime agora é
+o de dias com **investimento E resultado no mesmo dia**, que é o que ela diz.
+
+**Conferido no navegador**, cenário "de graça" (os dois únicos dias com conversa
+gastaram R$ 0): o custo por conversa **não desenha** e sai a frase de "nenhum dia".
+
+### Remedição a 375px, com os quatro ajustes
+
+| Cenário | ANTES | DEPOIS | Δ |
+|---|---|---|---|
+| Primeiro pintar (nada desenhado) | 884px | **830px** | **−54px** |
+| Seguidores, todo dia com número | 1259px | **1688px** | +429px |
+| Contatos, todo dia com número | 1072px | **1488px** | +416px |
+| Contatos, escasso (cadastro em 1 dia) | 1072px | **1370px** | +298px |
+| Vendas, escasso (nenhuma venda) | 1072px | **1140px** | +68px |
+| Contatos, "de graça" (2 dias sem gastar) | 1072px | **1235px** | +163px |
+
+Nos seis cenários: **0** rolagem horizontal, **0** par de rótulo sobreposto,
+**0** texto cortado, SVG com os 136px de altura de projeto.
+
+### Um defeito DA MEDIÇÃO, achado no caminho
+
+A primeira remedição acusou os gráficos **encolhendo** (SVG de 247×37 em vez de
+900×136) e a seção caindo para 1343px. Não era o código: o gerador da página de
+medida tinha o `data-v-014b12a4` **cravado à mão**, e o hash do escopo do Vue
+**muda toda vez que o `.vue` muda**. Com o hash velho, nenhuma regra `:deep()`
+pegava e eu estava medindo uma página **sem estilo nenhum**.
+
+O gerador passou a **ler o hash do próprio CSS do build**, e a recusar rodar se
+houver mais de um CSS da tela em `dist/` (build antigo sobrando é a mesma
+armadilha). Com isso o ANTES voltou a reproduzir os números originais
+(1259 / 1072, SVG de 136px), o que é a prova de que a medida é a mesma.
+
+**Fica o registro porque quase virou conclusão:** medida com CSS que não pega
+parece defeito no código, e eu ia reportar uma regressão que não existia.

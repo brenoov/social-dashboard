@@ -6,8 +6,14 @@ import {
   opcoesDoGrafico,
 } from './graficos-de-custo-diario.js';
 import { cartoesDoBalde } from './cartoes-do-balde.js';
+// A LISTA DE BALDES VEM DE ONDE ELA MORA, nunca copiada para cá. Copiada, a
+// guarda deixaria de guardar exatamente o caso que ela promete pegar: balde novo
+// entra em baldes-do-painel.js, o teste continua rodando os cinco antigos e passa
+// verde — e `cartoesDoBalde` ainda cai calada na receita de Todos para balde que
+// ela não conhece, então nem o cartão do balde novo apareceria no cruzamento.
+import { BALDES } from './baldes-do-painel.js';
 
-const BALDES = ['todos', 'seguidores', 'contatos', 'site', 'vendas'];
+const IDS_DOS_BALDES = BALDES.map(b => b.id);
 
 test('cada cartão de custo aponta para a coluna diária certa de campaign_insights', () => {
   assert.equal(graficoDoCartao('cpi').campo, 'post_engagement');
@@ -41,7 +47,7 @@ test('TODO cartão de custo de TODO balde tem gráfico — nenhum fica órfão',
   // A guarda que importa: balde novo (ou cartão novo num balde) não pode nascer
   // com um cartão de custo sem gráfico e ninguém perceber.
   const semGrafico = [];
-  BALDES.forEach((balde) => {
+  IDS_DOS_BALDES.forEach((balde) => {
     cartoesDoBalde(balde, {}).forEach((c) => {
       if (!c.metaKey) return;                       // alcance, frequência, contagens
       if (c.id === 'investimento' || c.id === 'cps') return; // caminho próprio
@@ -53,9 +59,19 @@ test('TODO cartão de custo de TODO balde tem gráfico — nenhum fica órfão',
 
 test('nenhum gráfico do catálogo sobra sem cartão que o use', () => {
   const usados = new Set();
-  BALDES.forEach((balde) => cartoesDoBalde(balde, {}).forEach((c) => usados.add(c.id)));
+  IDS_DOS_BALDES.forEach((balde) => cartoesDoBalde(balde, {}).forEach((c) => usados.add(c.id)));
   const orfaos = Object.keys(GRAFICO_POR_CARTAO).filter((id) => !usados.has(id));
   assert.deepEqual(orfaos, []);
+});
+
+test('nenhum balde da lista cai calado na receita de Todos', () => {
+  // `cartoesDoBalde` devolve a receita de Todos para balde que ela não conhece.
+  // Balde novo em baldes-do-painel.js sem receita própria mostraria os cartões de
+  // Todos com o rótulo dele, e o cruzamento acima passaria verde sem ter olhado
+  // para cartão nenhum do balde novo.
+  const deTodos = cartoesDoBalde('todos', {}).map(c => c.id).join(',');
+  const iguaisATodos = IDS_DOS_BALDES.filter(id => id !== 'todos' && cartoesDoBalde(id, {}).map(c => c.id).join(',') === deTodos);
+  assert.deepEqual(iguaisATodos, []);
 });
 
 test('as frases dizem o nome do indicador, nunca "resultado"', () => {
@@ -85,6 +101,17 @@ test('UM dia só: a frase diz que foi um, não que não teve nenhum', () => {
   const o = opcoesDoGrafico('custo_venda', { diasComCusto: 1 });
   assert.ok(o.textoVazio.startsWith('Só um dia deste período teve investimento e venda ao mesmo tempo'));
   assert.ok(o.textoVazio.includes('um dia sozinho não mostra tendência'));
+});
+
+test('DOIS OU MAIS dias abaixo do mínimo têm frase própria, com o número certo', () => {
+  // A frase não pode depender de o mínimo ser 2 por acaso. Subindo o mínimo para
+  // 3, dois dias medidos não podem sair como "Só um dia deste período" — seria a
+  // tela mentindo baixinho, que é justamente o defeito que esta obra combate.
+  const dois = opcoesDoGrafico('custo_conversa', { diasComCusto: 2 });
+  assert.ok(dois.textoVazio.startsWith('Só 2 dias deste período tiveram investimento e conversas ao mesmo tempo'), dois.textoVazio);
+  assert.ok(!dois.textoVazio.includes('Só um dia'));
+  const cinco = opcoesDoGrafico('custo_cadastro', { diasComCusto: 5 });
+  assert.ok(cinco.textoVazio.startsWith('Só 5 dias deste período tiveram investimento e cadastros ao mesmo tempo'), cinco.textoVazio);
 });
 
 test('o custo por mil impressões fala em mil impressões, não em impressão avulsa', () => {

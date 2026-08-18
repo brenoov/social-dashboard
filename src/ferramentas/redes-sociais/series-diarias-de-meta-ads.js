@@ -206,6 +206,20 @@ export function diasComCusto(serie) {
 }
 
 /**
+ * Dias que AUTORIZAM um gráfico de custo: têm custo calculado E dinheiro gasto.
+ *
+ * Dia com resultado e ZERO investimento é medida de verdade e continua virando
+ * ponto no desenho — mas não pode ser um dos dias que liberam o gráfico. Senão o
+ * gráfico inteiro pode ser feito de barras de R$ 0,00, que não dizem nada sobre
+ * custo nenhum. Acontece pouco e acontece: 2 dias assim na Vessel e 1 na
+ * Motoeasy nos últimos 30 dias.
+ */
+export function diasComInvestimentoEResultado(serie) {
+  const pontos = (serie && serie.pontos) || [];
+  return pontos.filter((p) => p && !p.semDado && p.gasto > 0).length;
+}
+
+/**
  * VALE A PENA DESENHAR ESTE GRÁFICO?
  *
  * Só com DOIS dias ou mais. Um ponto não é uma linha: não mostra tendência
@@ -213,9 +227,16 @@ export function diasComCusto(serie) {
  * gráfico fingindo que mostra. Num celular de 375px, sete cartões com um pontinho
  * cada empurram a seção inteira para baixo sem entregar uma informação sequer.
  *
- * Abaixo de 2, quem chama escreve a frase do porquê — "—" com motivo, nunca um
- * quadro vazio que parece defeito.
+ * Abaixo do mínimo, quem chama escreve a frase do porquê — "—" com motivo, nunca
+ * um quadro vazio que parece defeito.
+ *
+ * `exigirInvestimento` liga a regra do dia pago (ver diasComInvestimentoEResultado).
+ * Nasce DESLIGADA: o gráfico de investimento e o de custo por seguidor entram por
+ * esta mesma porta, com mínimo 1, e mexer no que eles desenham não estava em jogo
+ * — os pontos do investimento nem carregam `gasto` separado, porque o gasto É o
+ * valor deles.
  */
-export function valeDesenharOGrafico(serie, minimoDeDias = 2) {
-  return diasComCusto(serie) >= minimoDeDias;
+export function valeDesenharOGrafico(serie, minimoDeDias = 2, { exigirInvestimento = false } = {}) {
+  const dias = exigirInvestimento ? diasComInvestimentoEResultado(serie) : diasComCusto(serie);
+  return dias >= minimoDeDias;
 }
