@@ -117,14 +117,21 @@ número — 500 virando R$ 0,00 por 17 horas. O caminho compartilhado
 (`src/compartilhado/chamada-do-bling.js`) **já foi endurecido** e hoje levanta o
 erro em vez de devolver lista vazia; as telas de dinheiro estão cobertas.
 
-⚠️ **Mas sobraram duas chamadas que ainda engolem a falha**, na Gestão Comercial
-(`tela-de-gestao-comercial.vue`, linhas 177–178): `catch(e){return []}` e
-`catch(e){return null}`. Um 504 ali vira "não tem produto", em silêncio — a mesma
-família de defeito que o caminho compartilhado já corrigiu. **Esse é o pedaço com
-conserto claro.**
+✅ **A parte que era nossa foi consertada em 18/08.** As duas chamadas da Gestão
+Comercial engoliam a falha, e o mecanismo era pior do que "um catch mal escrito":
+`functions.invoke` **não joga erro**, devolve `{ data: null, error }`, então o
+`|| []` transformava queda do Bling em lista vazia. A `gcAbrirItem` **já tinha** o
+`try/catch` certo, escrevendo "Não consegui consultar o Bling agora" — e ele nunca
+disparava. O usuário lia **"Item não encontrado no Bling"**: uma queda anunciada
+como "esse produto não existe", com a mensagem certa escrita e inalcançável.
 
-O resto (o Bling estourando 30s em 1% das chamadas) é do lado de lá: dá para
-tentar de novo com recuo, não para consertar.
+A regra de leitura virou `resposta-do-bling.js`, com 7 testes, fora do `.vue`
+(onde não teria como quebrar teste nenhum). Vazio continua sendo vazio — o item
+pode não existir mesmo; o que mudou é que **falha agora sobe**.
+
+**O que sobra, e não é nosso:** o Bling estourando 30s em ~1% das chamadas. Dá
+para tentar de novo com recuo, não para consertar daqui. Enquanto ninguém pedir,
+fica só medido.
 
 ### B8 · Status do Claude › trazer os gastos da API da OpenAI
 Pedido do dono em 27/07, marcado como "pra depois". Hoje o extrato só mostra a

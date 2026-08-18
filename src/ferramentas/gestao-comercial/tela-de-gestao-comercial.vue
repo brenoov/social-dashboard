@@ -33,6 +33,7 @@ import { onMounted, ref, computed } from 'vue'
 import BarraDeTopo from '../../compartilhado/barra-de-topo.vue'
 import { useRouter } from 'vue-router'
 import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
+import { listaDaResposta, detalheDaResposta } from './resposta-do-bling.js'
 import { hasPermission, estado } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { adminToast } from '../../compartilhado/avisos.js'
 import RelatoriosComerciais from './relatorios-comerciais.vue'
@@ -174,8 +175,19 @@ function gcInfo(key){
   ov.innerHTML='<div class="gc-infomodal-card"><button class="gc-im-x" type="button" onclick="document.getElementById(\'gc-info-modal\').classList.remove(\'open\')">✕</button><div class="gc-infomodal-body"><h3 class="gc-infomodal-h">'+_npEsc(info.titulo)+'</h3>'+info.html+'</div></div>';
   ov.classList.add('open');
 }
-async function _gcBlingList(params){try{const r=await sbClient.functions.invoke('bling-proxy',{body:{endpoint:'produtos',params}});return (r&&r.data&&r.data.data)||[];}catch(e){return [];}}
-async function _gcBlingDetalhe(id){try{const d=await sbClient.functions.invoke('bling-proxy',{body:{endpoint:'produtos/'+id}});return (d&&d.data&&d.data.data)||null;}catch(e){return null;}}
+// A FALHA SOBE, e é o `try/catch` da gcAbrirItem que a mostra.
+//
+// Antes as duas engoliam: `catch → return []` e, pior, `|| []` — porque
+// `functions.invoke` não joga erro, devolve `{ data: null, error }`. Bling fora
+// do ar virava lista vazia, o catch de cima nunca disparava, e o usuário lia
+// "Item não encontrado no Bling" em vez de "não consegui consultar agora".
+// A regra de leitura mora em resposta-do-bling.js, com teste.
+async function _gcBlingList(params){
+  return listaDaResposta(await sbClient.functions.invoke('bling-proxy',{body:{endpoint:'produtos',params}}));
+}
+async function _gcBlingDetalhe(id){
+  return detalheDaResposta(await sbClient.functions.invoke('bling-proxy',{body:{endpoint:'produtos/'+id}}));
+}
 async function gcAbrirItem(sku){
   sku=String(sku||'').trim();
   let ov=document.getElementById('gc-item-modal');
