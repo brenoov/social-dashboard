@@ -22,6 +22,25 @@ Item que fecha sai da lista; item adiado fica, com a data e o
 motivo. É o primeiro arquivo a abrir quando a pergunta for
 "o que ainda falta?".
 
+manual-da-central.md   —  O QUE CADA FERRAMENTA FAZ (as 20)
+------------------------------------------------------------
+Uma página com um bloco por ferramenta da Central. Cada bloco
+responde quatro coisas: o que faz, onde fica, quem entra e o que
+tem dentro. É o mapa: serve para saber que a ferramenta EXISTE e
+para que ela serve, sem entrar no detalhe.
+
+Abra este quando a pergunta for "o que tem nesse sistema?" ou
+"onde eu faço tal coisa?".
+
+manual-detalhado.md   —  O DETALHE FUNDO DE SEIS DELAS
+-------------------------------------------------------
+Um capítulo por ferramenta, das seis maiores: o que cada tela
+mostra, o que cada botão faz, o que a ferramenta decide sozinha e
+as armadilhas de cada uma.
+
+Abra este quando o resumo não bastar. São só seis de propósito:
+detalhar as vinte faria um calhamaço que ninguém lê.
+
 docs/superpowers/   —  PLANOS E ESPECIFICAÇÕES
 -----------------------------------------------
 Textos (.md = Markdown) que descrevem O QUE e COMO cada
