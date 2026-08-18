@@ -19,6 +19,11 @@
 **/coletor/logs/
 **/backup/*.bak.html
 **/backup/*.log
+# diário dos robôs que rodam nesta máquina (backfill, retomadas, erro do launchd).
+# É registro de execução local, não fonte: cada máquina escreve o seu, e versionar
+# só produziria conflito em arquivo que ninguém lê no repositório. O que precisa
+# durar já está na lista de pendências e no commit.
+coletor/*.log
 
 # config local / ferramentas
 .DS_Store
