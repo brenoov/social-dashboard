@@ -12,6 +12,8 @@ from datetime import date, datetime, timedelta
 from supabase import create_client, Client
 from dotenv import load_dotenv
 
+from acoes_de_campanha import contagens_da_campanha
+
 load_dotenv()
 
 SUPABASE_URL = "https://kounqtdoioootxqegkij.supabase.co"
@@ -251,7 +253,9 @@ def coletar_ads_por_campanha(supabase, ad_account_id, account_id, token, dias, h
     since = (date.today() - timedelta(days=dias)).isoformat()
     until = date.today().isoformat()
     params = {
-        "fields": "campaign_id,spend,impressions,clicks,reach",
+        # `actions` vem na MESMA resposta: não é chamada nova à Meta, não gasta
+        # limite de taxa. É de dentro dele que saem conversas/cadastros/compras/visitas.
+        "fields": "campaign_id,spend,impressions,clicks,reach,actions",
         "time_range": json.dumps({"since": since, "until": until}),
         "level": "campaign",
         "access_token": token,
@@ -271,6 +275,12 @@ def coletar_ads_por_campanha(supabase, ad_account_id, account_id, token, dias, h
                 "impressions": int(r.get("impressions", 0) or 0),
                 "clicks": int(r.get("clicks", 0) or 0),
                 "reach": int(r.get("reach", 0) or 0),
+                # As quatro contagens novas. Sem elas, o recorte MÊS/ATÉ AGORA do
+                # painel de Redes mostrava "—" no custo por conversa, por cadastro,
+                # por venda e por visita — porque quem escreve essa fatia é ESTE
+                # robô, e ele não pedia `actions`. A regra de quais nomes valem é a
+                # mesma da nuvem; ver acoes_de_campanha.py.
+                **contagens_da_campanha(r.get("actions")),
             }
             for r in rows
         ]

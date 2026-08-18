@@ -1,3 +1,29 @@
-Coletor legado (em Python) de redes sociais deste projeto. Referência
-histórica — o coletor atual do iamundi é o `coletor/` (Node), na raiz do
-repositório.
+Coletor de redes sociais em Python. ATENÇÃO: ele NÃO é histórico — está VIVO.
+
+O que roda de verdade: este arquivo, `coletar.py`, disparado pelo launchd deste
+Mac (`~/Library/LaunchAgents/com.iamundi.coletor.plist`) cinco vezes por dia —
+00:05, 08:00, 12:00, 16:00 e 20:00.
+
+Por que ele ainda importa: é ele, e só ele, que escreve o recorte MÊS
+(`period_days = 99`) da tabela `campaign_insights` — a fatia que o painel de
+Redes Sociais lê quando você troca o período para MÊS ou ATÉ AGORA. O coletor da
+nuvem (`coletor/` na raiz, em Node, + a Edge Function) cuida dos outros recortes.
+
+Duas coisas que já custaram caro aqui:
+
+1. Este LEIA-ME dizia "referência histórica" e por causa disso um defeito real
+   ficou meses de fora do escopo: o recorte MÊS não tinha conversas, cadastros,
+   compras nem visitas, porque este arquivo não pedia `actions` à Meta. Corrigido
+   em 18/08/2026.
+
+2. A regra de QUAIS nomes de ação da Meta valem está em dois lugares — aqui, em
+   `acoes_de_campanha.py`, e na nuvem, em
+   `supabase/functions/_shared/acoes-de-campanha.js`. Mexeu num, mexa no outro. O
+   teste `coletor/lib/acoes-python-e-nuvem-batem.test.mjs` acusa se divergirem.
+
+Medido em 18/08/2026: a gravação NÃO reescreve a linha inteira. Colunas que não
+vão no pedido (engajamento, curtidas, salvos) sobrevivem intactas a uma rodada.
+Isso já foi suspeitado ao contrário; a suspeita estava errada.
+
+A linha deste coletor no `crontab` aponta para uma pasta do iCloud que não existe
+mais — ela falha calada. Quem manda é o launchd acima.
