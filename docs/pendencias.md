@@ -827,15 +827,6 @@ em mais colunas na mesma passada era ampliar sozinho o que estava combinado.
 **Antes de mexer:** conferir na tela se algum cartão do MÊS mostra engajamento por
 campanha. Se nenhum mostrar, isto aqui não é defeito, é coluna que ninguém lê.
 
-### B19 · Robôs › a linha morta do `crontab` 🟢 *achado em 18/08, custa 1 minuto*
-O `crontab` deste Mac tem uma linha chamando o coletor Python numa pasta do
-iCloud (`~/Library/Mobile Documents/.../IAmundi/coletor`) que **não existe mais**.
-Ela falha calada todo dia às 08h. Quem realmente roda o coletor é o launchd
-(`com.iamundi.coletor`), 5× por dia, a partir do repositório.
-
-Não faz mal nenhum além de confundir quem for procurar o agendamento — e já
-confundiu uma vez. `crontab -e` e apagar a linha.
-
 ---
 
 ## Parte C — Ideias guardadas (ninguém pediu ainda)
