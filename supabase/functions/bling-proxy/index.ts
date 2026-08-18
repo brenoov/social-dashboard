@@ -2,6 +2,13 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 // A regra de quais canais de venda a pessoa vê. Mora em `_shared` porque as duas
 // telas de venda usam a MESMA — ver o cabeçalho do módulo.
 import { canaisDoEscopo, recortarRespostaDoBling } from '../_shared/canais-de-venda-permitidos.js';
+// Quando vale tentar de novo, e quanto esperar. A decisão mora lá, com teste:
+// solta aqui dentro, ela não teria como quebrar teste nenhum.
+import {
+  decidirRepeticao,
+  fraseDeDesistencia,
+  PRAZO_POR_TENTATIVA_MS,
+} from '../_shared/tentar-de-novo.js';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -182,11 +189,74 @@ Deno.serve(async (req: Request) => {
           }
         }
       }
-      const resp = await fetch(url.toString(), { headers: { 'Authorization': `Bearer ${token}` } });
-      const text = await resp.text();
-      let corpo;
-      try { corpo = JSON.parse(text); } catch { corpo = { raw: text }; }
-      return { status: resp.status, corpo };
+      /* PRAZO PRÓPRIO E SEGUNDA CHANCE (B20, 18/08/2026).
+       *
+       * Antes daqui a chamada saía sem prazo nenhum: quando o Bling demorava,
+       * ela ficava pendurada até a plataforma matar em ~30s — e quem estava na
+       * tela esperava o meio minuto inteiro para receber um erro. Aconteceu 8
+       * vezes nas últimas 24h, junto de 5 recusas por excesso (429).
+       *
+       * Só se repete GET, e é o que existe aqui: o único POST desta função é o
+       * refresh do token, que NÃO passa por este caminho — no Bling o refresh é
+       * de uso único, e repeti-lo queimaria o token da empresa.
+       *
+       * Quem decide repetir é `decidirRepeticao`, que tem teste. Aqui só se
+       * obedece — inclusive quando ela manda parar. */
+      const comeco = Date.now();
+      let tentativa = 0;
+      let causa = 'o Bling não respondeu';
+      for (;;) {
+        tentativa++;
+        // O prazo é do NAVEGADOR desta chamada, não do Bling: sem `abort`, o
+        // `fetch` espera para sempre e a trava de tempo nunca chega a rodar.
+        const cortar = new AbortController();
+        const alarme = setTimeout(() => cortar.abort(), PRAZO_POR_TENTATIVA_MS);
+        let status: number | null = null;
+        let corpo: unknown = null;
+        let estourouOPrazo = false;
+        let retryAfterSegundos: number | null = null;
+        try {
+          const resp = await fetch(url.toString(), {
+            headers: { 'Authorization': `Bearer ${token}` },
+            signal: cortar.signal,
+          });
+          status = resp.status;
+          const pedido = Number(resp.headers.get('retry-after'));
+          retryAfterSegundos = Number.isFinite(pedido) && pedido > 0 ? pedido : null;
+          const text = await resp.text();
+          try { corpo = JSON.parse(text); } catch { corpo = { raw: text }; }
+          causa = status >= 400 ? `o Bling respondeu ${status}` : causa;
+        } catch {
+          // Prazo cortado ou rede caiu. Os dois se resolvem do mesmo jeito:
+          // tentando de novo. E os dois são DIFERENTES de "o Bling respondeu".
+          estourouOPrazo = true;
+          causa = 'o Bling não respondeu no prazo';
+        } finally {
+          clearTimeout(alarme);
+        }
+
+        const decisao = decidirRepeticao({
+          tentativa,
+          status,
+          estourouOPrazo,
+          msDecorridos: Date.now() - comeco,
+          retryAfterSegundos,
+        });
+
+        if (!decisao.repetir) {
+          // NUNCA houve resposta: não dá para devolver "status 0" nem corpo
+          // vazio, que na tela viram "não sei o que aconteceu". Devolve 504 com
+          // frase de gente, que é o que o caminho compartilhado sabe mostrar.
+          if (status === null) {
+            console.error(`[bling-proxy] desisti: ${causa} (${decisao.motivo}), ${tentativa} tentativa(s)`);
+            return { status: 504, corpo: { error: fraseDeDesistencia(causa, tentativa) } };
+          }
+          return { status, corpo };
+        }
+
+        console.log(`[bling-proxy] tentativa ${tentativa}: ${decisao.motivo} — espero ${decisao.esperarMs}ms`);
+        await new Promise((resolver) => setTimeout(resolver, decisao.esperarMs));
+      }
     };
 
     const limitada = Array.isArray(canais);
