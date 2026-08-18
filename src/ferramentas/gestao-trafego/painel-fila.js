@@ -424,7 +424,21 @@ export function montarPainelFila(alvo, opcoes) {
       </details>` : ''}
     ${silenciadas.length ? `
       <div class="gtf-silenciadas">${silenciadas.length} sugest${silenciadas.length > 1 ? 'ões recusadas voltam' : 'ão recusada volta'} a aparecer se a situação continuar.</div>` : ''}
-    ${problemasDaMeta(o)}
+    ${/* OCULTO A PEDIDO DO DONO (18/08/2026, à noite).
+
+           Ele não pediu este card. O pedido dele, em 12/08, era outro: DESCOBRIR
+           por que os criativos estavam sendo rejeitados. A medição daquele dia
+           não achou recusa por política nenhuma, e o que se construiu no lugar
+           foi um painel de monitoramento do `issues_info` — útil, mas não é o
+           que ele perguntou. Ele deixou isso claro ao ver o card.
+
+           SÓ O DESENHO SAIU. A leitura e a gravação em `gt_problemas_meta`
+           continuam: é a única memória de recusa que existe, porque a Meta APAGA
+           o `issues_info` quando o anúncio some ou o problema é resolvido. Jogar
+           fora a coleta seria apagar justamente o material que responde à
+           pergunta original dele.
+
+           Para trazer de volta, é só descomentar. */''}
     ${blocoPublico}
   `;
 
