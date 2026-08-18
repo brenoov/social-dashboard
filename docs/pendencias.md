@@ -29,6 +29,8 @@ assunto daqui a um mês:
 | A12 · Status do Claude | **É de propósito.** O `breno@` não vai receber a permissão. |
 | A13 · anúncios parados | Encerrado a pedido dele. |
 | A1, A4, A5, A6, A7 | Mandou apagar. Eram os que já estavam fora de recomendação. |
+| A2 · 3 donos sem login | Mandou apagar (18/08, à noite). **Não estava resolvido** — ver o aviso abaixo. |
+| A3c · teste dos Perfis de Acesso | Mandou apagar (18/08, à noite). **Não estava feito** — ver o aviso abaixo. |
 
 **Correção de dado em 18/08 — o KM da Bravo Blackmotion.** A tela mostrava
 **188.000 km**; o certo é **185.359** (o último checklist). A causa: uma ficha de
@@ -51,6 +53,21 @@ Supabase, e só ele tem esse privilégio. O token continua conhecido. Se um dia
 quiser fechar: gerar um hex de 64, atualizar a linha `fabrica-purga` em
 `segredos_de_cron` e colar o mesmo valor no painel — nessa ordem.
 
+⚠️ **A2 e A3c saíram ABERTOS, por decisão da noite de 18/08.** Os dois tinham
+trabalho pendente medido, e é justamente por isso que ficam escritos aqui:
+
+- **A2** — Barbara Franco, Marcus Vinicius e Thiago Siqueira **continuam sem
+  login**. Os três já têm e-mail na ficha, então o botão *"Dar acesso"* aparece no
+  card do checklist de cada carro. Enquanto não houver login, **push nenhum chega
+  para eles** e o quadro da aba Gestão é o único canal — por isso quem administra
+  a Frota pode preencher o checklist por qualquer carro. Se um dia alguém
+  perguntar "por que fulano não recebe aviso do carro dele", **é isto.**
+- **A3c** — a ferramenta de Perfis de Acesso **está no ar e nunca foi usada**. O
+  roteiro de teste (conta descartável → perfil de teste → conferir que Cancelar
+  não muda nada no banco) não foi rodado. Então **o primeiro perfil de verdade é
+  também o primeiro teste da trava.** Se algo falhar ao criar um perfil com gente
+  dentro, é aqui que a investigação começa.
+
 ⚠️ **A2c e A12 tinham número medido contra eles** (10 de 10 carros sem seguro; a
 permissão faltando de fato). Não saíram por estarem resolvidos — saíram porque o
 dono decidiu que é assim que fica. Se um dia alguém estranhar o custo do carro sair
@@ -60,50 +77,8 @@ por baixo, ou você não enxergar o Status do Claude, **é isto, e é intenciona
 
 ## Parte A — Só o dono resolve (clique, sem código)
 
-### A2 · Frota › 3 donos de carro não têm login 🟢 *o bloqueio saiu em 18/08*
-Medido em 11/08, **remedido em 18/08**.
-
-| Dono | Carro | Situação em 18/08 |
-|---|---|---|
-| Barbara Franco | Honda Fit | e-mail na ficha ✔ · **sem login** |
-| Marcus Vinicius | Fiat Punto | e-mail na ficha ✔ (era o que faltava) · **sem login** |
-| Thiago Siqueira | Ford Fiesta Sedan | e-mail na ficha ✔ (era o que faltava) · **sem login** |
-
-**O que mudou:** os três agora têm e-mail na ficha. Era esse o bloqueio — o botão
-**"Dar acesso a &lt;nome&gt;"**, no card do checklist de cada carro, só aparece para
-quem tem e-mail. **Agora ele aparece para os três.**
-
-Ele cria o login, sorteia uma senha inicial (sem letras que se confundem — nada de
-O/0 nem l/1), obriga a trocar no primeiro acesso, e mostra um recado pronto pra
-mandar no WhatsApp.
-
-Sem login, push nenhum chega. Pra eles o quadro da aba **Gestão** é o único canal
-— e por isso quem administra a Frota pode preencher o checklist por qualquer carro.
-
-⚠️ **O que eu não consegui provar:** o caminho de ponta a ponta — clicar, a pessoa
-entrar, ser obrigada a trocar a senha e chegar no checklist. Provar isso exigiria
-criar um login de verdade e mexer numa conta real, e a regra aqui é não mexer.
-Então o primeiro convite é também o teste. **Se algo falhar, é neste item.**
-
-> ✅ **A Raissa saiu desta lista em 11/08.** Ela tem login, mas a ficha estava sem
-> o elo `profile_id` — e o robô do aviso exigia justamente esse elo, enquanto a
-> tela a reconhecia pelo e-mail. Duas respostas pra mesma pergunta. Corrigido no
-> código (`_shared/quem-loga.js`, commit `a0178b6`): agora as duas pontas usam a
-> mesma regra, com o e-mail como resgate. Ligar o elo na ficha dela continua sendo
-> boa arrumação, mas **não é mais requisito** pra ela receber o aviso.
-
-### A3c · Perfis de Acesso › o teste da primeira vez ⚠️ *antes do primeiro perfil de verdade*
-A ferramenta está no ar e **nunca foi usada**. Antes de criar um perfil com gente dentro,
-vale rodar o roteiro — ele prova que a trava funciona:
-
-1. Criar uma conta **descartável** (não use conta de quem trabalha aí).
-2. Criar um perfil de teste e pôr essa conta dentro.
-3. Mexer no perfil e **conferir que a janela nomeia a conta** e diz o que ela ganha ou perde.
-4. **Clicar em Cancelar** e conferir no banco que **nada mudou**. É este passo que prova a trava.
-5. Só então aplicar, e conferir que o acesso mudou e que a exceção sobreviveu.
-6. Desfazer tudo.
-
-Precisa ser feito por `erick@` ou `gabriel.gertrudes@` (ver A3b).
+**Vazia em 18/08.** Não há nada esperando clique do dono. O que saiu daqui está
+na tabela de decisões lá em cima, com o motivo de cada um.
 
 ---
 
