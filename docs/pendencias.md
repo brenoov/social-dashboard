@@ -17,7 +17,15 @@ Cada item tem um código fixo (A1, B3...) pra dar pra citar em conversa.
 
 ## Parte A — Só o dono resolve (clique, sem código)
 
+> **O selo 🔇 que aparece em alguns itens** quer dizer que o dono mandou parar de
+> oferecê-los. Eles não somem: item adiado fica, com a data e o motivo. O que muda
+> é que ninguém os empurra de novo.
+
 ### A1 · Frota › ligar o aviso do "Checklist do carro" ⚠️ *o que trava mais coisa*
+> 🔇 **Fora de recomendação (pedido do dono).** Continua registrado, mas não
+> entra em "por onde começar", em resumo de status nem em sugestão. Se ele
+> perguntar direto por ele ou pela lista inteira, responder normal.
+
 Em **Administração › Usuários**. O aviso nasce desligado: o robô roda todo dia às
 7h30, não manda nada e ninguém sabe que não mandou.
 
@@ -28,24 +36,25 @@ Em **Administração › Usuários**. O aviso nasce desligado: o robô roda todo
 E é isso que segura o **B10** — sem checklist diário não nasce o registro de quem
 estava com o carro, que é o que faltava pras multas e pro custo por km.
 
-### A2 · Frota › 3 donos de carro não têm login
-Medido em 11/08.
+### A2 · Frota › 3 donos de carro não têm login 🟢 *o bloqueio saiu em 18/08*
+Medido em 11/08, **remedido em 18/08**.
 
-| Dono | Carro | Situação |
+| Dono | Carro | Situação em 18/08 |
 |---|---|---|
-| Barbara Franco | Honda Fit | Sem login. Domínio é `@vesselbrasil.com.br`, diferente dos outros. |
-| Marcus Vinicius | Fiat Punto | Sem login (tem telefone → WhatsApp alcança) |
-| Thiago Siqueira | Ford Fiesta Sedan | Sem login (tem telefone → WhatsApp alcança) |
+| Barbara Franco | Honda Fit | e-mail na ficha ✔ · **sem login** |
+| Marcus Vinicius | Fiat Punto | e-mail na ficha ✔ (era o que faltava) · **sem login** |
+| Thiago Siqueira | Ford Fiesta Sedan | e-mail na ficha ✔ (era o que faltava) · **sem login** |
+
+**O que mudou:** os três agora têm e-mail na ficha. Era esse o bloqueio — o botão
+**"Dar acesso a &lt;nome&gt;"**, no card do checklist de cada carro, só aparece para
+quem tem e-mail. **Agora ele aparece para os três.**
+
+Ele cria o login, sorteia uma senha inicial (sem letras que se confundem — nada de
+O/0 nem l/1), obriga a trocar no primeiro acesso, e mostra um recado pronto pra
+mandar no WhatsApp.
 
 Sem login, push nenhum chega. Pra eles o quadro da aba **Gestão** é o único canal
 — e por isso quem administra a Frota pode preencher o checklist por qualquer carro.
-
-**Agora tem botão pra isto (subiu em 12/08).** No card do checklist de cada carro,
-quem administra a Frota vê **"Dar acesso a &lt;nome&gt;"**. Ele cria o login, sorteia
-uma senha inicial (sem letras que se confundem — nada de O/0 nem l/1), obriga a
-trocar no primeiro acesso, e mostra um recado pronto pra mandar no WhatsApp. Só
-aparece se a pessoa tiver e-mail na ficha: **a Barbara tem** (`@vesselbrasil.com.br`),
-o **Marcus** e o **Thiago** precisam do e-mail preenchido antes.
 
 ⚠️ **O que eu não consegui provar:** o caminho de ponta a ponta — clicar, a pessoa
 entrar, ser obrigada a trocar a senha e chegar no checklist. Provar isso exigiria
@@ -59,12 +68,13 @@ Então o primeiro convite é também o teste. **Se algo falhar, é neste item.**
 > mesma regra, com o e-mail como resgate. Ligar o elo na ficha dela continua sendo
 > boa arrumação, mas **não é mais requisito** pra ela receber o aviso.
 
-### A2b · Frota › 2 carros sem dono nenhum
-`OLW4I46` Fiat Bravo Essence e `QQT9B68` Fiat Doblo. Sem dono fixo não há de quem
-cobrar o checklist — esses dois nunca entram no quadro de cobrança nem no aviso.
+### A2b · Frota › 1 carro sem dono 🟢 *era 2, remedido em 18/08*
+Sobrou o `OLW4I46` **Fiat Bravo Essence**. O `QQT9B68` Fiat Doblo ganhou dono.
+Sem dono fixo não há de quem cobrar o checklist — ele nunca entra no quadro de
+cobrança nem no aviso.
 
-### A2c · Frota › o valor do seguro está vazio nos 10 carros
-Medido em 12/08. **Nenhum** dos 10 tem valor de seguro. O `DCH1J89` BMW X1 também
+### A2c · Frota › o valor do seguro está vazio nos 10 carros ⚠️ *remedido em 18/08: não mudou*
+Medido em 12/08 e **de novo em 18/08: continua 10 de 10 sem valor de seguro.** O `DCH1J89` BMW X1 também
 está sem aluguel e sem FIPE — é o único; os outros 9 têm os dois.
 
 Enquanto o seguro estiver vazio, qualquer conta de custo do carro sai por baixo:
@@ -78,19 +88,15 @@ falta uma das três parcelas fixas (aluguel, FIPE, seguro).
 > acidente. O defeito só morderia quem digitasse no jeito americano (`157995.00`).
 > Já está corrigido de todo jeito. Nada a arrumar no banco.
 
-### A3 · Frota › apontar Empresa e Local 🟢 *começou — 7 de 10 feitos*
-Medido em 11/08: **7 dos 10 já têm empresa** (todos "RB Builders") e **6 têm
-local**. Faltam:
+### A3 · Frota › apontar Empresa e Local 🟢 *quase lá — 18/08*
+Remedido em 18/08. Sobraram **dois buracos, em dois carros**:
 
 | Placa | Carro | Falta |
 |---|---|---|
-| BDN3A67 | Volvo XC60 | empresa **e** local |
-| FEF0C13 | Volvo XC90 | empresa **e** local |
-| FQW7G77 | Porsche Cayenne PHEV | empresa **e** local |
-| FFK9E60 | Fiat Bravo Blackmotion | só o local |
+| FEF0C13 | Volvo XC90 | só a **empresa** |
+| FFK9E60 | Fiat Bravo Blackmotion | só o **local** |
 
-São justamente os três de maior valor que faltam — e dois deles (XC90 e Cayenne)
-são os blindados que estão na oficina.
+Em 11/08 eram 3 carros sem empresa e 4 sem local. O XC60 e o Cayenne saíram.
 
 Preencher **na ficha, na mão** — decisão do dono: nada de migration mexendo em dado.
 
@@ -136,6 +142,10 @@ vale rodar o roteiro — ele prova que a trava funciona:
 Precisa ser feito por `erick@` ou `gabriel.gertrudes@` (ver A3b).
 
 ### A4 · Segurança › ligar MFA e a proteção de senha vazada 🔴 *risco nº 1*
+> 🔇 **Fora de recomendação (pedido do dono).** Continua registrado, mas não
+> entra em "por onde começar", em resumo de status nem em sugestão. Se ele
+> perguntar direto por ele ou pela lista inteira, responder normal.
+
 No painel do Supabase:
 - **Authentication › Password security** → ligar "Leaked password protection" +
   tamanho mínimo ≥ 10.
@@ -146,6 +156,10 @@ token da Meta fora do navegador, guarda de admin). O que sobra de porta aberta �
 login de admin com senha fraca ou phishada.
 
 ### A5 · Segurança › rotacionar os segredos
+> 🔇 **Fora de recomendação (pedido do dono).** Continua registrado, mas não
+> entra em "por onde começar", em resumo de status nem em sugestão. Se ele
+> perguntar direto por ele ou pela lista inteira, responder normal.
+
 Circularam em transcrição de sessão: **token do System User da Meta**,
 **client_secret** do app da Meta e o **token do Bling**.
 
@@ -156,12 +170,20 @@ que fazer, muda a pressa: **os tokens da Meta deste arquivo devem entrar na
 rotação.** Nunca mais listar chave de `.env` sem cortar a linha.
 
 ### A6 · Central de Conteúdo › decidir se liga os 2 crons
+> 🔇 **Fora de recomendação (pedido do dono).** Continua registrado, mas não
+> entra em "por onde começar", em resumo de status nem em sugestão. Se ele
+> perguntar direto por ele ou pela lista inteira, responder normal.
+
 As duas Edge Functions estão no ar mas **dormentes** de propósito — as migrations
 `06-cron-hora-h.sql` e `09-cron-espelho.sql` nunca foram aplicadas.
 - `conteudo-hora-h`: **dispara push em 6 aparelhos reais.** Decisão do dono.
 - `conteudo-espelho`: inofensiva (só lê a Meta). Pode ligar quando quiser.
 
 ### A7 · Meta › pedir o App Review 🟡 *"pra outra hora" (dono, 11/08)*
+> 🔇 **Fora de recomendação (pedido do dono).** Continua registrado, mas não
+> entra em "por onde começar", em resumo de status nem em sugestão. Se ele
+> perguntar direto por ele ou pela lista inteira, responder normal.
+
 Falta **uma só permissão: `instagram_content_publish`.** As outras 7 que o sistema
 usa já funcionam. O pacote está pronto (texto de justificativa, roteiro do vídeo,
 pré-requisitos) em `docs/app-review-meta.md`.
@@ -172,36 +194,6 @@ pedido inteiro.
 
 Sem isso, a Central de Conteúdo **avisa** na hora H em vez de publicar. A
 publicação já está escrita e desligada (`ESCOPOS_DE_PUBLICACAO_LIBERADOS = false`).
-
-### A8 · Gestor de Tráfego › apontar uma campanha cobaia
-O **Duplicar** e o **Editar público** estão na main desde 28/07 e **nunca rodaram
-contra conta Meta real**. Confirmar duplicação cria campanha de verdade, e editar
-público muda quem vê anúncio que está rodando.
-
-Precisa o dono indicar uma campanha **pausada ou de gasto baixo** pra servir de
-cobaia — escolher qual é decisão de negócio, não técnica.
-
-### A9 · Relatórios › liberar as 2 permissões ⏸️ *adiado pelo dono (11/08)*
-`patrimonio.relatorios` e `frota.relatorios`, no Config de Admin. Nasceram
-desmarcadas de propósito.
-
-Adiado porque **o dono é superadmin e já enxerga a aba**. Quando for liberar pra
-mais alguém, é aqui. E se alguém disser "a aba não aparece pra mim", é isto —
-antes de suspeitar de defeito.
-
-### A10 · Lugares no mapa › conferir uma vez com o dono junto 🔴 *mexe em conjunto real*
-Subiu em 13/08: escolher **Brasil, Estado, Cidade ou Local**, com o mapa mostrando
-cada escolha e o ponto largado dizendo em que rua caiu. Duas coisas **não se
-provam com teste** e ficaram esperando:
-
-1. **Nome de ponto indo para a Meta.** Quando o ponto tem nome, o app manda `name`
-   e `address_string` junto. Até 13/08 todo ponto criado pelo mapa nasceu SEM
-   nome, então esse caminho **nunca rodou contra a Meta de verdade**. Aplicar uma
-   vez, num conjunto **pausado**, e ver a Meta aceitar.
-2. **Conferir no Gerenciador** que o estado e o ponto ficaram onde deviam. É a
-   mesma pendência que o mapa de 12/08 deixou aberta.
-
-Enquanto isso não acontece, o mapa continua marcado como "não provado ao vivo".
 
 ### A11 · ~~Lugares no mapa › a busca de endereço, com um login de verdade~~ ✅ **provado em 17/08**
 A dúvida era a ligação de dentro da função `buscar-lugar` até o serviço de mapa —
@@ -234,14 +226,16 @@ existia** — quem entra depois nasce sem ela.
 Resolve em **Administração › Usuários**, marcando "ver" em Status do Claude para
 o `breno@`. Não mexi: é permissão de pessoa de verdade, e a decisão é sua.
 
-### A13 · Meta Ads › 49 anúncios parados, e agora dá pra ver 🔴 *achado em 17/08*
+### A13 · Meta Ads › 47 anúncios parados, e agora dá pra ver 🔴 *remedido em 18/08*
 O dono relatou que uma campanha foi barrada "por atividade suspeita". Medido no
 Graph em 17/08, e a medição corrige a premissa em dois pontos:
 
 - **Nenhuma conta está restringida.** As 7 contas de anúncio estão ATIVAS, com
   `disable_reason: 0`. Não houve bloqueio de conta.
-- **Nenhum anúncio está recusado por política.** O que existe são **49 itens
-  parados por motivo operacional** — e a Meta diz cada um com todas as letras.
+- **Nenhum anúncio está recusado por política.** O que existe são **47 itens
+  parados por motivo operacional** (eram 49 em 17/08) — e a Meta diz cada um com
+  todas as letras. Contagem de 18/08, lida pelo robô-vigia do **B15**, que agora
+  refaz essa leitura todo dia às 04h07 sem depender de ninguém abrir a tela.
 
 | Quantos | O que a Meta diz | Onde resolve |
 |---|---|---|
