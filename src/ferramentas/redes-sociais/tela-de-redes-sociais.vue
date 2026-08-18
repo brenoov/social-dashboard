@@ -257,6 +257,7 @@
             <span class="mc-diff" id="diff-spend"></span>
           </div>
           <div class="calc-badge">⚡ Menor gasto com mais resultado = ideal</div>
+          <!-- Um bloco de gráfico por LUGAR da grade (ver SLOTS_DOS_CARTOES). -->
           <div class="gmad-bloco" id="gmad-spend"></div>
         </div>
         <div class="card">
@@ -300,6 +301,10 @@
             <span class="mc-diff" id="diff-cpi"></span>
           </div>
           <div class="calc-badge">⚡ Menor é melhor · investimento ÷ interações do anúncio</div>
+          <!-- O bloco do gráfico é do LUGAR, não do indicador: em Contatos aqui
+               mora o custo por cadastro, em Site o custo por mil impressões. Ver
+               SLOTS_DOS_CARTOES e desenharGraficosDosCartoes. -->
+          <div class="gmad-bloco" id="gmad-cpi"></div>
         </div>
         <div class="card">
           <div class="mc-header">
@@ -320,6 +325,7 @@
             <span class="mc-diff" id="diff-cpl"></span>
           </div>
           <div class="calc-badge">⚡ Menor é melhor · investimento ÷ curtidas do anúncio</div>
+          <div class="gmad-bloco" id="gmad-cpl"></div>
         </div>
       </div>
 
@@ -492,7 +498,8 @@ import { estado, hasPermission, contasPermitidas } from '../../compartilhado/con
 import { adminToast } from '../../compartilhado/avisos.js'
 import { sb } from '../../compartilhado/buscar-e-salvar-dados.js'
 import { hojeLocal } from '../../compartilhado/datas.js'
-import { montarSerieDeInvestimento, montarSerieDeCustoPorSeguidor } from './series-diarias-de-meta-ads.js'
+import { montarSerieDeInvestimento, montarSerieDeCustoPorSeguidor, montarSerieDeCustoPorResultado, diasComCusto, valeDesenharOGrafico } from './series-diarias-de-meta-ads.js'
+import { graficoDoCartao, opcoesDoGrafico } from './graficos-de-custo-diario.js'
 // Quanta largura um gráfico de um ponto por dia precisa ter, e se ele passa a
 // rolar para o lado. Puro e com teste ao lado (largura-do-grafico.test.mjs).
 // Nasceu da medida a 375px: 30 dias em 319px davam ~10px por dia e os valores em
@@ -850,6 +857,94 @@ function desenharCartoesDoBalde(cartoes, ctx) {
   SLOTS_DOS_CARTOES.forEach((slot) => {
     const el = document.getElementById('cmp-' + slot)
     if (el) el.style.display = el.textContent.trim() ? '' : 'none'
+  })
+}
+
+/* ── UM GRÁFICO DIÁRIO POR LUGAR DA GRADE — nunca por indicador ── */
+// O bloco do gráfico é do LUGAR (`gmad-spend`, `gmad-cps`, `gmad-cpi`,
+// `gmad-cpl` — os mesmos nomes de SLOTS_DOS_CARTOES), e o que se desenha dentro
+// dele sai do cartão que CAIU ali neste balde.
+//
+// Amarrar o gráfico ao indicador seria repetir o defeito que já apareceu na
+// tarefa 6: o bloco ficava com o título do cartão anterior depois que o balde
+// trocava. Em Contatos, o segundo lugar é o custo por conversa — um gráfico
+// "quanto custou cada seguidor novo" embaixo dele estaria falando de um número
+// que não está na tela.
+//
+// LUGAR SEM CARTÃO (Vendas esconde o quarto) e CARTÃO SEM GRÁFICO (alcance,
+// frequência, contagens) esvaziam o bloco. Sem isso, o desenho do balde anterior
+// ficaria embaixo de um cartão que não é dele.
+function desenharGraficosDosCartoes(cartoes, balde, diario) {
+  SLOTS_DOS_CARTOES.forEach((slot, i) => {
+    const host = document.getElementById('gmad-' + slot)
+    if (!host) return
+    // BLOCO VAZIO SAI DA TELA, não fica só sem conteúdo. `.gmad-bloco` tem
+    // borda em cima e respiro próprio: esvaziado e ainda exibido, ele vira um
+    // risco solto de 13px no pé do cartão — medido a 375px, embaixo do cartão de
+    // contagem em Contatos e dos dois lugares vazios em Vendas. Traço sem nada
+    // depois faz a pessoa procurar o que deveria estar ali.
+    const semGrafico = () => { host.textContent = ''; host.style.display = 'none' }
+    host.style.display = ''
+    const cartao = cartoes[i] || null
+    if (!cartao) { semGrafico(); return }
+    // A META vem pela MESMA porta e com a MESMA chave do cartão logo acima (ver
+    // chaveDeMeta). Lida aqui, na hora de desenhar, porque o dono edita o campo
+    // direto na tela: ler pelo texto do elemento faria o gráfico e o cartão
+    // afirmarem metas diferentes sobre o mesmo dinheiro, dependendo da ordem em
+    // que foram desenhados.
+    const meta = cartao.metaKey ? metaDefinida(chaveDeMeta(cartao.metaKey, balde), currentPeriod, currentAccountId) : null
+    if (cartao.id === 'investimento') {
+      desenharGraficoDiario(host.id, montarSerieDeInvestimento({
+        inicio: diario.inicio, fim: diario.fim, linhasDeGasto: diario.linhasDeGasto, budgetDoPeriodo: meta,
+      }), {
+        titulo: 'Quanto foi investido em cada dia',
+        rotuloValor: 'Investido no dia',
+        rotuloMeta: 'Meta do dia',
+        // Sem budget não há linha nem barra vermelha — e a legenda não pode prometer o
+        // que não está desenhado. Balde novo nasce sem budget: mostra o gasto do dia e
+        // cala a nota, até o dono digitar o dele.
+        legendaBase: meta > 0
+          ? 'Cada barra é um dia · a linha é o budget dividido pelos dias do período · barra vermelha = passou do budget do dia'
+          : 'Cada barra é um dia · sem budget definido para este tipo de campanha, então não há linha de meta',
+        textoVazio: 'Nenhum investimento registrado nos dias deste período.',
+        textoSemDado: { 'sem-coleta': 'sem informação coletada neste dia' },
+      })
+      return
+    }
+    if (cartao.id === 'cps') {
+      desenharGraficoDiario(host.id, montarSerieDeCustoPorSeguidor({
+        inicio: diario.inicio, fim: diario.fim, linhasDeGasto: diario.linhasDeGasto, linhasDeSeguidores: diario.linhasDeSeguidores,
+        metaDeCustoPorSeguidor: meta,
+      }), {
+        titulo: 'Quanto custou cada seguidor novo, dia a dia',
+        rotuloValor: 'Custo por seguidor no dia',
+        rotuloMeta: 'Meta máxima',
+        legendaBase: 'Cada barra é um dia (investido no dia ÷ seguidores novos do dia) · a linha é a meta máxima · barra vermelha = custou mais caro que a meta',
+        textoVazio: 'Nenhum dia deste período teve investimento e seguidor novo ao mesmo tempo — sem custo por seguidor pra mostrar.',
+        textoSemDado: { 'sem-coleta': 'sem informação coletada neste dia', 'sem-seguidor': 'nenhum seguidor novo neste dia — sem como calcular o custo' },
+      })
+      return
+    }
+    // OS SETE CUSTOS POR RESULTADO: a mesma série, com o denominador que o
+    // catálogo aponta. O denominador sai das MESMAS linhas do gasto (uma linha
+    // por campanha por dia, period_days = 0) — nenhuma viagem a mais ao banco.
+    const receita = graficoDoCartao(cartao.id)
+    if (!receita) { semGrafico(); return }
+    const serie = montarSerieDeCustoPorResultado({
+      inicio: diario.inicio, fim: diario.fim, linhasDeGasto: diario.linhasDeGasto,
+      linhasDeResultado: (diario.linhasDeGasto || []).map(r => ({ captured_at: r.captured_at, quantidade: r[receita.campo] })),
+      meta, divisorDoResultado: receita.divisor,
+    })
+    // DOIS DIAS É O MÍNIMO. Abaixo disso entra a frase, não um gráfico de um
+    // pontinho. Medido em 30 dias (17/08/2026): custo por venda não desenha em
+    // perfil NENHUM — a Vessel teve 2 compras no mês inteiro e é a única com
+    // alguma — e custo por cadastro não desenha em Breno Vale (1 cadastro),
+    // Motoeasy, Raíssa nem Mantova (nenhum). Isso é a regra funcionando, não
+    // gráfico faltando: não se baixa o mínimo para preencher o vão.
+    desenharGraficoDiario(host.id, serie, {
+      ...opcoesDoGrafico(cartao.id, { temMeta: serie.meta > 0, diasComCusto: diasComCusto(serie) }),
+      minimoDeDias: 2,
+    })
   })
 }
 
@@ -1552,7 +1647,13 @@ function desenharGraficoDiario(hostId, serie, opcoes) {
   const titulo = document.createElement('div'); titulo.className = 'gmad-titulo'; titulo.textContent = opcoes.titulo
   host.appendChild(titulo)
   const pontos = (serie && serie.pontos) || []
-  if (!serie || !serie.temDado) {
+  // QUANTOS DIAS COM NÚMERO JÁ VALEM UM GRÁFICO. O padrão é 1 (um dia medido é um
+  // dado, e o período "Hoje" tem um só) — é o que os gráficos de investimento e de
+  // custo por seguidor sempre fizeram. Os custos por resultado pedem 2: um ponto
+  // solto não mostra tendência nenhuma e ainda ocupa a altura inteira de um
+  // gráfico fingindo que mostra. Quem manda é `valeDesenharOGrafico`, que é puro e
+  // testado — a tela não tem regra própria sobre isso.
+  if (!valeDesenharOGrafico(serie, opcoes.minimoDeDias || 1)) {
     const v = document.createElement('div'); v.className = 'gmad-vazio'; v.textContent = opcoes.textoVazio
     host.appendChild(v); return
   }
@@ -1723,6 +1824,11 @@ function desenharGraficoDiario(hostId, serie, opcoes) {
   const partes = [opcoes.legendaBase]
   if (semColeta > 0) partes.push(semColeta === 1 ? '1 dia sem informação coletada' : semColeta + ' dias sem informação coletada')
   if (semSeguidor > 0) partes.push(semSeguidor === 1 ? '1 dia sem seguidor novo (não dá pra calcular o custo)' : semSeguidor + ' dias sem seguidor novo (não dá pra calcular o custo)')
+  // Os custos por resultado trazem a frase pronta de graficos-de-custo-diario.js,
+  // porque o nome do que faltou muda com o indicador ("sem conversa", "sem
+  // cadastro") e é ele que sabe o gênero da palavra.
+  const semResultado = pontos.filter(p => p.semDado && p.motivo === 'sem-resultado').length
+  if (semResultado > 0 && opcoes.rotuloDiasSemResultado) partes.push(opcoes.rotuloDiasSemResultado(semResultado))
   legenda.textContent = partes.join(' · ')
   host.appendChild(legenda)
 }
@@ -1985,11 +2091,19 @@ async function fetchData(accountId, period, customStart, customEnd) {
   // balde é feito aqui na memória, não na URL, para não pagar duas viagens.
   let _diaRows = []
   if (!noneSelected) {
-    const ciDia = await sb(`campaign_insights?account_id=eq.${accountId}&period_days=eq.0&captured_at=gte.${followStart}&captured_at=lte.${followEnd}&order=captured_at.asc&limit=5000&select=captured_at,campaign_id,spend${_filtroManual}`)
+    const ciDia = await sb(`campaign_insights?account_id=eq.${accountId}&period_days=eq.0&captured_at=gte.${followStart}&captured_at=lte.${followEnd}&order=captured_at.asc&limit=5000&select=captured_at,campaign_id,spend,post_engagement,likes,conversas,cadastros,visitas,compras,impressions${_filtroManual}`)
     // .erro lido AQUI, colado no await: ele mora no array que o sb() devolveu e o .map() abaixo
     // cria um array novo, deixando o .erro pra trás.
     if (ciDia.erro && !erroAds.value) erroAds.value = ciDia.erro
-    if (!ciDia.erro) _diaRows = ciDia.map(r => ({ captured_at: r.captured_at, campaign_id: String(r.campaign_id), spend: r.spend }))
+    if (!ciDia.erro) _diaRows = ciDia.map(r => ({
+      captured_at: r.captured_at, campaign_id: String(r.campaign_id), spend: r.spend,
+      // AS CONTAGENS DO DIA, CRUAS: null continua null. Elas alimentam o gráfico
+      // de custo por resultado de cada cartão (ver graficos-de-custo-diario.js),
+      // e nulo virando 0 aqui faria "R$ 0,00 por conversa" num dia que ninguém
+      // mediu. Quem separa "não coletado" de "aconteceu zero" é a série pura.
+      post_engagement: r.post_engagement, likes: r.likes, conversas: r.conversas,
+      cadastros: r.cadastros, visitas: r.visitas, compras: r.compras, impressions: r.impressions,
+    }))
   }
   // Balde sem gasto no período fica APAGADO na barra, com o motivo — nunca some:
   // sumir faz a pessoa procurar o que não está lá. 'todos' nunca entra na lista.
@@ -2027,7 +2141,11 @@ async function fetchData(accountId, period, customStart, customEnd) {
   const _noRecorte = new Set(idsDoRecorte)
   const gastoDiarioRows = _recorteSemCampanha ? [] : _diaRows
     .filter(r => _todasAsCampanhas || _noRecorte.has(r.campaign_id))
-    .map(r => ({ captured_at: r.captured_at, spend: r.spend }))
+    .map(r => ({
+      captured_at: r.captured_at, spend: r.spend,
+      post_engagement: r.post_engagement, likes: r.likes, conversas: r.conversas,
+      cadastros: r.cadastros, visitas: r.visitas, compras: r.compras, impressions: r.impressions,
+    }))
   // AS QUATRO CONTAGENS NOVAS: NULO NÃO É ZERO.
   //
   // conversas/cadastros/compras/visitas só passaram a ser gravadas em 17/08/2026 e
@@ -2626,56 +2744,18 @@ function update(d, period) {
     frequencia: d.frequencia,
   }
   // UM balde só manda em tudo o que vem abaixo: os cartões, as CHAVES das metas e
-  // os dois gráficos. Se `baldeEfetivo` faltasse, `chaveDeMeta` gravaria numa chave
+  // os gráficos de cada lugar da grade. Se `baldeEfetivo` faltasse, `chaveDeMeta` gravaria numa chave
   // fantasma ('undefined.spend') enquanto os cartões cairiam em Todos — a meta do
   // dono iria para uma linha que nenhuma tela lê de volta.
   const _balde = d.baldeEfetivo || _baldeAtual
   const _cartoes = cartoesDoBalde(_balde, _numerosDoBalde)
   desenharCartoesDoBalde(_cartoes, { d, pl, inv: _inv, invAnt: _invAnt, alcanceRepete: _alcanceRepete, balde: _balde })
-  // ── Gráficos diários (abaixo de cada card). As metas são lidas AQUI, na hora de desenhar,
-  // porque o dono edita o BUDGET/META MÁX direto na tela (contenteditable). ──
-  //
-  // Lidas pela MESMA porta dos cartões (metaDefinida → localStorage), e com a mesma
-  // chave por balde. Antes o gráfico lia pelo texto que estava no elemento da tela
-  // (getGoal), e só batia com o cartão porque o cartão desenhava primeiro: bastava
-  // trocar a ordem de desenho para os dois passarem a afirmar metas diferentes
-  // sobre o mesmo dinheiro.
+  // ── Gráficos diários (abaixo de cada cartão) ──
+  // Um por LUGAR da grade, com o gráfico do cartão que caiu ali neste balde.
+  // As metas são lidas lá dentro, na hora de desenhar, porque o dono edita o
+  // BUDGET/META MÁX direto na tela (contenteditable).
   const _diario = d.adsDiario || { inicio: null, fim: null, linhasDeGasto: [], linhasDeSeguidores: [] }
-  const _metaBudget = metaDefinida(chaveDeMeta('spend', _balde), currentPeriod, currentAccountId)
-  desenharGraficoDiario('gmad-spend', montarSerieDeInvestimento({
-    inicio: _diario.inicio, fim: _diario.fim, linhasDeGasto: _diario.linhasDeGasto, budgetDoPeriodo: _metaBudget,
-  }), {
-    titulo: 'Quanto foi investido em cada dia',
-    rotuloValor: 'Investido no dia',
-    rotuloMeta: 'Meta do dia',
-    // Sem budget não há linha nem barra vermelha — e a legenda não pode prometer o
-    // que não está desenhado. Balde novo nasce sem budget: mostra o gasto do dia e
-    // cala a nota, até o dono digitar o dele.
-    legendaBase: _metaBudget > 0
-      ? 'Cada barra é um dia · a linha é o budget dividido pelos dias do período · barra vermelha = passou do budget do dia'
-      : 'Cada barra é um dia · sem budget definido para este tipo de campanha, então não há linha de meta',
-    textoVazio: 'Nenhum investimento registrado nos dias deste período.',
-    textoSemDado: { 'sem-coleta': 'sem informação coletada neste dia' },
-  })
-  // O gráfico de custo por seguidor por dia mora DENTRO do segundo cartão, e só faz
-  // sentido quando esse cartão É o custo por seguidor. Em Contatos, por exemplo, ali
-  // está o custo por conversa: manter o gráfico embaixo dele diria "quanto custou
-  // cada seguidor novo" sobre um número que não é de seguidor nenhum.
-  const _gmadCps = document.getElementById('gmad-cps')
-  if (_cartoes.some(c => c.id === 'cps')) {
-    desenharGraficoDiario('gmad-cps', montarSerieDeCustoPorSeguidor({
-      inicio: _diario.inicio, fim: _diario.fim, linhasDeGasto: _diario.linhasDeGasto, linhasDeSeguidores: _diario.linhasDeSeguidores,
-      // Mesma porta e mesma chave do cartão de custo por seguidor logo acima.
-      metaDeCustoPorSeguidor: metaDefinida(chaveDeMeta('cps', _balde), currentPeriod, currentAccountId),
-    }), {
-      titulo: 'Quanto custou cada seguidor novo, dia a dia',
-      rotuloValor: 'Custo por seguidor no dia',
-      rotuloMeta: 'Meta máxima',
-      legendaBase: 'Cada barra é um dia (investido no dia ÷ seguidores novos do dia) · a linha é a meta máxima · barra vermelha = custou mais caro que a meta',
-      textoVazio: 'Nenhum dia deste período teve investimento e seguidor novo ao mesmo tempo — sem custo por seguidor pra mostrar.',
-      textoSemDado: { 'sem-coleta': 'sem informação coletada neste dia', 'sem-seguidor': 'nenhum seguidor novo neste dia — sem como calcular o custo' },
-    })
-  } else if (_gmadCps) { _gmadCps.textContent = '' }
+  desenharGraficosDosCartoes(_cartoes, _balde, _diario)
   const adsChips = []
   if (d.impressions > 0) adsChips.push(fmtN(d.impressions) + ' impressões')
   if (d.clicks > 0) adsChips.push(fmtN(d.clicks) + ' cliques')
