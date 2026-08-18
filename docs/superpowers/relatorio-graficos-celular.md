@@ -38,13 +38,26 @@ aparelho que é.
 - Nenhuma exceção por aparelho: houve uma (`podeRolar`, para televisão) e ela foi
   retirada por decisão do coordenador — ver o item 5.
 
+Mais duas regras puras, das residuais (item 7):
+
+- `ancoraDoRotulo({ centro, largura, quadro })` → onde ancorar um rótulo para ele
+  não sair do quadro. Encosta na borda quem não cabe centrado; **quem já cabe não
+  se mexe**.
+- `rotulosQueCabem(candidatos, folga = 6)` → quais rótulos ficam. Olha a caixa
+  inteira, **nos dois eixos**: dois rótulos vizinhos com alturas bem diferentes
+  não se tocam, e derrubar um deles seria perder número à toa. Obrigatórios (o
+  último dia, o dia mais alto) passam na frente.
+
 ### `src/ferramentas/redes-sociais/largura-do-grafico.test.mjs` (novo)
 
-15 testes. Bordas cobertas: cabe exato não rola · um ponto a mais rola · um ponto
+27 testes. Bordas cobertas: cabe exato não rola · um ponto a mais rola · um ponto
 só · zero ponto · contêiner maior nunca encolhe · celular 375 em 7/14/30 dias ·
 tela larga que cabe · tela larga que não cabe e rola igual · mínimo ajustável ·
 contêiner não medido · quantidade estranha de pontos · largura inteira · tiras
-vazias.
+vazias · rótulo do meio não se mexe · rótulo que sairia por cada borda · encostou
+por um triz · rótulo maior que o quadro · o par medido cai · alturas diferentes
+ficam os dois · obrigatório na frente · dois obrigatórios colados · a folga vale ·
+lista vazia.
 
 ### `src/ferramentas/redes-sociais/tela-de-redes-sociais.vue`
 
@@ -64,6 +77,14 @@ sobre o trilho, acompanham sozinhos.
 esticaria a altura junto e viraria um paredão. Rolando, o desenho fica 1:1 com a
 tela (900×136 em 30 dias). Não rolando, `W` volta a 400 e o SVG volta a
 `width:100%` — o que está no ar hoje.
+
+**Rótulos medidos, não estimados (das residuais, item 7).** O SVG passou a entrar
+na tela ANTES de ser desenhado, de propósito: texto de SVG só pode ser medido
+depois de renderizado. Com a largura real de cada rótulo (`getComputedTextLength`)
+o desenho encosta na borda quem sairia do quadro; com a caixa real (`getBBox`)
+ele tira quem ainda assim se tocaria. Não dando para medir (cartão escondido, SVG
+não renderizado), fica tudo como sempre foi — rótulo a mais é melhor que rótulo
+que sumiu por engano.
 
 **As três coisas que vieram junto:**
 - Fonte dos valores da seção 02: **9px → 11px**, só quando rola (`.gmad-rola`).
@@ -124,17 +145,32 @@ $ node --test 'src/ferramentas/redes-sociais/largura-do-grafico.test.mjs'
 Os dois passos ficam registrados porque foram eles que produziram a medida que
 levou à decisão.)
 
+### VERMELHO — as duas regras das residuais, teste antes do código
+
+```
+$ node --test 'src/ferramentas/redes-sociais/largura-do-grafico.test.mjs'
+SyntaxError: The requested module './largura-do-grafico.js' does not provide
+an export named 'ancoraDoRotulo'
+ℹ tests 1 · pass 0 · fail 1
+```
+
+### VERDE
+
+```
+$ node --test 'src/ferramentas/redes-sociais/largura-do-grafico.test.mjs'
+ℹ tests 27 · pass 27 · fail 0
+```
+
 ### Suíte inteira e build
 
 ```
-$ npm test     (antes)  ℹ tests 3260 · pass 3260 · fail 0
-$ npm test     (depois) ℹ tests 3275 · pass 3275 · fail 0
-$ npm run build         ✓ built (sem erro nem aviso)
+$ npm test     (antes de tudo)   ℹ tests 3260 · pass 3260 · fail 0
+$ npm test     (agora)           ℹ tests 3287 · pass 3287 · fail 0
+$ npm run build                  ✓ built (sem erro nem aviso)
 ```
 
-3260 + 15 do módulo novo = 3275. Chegou a 3276 com a trava da televisão; a
-retirada dela tirou 2 testes e pôs 1 no lugar (a tela larga que não cabe rola
-igual às outras).
+A conta: 3260 + 27 do módulo novo = 3287. No caminho passou por 3275 (15 testes,
+antes das residuais) e por 3276 (com a trava da televisão, depois retirada).
 
 ---
 
@@ -308,3 +344,112 @@ mais em lugar nenhum.
 7. **`.chart-svg-wrap` perdeu o `margin-top:auto`**, que passou para a
    `.grafico-que-rola` (é ela que agora é filha direta do cartão em coluna). O
    efeito visual é o mesmo, mas quem for mexer no cartão precisa saber.
+
+---
+
+## 7. As duas residuais da verificação logada
+
+O coordenador conseguiu abrir a tela logada e mediu o resultado desta entrega em
+produção (Breno Vale / Seguidores / 30D): **celular 11 → 1 sobreposição,
+computador 7 → 1**, fonte 9px → 11px, nenhuma rolagem horizontal na página, e o
+gráfico de seguidores com 0 sobreposições e os números de dentro voltando a caber
+(84 rótulos no celular contra 32 antes). Sobraram duas coisas, e é delas que
+trata este item.
+
+**Aviso sobre o que veio depois:** aquela sessão logada se perdeu (o
+credenciamento gira quando é copiado para o servidor de desenvolvimento, e os
+dois clientes se invalidaram). Então a conferência abaixo é a minha, no meu
+banco de medição — **não voltou a ser conferida na tela logada**. O que isso
+sustenta e o que não sustenta está no fim deste item.
+
+### Residual 1 — `"R$ 20,41" × "R$ 26,40"`: era real, e não era um par especial
+
+Reproduzi, e o par só aparece quando **três coisas acontecem juntas**:
+
+1. **Um dia SEM DADO** encurta a lista de dias com número. O passo do rótulo (1 a
+   cada 3) é contado sobre essa lista, então ele passa a cair no VIZINHO do
+   último dia, não no último.
+2. **O último dia é SEMPRE rotulado**, esteja no passo ou não (regra antiga, e
+   certa). Resultado: dois rótulos a um dia de distância — 30px —, medindo ~45px
+   cada.
+3. **Os dois valores têm altura parecida**, porque o dia mais caro do mês puxa a
+   escala. Alturas parecidas = rótulos na mesma faixa de altura.
+
+Sem as três, não há sobreposição — foi por isso que a minha primeira tentativa de
+reproduzir deu limpa, e é por isso que não é um problema "daqueles dois valores".
+
+**O que mudou:** os rótulos passaram a ser **medidos no navegador depois de
+desenhados** (`getComputedTextLength` e `getBBox`, em unidades do desenho), e
+quem ainda assim se tocaria sai, pela regra pura `rotulosQueCabem`. A regra olha
+os dois eixos de propósito: no mesmo gráfico, `"R$ 22,40"` e `"R$ 58,20"` se
+cruzam na horizontal em −14,3 unidades e **continuam os dois na tela**, porque
+estão em alturas diferentes e não se tocam. Derrubar por distância horizontal
+seria perder número à toa.
+
+Custo: **um rótulo a menos por gráfico** nos casos apertados (10 valores no de
+investimento, 11 no de custo por seguidor). Quando dois obrigatórios se tocam
+entre si — o dia mais alto colado no último —, sobra o último, que é o dia que o
+dono está olhando. A barra mais alta continua sendo visivelmente a mais alta, e o
+valor continua no toque longo.
+
+### Residual 2 — `"R$ 92,86"` fora do quadro: era real; a consequência, não
+
+Reproduzi: o rótulo do **primeiro dia** sobrava **12,3px para fora da caixa do
+próprio SVG**, e o do último dia sobrava os mesmos 12,3px do outro lado. Nos dois
+gráficos da seção 02, não em um só.
+
+**A causa** é o que a estimativa não pega: `"R$ 92,86"` é mais largo que
+`"R$ 17,34"` com os mesmos 8 caracteres, porque o "1" é estreito. Eu havia
+dimensionado as tiras das beiradas com um valor que continha "1". Por isso agora
+a largura é **medida**, nunca estimada.
+
+**Duas correções na sua leitura, e as duas importam:**
+
+- **"não é apenas fora da tela — é inalcançável rolando": não se confirmou.** As
+  tiras vazias das beiradas (24px na entrada, 48px na saída) deixavam o rótulo
+  fora do SVG mas DENTRO da área que rola. Medido: `inalcancavel: []` nos dois
+  gráficos, no início e no fim da rolagem. Estava feio e frágil — 12,3px de sobra
+  contra 24px de tira é pouca margem —, mas não estava inalcançável.
+- **"o detector acusou sob dois SVGs diferentes, provavelmente escopo vazando":**
+  aqui o seu detector estava certo por acaso. Não era o mesmo rótulo contado
+  duas vezes: são **dois casos reais do mesmo defeito**, um por gráfico. Medindo
+  com escopo fechado por SVG, o de investimento acusa `"R$ 92,86"` e o de custo
+  por seguidor acusa o dele, `"R$ 21,05"`.
+
+**O que mudou:** `ancoraDoRotulo` encosta na borda o rótulo que sairia do quadro
+(`text-anchor` vira `start` ou `end`), e quem já cabe centrado não se mexe.
+Depois disso, nenhum `<text>` sai da caixa do próprio SVG.
+
+### Um defeito falso que era MEU, não do desenho
+
+O meu primeiro detector acusou `"19/7"` como inalcançável no computador. Era
+falso: a 1440 o gráfico de seguidores **não rola**, então a caixa não recorta nada
+e o rótulo está visível na folga do cartão (`overflow-x: visible`, e
+`elementFromPoint` no meio do rótulo devolve o próprio rótulo). Corrigi o
+detector, não o código. Fica registrado porque é o mesmo tipo de erro que o seu
+harness cometeu: **"fora da caixa" e "escondido" não são a mesma coisa**, e só é
+escondido quando alguma caixa recorta.
+
+### O que esta medição sustenta — e o que não sustenta
+
+**Sustenta** (carga limpa a 375px e a 1440px, sem redimensionar página já
+desenhada, com o CSS do build e a geometria copiada verbatim das funções, 30 dias
+com um dia sem dado, valores na faixa real):
+
+- nenhum `<text>` fora da caixa do próprio SVG, nos dois gráficos da seção 02;
+- nenhuma sobreposição em nenhum dos três gráficos;
+- nada inalcançável, no início e no fim da rolagem;
+- nenhum texto recortado em cima ou embaixo, nos dois temas;
+- nenhuma rolagem horizontal na página (`documentElement` e `body`).
+
+**Não sustenta, e continua precisando de alguém com login:**
+
+- que os **dados reais de hoje** caiam nos mesmos casos que eu construí. Eu
+  reproduzi o mecanismo com valores na faixa certa e um dia sem dado; não é a
+  série do banco;
+- **quantos rótulos** o dono vai ver em cada perfil — isso depende da série real,
+  e a regra nova tira um rótulo quando dois se tocam;
+- o **gesto de arrastar** num aparelho de verdade (medi a caixa que rola, não o
+  dedo);
+- qualquer coisa fora de 30D com um dia sem dado: outros perfis, outros baldes,
+  `MÊS PASS.`, e `--escala-texto` diferente de 1.

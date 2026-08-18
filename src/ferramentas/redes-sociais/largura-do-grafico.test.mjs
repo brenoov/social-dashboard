@@ -2,6 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   larguraDoGrafico,
+  rotulosQueCabem,
+  ancoraDoRotulo,
   MINIMO_POR_PONTO,
   FAIXA_QUE_AVISA,
   ESPACO_ANTES_DO_GRAFICO,
@@ -132,4 +134,101 @@ test('as tiras vazias só existem quando o gráfico rola', () => {
   assert.equal(rolando.larguraDaTrilha, 900 + ESPACO_ANTES_DO_GRAFICO + ESPACO_DEPOIS_DO_GRAFICO);
   const parado = larguraDoGrafico({ pontos: 7, larguraDisponivel: 319 });
   assert.equal(parado.larguraDaTrilha, 319); // cabendo, nada de tira nem de faixa
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// ANCORAR O RÓTULO PARA ELE NÃO SAIR DO QUADRO
+//
+// O DEFEITO MEDIDO (375px, 30 dias, valores reais do Breno Vale): "R$ 92,86",
+// que é o rótulo do PRIMEIRO dia, sobrava 12,3px PARA FORA da caixa do próprio
+// SVG. O rótulo é centrado no ponto, e o primeiro ponto fica a 10 unidades da
+// borda: metade de um rótulo de ~48 unidades não cabe em 10. O mesmo acontece
+// espelhado no último dia.
+// ───────────────────────────────────────────────────────────────────────────
+
+test('rótulo do meio continua centrado no ponto, como sempre foi', () => {
+  assert.deepEqual(ancoraDoRotulo({ centro: 450, largura: 48, quadro: 900 }), { x: 450, ancora: 'middle' });
+});
+
+test('rótulo que sairia pela esquerda encosta na borda e cresce para dentro', () => {
+  // "R$ 92,86" no primeiro dia: centro 10, largura 48 → começaria em −14.
+  assert.deepEqual(ancoraDoRotulo({ centro: 10, largura: 48, quadro: 900 }), { x: 0, ancora: 'start' });
+});
+
+test('rótulo que sairia pela direita encosta na borda e cresce para dentro', () => {
+  assert.deepEqual(ancoraDoRotulo({ centro: 890, largura: 48, quadro: 900 }), { x: 900, ancora: 'end' });
+});
+
+test('encostou por um triz ainda é centrado: não se mexe no que já cabe', () => {
+  assert.deepEqual(ancoraDoRotulo({ centro: 24, largura: 48, quadro: 900 }), { x: 24, ancora: 'middle' });
+  assert.deepEqual(ancoraDoRotulo({ centro: 876, largura: 48, quadro: 900 }), { x: 876, ancora: 'middle' });
+});
+
+test('rótulo maior que o quadro inteiro começa no início, para se ler o começo', () => {
+  const r = ancoraDoRotulo({ centro: 100, largura: 400, quadro: 200 });
+  assert.deepEqual(r, { x: 0, ancora: 'start' });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// QUAIS RÓTULOS CABEM SEM SE TOCAR
+//
+// O DEFEITO MEDIDO: "R$ 20,41" × "R$ 26,40" sobrepostos. Nasce de três coisas
+// juntas, e só das três: (1) um dia SEM DADO encurta a lista de dias com número,
+// e o passo "1 a cada 3" passa a cair no vizinho do último; (2) o último dia é
+// SEMPRE rotulado, esteja no passo ou não — então dois rótulos ficam a um dia de
+// distância; (3) os dois valores têm altura parecida, porque o dia mais caro do
+// mês puxa a escala, e aí os rótulos ficam na mesma faixa de altura.
+// Só a distância horizontal não bastava para decidir: dois rótulos vizinhos com
+// alturas BEM diferentes não se tocam, e derrubar um deles seria perder número à
+// toa. Por isso a conta olha a caixa inteira, nos dois eixos.
+// ───────────────────────────────────────────────────────────────────────────
+
+const cx = (chave, x0, x1, y0, y1, obrigatorio = false) => ({ chave, caixa: { x0, x1, y0, y1 }, obrigatorio });
+
+test('rótulos que não se tocam ficam todos', () => {
+  const r = rotulosQueCabem([cx('a', 0, 48, 20, 33), cx('b', 90, 138, 20, 33), cx('c', 180, 228, 20, 33)]);
+  assert.deepEqual(r, ['a', 'b', 'c']);
+});
+
+test('o par medido: vizinho do passo cai para o último sobreviver', () => {
+  // 30 unidades de distância, 48 de largura, mesma faixa de altura: se tocam.
+  const doPasso = cx('passo', 810, 858, 25, 38);
+  const ultimo = cx('ultimo', 840, 888, 28, 41, true);
+  const r = rotulosQueCabem([ultimo, doPasso]);
+  assert.deepEqual(r, ['ultimo']); // o obrigatório fica, o do passo sai
+});
+
+test('vizinhos com alturas BEM diferentes não se tocam e ficam os dois', () => {
+  // Mesma distância horizontal do caso acima, mas um bem mais alto que o outro.
+  const doPasso = cx('passo', 810, 858, 70, 83);
+  const ultimo = cx('ultimo', 840, 888, 25, 38, true);
+  assert.deepEqual(rotulosQueCabem([ultimo, doPasso]), ['ultimo', 'passo']);
+});
+
+test('obrigatório entra na frente mesmo vindo depois na lista', () => {
+  const doPasso = cx('passo', 100, 148, 20, 33);
+  const topo = cx('topo', 130, 178, 22, 35, true);
+  // Ordem de entrega invertida de propósito: quem manda é ser obrigatório.
+  assert.deepEqual(rotulosQueCabem([doPasso, topo]), ['topo']);
+});
+
+test('dois obrigatórios colados: o primeiro da lista sobrevive, e sobra UM número', () => {
+  // Acontece quando o dia mais alto é vizinho do último dia. Perder um número é
+  // ruim; dois números ilegíveis um por cima do outro é pior.
+  const ultimo = cx('ultimo', 840, 888, 25, 38, true);
+  const topo = cx('topo', 810, 858, 27, 40, true);
+  assert.deepEqual(rotulosQueCabem([ultimo, topo]), ['ultimo']);
+});
+
+test('a folga entre rótulos é respeitada: encostar não vale', () => {
+  const a = cx('a', 0, 48, 20, 33);
+  const b = cx('b', 49, 97, 20, 33); // 1 unidade de distância
+  assert.deepEqual(rotulosQueCabem([a, b]), ['a']);
+  const longe = cx('longe', 60, 108, 20, 33); // 12 unidades
+  assert.deepEqual(rotulosQueCabem([a, longe]), ['a', 'longe']);
+});
+
+test('lista vazia não quebra', () => {
+  assert.deepEqual(rotulosQueCabem([]), []);
+  assert.deepEqual(rotulosQueCabem(), []);
 });

@@ -99,3 +99,77 @@ export function larguraDoGrafico({ pontos, larguraDisponivel, minimoPorPonto = M
     espacoPorPonto: largura / n,
   };
 }
+
+/** Folga mínima entre dois rótulos vizinhos, em unidades do desenho. Encostar
+ *  não vale: dois números colados se leem como um número só. */
+export const FOLGA_ENTRE_ROTULOS = 6;
+
+/**
+ * Onde ancorar um rótulo para ele não sair do quadro.
+ *
+ * O DEFEITO QUE ISTO RESOLVE (medido a 375px, 30 dias, valores reais):
+ * "R$ 92,86", o rótulo do PRIMEIRO dia, sobrava 12,3px para fora da caixa do
+ * próprio SVG — e o mesmo espelhado no último dia. O rótulo é centrado no ponto,
+ * e o primeiro ponto fica a 10 unidades da borda: metade de um rótulo de ~48
+ * unidades não cabe em 10. Fora do desenho, dentro de uma caixa que rola, é
+ * lugar que pode não ter como alcançar.
+ *
+ * `centro` = onde o ponto está · `largura` = quanto o texto mede de verdade
+ * (medido no navegador, não estimado) · `quadro` = a largura do desenho.
+ *
+ * Devolve o `x` e a âncora para o `<text>`: encostado na borda quando não cabe
+ * centrado, centrado quando cabe — quem já cabe não se mexe.
+ */
+export function ancoraDoRotulo({ centro, largura, quadro }) {
+  const meia = (Number(largura) || 0) / 2;
+  const c = Number(centro) || 0;
+  const q = Number(quadro) || 0;
+  if (c - meia < 0) return { x: 0, ancora: 'start' };
+  // Rótulo maior que o quadro inteiro já caiu no caso de cima: começa no início,
+  // porque o começo do número ("R$ 1...") é a parte que mais importa ler.
+  if (c + meia > q) return { x: q, ancora: 'end' };
+  return { x: c, ancora: 'middle' };
+}
+
+/**
+ * Quais rótulos cabem sem se tocar.
+ *
+ * O DEFEITO QUE ISTO RESOLVE (medido a 375px, 30 dias, valores reais):
+ * "R$ 20,41" × "R$ 26,40" sobrepostos. Nasce de três coisas juntas, e só das
+ * três: um dia SEM DADO encurta a lista de dias com número e faz o passo do
+ * rótulo cair no vizinho do último; o último dia é SEMPRE rotulado, esteja no
+ * passo ou não, então dois rótulos ficam a um dia de distância; e os dois têm
+ * altura parecida porque o dia mais caro do mês puxa a escala.
+ *
+ * POR QUE A CONTA OLHA OS DOIS EIXOS: só a distância horizontal não decide. Dois
+ * rótulos vizinhos com alturas bem diferentes não se tocam, e derrubar um deles
+ * seria perder número à toa. Quem manda é a caixa inteira.
+ *
+ * `candidatos` = [{ chave, caixa: { x0, x1, y0, y1 }, obrigatorio }], já na
+ * ordem em que devem ser disputados dentro de cada grupo.
+ *
+ * Os obrigatórios (o último dia, o dia mais alto) passam na frente. Quando dois
+ * obrigatórios se tocam entre si — o dia mais alto colado no último —, sobra o
+ * primeiro da lista. Perder um número é ruim; dois números ilegíveis um por cima
+ * do outro é pior, e a barra mais alta continua sendo visivelmente a mais alta.
+ */
+export function rotulosQueCabem(candidatos, folga = FOLGA_ENTRE_ROTULOS) {
+  const lista = Array.isArray(candidatos) ? candidatos : [];
+  const naFrente = lista.filter((c) => c && c.obrigatorio);
+  const depois = lista.filter((c) => c && !c.obrigatorio);
+  const mantidos = [];
+  for (const c of naFrente.concat(depois)) {
+    const cabe = mantidos.every((m) => !seTocam(c.caixa, m.caixa, folga));
+    if (cabe) mantidos.push(c);
+  }
+  // De volta à ordem em que vieram: quem desenha espera a ordem do desenho, não
+  // a ordem da disputa.
+  return lista.filter((c) => mantidos.includes(c)).map((c) => c.chave);
+}
+
+function seTocam(a, b, folga) {
+  if (!a || !b) return false;
+  const cruzaNaHorizontal = a.x0 - folga < b.x1 && b.x0 - folga < a.x1;
+  const cruzaNaVertical = a.y0 < b.y1 && b.y0 < a.y1;
+  return cruzaNaHorizontal && cruzaNaVertical;
+}

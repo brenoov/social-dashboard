@@ -497,7 +497,7 @@ import { montarSerieDeInvestimento, montarSerieDeCustoPorSeguidor } from './seri
 // rolar para o lado. Puro e com teste ao lado (largura-do-grafico.test.mjs).
 // Nasceu da medida a 375px: 30 dias em 319px davam ~10px por dia e os valores em
 // reais se sobrepunham em −5px.
-import { larguraDoGrafico, ESPACO_ANTES_DO_GRAFICO, ESPACO_DEPOIS_DO_GRAFICO } from './largura-do-grafico.js'
+import { larguraDoGrafico, rotulosQueCabem, ancoraDoRotulo, ESPACO_ANTES_DO_GRAFICO, ESPACO_DEPOIS_DO_GRAFICO } from './largura-do-grafico.js'
 // Decide se a barra do dia é número do Instagram ou estimativa nossa. Puro e com
 // teste ao lado (estimativa-de-seguidores.test.mjs), usando a contagem REAL do
 // Breno nos dias em que a Meta parou de publicar.
@@ -1525,6 +1525,24 @@ function buildChart(chartData) {
    Aqui o SVG escala uniforme (sem preserveAspectRatio="none"), então o texto pode ficar
    dentro do próprio SVG: não estica nem distorce como no gráfico de seguidores.
    Genérico: os dois gráficos usam ESTA função, sem nenhuma regra por perfil. */
+/* Quanto um <text> de SVG mede DE VERDADE, em unidades do desenho.
+   Estimar por número de caracteres não serve: "R$ 92,86" é mais largo que
+   "R$ 17,34" com os mesmos 8 caracteres, porque o "1" é estreito. Foi por uma
+   estimativa assim que um rótulo escapou do quadro sem ninguém ver.
+   Devolve 0 quando não dá para medir (elemento fora da tela, sem renderização) —
+   e aí quem chamou mantém o desenho de sempre em vez de arriscar. */
+function medidaDeTexto(no) {
+  try { return no.getComputedTextLength() } catch (e) { return 0 }
+}
+/* A caixa que o texto ocupa, nos dois eixos, em unidades do desenho. Null quando
+   não dá para medir. */
+function caixaDeTexto(no) {
+  try {
+    const b = no.getBBox()
+    if (!b || !(b.width > 0)) return null
+    return { x0: b.x, x1: b.x + b.width, y0: b.y, y1: b.y + b.height }
+  } catch (e) { return null }
+}
 function _gmadDiaCurto(iso) { const p = String(iso).split('-'); return p.length === 3 ? Number(p[2]) + '/' + Number(p[1]) : String(iso) }
 const _GMAD_MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
 function _gmadDiaLongo(iso) { const d = new Date(iso + 'T12:00:00'); return isNaN(d.getTime()) ? String(iso) : d.getDate() + ' ' + _GMAD_MESES[d.getMonth()] }
@@ -1581,6 +1599,11 @@ function desenharGraficoDiario(hostId, serie, opcoes) {
   // classe, o computador ganharia letra maior sem precisar — e letra maior no
   // mesmo espaço é sobreposição de volta.
   const svg = el('svg', { class: 'gmad-svg' + (medida.rola ? ' gmad-rola' : ''), viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': opcoes.titulo })
+  // O SVG ENTRA NA TELA ANTES DE SER DESENHADO, de propósito: texto de SVG só
+  // pode ser MEDIDO depois de renderizado, e os rótulos precisam ser medidos para
+  // não saírem do quadro nem se sobreporem (ver o bloco dos rótulos, abaixo).
+  trilho.appendChild(svg)
+  host.appendChild(caixaQueRola)
   // linha de base
   svg.appendChild(el('line', { class: 'gmad-base', x1: padX, x2: W - padX, y1: baseY, y2: baseY }))
   const slot = (W - padX * 2) / Math.max(n, 1)
@@ -1602,19 +1625,52 @@ function desenharGraficoDiario(hostId, serie, opcoes) {
   // Quando o período é longo, muitos rótulos de moeda viram sujeira; então mostramos
   // SALTEADO (no máx. ~10 no gráfico) e garantimos SEMPRE o dia mais alto e o último dia.
   // Sem regra por perfil: vale pros dois gráficos que usam esta função.
+  //
+  // O SALTEADO SOZINHO NÃO BASTA, e isto foi medido na tela logada: um dia SEM
+  // DADO encurta a lista de dias com número, o passo passa a cair no vizinho do
+  // último, e o último é rotulado de qualquer jeito — dois rótulos a um dia de
+  // distância, medindo mais de um dia de largura cada. Foi assim que nasceram
+  // "R$ 20,41" × "R$ 26,40". Por isso, depois de desenhados, os rótulos são
+  // MEDIDOS no navegador e quem ainda assim se tocaria sai.
   const idxComDado = pontos.map((p, i) => (p.semDado ? -1 : i)).filter(i => i >= 0)
   if (idxComDado.length) {
     const passoRot = Math.max(1, Math.ceil(idxComDado.length / 10))
     let idxTopo = idxComDado[0]
     idxComDado.forEach(i => { if (pontos[i].valor > pontos[idxTopo].valor) idxTopo = i })
     const ultimoComDado = idxComDado[idxComDado.length - 1]
+    const candidatos = []
     idxComDado.forEach((i, ordem) => {
-      if (ordem % passoRot !== 0 && i !== idxTopo && i !== ultimoComDado) return
+      const obrigatorio = i === ultimoComDado || i === idxTopo
+      if (ordem % passoRot !== 0 && !obrigatorio) return
       const h = hOf(pontos[i].valor)
       const t = el('text', { class: 'gmad-valor', x: px(i).toFixed(2), y: Math.max(7, baseY - h - 3).toFixed(2), 'text-anchor': 'middle' })
       t.textContent = fmtR(pontos[i].valor)
       svg.appendChild(t)
+      // O ÚLTIMO dia disputa na frente do MAIS ALTO: se os dois estiverem colados,
+      // quem sobra é o dia de hoje, que é o que o dono está olhando.
+      candidatos.push({ chave: i, no: t, centro: px(i), obrigatorio, naDisputa: i === ultimoComDado ? 0 : i === idxTopo ? 1 : 2 })
     })
+    // Medir de verdade, não estimar por número de caracteres: "R$ 92,86" é mais
+    // largo que "R$ 17,34" com os mesmos 8 caracteres, porque o "1" é estreito.
+    // Foi essa diferença que fez o rótulo do primeiro dia escapar do quadro.
+    let deuParaMedir = candidatos.length > 0
+    for (const c of candidatos) {
+      const larguraDoTexto = medidaDeTexto(c.no)
+      if (!(larguraDoTexto > 0)) { deuParaMedir = false; break }
+      // Encosta na borda quem sairia do quadro. Fora do quadro, dentro de uma
+      // caixa que rola, é lugar que pode não ter como alcançar.
+      const ancorado = ancoraDoRotulo({ centro: c.centro, largura: larguraDoTexto, quadro: W })
+      c.no.setAttribute('x', ancorado.x.toFixed(2))
+      c.no.setAttribute('text-anchor', ancorado.ancora)
+    }
+    if (deuParaMedir) for (const c of candidatos) { c.caixa = caixaDeTexto(c.no); if (!c.caixa) deuParaMedir = false }
+    // Não deu para medir (SVG ainda não renderizado, cartão escondido): fica tudo
+    // como sempre foi. Rótulo a mais é melhor que rótulo que sumiu por engano.
+    if (deuParaMedir) {
+      const naOrdemDaDisputa = candidatos.slice().sort((a, b) => a.naDisputa - b.naDisputa)
+      const ficam = new Set(rotulosQueCabem(naOrdemDaDisputa.map(c => ({ chave: c.chave, caixa: c.caixa, obrigatorio: c.obrigatorio }))))
+      for (const c of candidatos) if (!ficam.has(c.chave)) c.no.remove()
+    }
   }
   // Linha da meta por cima das barras
   if (meta > 0) {
@@ -1661,8 +1717,6 @@ function desenharGraficoDiario(hostId, serie, opcoes) {
     t.textContent = _gmadDiaCurto(pontos[i].data)
     svg.appendChild(t)
   }
-  trilho.appendChild(svg)
-  host.appendChild(caixaQueRola)
   const legenda = document.createElement('div'); legenda.className = 'gmad-legenda'
   const semColeta = pontos.filter(p => p.semDado && p.motivo === 'sem-coleta').length
   const semSeguidor = pontos.filter(p => p.semDado && p.motivo === 'sem-seguidor').length
