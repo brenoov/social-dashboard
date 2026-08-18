@@ -723,27 +723,38 @@ fechar o que sumiu — falta só quem a chame sem depender de gente. O molde é 
 mesmo dos outros robôs (`coletor/` + cron), e o custo é zero de IA: é só leitura
 do Graph.
 
-### B16 · Redes › backfill dos números novos de campanha 🟡 *escrito em 17/08*
-As colunas conversas, cadastros, compras e visitas só existem a partir de
-17/08/2026: qualquer dia anterior mostra "—". Consequência prática: enquanto
-não for preenchido, **a comparação com o período anterior e o gráfico diário
-desses quatro indicadores ficam vazios** nos baldes Contatos, Site e alcance e
-Vendas — só o dia de hoje em diante tem número.
+### B16 · Redes › backfill dos números novos de campanha 🟢 *quase fechado — rodou em 17/08*
+As colunas conversas, cadastros, compras e visitas só passaram a ser gravadas em
+17/08/2026. Sem preencher o passado, a comparação com o período anterior e o
+gráfico diário desses quatro indicadores ficariam vazios nos baldes Contatos,
+Site e alcance e Vendas.
 
-Os insights da Meta são re-consultáveis, então dá para preencher para trás com
-um robô que refaça as chamadas por dia, dentro da janela que a Meta ainda
-guarda.
+**O que já foi feito (17/08):** o robô foi escrito, revisado e endurecido
+(`coletor/preencher-numeros-de-campanha.mjs` + `coletor/janelas-de-backfill.mjs`,
+com teste). Ele escreve **só as quatro colunas**, pula resposta vazia em vez de
+gravar zero, recusa opção de linha de comando desconhecida, tem piso de pausa e
+para sozinho quando a Meta começa a engasgar.
 
-**Por que ficou de fora desta entrega:** o painel já é útil sem histórico (os
-quatro baldes funcionam normalmente a partir de hoje), e um backfill malfeito
-gravaria **zero** por cima de "ainda não sei" — que é exatamente o defeito que
-este projeto já levou um susto por causa dele (ver "Falha que vira número" na
-memória). Não valia arriscar isso para entregar mais rápido.
+A passada dos **últimos 30 dias rodou**: 664 alvos, **3.910 linhas preenchidas**,
+40 minutos, **0 vazios · 0 meia-resposta · 0 sem linha casada**. Ou seja, os
+períodos 7D, 14D, 30D e MÊS já comparam com o período anterior nos baldes novos.
 
-Já está especificado, passo a passo, como a **Tarefa 9** do plano
-`docs/superpowers/plans/2026-08-17-baldes-de-campanha-redes-sociais.md`
-(`coletor/janelas-de-backfill.mjs` + teste). Entra quando o dono quiser
-comparar período com período anterior nos baldes novos.
+**O que falta para fechar:**
+1. A passada do histórico mais antigo — **~1.400 alvos, agendada para 03h07 de
+   18/08**, rodando fora de qualquer sessão. Registro em
+   `coletor/backfill-madrugada.log`.
+2. **1 alvo que deu erro** e não foi marcado como feito: Vessel, 27/07, recorte
+   de 14 dias (7 linhas). A passada da madrugada tenta de novo sozinha.
+
+**Como conferir e riscar este item:** `tail -20 coletor/backfill-madrugada.log`
+e, no banco, `select count(*) from campaign_insights where conversas is null` —
+se sobrar só o que a Meta não devolve, acabou.
+
+Para preencher um recorte específico à mão:
+`node coletor/preencher-numeros-de-campanha.mjs --desde AAAA-MM-DD`.
+
+⚠️ **Nunca usar o Python legado** (`projetos/central-inteligencia/redes-sociais/coletor/coletar.py`)
+como backfill: ele grava a linha inteira e sobrescreveria coluna boa.
 
 ### B17 · Redes › o recorte MÊS / ATÉ AGORA nunca vai ter os quatro números novos 🟡 *achado em 17/08*
 Na seção 02 do painel de Redes Sociais, os períodos **MÊS** e **ATÉ AGORA** leem
