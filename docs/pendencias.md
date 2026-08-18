@@ -175,13 +175,25 @@ pela tela para a mentira se recompor sozinha.
 **US$ 24,79 conhecidos** e **23 execuções · 397 imagens sem custo conhecido**,
 todas de `gpt-image-2`. Antes, essas 397 apareciam como R$ 0.
 
-🔴 **O que falta: o VALOR.** O dono escolheu (18/08) trazer o gasto **real
-cobrado**, como já é feito com a Anthropic, em vez de chutar um preço por imagem.
-Isso pede duas coisas:
-1. **Uma chave de administrador da OpenAI**, guardada em `segredos_de_cron` com o
-   nome `openai_admin_key` — o mesmo lugar do `anthropic_admin_key`
-2. **Uma Edge Function `custo-openai`**, espelhando a `custo-anthropic`
-   (189 linhas), lendo a chave do cofre e chamando o relatório de custos
+💰 **QUANTO ERA, afinal — medido em 18/08 com a chave do dono:**
+**US$ 98,71 em 60 dias** (≈ R$ 542,90 ao câmbio de 5,5), em **19 dias com gasto**.
+Os picos — 16/07 (US$ 29,29), 21/07 (US$ 24,89), 17/07 (US$ 15,86) — caem
+exatamente dentro da janela em que a Fábrica rodou (13/07 a 29/07). **Era isto que
+a tela mostrava como R$ 0,00.**
+
+✅ **A chave já está no cofre** (`openai_admin_key`, 133 caracteres, formato
+`sk-admin`), guardada em 18/08 e provada contra o relatório de custos (HTTP 200).
+Ela nunca passou pela transcrição da sessão: o dono a deixou como **nome de uma
+pasta no Downloads**, e ela foi lida do disco direto para o cofre.
+
+⚠️ **A pasta em `~/Downloads` ainda tem a chave no nome.** Nome de pasta é texto
+puro: aparece em qualquer listagem, em captura de tela e em backup. Renomear ou
+apagar essa pasta é o último passo — a chave já está guardada.
+
+🔴 **O que falta: uma Edge Function `custo-openai`**, espelhando a
+`custo-anthropic` (189 linhas), lendo `openai_admin_key` do cofre e chamando
+`https://api.openai.com/v1/organization/costs`. O formato da resposta já foi
+conferido ao vivo: `data[] → results[] → amount.value`, com `bucket_width=1d`.
 
 ⚠️ **A função nova cai na MESMA fila de deploy do B14**: Edge Function não sobe
 com `git push`, e a CLI deste Mac está na conta errada (`emsilva99`, do erickIA)
