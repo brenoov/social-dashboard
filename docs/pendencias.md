@@ -30,6 +30,20 @@ assunto daqui a um mês:
 | A13 · anúncios parados | Encerrado a pedido dele. |
 | A1, A4, A5, A6, A7 | Mandou apagar. Eram os que já estavam fora de recomendação. |
 
+**Correção de dado em 18/08 — o KM da Bravo Blackmotion.** A tela mostrava
+**188.000 km**; o certo é **185.359** (o último checklist). A causa: uma ficha de
+teste de 07/08, **não assinada**, com o hodômetro digitado acima do real — e a
+regra da tela (`ultimoHodometro`) pega o **MAIOR** hodômetro de propósito, porque
+"odômetro só anda pra frente". A própria ficha assinada de 17/08 registra o erro:
+*"O teste foi feito com o km acima do correto."*
+
+⚠️ **O gotcha, para a próxima vez:** `frota_checklist.hodometro` é **obrigatório**,
+então não dá para esvaziar um número errado. As únicas saídas são **corrigir** ou
+**apagar** a ficha. O dono escolheu apagar (18/08); a ficha não era assinada,
+então não havia prova a destruir e a corrente de códigos não foi tocada — ela
+continua ligando 14/08 → 17/08. Foram junto as 15 respostas dela. Cópia do que
+foi apagado ficou fora do repositório, no scratchpad da sessão.
+
 **Risco aceito em 18/08 — o token da purga da Fábrica.** Ele apareceu na tela
 numa sessão de trabalho. O dono escolheu **tirá-lo do texto puro sem trocá-lo**,
 porque trocar exige colar o valor novo em `FABRICA_PURGA_SECRET` no painel do
