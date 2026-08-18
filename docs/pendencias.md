@@ -109,7 +109,7 @@ Precisa ser feito por `erick@` ou `gabriel.gertrudes@` (ver A3b).
 
 ## Parte B — Precisa programar
 
-### B20 · Bling › o `bling-proxy` falha em 2,2% das chamadas 🟡 *medido em 18/08, no lugar do B7*
+### B20 · Bling › o `bling-proxy` falha em 2% das chamadas ✅ *fechado em 18/08 — prazo próprio e segunda chance*
 Este item **substitui o B7**, que dizia que a causa do erro `546
 WORKER_RESOURCE_LIMIT` ainda era hipótese. Medido em 18/08, a hipótese
 **envelheceu**: o 546 não aparece em **~8.000 disparos** desde 31/07, nem em 24h
@@ -143,9 +143,33 @@ A regra de leitura virou `resposta-do-bling.js`, com 7 testes, fora do `.vue`
 (onde não teria como quebrar teste nenhum). Vazio continua sendo vazio — o item
 pode não existir mesmo; o que mudou é que **falha agora sobe**.
 
-**O que sobra, e não é nosso:** o Bling estourando 30s em ~1% das chamadas. Dá
-para tentar de novo com recuo, não para consertar daqui. Enquanto ninguém pedir,
-fica só medido.
+✅ **A OUTRA METADE TAMBÉM ERA NOSSA, e foi consertada em 18/08.** O item dizia
+que o resto "não era nosso". Remedindo hoje (759 chamadas, 15 falhas, 1,98% —
+o número se confirmou), a repartição mostrou o contrário: **8 × 504** (a chamada
+pendurada até a plataforma matar em ~30s), **5 × 429** (o Bling limitando, e
+respondendo em 762ms) e **2 × 404** (item que não existe — isso é resposta, não
+falha). O nosso proxy chamava o Bling **sem prazo próprio e sem tentar de novo**:
+uma chamada lenta ficava presa até morrer, e quem estava na tela esperava o meio
+minuto inteiro para receber um erro.
+
+**O prazo saiu de medição, não de gosto.** Nas 744 chamadas que deram certo:
+p50 1,0s · p90 2,0s · p99 3,9s · a mais lenta 12,7s · só 2 acima de 10s. O prazo
+ficou em **11s**, muito acima do p99; o preço é cortar ~1 chamada honesta por
+dia, e mesmo essa é repetida e volta em ~1s.
+
+A política mora em `supabase/functions/_shared/tentar-de-novo.js` (16 testes), e
+não solta dentro do `.ts`. As três regras: **404 e 403 não se repetem** (são a
+resposta do Bling); **só se repete GET** — o único POST é o refresh do token, e
+repeti-lo queimaria o token da empresa; e **nunca se começa uma tentativa que não
+cabe no tempo**, porque ser morto aos 30s devolve NADA, e "nada" na tela vira
+"não sei o que aconteceu". Quando desiste, devolve 504 com frase de gente.
+
+**No ar em 18/08** (bling-proxy v11, pelo MCP). Medido depois de subir: 32
+chamadas reais, **todas 200**, média 1,35s.
+
+⚠️ **O que ainda não foi visto acontecer:** uma repetição de verdade. Os 429 vêm
+em rajada e os 504 são esporádicos — o efeito só se comprova no próximo episódio,
+e ele fica registrado (`[bling-proxy] tentativa N: …`) no log da função.
 
 ### B8 · Status do Claude › o gasto da OpenAI ✅ *fechado em 18/08 — o valor está na tela*
 Pedido do dono em 27/07. Medido em 18/08, e o item era **maior do que dizia**: a
