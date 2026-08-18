@@ -147,133 +147,50 @@ pode não existir mesmo; o que mudou é que **falha agora sobe**.
 para tentar de novo com recuo, não para consertar daqui. Enquanto ninguém pedir,
 fica só medido.
 
-### B8 · Status do Claude › trazer os gastos da API da OpenAI
-Pedido do dono em 27/07, marcado como "pra depois". Hoje o extrato só mostra a
-Anthropic. A OpenAI entra pela Fábrica (gpt-image-2 do Hero-IA) e está invisível
-no painel. Ao fazer: manter a **fonte única de preço** e a linguagem literal.
+### B8 · Status do Claude › o gasto da OpenAI 🟡 *a mentira saiu em 18/08 — falta o valor*
+Pedido do dono em 27/07. Medido em 18/08, e o item era **maior do que dizia**: a
+tela não só omitia a OpenAI — ela **afirmava** que "tarefas que criam imagens não
+usam a API paga, então custam R$ 0". A Fábrica gera criativo com **gpt-image-2**,
+que é API paga da OpenAI.
 
-### B14 · Frota › o PDF do aceite 🟡 *escrito e provado em 18/08 — falta SUBIR a Edge*
-Desde 13/08 quem pega um carro conferido por **outra pessoa** assina o aceite de
-retirada. Ele fica em `frota_uso`, com o rabisco e o código da ficha congelado.
-O papel não existia — decisão consciente na época ("uma assinatura por viagem e
-nenhum PDF a mais"), revista pelo dono em 18/08.
+**A raiz, e ela é da família que já custou caro aqui:** `ia_execucoes.usd` era
+**NOT NULL com padrão 0**. "Não sei" era obrigado a virar "zero". E em JavaScript
+`Number(null) === 0` é **true**, então bastava um `Number(e.usd) === 0` espalhado
+pela tela para a mentira se recompor sozinha.
 
-**Feito em 18/08, e tudo com teste:**
-- `frota_uso_pdf` — a fila, cópia fiel da do checklist (mesmas situações, mesma
-  trava de dono, mesmo `unique` que impede papel duplicado)
-- `trg_frota_uso_enfileirar_pdf` — enfileira quando o aceite é assinado. **Provado
-  nos 5 passos com `rollback`**, satisfazendo a trava de imutabilidade em vez de
-  desarmá-la: nasce `na_fila`, e um segundo update não enfileira de novo
-- `frota_pdf_aceite_pegar_da_fila` — com a mesma auto-cura da outra: enfileira
-  aceite assinado que o gatilho tiver perdido
-- `_shared/pdf-do-aceite.js` — o roteiro do papel, 13 testes. Reusa o `montarPdf`
-  do checklist: mesmo timbre, mesma fonte, mesmo rodapé
-- A Edge `enviar-pdf-checklist` passou a processar **as duas filas**. Não virou
-  função nova de propósito: mesma pasta, mesmo token, mesma regra de tentar e
-  desistir
+**Feito em 18/08:**
+- A coluna aceita **nulo** = "ainda não se sabe". Zero passou a significar só o
+  que significa: não custou mesmo
+- As **26 execuções** da Fábrica (473 criativos) foram corrigidas de R$ 0 para
+  "não sei", e ganharam o nome do motor. As outras tarefas da Fábrica (subir,
+  excluir, preview) continuam zero — essas não chamam IA nenhuma
+- `coletor/lib/custo-da-execucao.mjs` (7 testes): motor da Anthropic calcula;
+  motor pago de fora, ou **motor novo que ninguém precificou**, devolve nulo
+- `src/ferramentas/claude-status/custo-do-extrato.js` (8 testes): as três
+  situações, e a segmentação por fornecedor
+- A legenda da tela foi reescrita e agora diz a verdade, inclusive que **estava
+  errada até 18/08**
 
-**O conteúdo, decidido pelo dono:** o aceite **mais o resumo** da vistoria
-(hodômetro, tanque, resultado e só os itens com problema). A lista inteira já está
-no PDF do checklist, na mesma pasta.
+**O que a tela mostra agora**, medido no banco: nos últimos 30 dias há
+**US$ 24,79 conhecidos** e **23 execuções · 397 imagens sem custo conhecido**,
+todas de `gpt-image-2`. Antes, essas 397 apareciam como R$ 0.
 
-🔴 **O QUE FALTA, e não consigo fazer daqui: SUBIR a Edge Function.** Ela não sobe
-com `git push`. A CLI deste Mac está logada como `emsilva99` (a conta do erickIA)
-e o Supabase responde **403 sem privilégio**. Subir pelo MCP exigiria colar 94 mil
-caracteres à mão, incluindo o gerador de 846 linhas — e copiar isso à mão é como
-se corrompe uma função que hoje funciona.
+🔴 **O que falta: o VALOR.** O dono escolheu (18/08) trazer o gasto **real
+cobrado**, como já é feito com a Anthropic, em vez de chutar um preço por imagem.
+Isso pede duas coisas:
+1. **Uma chave de administrador da OpenAI**, guardada em `segredos_de_cron` com o
+   nome `openai_admin_key` — o mesmo lugar do `anthropic_admin_key`
+2. **Uma Edge Function `custo-openai`**, espelhando a `custo-anthropic`
+   (189 linhas), lendo a chave do cofre e chamando o relatório de custos
 
-**O comando, com a conta certa do iamundi:**
-```
-supabase login                 # com a conta do iamundi, não a emsilva99
-supabase functions deploy enviar-pdf-checklist \
-  --project-ref kounqtdoioootxqegkij --no-verify-jwt
-```
-⚠️ `--no-verify-jwt` é obrigatório: esta função confere um segredo próprio, e o
-cron chama com um bearer que **não** é JWT. Com verificação ligada, o portão da
-Supabase recusa antes de a função rodar.
+⚠️ **A função nova cai na MESMA fila de deploy do B14**: Edge Function não sobe
+com `git push`, e a CLI deste Mac está na conta errada (`emsilva99`, do erickIA)
+e leva 403. Por isso ela **não foi escrita ainda** — escrever mais código que não
+sobe só aumenta a distância entre o repositório e o que está no ar, que é um
+problema que este projeto já teve.
 
-⚠️ **Enquanto não subir, o banco já enfileira e ninguém processa.** Isso é
-inofensivo: a fila espera, e a primeira rodada depois do deploy pega o acumulado.
-
-⚠️ **Nada disto foi visto num papel de verdade**, e é honesto dizer: medido em
-18/08, **não existe nenhum aceite assinado** (0 de 12 linhas de `frota_uso`). A
-geração tem teste; a entrega no Zoho só se prova no primeiro aceite real — igual
-ao A2, onde o primeiro convite é também o teste.
-
-✅ **De brinde, um aviso do código foi corrigido:** ele dizia que a escrita no
-WorkDrive "nunca foi provada contra a API real". **Já foi** — 3 PDFs do checklist
-chegaram lá, na primeira tentativa, sem erro.
-
-### B15 · Meta Ads › o vigia diário 🟢 *escrito e agendado em 18/08 — falta ver rodar sozinho*
-A tabela `gt_problemas_meta` (ver **A13**) guarda o motivo que a Meta dá, mas até
-18/08 **quem gravava era a tela**: só ficava registrado o que alguém via ao abrir
-a Gestão de Tráfego. Problema que nascia e morria entre duas visitas não deixava
-rastro — o caso que originou tudo isto.
-
-**Feito em 18/08:** o robô `coletor/vigia-problemas-meta.mjs` faz a mesma leitura
-e chama a mesma função. Roda no GitHub Actions às **04h07** de Brasília (e não
-neste Mac: vigia que só roda com a máquina ligada falta justo no dia ruim). Custo
-zero de IA.
-
-A regra que mais importa, e que está testada: **conta cuja leitura falha é
-PULADA, nunca mandada vazia.** É a lista vazia que fecha o que sumiu — um erro de
-rede virando lista vazia daria por resolvido, todo dia, um problema que continua
-aberto.
-
-⚠️ **O portão da função precisou mudar, e o desenho inicial estava errado.** Eu
-conferi que o `service_role` podia *executar* `gt_registrar_problemas` e não olhei
-o corpo dela, que exige **usuário logado** com admin ou `meta.gestor`. A migration
-`2026-08-18-vigia-de-problemas-pode-gravar.sql` faz a função aceitar também quem
-chega com a chave de serviço. Isso **não abre porta nova**: quem tem essa chave já
-escreve na tabela direto. Provado nos três casos antes de agendar — logado sem
-permissão recusa, sem token recusa, chave de serviço entra.
-
-**O que falta para riscar:** ver a rodada automática das 04h07 acontecer (a
-primeira é 19/08). A rodada à mão de 18/08 confirmou os **mesmos 47 problemas**
-que a tela já tinha registrado, com **0 fechados por engano**.
-
-### B16 · Redes › backfill dos números novos de campanha 🟡 *pela metade — reagendado para 19/08*
-As colunas conversas, cadastros, compras e visitas só passaram a ser gravadas em
-17/08/2026. Sem preencher o passado, a comparação com o período anterior e o
-gráfico diário desses quatro indicadores ficam vazios nos baldes Contatos, Site e
-alcance e Vendas.
-
-**Onde parou (medido no banco em 18/08):** a passada da madrugada rodou, fez
-**593 alvos de 1.407**, gravou **5.076 linhas** em 45 min e **parou às ~08h13
-depois de 5 erros seguidos de rede** — o robô desiste de propósito, para não
-martelar a Meta. Sobram **814 alvos** e **5.372 linhas** sem os quatro números,
-com um corte nítido: tudo o que é anterior a **12/06/2026** ficou.
-
-| Recorte | Linhas sem número | Vai até |
-|---|---|---|
-| Dia (p0) | 508 | 17/07 |
-| 1 dia | 549 | 17/07 |
-| 7 dias | 784 | 17/07 |
-| 14 dias | 1.004 | 27/07 |
-| 30 dias | 1.612 | 17/07 |
-| MÊS (p99) | 915 | 18/08 → **este era o B17, e foi resolvido** |
-
-**O que mudou em 18/08:** o agendamento voltou, e desta vez de verdade — o de
-ontem era um processo solto de sessão, que morreu com ela. Agora é
-`~/Library/LaunchAgents/com.iamundi.backfill-numeros.plist`, 03h07, chamando
-`coletor/retomar-backfill-madrugada.sh`, que faz **até 3 passadas** com 10 min de
-pausa: uma oscilação de rede deixa de custar a noite inteira.
-
-**Ele se apaga sozinho** quando o robô anunciar "0 pela frente" — apaga o arquivo
-de retomada, deixa o marcador `coletor/.backfill-numeros-PRONTO` e tira o próprio
-agendamento do launchd.
-
-**Como conferir e riscar este item:** `tail -30 coletor/backfill-madrugada.log`
-e, no banco, `select count(*) from campaign_insights where conversas is null` —
-se sobrar só o que a Meta não devolve, acabou. Se o marcador `PRONTO` existir,
-acabou também.
-
-Para preencher um recorte específico à mão:
-`node coletor/preencher-numeros-de-campanha.mjs --desde AAAA-MM-DD`.
-
-⚠️ Se o Mac estiver **desligado** às 03h07, o launchd roda a tarefa quando ele
-acordar — mas dormindo o dia inteiro ela não roda. É a razão de o vigia do B15
-ter ido para o GitHub, e não para cá.
+**Ordem certa:** resolver o acesso de deploy → subir o B14 → então escrever e
+subir o `custo-openai` na mesma leva.
 
 ---
 

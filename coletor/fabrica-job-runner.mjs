@@ -126,8 +126,25 @@ async function main() {
   const _t0 = Date.now();
   const _robo = { gerar: 'fabrica-gerar', subir: 'fabrica-subir', ativar: 'fabrica-ativar', excluir: 'fabrica-excluir', preview: 'fabrica-preview' };
   const _acao = { gerar: 'gerar criativos', subir: 'subir campanha', ativar: 'ativar anúncios', excluir: 'excluir remessa', preview: 'gerar previews' };
+  // O MOTOR DE CADA TAREFA, e por que isto importa (18/08/2026).
+  //
+  // Antes, TODA tarefa da Fábrica era registrada com `modelo: null, usd: 0` — e
+  // `gerar` chama o gpt-image-2, que é API PAGA da OpenAI. Resultado: 473
+  // criativos gravados como US$ 0,00, e a tela do Status do Claude AFIRMANDO que
+  // criar imagem custa R$ 0.
+  //
+  // As outras tarefas (subir, ativar, excluir, preview) não chamam IA nenhuma:
+  // para elas o zero é verdade, e continua zero. A diferença agora está escrita.
+  const _motor = { gerar: 'gpt-image-2' };
+  const motor = _motor[job.tipo] || null;
+
   const reg = (itens, unidade, status, detalhe) => registrarExecucao({
-    robo: _robo[job.tipo] || 'fabrica', acao: _acao[job.tipo] || job.tipo, modelo: null, usd: 0,
+    robo: _robo[job.tipo] || 'fabrica', acao: _acao[job.tipo] || job.tipo,
+    modelo: motor,
+    // `usd` fica de fora de propósito quando há motor pago: sem ele,
+    // custoDaExecucao() devolve NULO ("não sei") em vez de zero. O valor real
+    // virá do gasto cobrado, quando a chave de administrador da OpenAI existir.
+    ...(motor ? {} : { usd: 0 }),
     duracaoMs: Date.now() - _t0, itens, unidade, status, detalhe,
   });
 

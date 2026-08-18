@@ -37,14 +37,15 @@
           <span v-else class="csc-hero-gasto-val csc-hero-gasto-indisp">indisponível</span>
           <span v-if="gastoRealMes && !gastoRealMesCarregando" class="csc-hero-gasto-sub">valor de verdade cobrado — inclui <b>tudo</b>: os robôs, as buscas na web e as sessões de desenvolvimento com IA.</span>
           <span v-else-if="gastoRealMesErro && !gastoRealMesCarregando" class="csc-hero-gasto-erro">Não consegui puxar o gasto real da Anthropic agora. Tente recarregar a página em instantes.</span>
-          <span class="csc-hero-gasto-est">Estimativa só dos robôs deste painel: <b>{{ fmtBRL(kpis.usdMes * CAMBIO) }}</b>. O número real acima costuma ser maior porque inclui muito mais que os robôs.</span>
+          <span class="csc-hero-gasto-est">Estimativa só dos robôs deste painel: <b>{{ fmtBRL(kpis.usdMes * CAMBIO) }}</b>. O número real acima costuma ser maior porque inclui muito mais que os robôs.<template v-if="kpis.semCustoMes"> E <b>{{ kpis.semCustoMes }}</b> {{ kpis.semCustoMes === 1 ? 'execução ficou' : 'execuções ficaram' }} de fora desta estimativa: {{ kpis.semCustoMes === 1 ? 'ela usou' : 'elas usaram' }} a API paga da OpenAI, cujo custo ainda não é conhecido aqui.</template></span>
         </div>
       </section>
 
       <!-- LEGENDA: o que é "custo zero" -->
       <div class="csc-legenda">
         <span class="csc-tag csc-tag-zero">Custo zero</span>
-        <p>Tarefas que <b>criam imagens</b> ou <b>sobem anúncios</b> não usam a API paga (que cobra por uso) — só a assinatura. Então custam <b>R$ 0</b>. Já os <b>textos</b> (relatórios, análises, resumos) usam a API paga e têm custo em reais.</p>
+        <p><b>Sobem anúncios</b> não usa API paga nenhuma: custa <b>R$ 0</b> de verdade. Os <b>textos</b> (relatórios, análises, resumos) usam a API paga da Anthropic e têm custo em reais.</p>
+          <p><b>Criar imagens usa a API paga da OpenAI</b> (gpt-image-2) e <b>tem custo</b> — até 18/08/2026 esta tela dizia que era R$ 0, e estava errada. O valor ainda não aparece porque falta a chave de administrador da OpenAI; enquanto isso, essas tarefas mostram <b>“custo ainda não conhecido”</b>, que é a verdade. Elas <b>nunca</b> voltam a aparecer como R$ 0.</p>
       </div>
 
       <!-- SAÚDE DOS ROBÔS: só aparece quando há problema.
@@ -90,7 +91,7 @@
             <ul class="csc-robo-detalhes">
               <li><span class="csc-di-lbl">Última vez</span><span class="csc-di-val">{{ tempoRel(r.ult.run_at) }}</span></li>
               <li v-if="r.ult.duracao_ms"><span class="csc-di-lbl">Tempo que levou</span><span class="csc-di-val">{{ fmtDur(r.ult.duracao_ms) }}</span></li>
-              <li><span class="csc-di-lbl">Custo</span><span class="csc-di-val" :class="{ 'csc-zero': Number(r.ult.usd)===0 }">{{ custoFrase(r.ult.usd) }}</span></li>
+              <li><span class="csc-di-lbl">Custo</span><span class="csc-di-val" :class="{ 'csc-zero': ehZeroDeVerdade(r.ult.usd) }">{{ custoFrase(r.ult.usd) }}</span></li>
             </ul>
           </div>
           <div v-else class="csc-robo-corpo csc-robo-vazio">Ainda não rodou nenhuma vez.</div>
@@ -175,7 +176,7 @@
             <p class="csc-fi-frase"><b>{{ nomeRobo(e.robo) }}</b> {{ fraseAcao(e) }}</p>
             <p class="csc-fi-det">
               <span v-if="e.duracao_ms">Levou {{ fmtDur(e.duracao_ms) }}.</span>
-              <span :class="{ 'csc-zero': Number(e.usd)===0 }">{{ custoFrase(e.usd) }}</span>
+              <span :class="{ 'csc-zero': ehZeroDeVerdade(e.usd) }">{{ custoFrase(e.usd) }}</span>
             </p>
           </div>
           <span class="csc-fi-quando">{{ tempoRel(e.run_at) }}</span>
@@ -278,7 +279,7 @@
             <span class="csc-ex-data">{{ fmtData(e.run_at) }}</span>
             <span class="csc-ex-area">{{ areaDe(e.robo) }}</span>
             <span class="csc-ex-oque">{{ fraseAcaoMaiuscula(e) }}</span>
-            <span class="csc-ex-v" :class="{ 'csc-zero': Number(e.usd) === 0 }">{{ Number(e.usd) === 0 ? 'R$ 0' : fmtBRL(e.usd * CAMBIO) }}</span>
+            <span class="csc-ex-v" :class="{ 'csc-zero': ehZeroDeVerdade(e.usd) }">{{ custoCurto(e.usd) }}</span>
           </div>
           <div v-if="execucoesPeriodo.length" class="csc-ex-row csc-ex-tot"><span></span><span></span><span>Total estimado (só robôs)</span><span class="csc-ex-v">{{ fmtBRL(exResumo.usd * CAMBIO) }}</span></div>
           <div v-if="!execucoesPeriodo.length" class="csc-fi-vazio">Nenhuma tarefa nesse período.</div>
@@ -308,6 +309,7 @@
 </template>
 
 <script setup>
+import { fraseDoCusto, ehZeroDeVerdade } from './custo-do-extrato.js'
 import { onMounted, onUnmounted, ref, reactive, computed, watch } from 'vue'
 import BarraDeTopo from '../../compartilhado/barra-de-topo.vue'
 import { useRouter } from 'vue-router'
@@ -387,8 +389,13 @@ function tempoRel(iso) {
 // Frase do custo, em reais e explicando o "custo zero".
 // Compacto (cabe numa linha nos cards). A explicação completa do "custo zero"
 // (não usou API paga, só a assinatura) fica na legenda do topo.
-function custoFrase(usd) {
-  return Number(usd) === 0 ? 'R$ 0 · sem API paga' : `${fmtBRL(Number(usd) * CAMBIO)} · ${fmtUsd(usd)}`
+// A regra das TRÊS situações (valor / zero de verdade / não sei) mora em
+// custo-do-extrato.js, com teste. Aqui ela virava `Number(usd) === 0`, e
+// `Number(null) === 0` é TRUE — foi assim que "não sei" virou "R$ 0".
+function custoFrase(usd) { return fraseDoCusto(usd, CAMBIO) }
+function custoCurto(usd) {
+  if (!Number.isFinite(Number(usd)) || usd === null || usd === undefined) return 'não conhecido'
+  return Number(usd) === 0 ? 'R$ 0' : fmtBRL(Number(usd) * CAMBIO)
 }
 // Coloca a unidade no singular quando a quantidade é 1 ("1 relatório", não "1 relatórios").
 function unid(n, u) {
@@ -408,14 +415,18 @@ const kpis = computed(() => {
   const now = Date.now()
   const DIA = 86400000
   const inicioHoje = new Date(); inicioHoje.setHours(0, 0, 0, 0)
-  let usdHoje = 0, usdMes = 0, acoes = 0, itens = 0, tempoMs = 0
+  // `execucoesSemCusto` existe para a estimativa não mentir por omissão: sem
+  // ela, uma geração de imagem sem preço conhecido simplesmente não entrava na
+  // conta e o total parecia completo.
+  let usdHoje = 0, usdMes = 0, acoes = 0, itens = 0, tempoMs = 0, semCustoMes = 0
   for (const e of execucoes.value) {
     const t = new Date(e.run_at).getTime()
-    const usd = Number(e.usd) || 0
+    const desconhecido = e.usd === null || e.usd === undefined
+    const usd = desconhecido ? 0 : (Number(e.usd) || 0)
     if (t >= inicioHoje.getTime()) usdHoje += usd
-    if (now - t <= 30 * DIA) { usdMes += usd; acoes++; itens += Number(e.itens) || 0; tempoMs += Number(e.duracao_ms) || 0 }
+    if (now - t <= 30 * DIA) { usdMes += usd; acoes++; itens += Number(e.itens) || 0; tempoMs += Number(e.duracao_ms) || 0; if (desconhecido) semCustoMes++ }
   }
-  return { usdHoje, usdMes, acoes, itens, tempoMs }
+  return { usdHoje, usdMes, acoes, itens, tempoMs, semCustoMes }
 })
 
 // Robôs: mostra os que já rodaram primeiro (por última execução), depois os conhecidos que faltam.
