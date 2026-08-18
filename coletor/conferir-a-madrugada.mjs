@@ -38,6 +38,20 @@ async function contar(caminho) {
   return Number.isFinite(total) ? total : null;
 }
 
+// A PURGA DA FÁBRICA (04h17). Ela saiu do texto puro em 18/08 e passou a usar o
+// mesmo `disparar_robo` dos outros robôs — que registra a execução. Antes disso
+// ela não deixava rastro nenhum, então "não rodou" e "rodou e ninguém viu" eram
+// indistinguíveis. Agora dá para perguntar.
+async function ultimaPurga() {
+  const r = await fetch(
+    `${REST}/robos_execucoes?robo=eq.fabrica-purga&select=disparado_em,status_code,ok&order=disparado_em.desc&limit=1`,
+    { headers: sb },
+  );
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const [linha] = await r.json();
+  return linha || null;
+}
+
 async function ultimaVezDoVigia() {
   const r = await fetch(`${REST}/gt_problemas_meta?select=ultima_vez&order=ultima_vez.desc&limit=1`, { headers: sb });
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -102,6 +116,30 @@ async function principal() {
     }
   } catch (e) {
     partes.push(`Vigia: nao consegui conferir no banco (${e.message}).`);
+    algoErrado = true;
+  }
+
+  // ---- 3. a purga da Fábrica
+  try {
+    const purga = await ultimaPurga();
+    if (!purga) {
+      partes.push('Purga da Fabrica: NENHUM registro. Ela mudou de molde em 18/08 -- se nao aparecer, o cron novo nao esta chamando.');
+      algoErrado = true;
+    } else {
+      const atras = horas(Date.now() - new Date(purga.disparado_em).getTime());
+      const boa = purga.ok !== false && (purga.status_code == null || purga.status_code < 400);
+      if (atras <= 12 && boa) {
+        partes.push('Purga da Fabrica: rodou.');
+      } else if (!boa) {
+        partes.push(`Purga da Fabrica: FALHOU (codigo ${purga.status_code}). Quase certo que e o segredo da funcao.`);
+        algoErrado = true;
+      } else {
+        partes.push(`Purga da Fabrica: nao rodou. Ultima ha ${atras.toFixed(0)}h.`);
+        algoErrado = true;
+      }
+    }
+  } catch (e) {
+    partes.push(`Purga da Fabrica: nao consegui conferir (${e.message}).`);
     algoErrado = true;
   }
 

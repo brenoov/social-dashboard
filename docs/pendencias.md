@@ -30,6 +30,13 @@ assunto daqui a um mês:
 | A13 · anúncios parados | Encerrado a pedido dele. |
 | A1, A4, A5, A6, A7 | Mandou apagar. Eram os que já estavam fora de recomendação. |
 
+**Risco aceito em 18/08 — o token da purga da Fábrica.** Ele apareceu na tela
+numa sessão de trabalho. O dono escolheu **tirá-lo do texto puro sem trocá-lo**,
+porque trocar exige colar o valor novo em `FABRICA_PURGA_SECRET` no painel do
+Supabase, e só ele tem esse privilégio. O token continua conhecido. Se um dia
+quiser fechar: gerar um hex de 64, atualizar a linha `fabrica-purga` em
+`segredos_de_cron` e colar o mesmo valor no painel — nessa ordem.
+
 ⚠️ **A2c e A12 tinham número medido contra eles** (10 de 10 carros sem seguro; a
 permissão faltando de fato). Não saíram por estarem resolvidos — saíram porque o
 dono decidiu que é assim que fica. Se um dia alguém estranhar o custo do carro sair
@@ -88,11 +95,6 @@ Precisa ser feito por `erick@` ou `gabriel.gertrudes@` (ver A3b).
 
 ## Parte B — Precisa programar
 
-### B6 · Robôs › o cron `fabrica-purga-diaria` está com o token em texto puro
-É o único cron com o segredo escrito dentro do `cron.job.command` — exatamente o
-que a tabela `segredos_de_cron` existe pra evitar. Por isso ele não foi
-instrumentado junto com os outros.
-
 ### B7 · Robôs › a causa do `546 WORKER_RESOURCE_LIMIT` ainda é hipótese
 A suspeita é que a função roda ~120s, varre 7 contas e baixa fotos pra memória.
 Não houve perda de dado (a coleta roda 4×/dia e regrava). Agora dá pra **medir a
@@ -102,12 +104,6 @@ frequência antes de mexer** — medir primeiro.
 Pedido do dono em 27/07, marcado como "pra depois". Hoje o extrato só mostra a
 Anthropic. A OpenAI entra pela Fábrica (gpt-image-2 do Hero-IA) e está invisível
 no painel. Ao fazer: manter a **fonte única de preço** e a linguagem literal.
-
-### B9 · Segurança › as escritas soltas que sobraram
-`bling_pedido_vendedor`, `bling_vendedores` (cache com auto-cura) e
-`campaign_filters` aceitam escrita de qualquer usuário logado (`authenticated
-true`). Foi deixado de propósito porque a equipe é interna — só trava de vez
-proxiando pelo Edge.
 
 ### B13 · Frota › quem decidiu a reserva nem sempre tem nome na tela
 
