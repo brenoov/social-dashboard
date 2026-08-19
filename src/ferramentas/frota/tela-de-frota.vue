@@ -2970,6 +2970,18 @@ onMounted(async () => {
 
       <template v-if="meuCarroFixo">
         <h2 class="fr-secao">Seu carro</h2>
+        <!-- DENTRO DA `.fr-lista`, como todos os outros cartões desta tela.
+             Ele estava solto, e por isso era o único que ia de ponta a ponta:
+             no computador ficava um cartão de 1400px de largura ao lado de um
+             checklist de 640px, na mesma tela. A `.fr-lista` já vira grade de
+             320px acima de 900px (a mesma da Gestão, de 19/08) — aqui é só
+             usar o que existe.
+
+             `no-meio` porque a `.fr-lista` nasceu pra ser a ÚLTIMA da tela e
+             carrega 40px de respiro embaixo. Aqui ela tem seções depois, e
+             esses 40px empurravam a página 44px pra baixo no celular — medido
+             antes e depois, a 375px. -->
+        <div class="fr-lista no-meio">
         <div class="fr-card">
           <div class="fr-card-topo">
             <div class="fr-card-ident">
@@ -2987,6 +2999,7 @@ onMounted(async () => {
               Passar o carro para outra pessoa
             </button>
           </div>
+        </div>
         </div>
       </template>
 
@@ -5032,6 +5045,9 @@ onMounted(async () => {
 .tela-frota .fr-checklist-editor{padding:4px 14px 40px;}
 
 .tela-frota .fr-lista{display:flex;flex-direction:column;gap:10px;padding:4px 14px 40px;}
+/* A lista que NÃO é a última da tela: os 40px de respiro do fim viram o do
+   meio, senão sobra um vão entre ela e a seção seguinte. */
+.tela-frota .fr-lista.no-meio{padding-bottom:0;}
 /* CARTÃO EM COLUNA, e isso não é preferência de escrita: é o que permite ao
    `.fr-acoes` empurrar-se pro rodapé com `margin-top:auto` lá embaixo. Sem
    `flex-direction:column` aqui, o `auto` não tem eixo pra empurrar e o botão

@@ -245,6 +245,16 @@ function gravar() {
       <div class="ck-barra-cheia" :style="{ width: (daFicha.length ? (respondidos / daFicha.length) * 100 : 0) + '%' }"></div>
     </div>
 
+    <!-- DUAS METADES, e no celular elas não existem: `.ck-corpo`, `.ck-trabalho`
+         e `.ck-fecho` são `display:contents` até o cartão passar de 900px de
+         largura, então abaixo disso o desenho é exatamente o de antes — nenhuma
+         caixa a mais, nenhum espaço a mais. Só no computador (e só na aba, nunca
+         no modal de retirada, que é estreito) elas viram duas colunas: à
+         esquerda o TRABALHO, à direita o FECHO, que fica grudado enquanto a
+         pessoa responde os itens. -->
+    <div class="ck-corpo">
+    <div class="ck-trabalho">
+
     <!-- O HODÔMETRO É O HERÓI. É o número do qual dependem o alerta de revisão e
          o custo por quilômetro, e o unico campo sem "não se aplica". -->
     <div class="ck-hodo">
@@ -291,6 +301,9 @@ function gravar() {
       <textarea v-model="anomalias" rows="2"
                 placeholder="Conte o que você viu, pra quem for resolver saber o que procurar"></textarea>
     </label>
+
+    </div><!-- /.ck-trabalho -->
+    <div class="ck-fecho">
 
     <!-- O RESULTADO NÃO SE ESCOLHE (pedido do dono, 12/08/2026, derrubando a
          D14): ele sai do que foi conferido. A regra antiga deixava marcar
@@ -355,6 +368,9 @@ function gravar() {
 
     <button class="ck-gravar" :class="{ incompleto: faltam > 0 }"
             :disabled="gravando" @click="gravar">{{ textoDoBotao }}</button>
+
+    </div><!-- /.ck-fecho -->
+    </div><!-- /.ck-corpo -->
   </section>
 </template>
 
@@ -370,10 +386,22 @@ function gravar() {
   box-shadow: var(--shadow-sm);
   padding: var(--sp-4);
   margin: 0 14px var(--sp-4);
-  max-width: 640px;
+  /* ERA 640px FIXO, e no computador isso era o defeito inteiro: numa tela de
+     1440 o cartão ficava com 640px colados à esquerda e ~800px de fundo vazio
+     ao lado, com a pessoa rolando 730px de página. O teto agora é o que uma
+     linha de texto aguenta em duas colunas; a prosa tem trava própria mais
+     abaixo, pra faixa entre 640 e 900 (uma coluna larga) não virar linha
+     comprida demais de ler. */
+  max-width: 1100px;
   /* O cartão se mede a si mesmo, não à janela: ele vive na aba Motorista E
      dentro do modal de retirada, que é estreito mesmo num monitor grande. */
   container: ck / inline-size;
+}
+/* Navegador sem container query nunca chega nas duas colunas (a regra delas
+   vive num @container). Deixar o teto largo ali daria UMA coluna de 1100px,
+   que é pior que o de antes — então nesse caso o cartão volta aos 640. */
+@supports not (container-type: inline-size) {
+  .ck { max-width: 640px; }
 }
 
 /* ── Topo ─────────────────────────────────────────────────────────────────── */
@@ -554,6 +582,62 @@ function gravar() {
    de deixar a pessoa olhando um botão morto sem saber por quê. */
 .ck-gravar.incompleto { background: var(--surface2); color: var(--muted); }
 .ck-gravar:disabled { opacity: .6; cursor: default; }
+
+/* ── As duas metades ──────────────────────────────────────────────────────────
+   `display:contents` faz as três caixas SUMIREM da montagem: os filhos delas
+   sobem e se comportam como se estivessem soltos dentro do `.ck`, que é o que
+   o cartão sempre foi. É por isso que o celular e o modal de retirada não
+   mudam um pixel — não há caixa nova pra empurrar nada. */
+.ck-corpo, .ck-trabalho, .ck-fecho { display: contents; }
+
+/* A prosa não acompanha a largura do cartão. Numa coluna só de 900px, uma nota
+   de 12px vira uma linha de ~140 caracteres, que o olho perde ao voltar. */
+.ck-nota, .ck-aviso, .ck-hodo-ref, .ck-erro-assinatura { max-width: 72ch; }
+
+/* ── Computador: o trabalho de um lado, o fecho do outro ──────────────────────
+   900px é do CARTÃO, não da janela — o modal de retirada tem 420px num monitor
+   de 27", e medir a janela mandaria ele pra duas colunas dentro de 420px. */
+@container ck (min-width: 900px) {
+  .ck-corpo {
+    display: grid;
+    /* A esquerda é maior porque é onde se trabalha: o nome do item mais os três
+       botões precisam de linha. A direita tem um piso de 320px — abaixo disso o
+       quadro da assinatura fica pequeno demais pra assinar com o dedo. */
+    grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.9fr);
+    gap: var(--sp-5);
+    /* `start` é o que permite o grudado: com o padrão `stretch` a coluna da
+       direita teria a altura da esquerda inteira, e `sticky` não teria pra onde
+       deslizar. */
+    align-items: start;
+  }
+  .ck-trabalho, .ck-fecho { display: block; }
+  /* O FECHO ACOMPANHA A ROLAGEM. É o que faz a mudança valer a pena: o
+     resultado muda na frente da pessoa enquanto ela marca os itens, e o botão
+     de gravar não some tela abaixo. */
+  .ck-fecho { position: sticky; top: var(--sp-4); }
+  /* Em uma coluna, a linha horizontal separava o resultado da lista de itens.
+     Em duas, quem separa é a coluna — a linha viraria um risco solto no alto
+     da direita. */
+  .ck-fecho .ck-resultado { margin-top: 0; padding-top: 0; border-top: 0; }
+}
+
+/* ── O campo da quilometragem ─────────────────────────────────────────────────
+   Ele tinha a largura do cartão: 606px de campo pra caber seis dígitos. Aqui
+   ele ganha tamanho de número, e o "último registro" sobe pro lado, que é onde
+   se compara um número com o outro. No celular ele continua ocupando a linha
+   inteira — ali a largura é alvo de dedo, não enfeite. */
+@container ck (min-width: 560px) {
+  .ck-hodo {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-areas: "lab lab" "campo ref";
+    align-items: center;
+    column-gap: var(--sp-3);
+  }
+  .ck-hodo-lab { grid-area: lab; }
+  .ck-hodo-caixa { grid-area: campo; width: 260px; }
+  .ck-hodo-ref { grid-area: ref; margin: 0; }
+}
 
 /* ── Tela estreita ────────────────────────────────────────────────────────────
    O ponto de quebra é por CONTAINER, não por viewport: este cartão aparece na

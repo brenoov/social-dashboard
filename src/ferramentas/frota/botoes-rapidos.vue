@@ -54,6 +54,13 @@ defineEmits(['escolher'])
      apontou em 13/08/2026: botão com rótulo de duas linhas ficava mais alto
      que o vizinho, e a fila inteira saía desalinhada no computador.
      Deixando a grade esticar (o padrão dela), a linha fica reta. */
-  .brp-grade{grid-template-columns:repeat(auto-fit,minmax(200px,1fr));padding:14px 24px 6px;}
+  /* TETO DE LARGURA, e o motivo é o caso de DOIS botões, que é o da aba
+     Motorista: `auto-fit` distribui a linha inteira entre quem existe, então
+     numa tela de 1440 cada um dos dois ficava com 690px pra dizer três
+     palavras — o mesmo defeito de botão esticado que a Gestão já tinha
+     corrigido no cartão de veículo. Com o teto, quatro botões continuam
+     enchendo a linha e dois param no tamanho do que dizem. */
+  .brp-grade{grid-template-columns:repeat(auto-fit,minmax(200px,360px));padding:14px 24px 6px;
+    justify-content:start;}
 }
 </style>
