@@ -85,3 +85,11 @@ __repro/
 public/_sessao-temp.json
 public/*sessao*.json
 public/*.session.json
+
+# Material que gera o PDF do tutorial do motorista (instalar o app + checklist
+# da Frota). Fica local por decisão do dono, 19/08/2026: são ~7 MB de fotos das
+# telas, e o que precisa durar é o PDF, não a matéria-prima dele.
+#
+# Quem precisar refazer: o LEIA-ME da pasta tem os três comandos, e as fotos se
+# regeram sozinhas a partir do app rodando local — nada ali é insubstituível.
+docs/tutorial-motorista/
