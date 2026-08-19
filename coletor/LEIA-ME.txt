@@ -49,6 +49,41 @@ O que é cada arquivo?
         REGRA: conta cuja leitura falha é PULADA, nunca mandada
         vazia -- a lista vazia é o que FECHA o que sumiu.
 
+  faxina-fabrica.mjs
+     -> Robô que recolhe as SOBRAS do balde "fabrica-criativos".
+        Existe porque a purga que já roda (a função fabrica-purga,
+        01h17 de Brasília) apaga arquivo pela LINHA dele no banco:
+        arquivo que nunca virou linha, ela não enxerga, e ele fica
+        para sempre. Era o caso dos MP4 de "motion" (que sobem junto
+        do PNG mas não são registrados) e das pastas de rodadas que
+        sumiram do banco. Medido em 19/08/2026: 81 arquivos de sobra,
+        64 MB, num balde de 165 MB.
+        A regra é de propósito apertada: só apaga dentro de pasta de
+        RODADA (nome da pasta = o código da campanha) que o banco
+        confirma estar MORTA — campanha purgada, ou campanha que não
+        existe mais. Pasta de biblioteca ("_previews", "favoritos",
+        "logo") nunca entra, e arquivo ainda apontado por linha viva
+        também não. Duas travas: se o banco responder vazio ele
+        ABORTA sem apagar (falha de leitura viraria "não tem dono,
+        pode apagar"), e se a conta passar de 400 arquivos ele para
+        pra você conferir.
+        Roda no GitHub Actions todo dia, 02h23 de Brasília, uma hora
+        DEPOIS da purga — pra recolher justamente o que ela deixou.
+        Na mão, sem apagar nada:  DRY=1 node faxina-fabrica.mjs
+
+  vigia-armazenamento.mjs
+     -> Robô que SOMA quanto cada balde do Storage ocupa e avisa
+        antes de encher. Só lê; não apaga nada.
+        Existe porque o plano grátis do Supabase dá 1 GB de arquivos
+        e ninguém é avisado ao se aproximar: em 19/08/2026 o projeto
+        estava com 876 MB (86%) e a conta só aparecia pra quem
+        abrisse o painel. Passar de 100% não dá erro bonito — a
+        subida de arquivo começa a falhar, e isso vira criativo que
+        não sobe e foto que não aparece na tela.
+        Acima de 80% ele TERMINA EM VERMELHO de propósito e manda o
+        aviso no webhook. Rodada verde aqui é rodada que não precisa
+        de você.
+
   agente-noticias.mjs
      -> Robô que COLETA NOTÍCIAS dos concorrentes. Usa a IA (Claude
         Sonnet) com busca na web para achar, julgar e resumir
