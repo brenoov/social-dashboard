@@ -115,7 +115,28 @@ export function acoesDaReserva({ requisicao, temPermissaoAprovar, agoraIso } = {
   else if (!virouViagem && !jaComecou) revogar = negar('ainda-nao-comecou');
   else revogar = { pode: true, motivo: null };
 
-  return { editar, cancelar, revogar };
+  /* ARQUIVAR (D4). Tira da lista sem tirar do banco. É o contrário exato das
+   * três de cima: elas só valem pro que ainda está vivo, esta só vale pro que
+   * já acabou.
+   *
+   * PENDENTE NUNCA. Uma pendente arquivada sumiria da fila de aprovação sem ter
+   * sido decidida — o pior destino possível pra um pedido. A trava de verdade
+   * está no gatilho da migration 047; isto aqui só evita oferecer o botão. */
+  const jaArquivada = !!r.arquivada_em;
+  const acabou = ['recusada', 'cancelada', 'revogada'].includes(r.situacao);
+
+  let arquivar;
+  if (!temPermissaoAprovar) arquivar = semPermissao();
+  else if (jaArquivada) arquivar = negar('ja-arquivada');
+  else if (!acabou) arquivar = negar('ainda-em-aberto');
+  else arquivar = { pode: true, motivo: null };
+
+  let desarquivar;
+  if (!temPermissaoAprovar) desarquivar = semPermissao();
+  else if (!jaArquivada) desarquivar = negar('nao-esta-arquivada');
+  else desarquivar = { pode: true, motivo: null };
+
+  return { editar, cancelar, revogar, arquivar, desarquivar };
 }
 
 /** A frase que a tela mostra quando a ação não pode. */
@@ -132,6 +153,13 @@ export function porQueNaoDaEmPortugues(motivo, situacao) {
       return 'Esta reserva já está valendo. O caminho aqui é revogar, não cancelar.';
     case 'ainda-nao-comecou':
       return 'Esta reserva ainda não começou. O caminho aqui é cancelar, não revogar.';
+    case 'ainda-em-aberto':
+      return 'Só reserva encerrada sai da lista. Esta ainda está em aberto, e pedido em aberto '
+        + 'precisa continuar à vista até alguém decidir.';
+    case 'ja-arquivada':
+      return 'Esta reserva já está arquivada. Ela continua guardada, e volta pela aba Arquivadas.';
+    case 'nao-esta-arquivada':
+      return 'Esta reserva está na lista normal, então não há o que desarquivar.';
     default:
       return '';
   }
@@ -415,6 +443,9 @@ export function linhaDoTempo({
       veiculoNome: nomeDoCarro(r.veiculo_id),
       veiculoPlaca: placaDoCarro(r.veiculo_id),
       situacao: r.situacao,
+      // Fica na LINHA, e não só dentro de `reserva`, porque é o filtro que
+      // decide o que aparece — e ele não deve precisar saber a forma da reserva.
+      arquivada: !!r.arquivada_em,
       acoes: acoesDaReserva({ requisicao: r, temPermissaoAprovar, agoraIso }),
     });
   }
@@ -494,6 +525,10 @@ export const FILTROS = [
    * movimento. Com ele dentro do Tudo, 8 carros parados enterrariam a única
    * reserva que existe. */
   { chave: 'carro-fixo', rotulo: 'Carro fixo' },
+  /* Também fora do "Tudo": arquivar existe justamente pra sumir de lá. Mas o
+   * filtro EXISTE, e é isso que separa "arquivar" de "apagar" — o caminho de
+   * volta está a um toque, e a tela diz onde ele fica. */
+  { chave: 'arquivadas', rotulo: 'Arquivadas' },
 ];
 
 /**
@@ -504,9 +539,11 @@ export const FILTROS = [
 export function filtrar(linhas, filtro) {
   const L = linhas || [];
   switch (filtro) {
-    // O "Tudo" é tudo que MOVIMENTO de carro — carro parado tem filtro próprio.
-    case 'tudo':       return L.filter((l) => l.tipo !== 'posse');
+    // O "Tudo" é tudo que MOVIMENTO de carro — carro parado tem filtro próprio,
+    // e o que foi arquivado saiu da lista de propósito (é o pedido do dono).
+    case 'tudo':       return L.filter((l) => l.tipo !== 'posse' && !l.arquivada);
     case 'carro-fixo': return L.filter((l) => l.tipo === 'posse');
+    case 'arquivadas': return L.filter((l) => l.arquivada);
     case 'pendente':   return L.filter((l) => l.situacao === 'pendente');
     case 'aprovada':   return L.filter((l) => l.situacao === 'aprovada');
     case 'encerrada':  return L.filter((l) =>
@@ -528,7 +565,7 @@ export function resumoDoHistorico(linhas) {
   /* A POSSE NÃO ENTRA NA CONTA, e é esta separação que conserta a frase. Ela
    * dizia "12 retiradas ficaram sem assinatura" num dia em que houve UMA
    * viagem — as outras onze eram carros parados com o dono deles. */
-  const movimentos = L.filter((l) => l.tipo !== 'posse');
+  const movimentos = L.filter((l) => l.tipo !== 'posse' && !l.arquivada);
   const fixos = L.filter((l) => l.tipo === 'posse' && l.situacao === 'posse-aberta').length;
   const eFixos = fixos === 0 ? ''
     : (fixos === 1 ? ' 1 carro está fixo com alguém.' : ` ${fixos} carros estão fixos com alguém.`);

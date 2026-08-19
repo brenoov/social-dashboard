@@ -1990,6 +1990,47 @@ async function confirmarEncerramento() {
   carregar()
 }
 
+/* ── ARQUIVAR: sai da lista, não sai do banco (D4) ───────────────────────────
+ *
+ * Pedido do dono: "solicitações recusadas eu quero poder excluir para limpar
+ * espaço". Escolha dele, depois de ver o que se perderia: arquivar em vez de
+ * apagar. O motivo escrito da recusa e quem decidiu continuam guardados, e
+ * voltam pelo filtro "Arquivadas".
+ *
+ * A trava está no gatilho (migration 047) — pendente e aprovada o BANCO recusa.
+ * Aqui só se evita oferecer o botão. E `arquivada_por` não é gravado por esta
+ * função de propósito: quem carimba é o gatilho, que é onde a mudança acontece.
+ */
+const arquivando = ref(null)     // id da reserva em trânsito
+const erroDeArquivar = ref('')
+
+async function mudarArquivamento(reserva, arquivar) {
+  if (!reserva || arquivando.value) return
+  arquivando.value = reserva.id
+  erroDeArquivar.value = ''
+  const { data, error } = await sbClient.from('frota_requisicoes')
+    .update({ arquivada_em: arquivar ? new Date().toISOString() : null })
+    .eq('id', reserva.id)
+    .select('id')
+  arquivando.value = null
+
+  if (error) {
+    erroDeArquivar.value = error.message || 'Não consegui gravar. Confira a conexão e tente de novo.'
+    return
+  }
+  /* ZERO LINHA É FALHA, NÃO SUCESSO. O PostgREST responde 200 com lista vazia
+   * quando o RLS barra a escrita — sem esta conferência a tela diria "arquivei"
+   * e o cartão voltaria no próximo carregamento, do jeito que estava. Este
+   * projeto já pagou por essa lição. */
+  if (!data || data.length === 0) {
+    erroDeArquivar.value = arquivar
+      ? 'Não consegui arquivar: o banco não deixou. Você tem permissão para aprovar reservas?'
+      : 'Não consegui desarquivar: o banco não deixou.'
+    return
+  }
+  carregar()
+}
+
 /* ── Revisões (F4) ───────────────────────────────────────────────────────────
    O plano diz de quantos em quantos km cada item se troca; o histórico diz
    quando cada um foi trocado em cada carro; e o KM vem sozinho das devoluções.
@@ -3020,7 +3061,7 @@ onMounted(async () => {
 
         <div class="fr-lista" v-else>
           <div v-for="l in historicoFiltrado" :key="l.chave" class="fr-card"
-               :class="{ espera: l.situacao === 'pendente', ruimzao: ['recusada','cancelada','revogada'].includes(l.situacao), parado: l.tipo === 'retirada', fixo: l.tipo === 'posse' }">
+               :class="{ espera: l.situacao === 'pendente', ruimzao: ['recusada','cancelada','revogada'].includes(l.situacao), parado: l.tipo === 'retirada', fixo: l.tipo === 'posse', arquivada: l.arquivada }">
 
             <div class="fr-card-topo">
               <div class="fr-card-ident">
@@ -3138,7 +3179,8 @@ onMounted(async () => {
                  o que ainda não começou se cancela, o que já vale se revoga.
                  Quando nada dá, o card DIZ por quê, em vez de sumir com os
                  botões e deixar a pessoa achando que a tela quebrou. -->
-            <div class="fr-acoes" v-if="l.acoes && (l.acoes.editar.pode || l.acoes.cancelar.pode || l.acoes.revogar.pode)">
+            <div class="fr-acoes" v-if="l.acoes && (l.acoes.editar.pode || l.acoes.cancelar.pode
+                 || l.acoes.revogar.pode || l.acoes.arquivar.pode || l.acoes.desarquivar.pode)">
               <!-- Botão COMUM, não vermelho, e é regra escrita do padrão:
                    botão de perigo não fica solto na lista — ele mora atrás de
                    um passo a mais. O passo a mais existe: os dois abrem um
@@ -3149,9 +3191,30 @@ onMounted(async () => {
                       @click="abrirEncerramento(l.reserva, 'cancelada')">Cancelar reserva</button>
               <button v-if="l.acoes.revogar.pode" class="fr-btn"
                       @click="abrirEncerramento(l.reserva, 'revogada')">Revogar reserva</button>
+              <!-- ARQUIVAR (D4). Botão COMUM, e não de perigo, porque não é
+                   perigoso: nada se perde, e o caminho de volta está no filtro
+                   "Arquivadas". Pintá-lo de vermelho ensinaria a coisa errada
+                   sobre o que ele faz. Por isso também não pede confirmação. -->
+              <button v-if="l.acoes.arquivar.pode" class="fr-btn" :disabled="arquivando === l.reserva.id"
+                      @click="mudarArquivamento(l.reserva, true)">
+                {{ arquivando === l.reserva.id ? 'Arquivando…' : 'Arquivar' }}
+              </button>
+              <button v-if="l.acoes.desarquivar.pode" class="fr-btn" :disabled="arquivando === l.reserva.id"
+                      @click="mudarArquivamento(l.reserva, false)">
+                {{ arquivando === l.reserva.id ? 'Devolvendo…' : 'Devolver para a lista' }}
+              </button>
             </div>
             <p class="fr-ajuda" v-else-if="l.acoes">
               {{ porQueNaoDaEmPortugues(l.acoes.editar.motivo, l.situacao) }}
+            </p>
+            <!-- O erro fica NO cartão que falhou, não numa faixa no topo: com
+                 vários cartões na tela, um aviso solto lá em cima não diz de
+                 qual reserva ele está falando. -->
+            <p class="fr-erro-inline" v-if="erroDeArquivar && arquivando === null
+               && l.acoes && (l.acoes.arquivar.pode || l.acoes.desarquivar.pode)">{{ erroDeArquivar }}</p>
+            <p class="fr-ajuda" v-if="l.arquivada">
+              Arquivada: ela não aparece mais na lista principal. O pedido, o motivo e quem
+              decidiu continuam guardados.
             </p>
           </div>
         </div>
@@ -4756,6 +4819,10 @@ onMounted(async () => {
    deveria estar. E SEM o `opacity` do `.parado`: apagar o cartão diria que a
    informação vale menos, quando ela é a resposta de "quem está com o quê". */
 .tela-frota .fr-card.fixo{border-left-color:var(--accent-mid, var(--accent));}
+/* Arquivada continua legível — só recua. Ela não some da tela por defeito, e
+   sim porque alguém a tirou da lista; quem abriu o filtro "Arquivadas" foi
+   procurar por ela e precisa conseguir ler o que achou. */
+.tela-frota .fr-card.arquivada{border-left-color:var(--border);opacity:.82;}
 .tela-frota .fr-card-topo{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;}
 .tela-frota .fr-card-ident{display:flex;flex-direction:column;gap:2px;min-width:0;}
 .tela-frota .fr-card-nome{font-family:var(--fonte-principal);font-size:max(9px, calc(13.5px * var(--escala-texto, 1)));font-weight:700;color:var(--text);}

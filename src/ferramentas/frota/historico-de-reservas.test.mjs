@@ -486,3 +486,103 @@ test('D1 · a frase da posse nunca contém "ainda não voltou"', () => {
     assert.doesNotMatch(fraseDaPosse(linhaDoTempo(c)[0]), /não voltou/)
   }
 })
+
+// ── D4: ARQUIVAR SAI DA TELA, NÃO SAI DO BANCO ─────────────────────────────
+//
+// Pedido do dono (19/08/2026): "solicitações recusadas eu quero poder excluir
+// para limpar espaço". Escolha dele, depois de ver o que se perderia: ARQUIVAR.
+// Uma recusada guarda quem pediu, quem recusou e por quê — apagar limparia a
+// tela e destruiria a única resposta pra "por que negaram o carro pra mim?".
+//
+// A trava de verdade mora no banco (migration 047, provada com rollback). Isto
+// aqui é a metade da tela: o que ela OFERECE, e o que ela esconde.
+
+const encerrada = (extra = {}) => reserva({ situacao: 'recusada', motivo_decisao: 'Duplicado', ...extra })
+
+test('D4 · recusada pode ser arquivada', () => {
+  const a = acoesDaReserva({ requisicao: encerrada(), temPermissaoAprovar: true, agoraIso: AGORA })
+  assert.equal(a.arquivar.pode, true)
+})
+
+test('D4 · cancelada e revogada também — as três são o que já acabou', () => {
+  for (const s of ['cancelada', 'revogada']) {
+    const a = acoesDaReserva({ requisicao: encerrada({ situacao: s }), temPermissaoAprovar: true, agoraIso: AGORA })
+    assert.equal(a.arquivar.pode, true, `${s} devia poder arquivar`)
+  }
+})
+
+test('D4 · PENDENTE nunca se arquiva — sumiria da fila sem ter sido decidida', () => {
+  const a = acoesDaReserva({ requisicao: reserva({ situacao: 'pendente' }), temPermissaoAprovar: true, agoraIso: AGORA })
+  assert.equal(a.arquivar.pode, false)
+  assert.equal(a.arquivar.motivo, 'ainda-em-aberto')
+})
+
+test('D4 · aprovada também não — o carro ainda pode sair com ela', () => {
+  const a = acoesDaReserva({ requisicao: reserva({ situacao: 'aprovada' }), temPermissaoAprovar: true, agoraIso: AGORA })
+  assert.equal(a.arquivar.pode, false)
+  assert.equal(a.arquivar.motivo, 'ainda-em-aberto')
+})
+
+test('D4 · quem não aprova não arquiva', () => {
+  const a = acoesDaReserva({ requisicao: encerrada(), temPermissaoAprovar: false, agoraIso: AGORA })
+  assert.equal(a.arquivar.pode, false)
+  assert.equal(a.arquivar.motivo, 'sem-permissao')
+})
+
+test('D4 · já arquivada não se arquiva de novo — oferece desarquivar', () => {
+  const r = encerrada({ arquivada_em: '2026-08-19T12:00:00-03:00' })
+  const a = acoesDaReserva({ requisicao: r, temPermissaoAprovar: true, agoraIso: AGORA })
+  assert.equal(a.arquivar.pode, false)
+  assert.equal(a.arquivar.motivo, 'ja-arquivada')
+  assert.equal(a.desarquivar.pode, true)
+})
+
+test('D4 · o que não está arquivado não oferece desarquivar', () => {
+  const a = acoesDaReserva({ requisicao: encerrada(), temPermissaoAprovar: true, agoraIso: AGORA })
+  assert.equal(a.desarquivar.pode, false)
+})
+
+test('D4 · os dois motivos novos têm frase de gente, não código', () => {
+  for (const m of ['ainda-em-aberto', 'ja-arquivada']) {
+    const frase = porQueNaoDaEmPortugues(m, 'pendente')
+    assert.ok(frase.length > 20, `o motivo ${m} ficou sem frase`)
+    assert.doesNotMatch(frase, /-/, `a frase de ${m} está devolvendo o código`)
+  }
+})
+
+test('D4 · a linha diz se está arquivada', () => {
+  const c = { ...cenarioReal(), usos: [], requisicoes: [encerrada({ arquivada_em: '2026-08-19T12:00:00-03:00' })] }
+  assert.equal(linhaDoTempo(c)[0].arquivada, true)
+})
+
+test('D4 · arquivada SOME do "Tudo" — é isso que limpa o espaço', () => {
+  const c = { ...cenarioReal(), usos: [],
+    requisicoes: [encerrada({ id: 'r1', arquivada_em: '2026-08-19T12:00:00-03:00' }), reserva({ id: 'r2' })] }
+  const tudo = filtrar(linhaDoTempo(c), 'tudo')
+  assert.equal(tudo.length, 1)
+  assert.equal(tudo[0].reserva.id, 'r2')
+})
+
+test('D4 · o filtro "arquivadas" traz só o que foi arquivado', () => {
+  const c = { ...cenarioReal(), usos: [],
+    requisicoes: [encerrada({ id: 'r1', arquivada_em: '2026-08-19T12:00:00-03:00' }), reserva({ id: 'r2' })] }
+  const arq = filtrar(linhaDoTempo(c), 'arquivadas')
+  assert.equal(arq.length, 1)
+  assert.equal(arq[0].reserva.id, 'r1')
+})
+
+test('D4 · arquivada não some do filtro da própria situação — ela não deixou de ser recusada', () => {
+  // "Sumiu do Tudo" é limpeza de tela. "Sumiu do banco" seria outra coisa, e
+  // quem for conferir as recusadas tem de continuar achando esta.
+  const c = { ...cenarioReal(), usos: [], requisicoes: [encerrada({ arquivada_em: '2026-08-19T12:00:00-03:00' })] }
+  assert.equal(filtrar(linhaDoTempo(c), 'encerrada').length, 1)
+})
+
+test('D4 · a barra de filtros ganha "Arquivadas"', () => {
+  assert.ok(FILTROS.map((f) => f.chave).includes('arquivadas'))
+})
+
+test('D4 · arquivada não entra na conta da frase do topo', () => {
+  const c = { ...cenarioReal(), usos: [], requisicoes: [encerrada({ arquivada_em: '2026-08-19T12:00:00-03:00' })] }
+  assert.match(resumoDoHistorico(linhaDoTempo(c)), /Nenhuma reserva e nenhuma retirada/)
+})
