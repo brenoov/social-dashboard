@@ -189,10 +189,21 @@ const podeNoticias = computed(() => hasPermission('noticias', 'ver'))
 const podeGestor = computed(() => hasPermission('gestor', 'ver'))
 const podeAcessos = computed(() => hasPermission('acessos', 'ver'))
 const podePatrimonio = computed(() => hasPermission('patrimonio', 'ver'))
+const podeFrota = computed(() => hasPermission('frota', 'ver'))
 // Gestão Interna é uma PORTA (menu), não uma ferramenta: não tem permissão
 // própria. Aparece pra quem tem qualquer um dos submódulos, e o menu lá dentro
 // mostra só os que a pessoa pode ver.
-const podeGestaoInterna = computed(() => podeAcessos.value || podePatrimonio.value)
+//
+// A FROTA FALTAVA AQUI, e a conta é esta (medida no banco em 19/08/2026): das 8
+// pessoas com a chave `frota`, CINCO não têm nem Colaboradores nem Patrimônio —
+// Gabriel Alves, Guilherme Cardoso, Humberto Mendonça, Jeremias Vieira e Raissa
+// Herculano. Elas abriam o aplicativo e liam "Você ainda não tem acesso a
+// nenhuma ferramenta", com a permissão da Frota concedida e funcionando: o menu
+// da Gestão Interna já mostrava o cartão da Frota (tela-de-menu-gestao-interna
+// .vue:33) e a tela abria normalmente. O que faltava era só a porta daqui, e
+// sem ela não existe caminho de clique nenhum até o checklist do dia — o ícone
+// instalado abre em `/`, que é esta tela.
+const podeGestaoInterna = computed(() => podeAcessos.value || podePatrimonio.value || podeFrota.value)
 const podeClaudeStatus = computed(() => hasPermission('claude.status', 'ver'))
 // O 3D era o único cartão sem porteiro. Agora segue a mesma chave dos outros.
 const podeEscritorio3D = computed(() => hasPermission('escritorio3d', 'ver'))
