@@ -15,7 +15,8 @@ const URL_SB = process.env.SUPABASE_URL || env.SUPABASE_URL || 'https://kounqtdo
 const KEY = process.env.SUPABASE_SERVICE_KEY || env.SUPABASE_SERVICE_KEY;
 const WEBHOOK = process.env.ALERT_WEBHOOK_URL || env.ALERT_WEBHOOK_URL || '';
 const TETO_GB = Number(process.env.TETO_GB || 1);        // plano grátis = 1 GB de arquivos
-const AVISAR_EM = Number(process.env.AVISAR_EM || 80);   // % a partir da qual ele grita
+const AVISAR_EM = Number(process.env.AVISAR_EM || 80);   // % a partir da qual ele avisa (rodada segue verde)
+const FALHAR_EM = Number(process.env.FALHAR_EM || 95);   // % a partir da qual a rodada fica vermelha
 
 if (!KEY) { console.error('✗ falta SUPABASE_SERVICE_KEY.'); process.exit(1); }
 const sbH = { apikey: KEY, Authorization: 'Bearer ' + KEY };
@@ -57,11 +58,25 @@ const pct = (total / teto) * 100;
 console.log(`Armazenamento do Supabase — ${mb(total)} de ${TETO_GB} GB (${pct.toFixed(0)}%)`);
 for (const l of linhas) console.log(`  ${l.nome.padEnd(20)} ${String(l.arqs).padStart(5)} arquivos  ${mb(l.bytes).padStart(10)}`);
 
-if (pct >= AVISAR_EM) {
+// DOIS NÍVEIS, e a razão importa. A primeira versão deste robô saía com erro já
+// aos 80% — e o projeto vive em 86%. Ou seja: ele deixaria a rodada VERMELHA
+// todo santo dia, para sempre. Alarme que toca todo dia deixa de ser alarme: em
+// uma semana ninguém mais olha, e aí uma falha DE VERDADE da faxina (que roda no
+// mesmo job) fica escondida atrás do vermelho de sempre.
+//
+//   80%  → AVISO: a rodada segue verde e o recado aparece como anotação na aba
+//          Actions. É informação, não emergência: ainda dá pra decidir com calma.
+//   95%  → FALHA: aí é emergência. Faltam ~50 MB pro Storage começar a recusar
+//          arquivo, e a rodada precisa gritar.
+if (pct >= FALHAR_EM || pct >= AVISAR_EM) {
+  const grave = pct >= FALHAR_EM;
   const maiores = linhas.slice(0, 3).map((l) => `${l.nome} ${mb(l.bytes)}`).join(', ');
-  const msg = `⚠️ Supabase do iamundi com ${pct.toFixed(0)}% do armazenamento (${mb(total)} de ${TETO_GB} GB). Maiores: ${maiores}. Passando de 100%, subida de arquivo começa a falhar.`;
-  console.error(msg);
+  const msg = `Supabase do iamundi com ${pct.toFixed(0)}% do armazenamento (${mb(total)} de ${TETO_GB} GB). Maiores: ${maiores}.${grave ? ' Passando de 100%, subida de arquivo começa a FALHAR.' : ''}`;
+  // Comando do GitHub Actions: faz o recado aparecer no topo da rodada e na
+  // listagem, em vez de ficar enterrado no meio do log.
+  console.log(`::${grave ? 'error' : 'warning'} title=Armazenamento do Supabase::${msg}`);
+  console.error((grave ? '✗ ' : '⚠️ ') + msg);
   if (WEBHOOK) { try { await fetch(WEBHOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: msg, content: msg }) }); } catch (e) {} }
-  process.exit(1);
+  process.exit(grave ? 1 : 0);
 }
 console.log('✓ dentro do teto.');

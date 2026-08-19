@@ -80,9 +80,16 @@ O que é cada arquivo?
         abrisse o painel. Passar de 100% não dá erro bonito — a
         subida de arquivo começa a falhar, e isso vira criativo que
         não sobe e foto que não aparece na tela.
-        Acima de 80% ele TERMINA EM VERMELHO de propósito e manda o
-        aviso no webhook. Rodada verde aqui é rodada que não precisa
-        de você.
+        Ele avisa em DOIS níveis: acima de 80% deixa uma anotação na
+        rodada (que segue VERDE) e acima de 95% derruba a rodada. A
+        primeira versão dele falhava já aos 80%, e como o projeto vive
+        em 86% isso deixaria a rodada vermelha todo dia — alarme que
+        toca todo dia ninguém olha mais, e a falha de verdade da faxina
+        (que roda no mesmo job) ficaria escondida atrás dele.
+        ATENÇÃO: o aviso por webhook está MUDO. O segredo
+        ALERT_WEBHOOK_URL não existe neste repo (conferido em 19/08) —
+        o coletor de notícias também manda pra esse mesmo vazio. Até
+        alguém criar o segredo, o único canal é a aba Actions.
 
   agente-noticias.mjs
      -> Robô que COLETA NOTÍCIAS dos concorrentes. Usa a IA (Claude

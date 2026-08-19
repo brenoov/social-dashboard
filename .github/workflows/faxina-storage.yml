@@ -8,9 +8,9 @@ name: Faxina do Storage (sobras + vigia do teto)
 # Minuto quebrado porque hora cheia cai no pico do Actions e atrasa (medido neste repo,
 # ver o comentário do coletor-noticias.yml).
 #
-# O passo 2 (vigia) FALHA DE PROPÓSITO quando o armazenamento passa de 80% do plano
-# grátis. É o aviso: sem ele, a gente só descobre que encheu quando a subida de arquivo
-# começa a quebrar na tela.
+# O passo 2 (vigia) tem DOIS níveis, e a diferença é o que mantém o aviso útil: acima de
+# 80% ele deixa uma ANOTAÇÃO e a rodada segue verde; só acima de 95% ele derruba a rodada.
+# Alarme que toca todo dia deixa de ser alarme — e o projeto vive na faixa dos 86%.
 on:
   schedule:
     - cron: '23 5 * * *'
