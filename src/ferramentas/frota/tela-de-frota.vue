@@ -3551,7 +3551,7 @@ onMounted(async () => {
           </div>
           <!-- DIZ O PRÓPRIO LIMITE. A consulta traz 120 dias; sem esta frase a
                tela deixaria parecer que isto é tudo que já foi feito. -->
-          <p class="fr-ajuda">Mostrando os últimos 120 dias.</p>
+          <p class="fr-ajuda fr-fichas-limite">Mostrando os últimos 120 dias.</p>
         </div>
       </Gaveta>
 
@@ -5053,7 +5053,12 @@ onMounted(async () => {
 .tela-frota .fr-digitar-tel-linha input:focus-visible{outline:2px solid var(--accent);outline-offset:1px;}
 
 /* ── Histórico de checklists (D6) ─────────────────────────────────────────── */
-.tela-frota .fr-filtros-campo{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;}
+/* O RECUO LATERAL PADRÃO DA CASA: 14px no celular, 24px no computador — o
+   mesmo de `.fr-lista` e `.fr-resumo`. Sem ele estes blocos encostavam na
+   borda da tela (visto pelo dono no computador, 19/08). Cada bloco carrega o
+   próprio recuo, que é como o resto deste arquivo faz. */
+.tela-frota .fr-filtros-campo{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;
+  padding:0 14px;}
 .tela-frota .fr-filtro-campo{display:flex;flex-direction:column;gap:4px;flex:1 1 170px;min-width:0;}
 .tela-frota .fr-filtro-campo span{color:var(--muted);font-family:var(--fonte-principal);
   font-size:max(9px, calc(12px * var(--escala-texto, 1)));}
@@ -5061,7 +5066,7 @@ onMounted(async () => {
 .tela-frota .fr-filtro-campo select{min-height:40px;font-size:16px;padding:0 10px;
   color:var(--text);background:var(--surface);border:1px solid var(--border);
   border-radius:var(--radius-md);font-family:var(--fonte-principal);}
-.tela-frota .fr-dia-de-ficha{margin-bottom:16px;}
+.tela-frota .fr-dia-de-ficha{margin-bottom:16px;padding:0 14px;}
 .tela-frota .fr-dia-cab{display:flex;align-items:baseline;justify-content:space-between;gap:10px;
   margin-bottom:6px;padding-bottom:5px;border-bottom:1px solid var(--border);}
 .tela-frota .fr-dia-data{font-family:var(--fonte-dados);font-weight:500;
@@ -5089,6 +5094,10 @@ onMounted(async () => {
    Classe escrita no template não é classe que existe no CSS. */
 .tela-frota .fr-selo.sem-assinatura{background:color-mix(in srgb, var(--orange) 16%, var(--surface));
   border-color:color-mix(in srgb, var(--orange) 40%, var(--surface));color:var(--text);}
+/* A frase do limite ("Mostrando os últimos 120 dias") é irmã dos blocos acima
+   e segue o mesmo recuo — `.fr-ajuda` sozinha não tem, porque nasceu pra viver
+   DENTRO de cartão, onde o cartão dá o respiro. */
+.tela-frota .fr-fichas-limite{padding:0 14px 8px;}
 .tela-frota .fr-card-topo{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;}
 .tela-frota .fr-card-ident{display:flex;flex-direction:column;gap:2px;min-width:0;}
 .tela-frota .fr-card-nome{font-family:var(--fonte-principal);font-size:max(9px, calc(13.5px * var(--escala-texto, 1)));font-weight:700;color:var(--text);}
@@ -5233,6 +5242,13 @@ onMounted(async () => {
      quebrariam em duas linhas sem necessidade. Contado, não estimado. */
   .tela-frota .fr-lista .fr-acoes .fr-btn{flex:0 1 auto;min-width:132px;}
   .tela-frota .fr-checklist-editor{padding:4px 24px 40px;}
+  /* A barra de chips ficava em 14px enquanto TODO o resto da tela ia pra 24px
+     no computador — 10px de desalinho que já existia e que só aparece quando
+     se olha as duas colunas de conteúdo juntas. Medido em 19/08. */
+  .tela-frota .fr-filtros{padding:0 24px var(--sp-3);}
+  .tela-frota .fr-filtros-campo{padding:0 24px;}
+  .tela-frota .fr-dia-de-ficha{padding:0 24px;}
+  .tela-frota .fr-fichas-limite{padding:0 24px 8px;}
   /* Ponteiro do mouse acerta 24px sem esforço — ver o comentário no fr-btn-ajuda. */
   /* O "?" e o "✕" dividem a linha do topo do modal, com 10px entre eles: no
      computador os dois encolhem JUNTOS e para o MESMO tamanho. Estavam em 24px
