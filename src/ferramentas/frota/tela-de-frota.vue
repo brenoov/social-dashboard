@@ -3648,7 +3648,7 @@ onMounted(async () => {
 
           <!-- Sem "Vou usar" aqui (correção do dono): esta aba é para GERIR a
                frota. Pegar carro é na aba Motorista. -->
-          <div class="fr-acoes">
+          <div class="fr-acoes fr-acoes-veiculo">
             <button class="fr-btn primario" v-if="podeEditar" @click="abrirVeiculo(l.veiculo)">Abrir ficha</button>
             <button v-if="podeEditar && l.naRua" class="fr-btn" @click="abrirDevolucao(l)">Devolver</button>
             <!-- POSSE (D26): quem administra a Frota passa ou encerra a posse de
@@ -5138,6 +5138,28 @@ onMounted(async () => {
 /* Verde do WhatsApp, que e como as pessoas reconhecem o botao sem ler. */
 .tela-frota .fr-zap{display:inline-flex;align-items:center;justify-content:center;gap:7px;text-decoration:none;border-color:#25d366;color:#128c4a;}
 .tela-frota .fr-zap:hover{background:color-mix(in srgb,#25d366 12%,transparent);}
+/* ── OS BOTÕES DO CARTÃO DE VEÍCULO (20/08/2026) ────────────────────────────
+   Bronca do dono: "os botões na seção de veículos da empresa estão
+   bagunçados". Ele tinha razão, e a causa é o `flex:1 1 auto` com quebra: cada
+   botão ganhava a largura do próprio texto, e como os rótulos variam muito
+   ("Devolver", "WhatsApp", "Passar, devolver ou recolher") o mesmo cartão
+   saía com três larguras diferentes e a quebra caía num lugar por carro.
+
+   GRADE, e não flex, porque grade dá COLUNA IGUAL sem depender do texto. É o
+   que o dono pediu: no celular dois em cima e um embaixo; no computador todos
+   lado a lado.
+
+   Vale SÓ no cartão de veículo (`.fr-acoes-veiculo`). O `.fr-acoes` continua
+   como está no resto da tela — reservas, checklist e rodapé de ficha estão no
+   ar e não foram reclamados. */
+.tela-frota .fr-acoes-veiculo{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-2);}
+/* Botão sozinho na última linha ocupa a linha inteira: meia largura solta lê
+   como se faltasse alguma coisa do lado. Pega o caso de 1 botão e o de 3. */
+.tela-frota .fr-acoes-veiculo > :last-child:nth-child(odd){grid-column:1 / -1;}
+/* Na grade quem manda na largura é a COLUNA. Sem `min-width:0` o conteúdo do
+   botão vira o piso da coluna e a grade estoura pro lado. */
+.tela-frota .fr-acoes-veiculo > .fr-btn{min-width:0;width:100%;}
+
 .tela-frota .fr-btn.primario{background:var(--accent);border-color:var(--accent);color:var(--sobre-cor);}
 .tela-frota .fr-btn:disabled{opacity:.6;cursor:default;}
 
@@ -5241,6 +5263,24 @@ onMounted(async () => {
      cabem na mesma linha; a 148 já não caberiam, e dois botões curtos
      quebrariam em duas linhas sem necessidade. Contado, não estimado. */
   .tela-frota .fr-lista .fr-acoes .fr-btn{flex:0 1 auto;min-width:132px;}
+  /* No computador os botões do veículo ficam TODOS na mesma linha, com a mesma
+     largura — pedido do dono. `grid-auto-flow:column` cria uma coluna por
+     botão; `grid-auto-columns:1fr` deixa as colunas iguais.
+
+     O `min-width:132px` da regra acima é de FLEX e não vale aqui, mas o
+     `min-width:0` da regra base do veículo precisa continuar valendo: com 4
+     botões numa coluna de 400px cada um fica com ~94px, e sem ele a grade
+     estouraria pro lado em vez de o texto quebrar em duas linhas. */
+  .tela-frota .fr-acoes-veiculo{grid-template-columns:none;
+    grid-auto-flow:column;grid-auto-columns:1fr;}
+  .tela-frota .fr-acoes-veiculo > :last-child:nth-child(odd){grid-column:auto;}
+  /* ⚠️ ESTE `min-width:0` PRECISA DE 4 CLASSES, e é por isso que ele não fica
+     junto da regra base lá em cima. A regra de flex do cartão comum
+     (`.tela-frota .fr-lista .fr-acoes .fr-btn{min-width:132px}`) também tem 4
+     classes e vem antes — com 3 classes a minha perdia no desempate e o 132px
+     voltava a valer. Medido: com 3 botões dava 3×132 + 16 de intervalo = 412px
+     numa caixa de 365px, e a grade ESTOURAVA pra fora do cartão. */
+  .tela-frota .fr-lista .fr-acoes-veiculo .fr-btn{min-width:0;}
   .tela-frota .fr-checklist-editor{padding:4px 24px 40px;}
   /* A barra de chips ficava em 14px enquanto TODO o resto da tela ia pra 24px
      no computador — 10px de desalinho que já existia e que só aparece quando
