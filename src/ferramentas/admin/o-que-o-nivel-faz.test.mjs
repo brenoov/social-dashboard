@@ -48,11 +48,17 @@ test('recurso desconhecido nao estoura', () => {
   assert.ok(oQueONivelFaz(null, null).length > 0)
 })
 
-test('Task 2b: claude.status nao tem grau intermediario — quem ve, mexe em tudo', () => {
-  // Evidencia: tela-de-status-claude.vue nao tem NENHUM hasPermission por
-  // dentro; o kanban (criar/editar/mover/arquivar) fica liberado assim que a
-  // rota deixa entrar (mapa-de-enderecos.js:31, gate em 'ver').
-  assert.match(oQueONivelFaz('claude.status', 'ver'), /cria, edita/i)
+test('Task 2b: claude.status virou tela so de leitura — o texto nao pode prometer escrita', () => {
+  // Ate 19/08/2026 esta permissao dava direito de MEXER: o quadro de projetos
+  // (criar/editar/arrastar/arquivar) ficava liberado assim que a rota deixava
+  // entrar, porque tela-de-status-claude.vue nao tem NENHUM hasPermission por
+  // dentro. O quadro saiu da tela, e com ele a escrita: nao sobrou um unico
+  // insert/update na tela. Se alguem devolver o quadro sem devolver o degrau da
+  // permissao, este teste continua passando — o que ele guarda e a promessa do
+  // texto, que nao pode falar de criar/editar enquanto nao houver o que criar.
+  const txt = oQueONivelFaz('claude.status', 'ver')
+  assert.match(txt, /so de leitura|só de leitura/i)
+  assert.doesNotMatch(txt, /cria, edita|arrasta|arquiva/i)
 })
 
 test('Task 2b: conteudo.aprovar decide a peca dos OUTROS, e quem trava e o banco', () => {

@@ -1,6 +1,6 @@
 # Pendências do iamundi
 
-Última revisão: **18/08/2026**
+Última revisão: **19/08/2026**
 
 O que é este arquivo: a lista viva do que está **em aberto** no projeto. Cada item
 diz o que falta, **por que importa** e **onde** se resolve. É a memória escrita —
@@ -213,6 +213,38 @@ histórico do terminal nem no Lixo.
 **O que ainda NÃO se sabe, e continua honesto na tela:** quanto custou **cada
 execução** da Fábrica. A OpenAI não dá custo por chamada; só por dia, modelo e
 chave. As 23 execuções seguem marcadas como *"custo ainda não conhecido"*.
+
+---
+
+### B21 · Status da IA › o caminho feliz da `custo-openai` v2 não foi visto rodar ⚠️ *aberto em 19/08*
+A função subiu com prazo próprio (8s), até 3 tentativas e registro do motivo — o
+mesmo remédio do B20. O que **não** deu para provar: a chamada de verdade, com um
+admin logado. Ela exige JWT de administrador, e copiar a sessão do dono derruba o
+painel dele (o token rotaciona), então a prova parou no 401 de porta fechada.
+
+**Como fechar, em um minuto:** o dono abre o Status da IA e olha o número grande do
+topo. Se aparecer "R$ …" com Anthropic e OpenAI embaixo, está fechado. Se aparecer
+"Não consegui puxar a conta da OpenAI", agora o motivo fica escrito no registro da
+função (`[custo-openai] …`) — e aí dá para saber, pela primeira vez, se é limite de
+taxa, queda ou chave vencida.
+
+⚠️ **A causa dos 3 erros em 26 chamadas (11,5%) segue sendo HIPÓTESE.** O suspeito
+é limite de taxa em rajada: os 500 vinham em PAR, das duas janelas que a tela pedia
+ao mesmo tempo. As duas coisas que atacariam isso já foram feitas (a tela parou de
+perguntar quatro vezes por minuto; a função tenta de novo), mas o que confirma é o
+próximo episódio no registro.
+
+### B22 · `bling-proxy` no ar está com uma cópia anterior do `tentar-de-novo.js` 🟡 *aberto em 19/08*
+Ao reaproveitar a política de repetição para a OpenAI, o arquivo
+`_shared/tentar-de-novo.js` ganhou três parâmetros novos (fornecedor, prazo,
+orçamento), **todos com o valor antigo como padrão** — os 19 testes provam que
+quem não passa nada continua tendo exatamente o comportamento de antes.
+
+O `bling-proxy` v11, que está no ar, subiu com a cópia de 18/08 embutida. O
+comportamento dele é idêntico, então **não há defeito** — o que há é código do
+repositório diferente do código no ar, e isso é o tipo de coisa que morde daqui a
+três meses. Fecha sozinho no próximo deploy da `bling-proxy`; não vale subir só
+por isso, porque ela acabou de ser estabilizada.
 
 ---
 

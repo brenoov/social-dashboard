@@ -131,13 +131,13 @@ export const FRASES = {
   },
   'claude.status': {
     // mapa-de-enderecos.js:31 (rota gateada em 'ver'); dentro da tela não há
-    // NENHUM hasPermission — o kanban de projetos (criar/editar/mover/
-    // arquivar, tela-de-status-claude.vue:677-712) fica liberado pra quem já
-    // tem 'ver'. Não existe outro degrau no catálogo.
-    sem: 'O Status do Claude não aparece no menu dela.',
-    ver: 'Vê o gasto e o progresso dos robôs de IA, e mexe livre no quadro '
-      + 'de projetos: cria, edita, arrasta entre colunas e arquiva os cards. '
-      + 'Não há um nível intermediário — quem entra, mexe em tudo isso.',
+    // NENHUM hasPermission. Em 19/08/2026 o quadro de projetos saiu da tela, e
+    // com ele o único lugar em que essa permissão dava direito de ESCREVER —
+    // hoje a tela inteira é de leitura. Não existe outro degrau no catálogo.
+    sem: 'O Status da IA não aparece no menu dela.',
+    ver: 'Vê o gasto real das contas de IA, quanto cada tarefa custou e como '
+      + 'os robôs estão indo. É uma tela só de leitura: não há nada para '
+      + 'alterar aqui dentro, e não há nível intermediário.',
   },
   noticias: {
     // mapa-de-enderecos.js:7 (rota gateada em 'ver'); a tela inteira só faz

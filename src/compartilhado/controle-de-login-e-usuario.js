@@ -128,7 +128,7 @@ export const RECURSOS = [
   { key: 'noticias', label: 'Portal de Notícias', acoes: ['ver'] },
   { key: 'gestor', label: 'Gestão Comercial (IA)', acoes: ['ver'] },
   { key: 'gestor.relatorios', label: 'Relatórios Comerciais', acoes: ['ver', 'exportar'] },
-  { key: 'claude.status', label: 'Painel de Status do Claude', acoes: ['ver'] },
+  { key: 'claude.status', label: 'Painel de Status da IA', acoes: ['ver'] },
   { key: 'conteudo', label: 'Redes Sociais — Central de Conteúdo', acoes: ['ver', 'criar', 'editar', 'excluir'] },
   // Chave separada em vez de uma 6ª coluna 'aprovar' na matriz: ACOES_MATRIZ é
   // fixa em 5 colunas, e uma coluna nova abriria célula vazia nas 15 linhas
@@ -193,7 +193,7 @@ export const PERMISSION_TREE = [
     // acesso no banco em silêncio.
     { key: 'autenticidade', label: 'Autenticidade e Garantia' },
   ] },
-  { key: 'claude.status', label: 'Painel de Status do Claude', children: [] },
+  { key: 'claude.status', label: 'Painel de Status da IA', children: [] },
   // ESCRITÓRIO 3D. Entrou na árvore em 04/08/2026, a pedido do dono: até então
   // era a única ferramenta da home SEM porteiro — qualquer pessoa logada abria.
   // Como toda chave nova, ela sobe concedida a NINGUÉM: quem tinha acesso por
