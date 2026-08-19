@@ -5274,6 +5274,24 @@ onMounted(async () => {
   .tela-frota .fr-acoes-veiculo{grid-template-columns:none;
     grid-auto-flow:column;grid-auto-columns:1fr;}
   .tela-frota .fr-acoes-veiculo > :last-child:nth-child(odd){grid-column:auto;}
+
+  /* MAS COM 4 OU MAIS, VOLTA PARA DOIS E DOIS — decisão do dono (20/08/2026),
+     depois de ver a medição. Quatro botões lado a lado numa coluna da grade
+     ficavam com 69px cada a 1440px, e "Passar, devolver ou recolher" quebrava
+     em quatro linhas. Nada cortava e a altura era igual, mas era o caso feio.
+
+     `:has(> :nth-child(4))` = "esta caixa tem um quarto filho". É contagem de
+     BOTÃO, e não de largura: com 3 continua lado a lado, que é o que ele pediu.
+     Uma regra por largura (`auto-fit`/`minmax`) também mandaria o caso de 3
+     para duas linhas, e não é isso.
+
+     `:has()` é suportado desde o Safari 15.4 (2022) — e se um navegador velho
+     ignorar, ele cai no lado a lado de cima, que é o comportamento anterior:
+     apertado, mas inteiro. Nunca quebrado. */
+  .tela-frota .fr-acoes-veiculo:has(> :nth-child(4)){
+    grid-auto-flow:row;grid-template-columns:1fr 1fr;}
+  .tela-frota .fr-acoes-veiculo:has(> :nth-child(4)) > :last-child:nth-child(odd){
+    grid-column:1 / -1;}
   /* ⚠️ ESTE `min-width:0` PRECISA DE 4 CLASSES, e é por isso que ele não fica
      junto da regra base lá em cima. A regra de flex do cartão comum
      (`.tela-frota .fr-lista .fr-acoes .fr-btn{min-width:132px}`) também tem 4
