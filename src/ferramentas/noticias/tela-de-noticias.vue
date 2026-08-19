@@ -353,7 +353,14 @@ function _npGalleryHtml(g){
     const media=vid
       ?('<video class="np-prod-img" src="'+vid+'"'+(img?' poster="'+img+'"':'')+' controls preload="none" playsinline></video>')
       :(img?'<img class="np-prod-img" src="'+img+'" loading="lazy" alt="" onerror="this.parentNode.style.background=&#39;#eceae4&#39;;this.remove();">':'');
-    const imgwrap='<div class="np-prod-imgwrap">'+media+(vid?'<span class="np-prod-badge">▶ Reels</span>':'')+'</div>';
+    // O selo sai pelo TIPO do post, não pela existência do arquivo de vídeo.
+    // Antes ele dependia do `vid`, e desde que o teto de re-hospedagem caiu pra
+    // 8 MB (ver ig-coletor.mjs) o Reels pesado passou a chegar sem vídeo — só
+    // com o pôster. Pelo critério antigo ele perdia o selo e virava, na tela,
+    // uma foto qualquer: ninguém adivinharia que ali tem vídeo e que o clique
+    // abre o Reels no Instagram.
+    const ehVideo=vid||p.tipo==='video';
+    const imgwrap='<div class="np-prod-imgwrap">'+media+(ehVideo?'<span class="np-prod-badge">▶ Reels</span>':'')+'</div>';
     const mediaBlock=(href&&!vid)?('<a href="'+href+'" target="_blank" rel="noopener noreferrer">'+imgwrap+'</a>'):imgwrap;
     const nomeBlock=nome?(href?('<a class="np-prod-name" href="'+href+'" target="_blank" rel="noopener noreferrer">'+nome+'</a>'):('<div class="np-prod-name">'+nome+'</div>')):'';
     const analise=p.analise?'<div class="np-prod-analise">'+_npEsc(p.analise)+'</div>':'';
