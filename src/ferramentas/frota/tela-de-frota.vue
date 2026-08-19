@@ -89,7 +89,10 @@ import {
 } from './historico-de-reservas.js'
 import { bensLivresParaFrota, patchDoBem } from './bens-para-veiculo.js'
 import { dadosDoLocal, insertDaArvore } from './local-do-veiculo.js'
-import { contatoParaCobranca, podeCopiarTelefoneDoCarro } from './contato-do-motorista.js'
+import {
+  contatoParaCobranca, podeCopiarTelefoneDoCarro,
+  podeDigitarTelefone, conferirTelefoneDigitado, porQueOTelefoneNaoServe,
+} from './contato-do-motorista.js'
 import {
   textoParaAssinar, impressaoDigital, conferirCorrente, tempoDePreenchimento, VERSAO_ATUAL,
 } from '../../../supabase/functions/_shared/assinatura.js'
@@ -846,6 +849,72 @@ async function copiarTelefoneParaCadastro(c) {
   // "copiar" até um recarregar inteiro da tela, como se nada tivesse gravado.
   const idx = pessoas.value.findIndex((p) => p.id === pessoa.id)
   if (idx !== -1) pessoas.value[idx] = { ...pessoas.value[idx], numero_pessoal: contato.telefone }
+}
+
+/* ── DIGITAR O TELEFONE ALI MESMO (D5) ──────────────────────────────────────
+ *
+ * Pedido do dono: "caso não tenha telefone cadastrado, permitir que eu coloque
+ * ali no campo e já salve no cadastro da pessoa da central toda". Medido em
+ * 19/08: Breno (X1 e XC90), Humberto (XC60) e Raissa (Cayenne) não têm
+ * telefone em lugar nenhum, então o botão de copiar nunca aparecia pra eles —
+ * e sem telefone não há como cobrar o checklist.
+ *
+ * Grava em `numero_corporativo`, escolha do dono nesta sessão. (O botão de
+ * COPIAR, mais antigo, grava em `numero_pessoal` — são campos diferentes de
+ * propósito: `telefoneDaCobranca` lê o corporativo primeiro.)
+ */
+const telefoneDigitado = reactive({})   // veiculoId -> texto do campo
+
+function podeDigitarTelefoneNoCadastro(c) {
+  // Mesmo portão do botão de copiar, e pela mesma razão: escrever em
+  // acessos_pessoas exige a permissão de Colaboradores e Acessos, que é onde o
+  // RLS `is_acessos_admin()` também bate. Sem checar aqui, o campo apareceria
+  // pra quem só administra a Frota e a gravação falharia sempre.
+  return hasPermission('acessos', 'editar')
+    && podeDigitarTelefone({ pessoa: pessoaDoDono(c), veiculo: c.veiculo, pessoas: pessoas.value })
+}
+
+async function salvarTelefoneDigitado(c) {
+  const pessoa = pessoaDoDono(c)
+  if (!pessoa || salvandoTelefone[c.veiculo.id]) return
+
+  // CONFERE ANTES DE GRAVAR. Número errado no cadastro não avisa que está
+  // errado — ele só faz a cobrança ir pro vazio, e ninguém descobre até alguém
+  // perguntar por que fulano nunca respondeu.
+  const conferido = conferirTelefoneDigitado(telefoneDigitado[c.veiculo.id])
+  if (!conferido.ok) {
+    erroSalvarTelefone[c.veiculo.id] = porQueOTelefoneNaoServe(conferido.motivo)
+    return
+  }
+
+  salvandoTelefone[c.veiculo.id] = true
+  erroSalvarTelefone[c.veiculo.id] = ''
+  const { data, error } = await sbClient.from('acessos_pessoas')
+    .update({ numero_corporativo: conferido.numero, atualizado_em: new Date().toISOString() })
+    .eq('id', pessoa.id)
+    .select('id')
+  salvandoTelefone[c.veiculo.id] = false
+
+  if (error) {
+    erroSalvarTelefone[c.veiculo.id] = 'Não consegui salvar o telefone no cadastro. Tente de novo; '
+      + 'se continuar falhando, confirme se você tem permissão para editar Colaboradores e Acessos.'
+    return
+  }
+  // ZERO LINHA É FALHA. O RLS barra em silêncio e o PostgREST responde 200 com
+  // lista vazia — sem isto a tela diria "salvei" e o campo voltaria vazio no
+  // próximo carregamento, parecendo defeito de gravação.
+  if (!data || data.length === 0) {
+    erroSalvarTelefone[c.veiculo.id] = 'O banco não deixou salvar. Confirme se você tem permissão '
+      + 'para editar Colaboradores e Acessos.'
+    return
+  }
+
+  telefoneSalvoAgora[c.veiculo.id] = true
+  telefoneDigitado[c.veiculo.id] = ''
+  // Atualiza a lista local na hora: sem isto o campo continuaria oferecendo
+  // digitar até um recarregar inteiro, como se nada tivesse gravado.
+  const idx = pessoas.value.findIndex((p) => p.id === pessoa.id)
+  if (idx !== -1) pessoas.value[idx] = { ...pessoas.value[idx], numero_corporativo: conferido.numero }
 }
 
 function voltar() { router.push({ name: 'gestao-interna' }) }
@@ -3334,6 +3403,34 @@ onMounted(async () => {
             </button>
             <p class="fr-erro-inline" v-if="erroSalvarTelefone[c.veiculo.id]">{{ erroSalvarTelefone[c.veiculo.id] }}</p>
           </div>
+          <!-- DIGITAR O TELEFONE (D5). Aparece quando não há telefone em lugar
+               nenhum pra copiar — o caso do Breno, do Humberto e da Raissa, que
+               hoje não têm como ser cobrados. `v-else-if` da corrente do copiar:
+               as duas nunca aparecem juntas, que é o padrão de uma ação por
+               bloco. -->
+          <div class="fr-digitar-tel" v-else-if="!c.fez && podeDigitarTelefoneNoCadastro(c)">
+            <label class="fr-digitar-tel-lab" :for="`tel-${c.veiculo.id}`">
+              Telefone de {{ c.dono }}
+            </label>
+            <div class="fr-digitar-tel-linha">
+              <!-- `type=tel` + `inputmode=numeric` abrem o teclado de números no
+                   celular. A fonte de 16px é regra do padrão: abaixo disso o
+                   iOS dá zoom ao focar e a tela salta na cara de quem digita. -->
+              <input :id="`tel-${c.veiculo.id}`" v-model="telefoneDigitado[c.veiculo.id]"
+                     type="tel" inputmode="numeric" autocomplete="off"
+                     placeholder="(19) 90000-0000"
+                     @keyup.enter="salvarTelefoneDigitado(c)">
+              <button type="button" class="fr-btn primario" :disabled="salvandoTelefone[c.veiculo.id]"
+                      @click="salvarTelefoneDigitado(c)">
+                {{ salvandoTelefone[c.veiculo.id] ? 'Salvando…' : 'Salvar' }}
+              </button>
+            </div>
+            <p class="fr-ajuda">
+              Fica guardado no cadastro de {{ c.dono }}, valendo para a central toda — não só
+              para a Frota.
+            </p>
+            <p class="fr-erro-inline" v-if="erroSalvarTelefone[c.veiculo.id]">{{ erroSalvarTelefone[c.veiculo.id] }}</p>
+          </div>
           <p class="fr-copiado-tel" v-else-if="!c.fez && telefoneSalvoAgora[c.veiculo.id]">
             Telefone salvo no cadastro de {{ c.dono }}.
           </p>
@@ -4823,6 +4920,17 @@ onMounted(async () => {
    sim porque alguém a tirou da lista; quem abriu o filtro "Arquivadas" foi
    procurar por ela e precisa conseguir ler o que achou. */
 .tela-frota .fr-card.arquivada{border-left-color:var(--border);opacity:.82;}
+/* O campo de digitar telefone (D5). Os 16px do input NÃO são estética: abaixo
+   disso o iOS dá zoom ao focar e a tela salta na cara de quem está digitando —
+   regra 6 do PADRAO-DA-CENTRAL. Os 40px de altura são o alvo mínimo de toque. */
+.tela-frota .fr-digitar-tel{margin-top:10px;padding-top:10px;border-top:1px solid var(--border);}
+.tela-frota .fr-digitar-tel-lab{display:block;margin:0 0 6px;color:var(--muted);
+  font-family:var(--fonte-principal);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));}
+.tela-frota .fr-digitar-tel-linha{display:flex;gap:8px;flex-wrap:wrap;}
+.tela-frota .fr-digitar-tel-linha input{flex:1 1 150px;min-width:0;min-height:40px;padding:0 12px;
+  font-family:var(--fonte-dados);font-size:16px;color:var(--text);background:var(--surface);
+  border:1px solid var(--border);border-radius:var(--radius-md);}
+.tela-frota .fr-digitar-tel-linha input:focus-visible{outline:2px solid var(--accent);outline-offset:1px;}
 .tela-frota .fr-card-topo{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;}
 .tela-frota .fr-card-ident{display:flex;flex-direction:column;gap:2px;min-width:0;}
 .tela-frota .fr-card-nome{font-family:var(--fonte-principal);font-size:max(9px, calc(13.5px * var(--escala-texto, 1)));font-weight:700;color:var(--text);}
