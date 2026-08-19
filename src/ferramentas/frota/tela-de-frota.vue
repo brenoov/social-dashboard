@@ -85,7 +85,7 @@ import {
 // prova de cada uma e o que o admin pode fazer com ela.
 import {
   linhaDoTempo, filtrar, resumoDoHistorico, FILTROS,
-  rotuloDaSituacao, porQueNaoDaEmPortugues, diaEmBrasilia,
+  rotuloDaSituacao, porQueNaoDaEmPortugues, diaEmBrasilia, fraseDaPosse,
 } from './historico-de-reservas.js'
 import { bensLivresParaFrota, patchDoBem } from './bens-para-veiculo.js'
 import { dadosDoLocal, insertDaArvore } from './local-do-veiculo.js'
@@ -1834,6 +1834,9 @@ const historico = computed(() => linhaDoTempo({
   requisicoes: requisicoes.value,
   usos: usos.value,
   veiculos: veiculos.value,
+  // Sem isto, as posses da carga antiga (sem `pessoa_nome`) voltariam a
+  // aparecer sem dono — era daí que saíam os 7 "motorista não informado".
+  nomeDaPessoa,
   fichas: fichas.value,
   copias: copiasDetalhadas.value,
   temPermissaoAprovar: podeAprovar.value,
@@ -3017,14 +3020,19 @@ onMounted(async () => {
 
         <div class="fr-lista" v-else>
           <div v-for="l in historicoFiltrado" :key="l.chave" class="fr-card"
-               :class="{ espera: l.situacao === 'pendente', ruimzao: ['recusada','cancelada','revogada'].includes(l.situacao), parado: l.tipo === 'retirada' }">
+               :class="{ espera: l.situacao === 'pendente', ruimzao: ['recusada','cancelada','revogada'].includes(l.situacao), parado: l.tipo === 'retirada', fixo: l.tipo === 'posse' }">
 
             <div class="fr-card-topo">
               <div class="fr-card-ident">
                 <span class="fr-card-nome">{{ l.veiculoNome }}</span>
                 <span class="fr-placa">{{ l.veiculoPlaca || 'sem placa' }}</span>
               </div>
-              <span class="fr-selo">{{ l.tipo === 'retirada' ? 'Sem reserva' : rotuloDaSituacao(l.situacao) }}</span>
+              <!-- "Sem reserva" virou "Pegou sem reservar" (19/08/2026): a
+                   palavra antiga confundia o dono, e com razão — ela estava
+                   colada em 11 cartões que eram TODOS carro fixo. Agora o selo
+                   da posse vem de `rotuloDaSituacao` ("Carro fixo" / "Foi
+                   fixo") e este ramo só pega retirada de verdade. -->
+              <span class="fr-selo">{{ l.tipo === 'retirada' ? 'Pegou sem reservar' : rotuloDaSituacao(l.situacao) }}</span>
             </div>
 
             <!-- O QUE FOI PEDIDO. Só existe quando houve reserva: retirada
@@ -3057,9 +3065,21 @@ onMounted(async () => {
               </p>
             </template>
 
+            <!-- CARRO FIXO (19/08/2026). Bloco PRÓPRIO, e é ele que conserta o
+                 pedido do dono: "carro que fica definitivo com alguém não
+                 precisa mostrar 'ainda não voltou', só que fica fixo com tal
+                 pessoa". A frase inteira sai de `fraseDaPosse`, testada — aqui
+                 não se decide nada.
+
+                 E repare no que NÃO tem aqui: bloco de prova. Posse não é
+                 retirada, então não há assinatura de quem pegou pra cobrar.
+                 Era exatamente esse bloco, desenhado 11 vezes, que enchia a
+                 tela de "não ficou prova nenhuma desta retirada". -->
+            <p class="fr-hist-linha fr-hist-posse" v-if="l.tipo === 'posse'">{{ fraseDaPosse(l) }}</p>
+
             <!-- O QUE ACONTECEU DE VERDADE. É a metade que faltava: a reserva
                  diz o que foi combinado, e isto diz o que o carro fez. -->
-            <div class="fr-prova">
+            <div class="fr-prova" v-if="l.tipo !== 'posse'">
               <p class="fr-hist-titulo">O que aconteceu</p>
 
               <p class="fr-hist-linha" v-if="l.uso">
@@ -4624,6 +4644,9 @@ onMounted(async () => {
   font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));line-height:1.55;color:var(--text);
   overflow-wrap:anywhere;}
 .tela-frota .fr-hist-zoho{color:var(--muted);}
+/* A frase da posse é a ÚNICA linha de conteúdo do cartão de carro fixo, então
+   ela ganha o corpo do texto normal em vez do miúdo do rastro. */
+.tela-frota .fr-hist-posse{font-size:max(10px, calc(13.5px * var(--escala-texto, 1)));}
 /* O rastro (quem pediu, quem decidiu, quem encerrou) é o miúdo do card: existe
    pra ser consultado, não pra competir com o que aconteceu. */
 .tela-frota .fr-hist-rastro{margin:var(--sp-2) 0 0;font-family:var(--fonte-principal);
@@ -4729,6 +4752,10 @@ onMounted(async () => {
 .tela-frota .fr-card{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--green,#16a34a);border-radius:var(--card-radius);padding:var(--card-pad);display:flex;flex-direction:column;}
 .tela-frota .fr-card.rua{border-left-color:var(--accent);}
 .tela-frota .fr-card.parado{border-left-color:var(--muted);opacity:.72;}
+/* CARRO FIXO. Cor do accent porque é um estado NORMAL — o carro está onde
+   deveria estar. E SEM o `opacity` do `.parado`: apagar o cartão diria que a
+   informação vale menos, quando ela é a resposta de "quem está com o quê". */
+.tela-frota .fr-card.fixo{border-left-color:var(--accent-mid, var(--accent));}
 .tela-frota .fr-card-topo{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;}
 .tela-frota .fr-card-ident{display:flex;flex-direction:column;gap:2px;min-width:0;}
 .tela-frota .fr-card-nome{font-family:var(--fonte-principal);font-size:max(9px, calc(13.5px * var(--escala-texto, 1)));font-weight:700;color:var(--text);}
