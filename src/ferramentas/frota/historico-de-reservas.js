@@ -36,6 +36,12 @@ import { SITUACOES, TOLERANCIA_RETIRADA_MS } from './requisicoes.js';
 export const SITUACOES_DO_HISTORICO = {
   ...SITUACOES,
   revogada: { rotulo: 'Revogada', cor: 'ruim' },
+  /* CARRO FIXO (19/08/2026). Não é situação de reserva — é o estado de uma
+   * posse, e entra aqui porque é a linha do tempo que a mostra. Sem estes dois
+   * rótulos, `rotuloDaSituacao` devolveria a chave crua e a tela escreveria
+   * "posse-aberta" no selo. */
+  'posse-aberta': { rotulo: 'Carro fixo', cor: 'info' },
+  'posse-encerrada': { rotulo: 'Foi fixo', cor: 'neutro' },
 };
 
 /** O rótulo em português de uma situação, sem nunca devolver vazio. */
@@ -109,7 +115,28 @@ export function acoesDaReserva({ requisicao, temPermissaoAprovar, agoraIso } = {
   else if (!virouViagem && !jaComecou) revogar = negar('ainda-nao-comecou');
   else revogar = { pode: true, motivo: null };
 
-  return { editar, cancelar, revogar };
+  /* ARQUIVAR (D4). Tira da lista sem tirar do banco. É o contrário exato das
+   * três de cima: elas só valem pro que ainda está vivo, esta só vale pro que
+   * já acabou.
+   *
+   * PENDENTE NUNCA. Uma pendente arquivada sumiria da fila de aprovação sem ter
+   * sido decidida — o pior destino possível pra um pedido. A trava de verdade
+   * está no gatilho da migration 047; isto aqui só evita oferecer o botão. */
+  const jaArquivada = !!r.arquivada_em;
+  const acabou = ['recusada', 'cancelada', 'revogada'].includes(r.situacao);
+
+  let arquivar;
+  if (!temPermissaoAprovar) arquivar = semPermissao();
+  else if (jaArquivada) arquivar = negar('ja-arquivada');
+  else if (!acabou) arquivar = negar('ainda-em-aberto');
+  else arquivar = { pode: true, motivo: null };
+
+  let desarquivar;
+  if (!temPermissaoAprovar) desarquivar = semPermissao();
+  else if (!jaArquivada) desarquivar = negar('nao-esta-arquivada');
+  else desarquivar = { pode: true, motivo: null };
+
+  return { editar, cancelar, revogar, arquivar, desarquivar };
 }
 
 /** A frase que a tela mostra quando a ação não pode. */
@@ -126,6 +153,13 @@ export function porQueNaoDaEmPortugues(motivo, situacao) {
       return 'Esta reserva já está valendo. O caminho aqui é revogar, não cancelar.';
     case 'ainda-nao-comecou':
       return 'Esta reserva ainda não começou. O caminho aqui é cancelar, não revogar.';
+    case 'ainda-em-aberto':
+      return 'Só reserva encerrada sai da lista. Esta ainda está em aberto, e pedido em aberto '
+        + 'precisa continuar à vista até alguém decidir.';
+    case 'ja-arquivada':
+      return 'Esta reserva já está arquivada. Ela continua guardada, e volta pela aba Arquivadas.';
+    case 'nao-esta-arquivada':
+      return 'Esta reserva está na lista normal, então não há o que desarquivar.';
     default:
       return '';
   }
@@ -283,20 +317,109 @@ export function retiradaDaReserva({ requisicao, usos } = {}) {
     Math.abs(ms(a.saida_em) - inicio) - Math.abs(ms(b.saida_em) - inicio))[0];
 }
 
+/* ── Quem está com o carro fixo ───────────────────────────────────────────── */
+
+/**
+ * De quem é a posse — e NUNCA um nome inventado.
+ *
+ * POR QUE PRECISA DE TRÊS CAMINHOS: medido em 19/08/2026, 7 das 11 posses
+ * reais tinham `pessoa_nome` NULO. Elas foram criadas na carga inicial, antes
+ * do campo existir, e a tela escrevia "motorista não informado" pra todas —
+ * sendo que o `pessoa_id` estava lá o tempo todo.
+ *
+ * A ordem, do mais específico pro mais geral:
+ *   1. o nome gravado na própria posse;
+ *   2. a pessoa da posse, pelo id;
+ *   3. o dono fixo do veículo.
+ *
+ * E quando nenhum responde, devolve `null` — nunca um palpite. O FIAT BRAVO
+ * ESSENCE é de propósito um carro sem dono fixo (decisão do dono), e a tela
+ * tem de poder dizer isso em vez de escrever o nome de alguém que não é.
+ */
+export function quemTemAPosse({ uso, veiculo, nomeDaPessoa } = {}) {
+  const gravado = texto(uso && uso.pessoa_nome);
+  if (gravado) return gravado;
+  const buscar = typeof nomeDaPessoa === 'function' ? nomeDaPessoa : () => null;
+  for (const id of [uso && uso.pessoa_id, veiculo && veiculo.pessoa_id]) {
+    if (!id) continue;
+    const achado = texto(buscar(id));
+    if (achado) return achado;
+  }
+  return null;
+}
+
+/** O dia em DD/MM, no fuso de Brasília. Nulo quando não dá pra saber — e aí
+ *  quem chama omite o trecho, em vez de escrever "desde null" na tela. */
+function diaCurto(iso) {
+  const d = diaEmBrasilia(iso);
+  if (!d) return null;
+  const [, mes, dia] = d.split('-');
+  return `${dia}/${mes}`;
+}
+
+/**
+ * A frase de uma linha de posse, pronta pra tela.
+ *
+ * ELA MORA AQUI, E NÃO NO `.vue`, por regra da casa: são quatro combinações
+ * (aberta/encerrada × com dono/sem dono) mais formato de data, e lógica dentro
+ * de template não tem como quebrar teste nenhum.
+ *
+ * O QUE ELA NUNCA DIZ: "ainda não voltou". Pedido do dono, em 19/08/2026 —
+ * carro fixo não está atrasado, ele está onde deveria estar. Há um teste só
+ * pra travar isso.
+ */
+export function fraseDaPosse(linha) {
+  const p = (linha || {}).posse;
+  if (!p) return null;
+  const quem = texto(p.quem);
+  const desde = diaCurto(p.desde);
+  const ate = diaCurto(p.ate);
+
+  if (p.ate) {
+    const janela = desde && ate ? ` de ${desde} a ${ate}` : (ate ? ` até ${ate}` : '');
+    return quem
+      ? `Esteve fixo com ${quem}${janela}.`
+      : `Esteve sem dono fixo registrado,${janela}.`;
+  }
+  const inicio = desde ? ` desde ${desde}` : '';
+  return quem
+    ? `Fixo com ${quem}${inicio}.`
+    : `Sem dono fixo registrado,${inicio}.`;
+}
+
 /* ── A linha do tempo ─────────────────────────────────────────────────────── */
 
 /**
  * Tudo o que aconteceu com os carros, do mais novo pro mais velho.
  *
- * Duas espécies de linha, e a diferença importa pra quem lê:
+ * TRÊS espécies de linha, e a diferença importa pra quem lê:
  *   'reserva'  — alguém pediu o carro. Pode ter virado retirada, ou não.
  *   'retirada' — alguém pegou o carro SEM reserva nenhuma atrás.
+ *   'posse'    — o carro está FIXO com alguém. Não é movimento; é estado.
  *
  * A segunda espécie não é enfeite: em 13/08/2026 ela era a maioria (5 retiradas
  * contra 2 reservas). Uma lista só de reservas diria que quase nada aconteceu.
+ *
+ * ⚠️ A TERCEIRA NASCEU DE UM DEFEITO CARO, e o comentário fica pra ninguém
+ * desfazer isto por engano. Até 19/08/2026 esta função percorria `frota_uso`
+ * SEM olhar o `tipo`, e `frota_uso` é majoritariamente posse: 11 de 12 linhas.
+ * O efeito, conferido na tela no ar:
+ *
+ *   - 11 dos 13 cartões eram carro parado se passando por viagem;
+ *   - 8 diziam "ainda não voltou" (posse não volta — é isso que ela é);
+ *   - 7 diziam "motorista não informado";
+ *   - e o título da gaveta acusava "12 retiradas ficaram sem assinatura de quem
+ *     pegou o carro" quando havia acontecido UMA viagem.
+ *
+ * O último é o pior: é falha virando NÚMERO, a mesma família do 500 que virou
+ * R$ 0,00 por 17 horas. Quem lê aquilo conclui que as cópias pro Zoho pararam.
+ *
+ * `nomeDaPessoa` é opcional (id → nome). Sem ela a posse ainda funciona; só
+ * perde a chance de nomear quem está com o carro quando a linha veio da carga
+ * antiga, sem `pessoa_nome`.
  */
 export function linhaDoTempo({
-  requisicoes, usos, veiculos, fichas, copias, temPermissaoAprovar, agoraIso,
+  requisicoes, usos, veiculos, fichas, copias, temPermissaoAprovar, agoraIso, nomeDaPessoa,
 } = {}) {
   const carros = new Map((veiculos || []).filter(Boolean).map((v) => [v.id, v]));
   const nomeDoCarro = (id) => (carros.get(id) || {}).nome || 'carro que saiu do cadastro';
@@ -320,12 +443,45 @@ export function linhaDoTempo({
       veiculoNome: nomeDoCarro(r.veiculo_id),
       veiculoPlaca: placaDoCarro(r.veiculo_id),
       situacao: r.situacao,
+      // Fica na LINHA, e não só dentro de `reserva`, porque é o filtro que
+      // decide o que aparece — e ele não deve precisar saber a forma da reserva.
+      arquivada: !!r.arquivada_em,
       acoes: acoesDaReserva({ requisicao: r, temPermissaoAprovar, agoraIso }),
     });
   }
 
   for (const u of (usos || []).filter(Boolean)) {
     if (usadas.has(u.id)) continue;
+
+    /* POSSE: carro fixo com alguém. Sai por aqui e não chega a virar retirada.
+     * O teste `tipo === 'posse'` é EXATO de propósito — linha sem `tipo`, ou
+     * com um tipo novo que ninguém previu, segue como retirada. Errar pro lado
+     * de "some do Tudo" seria esconder movimento de carro, que é o oposto do
+     * que esta tela existe pra fazer. */
+    if (u.tipo === 'posse') {
+      linhas.push({
+        chave: `posse:${u.id}`,
+        tipo: 'posse',
+        quando: ms(u.saida_em) ?? 0,
+        reserva: null,
+        uso: u,
+        // Sem prova, e não uma prova vazia: posse não é retirada, então não há
+        // assinatura de quem pegou pra cobrar. Era daqui que saía o número falso.
+        prova: null,
+        zoho: null,
+        veiculoNome: nomeDoCarro(u.veiculo_id),
+        veiculoPlaca: placaDoCarro(u.veiculo_id),
+        situacao: u.volta_em ? 'posse-encerrada' : 'posse-aberta',
+        posse: {
+          quem: quemTemAPosse({ uso: u, veiculo: carros.get(u.veiculo_id), nomeDaPessoa }),
+          desde: u.saida_em || null,
+          ate: u.volta_em || null,
+        },
+        acoes: null,
+      });
+      continue;
+    }
+
     const prova = provaDaRetirada({ uso: u, fichas });
     linhas.push({
       chave: `retirada:${u.id}`,
@@ -359,8 +515,20 @@ export const FILTROS = [
   { chave: 'pendente', rotulo: 'Aguardando' },
   { chave: 'aprovada', rotulo: 'Aprovadas' },
   { chave: 'encerrada', rotulo: 'Encerradas' },
-  { chave: 'sem-reserva', rotulo: 'Sem reserva' },
+  /* "Sem reserva" era a palavra, e ela confundia o dono — com razão. Medido em
+   * 19/08/2026: os 11 cartões marcados assim eram TODOS posse, e a única viagem
+   * real tinha reserva atrás. O selo estava sempre errado. A frase nova diz o
+   * que aconteceu: alguém pegou o carro sem pedir antes. */
+  { chave: 'sem-reserva', rotulo: 'Pegou sem reservar' },
   { chave: 'sem-assinatura', rotulo: 'Sem assinatura' },
+  /* Fica por último e FORA do "Tudo": é consulta ("quem está com o quê"), não
+   * movimento. Com ele dentro do Tudo, 8 carros parados enterrariam a única
+   * reserva que existe. */
+  { chave: 'carro-fixo', rotulo: 'Carro fixo' },
+  /* Também fora do "Tudo": arquivar existe justamente pra sumir de lá. Mas o
+   * filtro EXISTE, e é isso que separa "arquivar" de "apagar" — o caminho de
+   * volta está a um toque, e a tela diz onde ele fica. */
+  { chave: 'arquivadas', rotulo: 'Arquivadas' },
 ];
 
 /**
@@ -371,6 +539,11 @@ export const FILTROS = [
 export function filtrar(linhas, filtro) {
   const L = linhas || [];
   switch (filtro) {
+    // O "Tudo" é tudo que MOVIMENTO de carro — carro parado tem filtro próprio,
+    // e o que foi arquivado saiu da lista de propósito (é o pedido do dono).
+    case 'tudo':       return L.filter((l) => l.tipo !== 'posse' && !l.arquivada);
+    case 'carro-fixo': return L.filter((l) => l.tipo === 'posse');
+    case 'arquivadas': return L.filter((l) => l.arquivada);
     case 'pendente':   return L.filter((l) => l.situacao === 'pendente');
     case 'aprovada':   return L.filter((l) => l.situacao === 'aprovada');
     case 'encerrada':  return L.filter((l) =>
@@ -388,13 +561,23 @@ export function filtrar(linhas, filtro) {
  */
 export function resumoDoHistorico(linhas) {
   const L = linhas || [];
-  if (!L.length) return 'Nenhuma reserva e nenhuma retirada registradas ainda.';
-  const semProva = L.filter((l) =>
+
+  /* A POSSE NÃO ENTRA NA CONTA, e é esta separação que conserta a frase. Ela
+   * dizia "12 retiradas ficaram sem assinatura" num dia em que houve UMA
+   * viagem — as outras onze eram carros parados com o dono deles. */
+  const movimentos = L.filter((l) => l.tipo !== 'posse' && !l.arquivada);
+  const fixos = L.filter((l) => l.tipo === 'posse' && l.situacao === 'posse-aberta').length;
+  const eFixos = fixos === 0 ? ''
+    : (fixos === 1 ? ' 1 carro está fixo com alguém.' : ` ${fixos} carros estão fixos com alguém.`);
+
+  if (!movimentos.length) return `Nenhuma reserva e nenhuma retirada registradas ainda.${eFixos}`;
+
+  const semProva = movimentos.filter((l) =>
     l.prova && ['sem-ficha', 'ficha-sem-assinatura', 'assinada-por-outra'].includes(l.prova.estado)).length;
-  const total = L.length;
+  const total = movimentos.length;
   const inicio = total === 1 ? '1 movimento registrado' : `${total} movimentos registrados`;
-  if (!semProva) return `${inicio}. Todas as retiradas têm assinatura de quem pegou o carro.`;
+  if (!semProva) return `${inicio}. Todas as retiradas têm assinatura de quem pegou o carro.${eFixos}`;
   return semProva === 1
-    ? `${inicio}. 1 retirada ficou sem assinatura de quem pegou o carro.`
-    : `${inicio}. ${semProva} retiradas ficaram sem assinatura de quem pegou o carro.`;
+    ? `${inicio}. 1 retirada ficou sem assinatura de quem pegou o carro.${eFixos}`
+    : `${inicio}. ${semProva} retiradas ficaram sem assinatura de quem pegou o carro.${eFixos}`;
 }

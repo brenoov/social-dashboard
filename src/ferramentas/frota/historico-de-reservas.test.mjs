@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import {
   SITUACOES_DO_HISTORICO, rotuloDaSituacao, diaEmBrasilia,
   acoesDaReserva, porQueNaoDaEmPortugues, provaDaRetirada, copiaNoZoho,
-  retiradaDaReserva, linhaDoTempo, filtrar, resumoDoHistorico, FILTROS,
+  retiradaDaReserva, linhaDoTempo, filtrar, resumoDoHistorico, FILTROS, fraseDaPosse,
 } from './historico-de-reservas.js'
 
 const AGORA = '2026-08-13T15:00:00-03:00'
@@ -356,4 +356,233 @@ test('tudo assinado por quem pegou: o resumo diz isso, e não fica calado', () =
   c.requisicoes = []
   c.usos = [uso({ aceite_em: '2026-08-07T17:49:30-03:00', aceite_nome: 'Breno' })]
   assert.match(resumoDoHistorico(linhaDoTempo(c)), /Todas as retiradas têm assinatura/)
+})
+
+// ── D1: POSSE NÃO É RETIRADA ───────────────────────────────────────────────
+//
+// O defeito que estes testes travam, medido em 19/08/2026 na tela no ar:
+// `frota_uso` tinha 12 linhas, 11 delas `tipo='posse'` (carro fixo com o dono),
+// e a linha do tempo percorria TODAS sem olhar o tipo. Resultado: 11 dos 13
+// cartões eram carro parado se passando por viagem, 8 diziam "ainda não
+// voltou", 7 diziam "motorista não informado", e o título da gaveta acusava
+// "12 retiradas ficaram sem assinatura" quando houve UMA viagem.
+//
+// É a família de defeito que esta central já pagou caro: falha virando número.
+
+const posse = (extra = {}) => ({
+  id: 'po1', veiculo_id: 'v1', pessoa_id: 'p7', pessoa_nome: null,
+  saida_em: '2026-08-06T12:56:00-03:00', volta_em: null, tipo: 'posse', ...extra,
+})
+const cenarioComPosse = (extra = {}) => ({
+  ...cenarioReal(),
+  requisicoes: [],
+  usos: [posse()],
+  nomeDaPessoa: (id) => (id === 'p7' ? 'Humberto Mendonça' : null),
+  ...extra,
+})
+
+test('D1 · carro fixo vira linha de POSSE, não de retirada', () => {
+  const linhas = linhaDoTempo(cenarioComPosse())
+  assert.equal(linhas.length, 1)
+  assert.equal(linhas[0].tipo, 'posse')
+  assert.notEqual(linhas[0].situacao, 'sem-reserva')
+})
+
+test('D1 · posse aberta diz COM QUEM e DESDE QUANDO — nunca "ainda não voltou"', () => {
+  const l = linhaDoTempo(cenarioComPosse())[0]
+  assert.equal(l.situacao, 'posse-aberta')
+  assert.equal(l.posse.quem, 'Humberto Mendonça')
+  assert.equal(l.posse.ate, null)
+  assert.ok(l.posse.desde, 'a posse aberta tem que dizer desde quando')
+})
+
+test('D1 · posse encerrada diz de quando até quando', () => {
+  const c = cenarioComPosse({ usos: [posse({ volta_em: '2026-08-11T12:37:00-03:00' })] })
+  const l = linhaDoTempo(c)[0]
+  assert.equal(l.situacao, 'posse-encerrada')
+  assert.ok(l.posse.ate, 'a posse encerrada tem que dizer até quando')
+})
+
+test('D1 · posse sem nome no uso pega o nome do DONO do veículo', () => {
+  // 7 das 11 posses reais tinham `pessoa_nome` nulo (foram importadas antes do
+  // campo existir) e a tela escrevia "motorista não informado" pra todas.
+  const c = cenarioComPosse({ veiculos: [{ id: 'v1', nome: 'VOLVO XC60', placa: 'BDN3A67', pessoa_id: 'p7' }] })
+  assert.equal(linhaDoTempo(c)[0].posse.quem, 'Humberto Mendonça')
+})
+
+test('D1 · veículo sem dono fixo NÃO ganha um nome inventado', () => {
+  // O FIAT BRAVO ESSENCE é de propósito sem dono fixo (decisão do dono).
+  const c = cenarioComPosse({
+    veiculos: [{ id: 'v1', nome: 'FIAT BRAVO ESSENCE', placa: 'OLW4I46', pessoa_id: null }],
+    nomeDaPessoa: () => null,
+  })
+  assert.equal(linhaDoTempo(c)[0].posse.quem, null)
+})
+
+test('D1 · posse não tem prova de retirada — não há retirada para assinar', () => {
+  assert.equal(linhaDoTempo(cenarioComPosse())[0].prova, null)
+})
+
+test('D1 · posse NÃO conta como "sem assinatura"', () => {
+  // Era daqui que saía o "12 sem assinatura" do título da gaveta.
+  const linhas = linhaDoTempo(cenarioComPosse())
+  assert.equal(filtrar(linhas, 'sem-assinatura').length, 0)
+})
+
+test('D1 · a frase do topo não acusa posse de retirada sem assinatura', () => {
+  const frase = resumoDoHistorico(linhaDoTempo(cenarioComPosse()))
+  assert.doesNotMatch(frase, /retiradas? fic(ou|aram) sem assinatura/)
+})
+
+test('D1 · "Tudo" mostra reserva e retirada, e deixa o carro fixo fora', () => {
+  const c = cenarioComPosse({ requisicoes: [reserva({ id: 'r1' })], usos: [posse(), uso({ id: 'u1' })] })
+  const linhas = linhaDoTempo(c)
+  const tudo = filtrar(linhas, 'tudo')
+  assert.equal(tudo.some((l) => l.tipo === 'posse'), false, 'posse não entra no Tudo')
+  assert.equal(tudo.length, 2)
+})
+
+test('D1 · o filtro "carro-fixo" traz só as posses', () => {
+  const c = cenarioComPosse({ usos: [posse(), uso({ id: 'u1' })] })
+  const fixos = filtrar(linhaDoTempo(c), 'carro-fixo')
+  assert.equal(fixos.length, 1)
+  assert.equal(fixos[0].tipo, 'posse')
+})
+
+test('D1 · a barra de filtros ganha "Carro fixo", e "Sem reserva" vira frase de gente', () => {
+  const chaves = FILTROS.map((f) => f.chave)
+  assert.ok(chaves.includes('carro-fixo'), 'falta o filtro de carro fixo')
+  assert.equal(FILTROS.find((f) => f.chave === 'sem-reserva').rotulo, 'Pegou sem reservar')
+})
+
+test('D1 · uso SEM tipo continua sendo retirada, não vira posse por engano', () => {
+  // Guarda contra o erro oposto: uma linha sem `tipo` (ou com tipo novo que
+  // ninguém previu) não pode sumir do "Tudo" achando que é carro parado.
+  const c = cenarioComPosse({ usos: [uso({ id: 'u1', tipo: undefined })] })
+  assert.equal(linhaDoTempo(c)[0].tipo, 'retirada')
+})
+
+test('D1 · a frase da posse aberta diz com quem e desde quando', () => {
+  const l = linhaDoTempo(cenarioComPosse())[0]
+  assert.equal(fraseDaPosse(l), 'Fixo com Humberto Mendonça desde 06/08.')
+})
+
+test('D1 · a frase da posse encerrada diz de quando até quando', () => {
+  const c = cenarioComPosse({ usos: [posse({ pessoa_nome: 'Gabriel Alves', volta_em: '2026-08-11T12:37:00-03:00' })] })
+  assert.equal(fraseDaPosse(linhaDoTempo(c)[0]), 'Esteve fixo com Gabriel Alves de 06/08 a 11/08.')
+})
+
+test('D1 · sem dono fixo, a frase DIZ isso — não deixa um buraco nem inventa nome', () => {
+  const c = cenarioComPosse({
+    veiculos: [{ id: 'v1', nome: 'FIAT BRAVO ESSENCE', placa: 'OLW4I46', pessoa_id: null }],
+    nomeDaPessoa: () => null,
+  })
+  assert.equal(fraseDaPosse(linhaDoTempo(c)[0]), 'Sem dono fixo registrado, desde 06/08.')
+})
+
+test('D1 · a frase da posse nunca contém "ainda não voltou"', () => {
+  // O pedido do dono, em uma linha. Posse não volta — é isso que ela é.
+  for (const c of [cenarioComPosse(), cenarioComPosse({ usos: [posse({ volta_em: '2026-08-11T12:37:00-03:00' })] })]) {
+    assert.doesNotMatch(fraseDaPosse(linhaDoTempo(c)[0]), /não voltou/)
+  }
+})
+
+// ── D4: ARQUIVAR SAI DA TELA, NÃO SAI DO BANCO ─────────────────────────────
+//
+// Pedido do dono (19/08/2026): "solicitações recusadas eu quero poder excluir
+// para limpar espaço". Escolha dele, depois de ver o que se perderia: ARQUIVAR.
+// Uma recusada guarda quem pediu, quem recusou e por quê — apagar limparia a
+// tela e destruiria a única resposta pra "por que negaram o carro pra mim?".
+//
+// A trava de verdade mora no banco (migration 047, provada com rollback). Isto
+// aqui é a metade da tela: o que ela OFERECE, e o que ela esconde.
+
+const encerrada = (extra = {}) => reserva({ situacao: 'recusada', motivo_decisao: 'Duplicado', ...extra })
+
+test('D4 · recusada pode ser arquivada', () => {
+  const a = acoesDaReserva({ requisicao: encerrada(), temPermissaoAprovar: true, agoraIso: AGORA })
+  assert.equal(a.arquivar.pode, true)
+})
+
+test('D4 · cancelada e revogada também — as três são o que já acabou', () => {
+  for (const s of ['cancelada', 'revogada']) {
+    const a = acoesDaReserva({ requisicao: encerrada({ situacao: s }), temPermissaoAprovar: true, agoraIso: AGORA })
+    assert.equal(a.arquivar.pode, true, `${s} devia poder arquivar`)
+  }
+})
+
+test('D4 · PENDENTE nunca se arquiva — sumiria da fila sem ter sido decidida', () => {
+  const a = acoesDaReserva({ requisicao: reserva({ situacao: 'pendente' }), temPermissaoAprovar: true, agoraIso: AGORA })
+  assert.equal(a.arquivar.pode, false)
+  assert.equal(a.arquivar.motivo, 'ainda-em-aberto')
+})
+
+test('D4 · aprovada também não — o carro ainda pode sair com ela', () => {
+  const a = acoesDaReserva({ requisicao: reserva({ situacao: 'aprovada' }), temPermissaoAprovar: true, agoraIso: AGORA })
+  assert.equal(a.arquivar.pode, false)
+  assert.equal(a.arquivar.motivo, 'ainda-em-aberto')
+})
+
+test('D4 · quem não aprova não arquiva', () => {
+  const a = acoesDaReserva({ requisicao: encerrada(), temPermissaoAprovar: false, agoraIso: AGORA })
+  assert.equal(a.arquivar.pode, false)
+  assert.equal(a.arquivar.motivo, 'sem-permissao')
+})
+
+test('D4 · já arquivada não se arquiva de novo — oferece desarquivar', () => {
+  const r = encerrada({ arquivada_em: '2026-08-19T12:00:00-03:00' })
+  const a = acoesDaReserva({ requisicao: r, temPermissaoAprovar: true, agoraIso: AGORA })
+  assert.equal(a.arquivar.pode, false)
+  assert.equal(a.arquivar.motivo, 'ja-arquivada')
+  assert.equal(a.desarquivar.pode, true)
+})
+
+test('D4 · o que não está arquivado não oferece desarquivar', () => {
+  const a = acoesDaReserva({ requisicao: encerrada(), temPermissaoAprovar: true, agoraIso: AGORA })
+  assert.equal(a.desarquivar.pode, false)
+})
+
+test('D4 · os dois motivos novos têm frase de gente, não código', () => {
+  for (const m of ['ainda-em-aberto', 'ja-arquivada']) {
+    const frase = porQueNaoDaEmPortugues(m, 'pendente')
+    assert.ok(frase.length > 20, `o motivo ${m} ficou sem frase`)
+    assert.doesNotMatch(frase, /-/, `a frase de ${m} está devolvendo o código`)
+  }
+})
+
+test('D4 · a linha diz se está arquivada', () => {
+  const c = { ...cenarioReal(), usos: [], requisicoes: [encerrada({ arquivada_em: '2026-08-19T12:00:00-03:00' })] }
+  assert.equal(linhaDoTempo(c)[0].arquivada, true)
+})
+
+test('D4 · arquivada SOME do "Tudo" — é isso que limpa o espaço', () => {
+  const c = { ...cenarioReal(), usos: [],
+    requisicoes: [encerrada({ id: 'r1', arquivada_em: '2026-08-19T12:00:00-03:00' }), reserva({ id: 'r2' })] }
+  const tudo = filtrar(linhaDoTempo(c), 'tudo')
+  assert.equal(tudo.length, 1)
+  assert.equal(tudo[0].reserva.id, 'r2')
+})
+
+test('D4 · o filtro "arquivadas" traz só o que foi arquivado', () => {
+  const c = { ...cenarioReal(), usos: [],
+    requisicoes: [encerrada({ id: 'r1', arquivada_em: '2026-08-19T12:00:00-03:00' }), reserva({ id: 'r2' })] }
+  const arq = filtrar(linhaDoTempo(c), 'arquivadas')
+  assert.equal(arq.length, 1)
+  assert.equal(arq[0].reserva.id, 'r1')
+})
+
+test('D4 · arquivada não some do filtro da própria situação — ela não deixou de ser recusada', () => {
+  // "Sumiu do Tudo" é limpeza de tela. "Sumiu do banco" seria outra coisa, e
+  // quem for conferir as recusadas tem de continuar achando esta.
+  const c = { ...cenarioReal(), usos: [], requisicoes: [encerrada({ arquivada_em: '2026-08-19T12:00:00-03:00' })] }
+  assert.equal(filtrar(linhaDoTempo(c), 'encerrada').length, 1)
+})
+
+test('D4 · a barra de filtros ganha "Arquivadas"', () => {
+  assert.ok(FILTROS.map((f) => f.chave).includes('arquivadas'))
+})
+
+test('D4 · arquivada não entra na conta da frase do topo', () => {
+  const c = { ...cenarioReal(), usos: [], requisicoes: [encerrada({ arquivada_em: '2026-08-19T12:00:00-03:00' })] }
+  assert.match(resumoDoHistorico(linhaDoTempo(c)), /Nenhuma reserva e nenhuma retirada/)
 })

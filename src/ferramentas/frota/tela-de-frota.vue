@@ -85,11 +85,17 @@ import {
 // prova de cada uma e o que o admin pode fazer com ela.
 import {
   linhaDoTempo, filtrar, resumoDoHistorico, FILTROS,
-  rotuloDaSituacao, porQueNaoDaEmPortugues, diaEmBrasilia,
+  rotuloDaSituacao, porQueNaoDaEmPortugues, diaEmBrasilia, fraseDaPosse,
 } from './historico-de-reservas.js'
+import {
+  agruparPorDia, filtrarFichas, resumoDasFichas, FILTROS_DE_FICHA,
+} from './historico-de-checklists.js'
 import { bensLivresParaFrota, patchDoBem } from './bens-para-veiculo.js'
 import { dadosDoLocal, insertDaArvore } from './local-do-veiculo.js'
-import { contatoParaCobranca, podeCopiarTelefoneDoCarro } from './contato-do-motorista.js'
+import {
+  contatoParaCobranca, podeCopiarTelefoneDoCarro,
+  podeDigitarTelefone, conferirTelefoneDigitado, porQueOTelefoneNaoServe,
+} from './contato-do-motorista.js'
 import {
   textoParaAssinar, impressaoDigital, conferirCorrente, tempoDePreenchimento, VERSAO_ATUAL,
 } from '../../../supabase/functions/_shared/assinatura.js'
@@ -330,6 +336,17 @@ const gavetasDaGestao = computed(() => gavetasVisiveis([
     // Fim de semana não pede checklist: `quemFaltaHoje` devolve vazio, e a
     // gaveta some em vez de dizer "faltam 0".
     vazia: !cobranca.value.length,
+  },
+  {
+    chave: 'fichas',
+    titulo: 'Histórico de checklists',
+    // O título fechado já responde ("3 fichas em 3 dias"), como os outros.
+    estado: resumoDasFichas(fichas.value),
+    // Consulta, não coisa esperando o dono: fica fechada até ele querer.
+    padraoAberta: false,
+    // Sem ficha nenhuma a gaveta some, em vez de virar um título que abre pro
+    // nada. É medida, não "não carreguei" — `fichas` vem junto com o resto.
+    vazia: !fichas.value.length,
   },
   {
     chave: 'problemas',
@@ -846,6 +863,72 @@ async function copiarTelefoneParaCadastro(c) {
   // "copiar" até um recarregar inteiro da tela, como se nada tivesse gravado.
   const idx = pessoas.value.findIndex((p) => p.id === pessoa.id)
   if (idx !== -1) pessoas.value[idx] = { ...pessoas.value[idx], numero_pessoal: contato.telefone }
+}
+
+/* ── DIGITAR O TELEFONE ALI MESMO (D5) ──────────────────────────────────────
+ *
+ * Pedido do dono: "caso não tenha telefone cadastrado, permitir que eu coloque
+ * ali no campo e já salve no cadastro da pessoa da central toda". Medido em
+ * 19/08: Breno (X1 e XC90), Humberto (XC60) e Raissa (Cayenne) não têm
+ * telefone em lugar nenhum, então o botão de copiar nunca aparecia pra eles —
+ * e sem telefone não há como cobrar o checklist.
+ *
+ * Grava em `numero_corporativo`, escolha do dono nesta sessão. (O botão de
+ * COPIAR, mais antigo, grava em `numero_pessoal` — são campos diferentes de
+ * propósito: `telefoneDaCobranca` lê o corporativo primeiro.)
+ */
+const telefoneDigitado = reactive({})   // veiculoId -> texto do campo
+
+function podeDigitarTelefoneNoCadastro(c) {
+  // Mesmo portão do botão de copiar, e pela mesma razão: escrever em
+  // acessos_pessoas exige a permissão de Colaboradores e Acessos, que é onde o
+  // RLS `is_acessos_admin()` também bate. Sem checar aqui, o campo apareceria
+  // pra quem só administra a Frota e a gravação falharia sempre.
+  return hasPermission('acessos', 'editar')
+    && podeDigitarTelefone({ pessoa: pessoaDoDono(c), veiculo: c.veiculo, pessoas: pessoas.value })
+}
+
+async function salvarTelefoneDigitado(c) {
+  const pessoa = pessoaDoDono(c)
+  if (!pessoa || salvandoTelefone[c.veiculo.id]) return
+
+  // CONFERE ANTES DE GRAVAR. Número errado no cadastro não avisa que está
+  // errado — ele só faz a cobrança ir pro vazio, e ninguém descobre até alguém
+  // perguntar por que fulano nunca respondeu.
+  const conferido = conferirTelefoneDigitado(telefoneDigitado[c.veiculo.id])
+  if (!conferido.ok) {
+    erroSalvarTelefone[c.veiculo.id] = porQueOTelefoneNaoServe(conferido.motivo)
+    return
+  }
+
+  salvandoTelefone[c.veiculo.id] = true
+  erroSalvarTelefone[c.veiculo.id] = ''
+  const { data, error } = await sbClient.from('acessos_pessoas')
+    .update({ numero_corporativo: conferido.numero, atualizado_em: new Date().toISOString() })
+    .eq('id', pessoa.id)
+    .select('id')
+  salvandoTelefone[c.veiculo.id] = false
+
+  if (error) {
+    erroSalvarTelefone[c.veiculo.id] = 'Não consegui salvar o telefone no cadastro. Tente de novo; '
+      + 'se continuar falhando, confirme se você tem permissão para editar Colaboradores e Acessos.'
+    return
+  }
+  // ZERO LINHA É FALHA. O RLS barra em silêncio e o PostgREST responde 200 com
+  // lista vazia — sem isto a tela diria "salvei" e o campo voltaria vazio no
+  // próximo carregamento, parecendo defeito de gravação.
+  if (!data || data.length === 0) {
+    erroSalvarTelefone[c.veiculo.id] = 'O banco não deixou salvar. Confirme se você tem permissão '
+      + 'para editar Colaboradores e Acessos.'
+    return
+  }
+
+  telefoneSalvoAgora[c.veiculo.id] = true
+  telefoneDigitado[c.veiculo.id] = ''
+  // Atualiza a lista local na hora: sem isto o campo continuaria oferecendo
+  // digitar até um recarregar inteiro, como se nada tivesse gravado.
+  const idx = pessoas.value.findIndex((p) => p.id === pessoa.id)
+  if (idx !== -1) pessoas.value[idx] = { ...pessoas.value[idx], numero_corporativo: conferido.numero }
 }
 
 function voltar() { router.push({ name: 'gestao-interna' }) }
@@ -1834,6 +1917,9 @@ const historico = computed(() => linhaDoTempo({
   requisicoes: requisicoes.value,
   usos: usos.value,
   veiculos: veiculos.value,
+  // Sem isto, as posses da carga antiga (sem `pessoa_nome`) voltariam a
+  // aparecer sem dono — era daí que saíam os 7 "motorista não informado".
+  nomeDaPessoa,
   fichas: fichas.value,
   copias: copiasDetalhadas.value,
   temPermissaoAprovar: podeAprovar.value,
@@ -1849,6 +1935,39 @@ const contagemDosFiltros = computed(() => {
   const c = {}
   for (const f of FILTROS) c[f.chave] = filtrar(historico.value, f.chave).length
   return c
+})
+
+/* ── HISTÓRICO DE CHECKLISTS (D6) ───────────────────────────────────────────
+ *
+ * Pedido do dono: "quero uma seção também em gestão onde eu possa ver o
+ * histórico de checklists feitos". Até aqui a aba só mostrava o de HOJE, e ver
+ * o de ontem exigia abrir carro por carro.
+ *
+ * SEM CONSULTA NOVA: `fichas` já traz 120 dias, carregado em `carregar()`. Isto
+ * é uma leitura diferente do que já estava na memória. */
+const filtroDeFicha = ref('tudo')
+const carroDaFicha = ref('')
+const pessoaDaFicha = ref('')
+
+const fichasDoHistorico = computed(() => filtrarFichas(fichas.value, {
+  filtro: filtroDeFicha.value,
+  veiculoId: carroDaFicha.value || null,
+  pessoaNome: pessoaDaFicha.value || null,
+}))
+const diasDeFicha = computed(() => agruparPorDia(fichasDoHistorico.value, { veiculos: veiculos.value }))
+
+/* Quem aparece no seletor de pessoa: só quem REALMENTE fez alguma ficha. Listar
+ * os 31 colaboradores faria a pessoa procurar num monte de nome que nunca vai
+ * devolver linha nenhuma. */
+const quemFezFicha = computed(() => {
+  const nomes = new Set((fichas.value || []).map((f) => (f.pessoa_nome || '').trim()).filter(Boolean))
+  return [...nomes].sort((a, b) => a.localeCompare(b, 'pt-BR'))
+})
+
+/* Idem pros carros: só os que têm ficha. */
+const carrosComFicha = computed(() => {
+  const ids = new Set((fichas.value || []).map((f) => f.veiculo_id))
+  return veiculos.value.filter((v) => ids.has(v.id))
 })
 
 /* ── Editar uma reserva ────────────────────────────────────────────────────── */
@@ -1984,6 +2103,47 @@ async function confirmarEncerramento() {
     return
   }
   fecharEncerramento()
+  carregar()
+}
+
+/* ── ARQUIVAR: sai da lista, não sai do banco (D4) ───────────────────────────
+ *
+ * Pedido do dono: "solicitações recusadas eu quero poder excluir para limpar
+ * espaço". Escolha dele, depois de ver o que se perderia: arquivar em vez de
+ * apagar. O motivo escrito da recusa e quem decidiu continuam guardados, e
+ * voltam pelo filtro "Arquivadas".
+ *
+ * A trava está no gatilho (migration 047) — pendente e aprovada o BANCO recusa.
+ * Aqui só se evita oferecer o botão. E `arquivada_por` não é gravado por esta
+ * função de propósito: quem carimba é o gatilho, que é onde a mudança acontece.
+ */
+const arquivando = ref(null)     // id da reserva em trânsito
+const erroDeArquivar = ref('')
+
+async function mudarArquivamento(reserva, arquivar) {
+  if (!reserva || arquivando.value) return
+  arquivando.value = reserva.id
+  erroDeArquivar.value = ''
+  const { data, error } = await sbClient.from('frota_requisicoes')
+    .update({ arquivada_em: arquivar ? new Date().toISOString() : null })
+    .eq('id', reserva.id)
+    .select('id')
+  arquivando.value = null
+
+  if (error) {
+    erroDeArquivar.value = error.message || 'Não consegui gravar. Confira a conexão e tente de novo.'
+    return
+  }
+  /* ZERO LINHA É FALHA, NÃO SUCESSO. O PostgREST responde 200 com lista vazia
+   * quando o RLS barra a escrita — sem esta conferência a tela diria "arquivei"
+   * e o cartão voltaria no próximo carregamento, do jeito que estava. Este
+   * projeto já pagou por essa lição. */
+  if (!data || data.length === 0) {
+    erroDeArquivar.value = arquivar
+      ? 'Não consegui arquivar: o banco não deixou. Você tem permissão para aprovar reservas?'
+      : 'Não consegui desarquivar: o banco não deixou.'
+    return
+  }
   carregar()
 }
 
@@ -3017,14 +3177,19 @@ onMounted(async () => {
 
         <div class="fr-lista" v-else>
           <div v-for="l in historicoFiltrado" :key="l.chave" class="fr-card"
-               :class="{ espera: l.situacao === 'pendente', ruimzao: ['recusada','cancelada','revogada'].includes(l.situacao), parado: l.tipo === 'retirada' }">
+               :class="{ espera: l.situacao === 'pendente', ruimzao: ['recusada','cancelada','revogada'].includes(l.situacao), parado: l.tipo === 'retirada', fixo: l.tipo === 'posse', arquivada: l.arquivada }">
 
             <div class="fr-card-topo">
               <div class="fr-card-ident">
                 <span class="fr-card-nome">{{ l.veiculoNome }}</span>
                 <span class="fr-placa">{{ l.veiculoPlaca || 'sem placa' }}</span>
               </div>
-              <span class="fr-selo">{{ l.tipo === 'retirada' ? 'Sem reserva' : rotuloDaSituacao(l.situacao) }}</span>
+              <!-- "Sem reserva" virou "Pegou sem reservar" (19/08/2026): a
+                   palavra antiga confundia o dono, e com razão — ela estava
+                   colada em 11 cartões que eram TODOS carro fixo. Agora o selo
+                   da posse vem de `rotuloDaSituacao` ("Carro fixo" / "Foi
+                   fixo") e este ramo só pega retirada de verdade. -->
+              <span class="fr-selo">{{ l.tipo === 'retirada' ? 'Pegou sem reservar' : rotuloDaSituacao(l.situacao) }}</span>
             </div>
 
             <!-- O QUE FOI PEDIDO. Só existe quando houve reserva: retirada
@@ -3057,9 +3222,21 @@ onMounted(async () => {
               </p>
             </template>
 
+            <!-- CARRO FIXO (19/08/2026). Bloco PRÓPRIO, e é ele que conserta o
+                 pedido do dono: "carro que fica definitivo com alguém não
+                 precisa mostrar 'ainda não voltou', só que fica fixo com tal
+                 pessoa". A frase inteira sai de `fraseDaPosse`, testada — aqui
+                 não se decide nada.
+
+                 E repare no que NÃO tem aqui: bloco de prova. Posse não é
+                 retirada, então não há assinatura de quem pegou pra cobrar.
+                 Era exatamente esse bloco, desenhado 11 vezes, que enchia a
+                 tela de "não ficou prova nenhuma desta retirada". -->
+            <p class="fr-hist-linha fr-hist-posse" v-if="l.tipo === 'posse'">{{ fraseDaPosse(l) }}</p>
+
             <!-- O QUE ACONTECEU DE VERDADE. É a metade que faltava: a reserva
                  diz o que foi combinado, e isto diz o que o carro fez. -->
-            <div class="fr-prova">
+            <div class="fr-prova" v-if="l.tipo !== 'posse'">
               <p class="fr-hist-titulo">O que aconteceu</p>
 
               <p class="fr-hist-linha" v-if="l.uso">
@@ -3118,7 +3295,8 @@ onMounted(async () => {
                  o que ainda não começou se cancela, o que já vale se revoga.
                  Quando nada dá, o card DIZ por quê, em vez de sumir com os
                  botões e deixar a pessoa achando que a tela quebrou. -->
-            <div class="fr-acoes" v-if="l.acoes && (l.acoes.editar.pode || l.acoes.cancelar.pode || l.acoes.revogar.pode)">
+            <div class="fr-acoes" v-if="l.acoes && (l.acoes.editar.pode || l.acoes.cancelar.pode
+                 || l.acoes.revogar.pode || l.acoes.arquivar.pode || l.acoes.desarquivar.pode)">
               <!-- Botão COMUM, não vermelho, e é regra escrita do padrão:
                    botão de perigo não fica solto na lista — ele mora atrás de
                    um passo a mais. O passo a mais existe: os dois abrem um
@@ -3129,9 +3307,30 @@ onMounted(async () => {
                       @click="abrirEncerramento(l.reserva, 'cancelada')">Cancelar reserva</button>
               <button v-if="l.acoes.revogar.pode" class="fr-btn"
                       @click="abrirEncerramento(l.reserva, 'revogada')">Revogar reserva</button>
+              <!-- ARQUIVAR (D4). Botão COMUM, e não de perigo, porque não é
+                   perigoso: nada se perde, e o caminho de volta está no filtro
+                   "Arquivadas". Pintá-lo de vermelho ensinaria a coisa errada
+                   sobre o que ele faz. Por isso também não pede confirmação. -->
+              <button v-if="l.acoes.arquivar.pode" class="fr-btn" :disabled="arquivando === l.reserva.id"
+                      @click="mudarArquivamento(l.reserva, true)">
+                {{ arquivando === l.reserva.id ? 'Arquivando…' : 'Arquivar' }}
+              </button>
+              <button v-if="l.acoes.desarquivar.pode" class="fr-btn" :disabled="arquivando === l.reserva.id"
+                      @click="mudarArquivamento(l.reserva, false)">
+                {{ arquivando === l.reserva.id ? 'Devolvendo…' : 'Devolver para a lista' }}
+              </button>
             </div>
             <p class="fr-ajuda" v-else-if="l.acoes">
               {{ porQueNaoDaEmPortugues(l.acoes.editar.motivo, l.situacao) }}
+            </p>
+            <!-- O erro fica NO cartão que falhou, não numa faixa no topo: com
+                 vários cartões na tela, um aviso solto lá em cima não diz de
+                 qual reserva ele está falando. -->
+            <p class="fr-erro-inline" v-if="erroDeArquivar && arquivando === null
+               && l.acoes && (l.acoes.arquivar.pode || l.acoes.desarquivar.pode)">{{ erroDeArquivar }}</p>
+            <p class="fr-ajuda" v-if="l.arquivada">
+              Arquivada: ela não aparece mais na lista principal. O pedido, o motivo e quem
+              decidiu continuam guardados.
             </p>
           </div>
         </div>
@@ -3251,12 +3450,109 @@ onMounted(async () => {
             </button>
             <p class="fr-erro-inline" v-if="erroSalvarTelefone[c.veiculo.id]">{{ erroSalvarTelefone[c.veiculo.id] }}</p>
           </div>
+          <!-- DIGITAR O TELEFONE (D5). Aparece quando não há telefone em lugar
+               nenhum pra copiar — o caso do Breno, do Humberto e da Raissa, que
+               hoje não têm como ser cobrados. `v-else-if` da corrente do copiar:
+               as duas nunca aparecem juntas, que é o padrão de uma ação por
+               bloco. -->
+          <div class="fr-digitar-tel" v-else-if="!c.fez && podeDigitarTelefoneNoCadastro(c)">
+            <label class="fr-digitar-tel-lab" :for="`tel-${c.veiculo.id}`">
+              Telefone de {{ c.dono }}
+            </label>
+            <div class="fr-digitar-tel-linha">
+              <!-- `type=tel` + `inputmode=numeric` abrem o teclado de números no
+                   celular. A fonte de 16px é regra do padrão: abaixo disso o
+                   iOS dá zoom ao focar e a tela salta na cara de quem digita. -->
+              <input :id="`tel-${c.veiculo.id}`" v-model="telefoneDigitado[c.veiculo.id]"
+                     type="tel" inputmode="numeric" autocomplete="off"
+                     placeholder="(19) 90000-0000"
+                     @keyup.enter="salvarTelefoneDigitado(c)">
+              <button type="button" class="fr-btn primario" :disabled="salvandoTelefone[c.veiculo.id]"
+                      @click="salvarTelefoneDigitado(c)">
+                {{ salvandoTelefone[c.veiculo.id] ? 'Salvando…' : 'Salvar' }}
+              </button>
+            </div>
+            <p class="fr-ajuda">
+              Fica guardado no cadastro de {{ c.dono }}, valendo para a central toda — não só
+              para a Frota.
+            </p>
+            <p class="fr-erro-inline" v-if="erroSalvarTelefone[c.veiculo.id]">{{ erroSalvarTelefone[c.veiculo.id] }}</p>
+          </div>
           <p class="fr-copiado-tel" v-else-if="!c.fez && telefoneSalvoAgora[c.veiculo.id]">
             Telefone salvo no cadastro de {{ c.dono }}.
           </p>
         </div>
       </div>
 
+      </Gaveta>
+
+      <!-- HISTÓRICO DE CHECKLISTS (D6). Por DIA, do mais novo pro mais velho —
+           escolha do dono: a pergunta que ele faz é "o que aconteceu essa
+           semana", não "me mostra tudo do Cayenne" (pra essa já existe a ficha
+           do veículo). Clicar abre o MESMO detalhe que o histórico de reservas
+           já usa: não nasce tela nova. -->
+      <Gaveta v-if="gv('fichas')" :titulo="gv('fichas').titulo" :estado="gv('fichas').estado"
+              :aberta="gv('fichas').aberta" :travada-aberta="gv('fichas').travadaAberta"
+              id="gv-fichas" @alternar="alternarGaveta('fichas')">
+
+        <div class="fr-filtros">
+          <button v-for="f in FILTROS_DE_FICHA" :key="f.chave" type="button" class="fr-filtro"
+                  :class="{ on: filtroDeFicha === f.chave }" @click="filtroDeFicha = f.chave">
+            {{ f.rotulo }}
+          </button>
+        </div>
+
+        <!-- Os dois seletores listam SÓ quem tem ficha. Oferecer os 31
+             colaboradores faria a pessoa procurar num monte de nome que nunca
+             devolve linha nenhuma. -->
+        <div class="fr-filtros-campo">
+          <label class="fr-filtro-campo">
+            <span>Carro</span>
+            <select v-model="carroDaFicha">
+              <option value="">Todos</option>
+              <option v-for="v in carrosComFicha" :key="v.id" :value="v.id">{{ v.nome }}</option>
+            </select>
+          </label>
+          <label class="fr-filtro-campo">
+            <span>Quem fez</span>
+            <select v-model="pessoaDaFicha">
+              <option value="">Todas as pessoas</option>
+              <option v-for="n in quemFezFicha" :key="n" :value="n">{{ n }}</option>
+            </select>
+          </label>
+        </div>
+
+        <p class="fr-aviso" v-if="!diasDeFicha.length">
+          Nenhuma ficha com estes filtros. Toque em “Tudo” e limpe os seletores para ver todas.
+        </p>
+
+        <div v-else>
+          <div v-for="d in diasDeFicha" :key="d.dia" class="fr-dia-de-ficha">
+            <div class="fr-dia-cab">
+              <span class="fr-dia-data">{{ d.rotulo }}</span>
+              <span class="fr-dia-conta">{{ d.fichas.length === 1 ? '1 ficha' : `${d.fichas.length} fichas` }}</span>
+            </div>
+            <button v-for="f in d.fichas" :key="f.id" type="button" class="fr-ficha-linha"
+                    @click="abrirFichaDoHistorico(f)">
+              <span class="fr-ficha-carro">{{ f.veiculoNome }}</span>
+              <span class="fr-ficha-km">{{ f.hodometro != null ? `${f.hodometro.toLocaleString('pt-BR')} km` : '—' }}</span>
+              <span class="fr-ficha-quem">{{ f.pessoa_nome || 'quem fez não ficou registrado' }}</span>
+              <span class="fr-ficha-selos">
+                <span class="fr-selo" :class="{ 'com-ressalva': f.resultado === 'com_ressalvas' }">
+                  {{ f.resultado === 'com_ressalvas' ? 'Com ressalvas' : 'Liberado' }}
+                </span>
+                <!-- "Não assinada" é dito com todas as letras: um espaço em
+                     branco aqui seria indistinguível de "a tela não sabe". -->
+                <span class="fr-selo" :class="{ 'sem-assinatura': !f.assinada }">
+                  {{ f.assinada ? 'Assinada' : 'Sem assinatura' }}
+                </span>
+              </span>
+            </button>
+          </div>
+          <!-- DIZ O PRÓPRIO LIMITE. A consulta traz 120 dias; sem esta frase a
+               tela deixaria parecer que isto é tudo que já foi feito. -->
+          <p class="fr-ajuda fr-fichas-limite">Mostrando os últimos 120 dias.</p>
+        </div>
       </Gaveta>
 
       <Gaveta v-if="gv('problemas')" :titulo="gv('problemas').titulo" :estado="gv('problemas').estado"
@@ -4617,13 +4913,20 @@ onMounted(async () => {
    duas coisas diferentes — o combinado e o que o carro realmente fez. */
 .tela-frota .fr-prova{margin-top:var(--sp-3);padding-top:var(--sp-3);border-top:1px solid var(--border);
   display:flex;flex-direction:column;gap:6px;}
+/* CAIXA ALTA ESPAÇADA SÓ ONDE SEPARA SEÇÃO, nunca como rótulo dentro do
+   cartão (D7). Este título aparecia em TODO cartão, em 700 com 1,5px de
+   espaçamento, competindo com o nome do carro logo acima. Ele não é um segundo
+   título — é uma legenda. Agora tem o peso de uma. */
 .tela-frota .fr-hist-titulo{margin:0;font-family:var(--fonte-principal);
-  font-size:max(9px, calc(10px * var(--escala-texto, 1)));font-weight:700;letter-spacing:1.5px;
-  text-transform:uppercase;color:var(--muted);}
+  font-size:max(9px, calc(11px * var(--escala-texto, 1)));font-weight:600;letter-spacing:.4px;
+  text-transform:none;color:var(--muted);}
 .tela-frota .fr-hist-linha{margin:0;font-family:var(--fonte-principal);
   font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));line-height:1.55;color:var(--text);
   overflow-wrap:anywhere;}
 .tela-frota .fr-hist-zoho{color:var(--muted);}
+/* A frase da posse é a ÚNICA linha de conteúdo do cartão de carro fixo, então
+   ela ganha o corpo do texto normal em vez do miúdo do rastro. */
+.tela-frota .fr-hist-posse{font-size:max(10px, calc(13.5px * var(--escala-texto, 1)));}
 /* O rastro (quem pediu, quem decidiu, quem encerrou) é o miúdo do card: existe
    pra ser consultado, não pra competir com o que aconteceu. */
 .tela-frota .fr-hist-rastro{margin:var(--sp-2) 0 0;font-family:var(--fonte-principal);
@@ -4729,6 +5032,72 @@ onMounted(async () => {
 .tela-frota .fr-card{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--green,#16a34a);border-radius:var(--card-radius);padding:var(--card-pad);display:flex;flex-direction:column;}
 .tela-frota .fr-card.rua{border-left-color:var(--accent);}
 .tela-frota .fr-card.parado{border-left-color:var(--muted);opacity:.72;}
+/* CARRO FIXO. Cor do accent porque é um estado NORMAL — o carro está onde
+   deveria estar. E SEM o `opacity` do `.parado`: apagar o cartão diria que a
+   informação vale menos, quando ela é a resposta de "quem está com o quê". */
+.tela-frota .fr-card.fixo{border-left-color:var(--accent-mid, var(--accent));}
+/* Arquivada continua legível — só recua. Ela não some da tela por defeito, e
+   sim porque alguém a tirou da lista; quem abriu o filtro "Arquivadas" foi
+   procurar por ela e precisa conseguir ler o que achou. */
+.tela-frota .fr-card.arquivada{border-left-color:var(--border);opacity:.82;}
+/* O campo de digitar telefone (D5). Os 16px do input NÃO são estética: abaixo
+   disso o iOS dá zoom ao focar e a tela salta na cara de quem está digitando —
+   regra 6 do PADRAO-DA-CENTRAL. Os 40px de altura são o alvo mínimo de toque. */
+.tela-frota .fr-digitar-tel{margin-top:10px;padding-top:10px;border-top:1px solid var(--border);}
+.tela-frota .fr-digitar-tel-lab{display:block;margin:0 0 6px;color:var(--muted);
+  font-family:var(--fonte-principal);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));}
+.tela-frota .fr-digitar-tel-linha{display:flex;gap:8px;flex-wrap:wrap;}
+.tela-frota .fr-digitar-tel-linha input{flex:1 1 150px;min-width:0;min-height:40px;padding:0 12px;
+  font-family:var(--fonte-dados);font-size:16px;color:var(--text);background:var(--surface);
+  border:1px solid var(--border);border-radius:var(--radius-md);}
+.tela-frota .fr-digitar-tel-linha input:focus-visible{outline:2px solid var(--accent);outline-offset:1px;}
+
+/* ── Histórico de checklists (D6) ─────────────────────────────────────────── */
+/* O RECUO LATERAL PADRÃO DA CASA: 14px no celular, 24px no computador — o
+   mesmo de `.fr-lista` e `.fr-resumo`. Sem ele estes blocos encostavam na
+   borda da tela (visto pelo dono no computador, 19/08). Cada bloco carrega o
+   próprio recuo, que é como o resto deste arquivo faz. */
+.tela-frota .fr-filtros-campo{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;
+  padding:0 14px;}
+.tela-frota .fr-filtro-campo{display:flex;flex-direction:column;gap:4px;flex:1 1 170px;min-width:0;}
+.tela-frota .fr-filtro-campo span{color:var(--muted);font-family:var(--fonte-principal);
+  font-size:max(9px, calc(12px * var(--escala-texto, 1)));}
+/* 16px no select pelo mesmo motivo do input: abaixo disso o iOS dá zoom. */
+.tela-frota .fr-filtro-campo select{min-height:40px;font-size:16px;padding:0 10px;
+  color:var(--text);background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius-md);font-family:var(--fonte-principal);}
+.tela-frota .fr-dia-de-ficha{margin-bottom:16px;padding:0 14px;}
+.tela-frota .fr-dia-cab{display:flex;align-items:baseline;justify-content:space-between;gap:10px;
+  margin-bottom:6px;padding-bottom:5px;border-bottom:1px solid var(--border);}
+.tela-frota .fr-dia-data{font-family:var(--fonte-dados);font-weight:500;
+  font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));}
+.tela-frota .fr-dia-conta{color:var(--muted);font-family:var(--fonte-principal);
+  font-size:max(9px, calc(12px * var(--escala-texto, 1)));}
+/* A linha inteira é o alvo de toque — 44px, acima do mínimo de 40. Botão, e não
+   div com @click, pra chegar pelo teclado e ser anunciada como acionável. */
+.tela-frota .fr-ficha-linha{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;
+  width:100%;min-height:44px;padding:8px 2px;text-align:left;background:transparent;
+  border:0;border-bottom:1px solid var(--border);cursor:pointer;font-family:var(--fonte-principal);}
+.tela-frota .fr-ficha-linha:hover{background:var(--surface2);}
+.tela-frota .fr-ficha-linha:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;}
+.tela-frota .fr-ficha-carro{font-weight:600;color:var(--text);overflow-wrap:anywhere;
+  font-size:max(10px, calc(13.5px * var(--escala-texto, 1)));}
+.tela-frota .fr-ficha-km{font-family:var(--fonte-dados);font-variant-numeric:tabular-nums;
+  text-align:right;color:var(--text);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));}
+.tela-frota .fr-ficha-quem{grid-column:1;color:var(--muted);overflow-wrap:anywhere;
+  font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));}
+.tela-frota .fr-ficha-selos{grid-column:2;display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap;}
+.tela-frota .fr-selo.com-ressalva{background:color-mix(in srgb, var(--orange) 12%, var(--surface));
+  border-color:color-mix(in srgb, var(--orange) 36%, var(--surface));}
+/* Sem esta regra o selo "Sem assinatura" ficaria IDÊNTICO ao "Assinada": a
+   classe que já existia é `.fr-cobranca-selo.sem-assinatura`, de outro bloco.
+   Classe escrita no template não é classe que existe no CSS. */
+.tela-frota .fr-selo.sem-assinatura{background:color-mix(in srgb, var(--orange) 16%, var(--surface));
+  border-color:color-mix(in srgb, var(--orange) 40%, var(--surface));color:var(--text);}
+/* A frase do limite ("Mostrando os últimos 120 dias") é irmã dos blocos acima
+   e segue o mesmo recuo — `.fr-ajuda` sozinha não tem, porque nasceu pra viver
+   DENTRO de cartão, onde o cartão dá o respiro. */
+.tela-frota .fr-fichas-limite{padding:0 14px 8px;}
 .tela-frota .fr-card-topo{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;}
 .tela-frota .fr-card-ident{display:flex;flex-direction:column;gap:2px;min-width:0;}
 .tela-frota .fr-card-nome{font-family:var(--fonte-principal);font-size:max(9px, calc(13.5px * var(--escala-texto, 1)));font-weight:700;color:var(--text);}
@@ -4739,7 +5108,13 @@ onMounted(async () => {
 
 .tela-frota .fr-dados{display:flex;gap:26px;margin-top:12px;flex-wrap:wrap;}
 .tela-frota .fr-dado{display:flex;flex-direction:column;gap:1px;}
-.tela-frota .fr-dado-lab{font-family:var(--fonte-principal);font-size:max(9px, calc(9.5px * var(--escala-texto, 1)));letter-spacing:.8px;text-transform:uppercase;color:var(--muted);}
+/* Idem: 9,5px em caixa alta com espaçamento é a letra mais difícil de ler do
+   cartão, e ela estava carregando o rótulo de CADA campo. Vira minúscula, um
+   ponto maior, e sem espaçamento — o contraste com o valor (13px, 600) já
+   separa os dois sem precisar de um segundo recurso. */
+.tela-frota .fr-dado-lab{font-family:var(--fonte-principal);
+  font-size:max(9px, calc(11px * var(--escala-texto, 1)));letter-spacing:0;
+  text-transform:none;color:var(--muted);}
 .tela-frota .fr-dado-val{font-family:var(--fonte-dados);font-size:max(9px, calc(13px * var(--escala-texto, 1)));font-weight:600;color:var(--text);font-variant-numeric:tabular-nums;}
 .tela-frota .fr-dado-val.alerta{color:var(--orange,#d97706);}
 /* `flex-wrap` porque um cartão pode ter quatro botões ("Abrir ficha",
@@ -4837,7 +5212,18 @@ onMounted(async () => {
 @media(min-width:900px){
   .tela-frota .fr-topbar{padding:12px 24px;}
   .tela-frota .fr-resumo{padding:12px 24px;}
-  .tela-frota .fr-lista{padding:4px 24px 40px;display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;}
+    /* `align-items:start` — O CONSERTO DO BURACO DE 250px (D7, 19/08/2026).
+     Sem ele a grade nasce com `align-items:stretch`, e TODA a linha fica com a
+     altura do cartão mais alto dela. Medido na tela no ar em 19/08: a primeira
+     linha tinha um cartão de reserva (com destino, finalidade e rastro) ao lado
+     de três posses de três linhas — e os três vizinhos viravam caixas brancas
+     com ~250px de nada dentro. Era o que mais fazia a tela parecer montada no
+     olho.
+
+     Com `start`, cada cartão tem a altura do que ele diz. O espaço que sobra
+     na linha vira FUNDO, não caixa vazia. */
+  .tela-frota .fr-lista{padding:4px 24px 40px;display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;align-items:start;}
 
   /* O BOTÃO PARA DE ESTICAR NO COMPUTADOR (bronca do dono, 13/08/2026).
      `.fr-btn` nasce com `flex:1 1 auto` porque no celular o dedo quer a
@@ -4856,6 +5242,13 @@ onMounted(async () => {
      quebrariam em duas linhas sem necessidade. Contado, não estimado. */
   .tela-frota .fr-lista .fr-acoes .fr-btn{flex:0 1 auto;min-width:132px;}
   .tela-frota .fr-checklist-editor{padding:4px 24px 40px;}
+  /* A barra de chips ficava em 14px enquanto TODO o resto da tela ia pra 24px
+     no computador — 10px de desalinho que já existia e que só aparece quando
+     se olha as duas colunas de conteúdo juntas. Medido em 19/08. */
+  .tela-frota .fr-filtros{padding:0 24px var(--sp-3);}
+  .tela-frota .fr-filtros-campo{padding:0 24px;}
+  .tela-frota .fr-dia-de-ficha{padding:0 24px;}
+  .tela-frota .fr-fichas-limite{padding:0 24px 8px;}
   /* Ponteiro do mouse acerta 24px sem esforço — ver o comentário no fr-btn-ajuda. */
   /* O "?" e o "✕" dividem a linha do topo do modal, com 10px entre eles: no
      computador os dois encolhem JUNTOS e para o MESMO tamanho. Estavam em 24px
