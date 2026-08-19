@@ -87,6 +87,9 @@ import {
   linhaDoTempo, filtrar, resumoDoHistorico, FILTROS,
   rotuloDaSituacao, porQueNaoDaEmPortugues, diaEmBrasilia, fraseDaPosse,
 } from './historico-de-reservas.js'
+import {
+  agruparPorDia, filtrarFichas, resumoDasFichas, FILTROS_DE_FICHA,
+} from './historico-de-checklists.js'
 import { bensLivresParaFrota, patchDoBem } from './bens-para-veiculo.js'
 import { dadosDoLocal, insertDaArvore } from './local-do-veiculo.js'
 import {
@@ -333,6 +336,17 @@ const gavetasDaGestao = computed(() => gavetasVisiveis([
     // Fim de semana não pede checklist: `quemFaltaHoje` devolve vazio, e a
     // gaveta some em vez de dizer "faltam 0".
     vazia: !cobranca.value.length,
+  },
+  {
+    chave: 'fichas',
+    titulo: 'Histórico de checklists',
+    // O título fechado já responde ("3 fichas em 3 dias"), como os outros.
+    estado: resumoDasFichas(fichas.value),
+    // Consulta, não coisa esperando o dono: fica fechada até ele querer.
+    padraoAberta: false,
+    // Sem ficha nenhuma a gaveta some, em vez de virar um título que abre pro
+    // nada. É medida, não "não carreguei" — `fichas` vem junto com o resto.
+    vazia: !fichas.value.length,
   },
   {
     chave: 'problemas',
@@ -1923,6 +1937,39 @@ const contagemDosFiltros = computed(() => {
   return c
 })
 
+/* ── HISTÓRICO DE CHECKLISTS (D6) ───────────────────────────────────────────
+ *
+ * Pedido do dono: "quero uma seção também em gestão onde eu possa ver o
+ * histórico de checklists feitos". Até aqui a aba só mostrava o de HOJE, e ver
+ * o de ontem exigia abrir carro por carro.
+ *
+ * SEM CONSULTA NOVA: `fichas` já traz 120 dias, carregado em `carregar()`. Isto
+ * é uma leitura diferente do que já estava na memória. */
+const filtroDeFicha = ref('tudo')
+const carroDaFicha = ref('')
+const pessoaDaFicha = ref('')
+
+const fichasDoHistorico = computed(() => filtrarFichas(fichas.value, {
+  filtro: filtroDeFicha.value,
+  veiculoId: carroDaFicha.value || null,
+  pessoaNome: pessoaDaFicha.value || null,
+}))
+const diasDeFicha = computed(() => agruparPorDia(fichasDoHistorico.value, { veiculos: veiculos.value }))
+
+/* Quem aparece no seletor de pessoa: só quem REALMENTE fez alguma ficha. Listar
+ * os 31 colaboradores faria a pessoa procurar num monte de nome que nunca vai
+ * devolver linha nenhuma. */
+const quemFezFicha = computed(() => {
+  const nomes = new Set((fichas.value || []).map((f) => (f.pessoa_nome || '').trim()).filter(Boolean))
+  return [...nomes].sort((a, b) => a.localeCompare(b, 'pt-BR'))
+})
+
+/* Idem pros carros: só os que têm ficha. */
+const carrosComFicha = computed(() => {
+  const ids = new Set((fichas.value || []).map((f) => f.veiculo_id))
+  return veiculos.value.filter((v) => ids.has(v.id))
+})
+
 /* ── Editar uma reserva ────────────────────────────────────────────────────── */
 
 const edicao = ref(null)   // { requisicao } | null
@@ -3439,6 +3486,75 @@ onMounted(async () => {
 
       </Gaveta>
 
+      <!-- HISTÓRICO DE CHECKLISTS (D6). Por DIA, do mais novo pro mais velho —
+           escolha do dono: a pergunta que ele faz é "o que aconteceu essa
+           semana", não "me mostra tudo do Cayenne" (pra essa já existe a ficha
+           do veículo). Clicar abre o MESMO detalhe que o histórico de reservas
+           já usa: não nasce tela nova. -->
+      <Gaveta v-if="gv('fichas')" :titulo="gv('fichas').titulo" :estado="gv('fichas').estado"
+              :aberta="gv('fichas').aberta" :travada-aberta="gv('fichas').travadaAberta"
+              id="gv-fichas" @alternar="alternarGaveta('fichas')">
+
+        <div class="fr-filtros">
+          <button v-for="f in FILTROS_DE_FICHA" :key="f.chave" type="button" class="fr-filtro"
+                  :class="{ on: filtroDeFicha === f.chave }" @click="filtroDeFicha = f.chave">
+            {{ f.rotulo }}
+          </button>
+        </div>
+
+        <!-- Os dois seletores listam SÓ quem tem ficha. Oferecer os 31
+             colaboradores faria a pessoa procurar num monte de nome que nunca
+             devolve linha nenhuma. -->
+        <div class="fr-filtros-campo">
+          <label class="fr-filtro-campo">
+            <span>Carro</span>
+            <select v-model="carroDaFicha">
+              <option value="">Todos</option>
+              <option v-for="v in carrosComFicha" :key="v.id" :value="v.id">{{ v.nome }}</option>
+            </select>
+          </label>
+          <label class="fr-filtro-campo">
+            <span>Quem fez</span>
+            <select v-model="pessoaDaFicha">
+              <option value="">Todas as pessoas</option>
+              <option v-for="n in quemFezFicha" :key="n" :value="n">{{ n }}</option>
+            </select>
+          </label>
+        </div>
+
+        <p class="fr-aviso" v-if="!diasDeFicha.length">
+          Nenhuma ficha com estes filtros. Toque em “Tudo” e limpe os seletores para ver todas.
+        </p>
+
+        <div v-else>
+          <div v-for="d in diasDeFicha" :key="d.dia" class="fr-dia-de-ficha">
+            <div class="fr-dia-cab">
+              <span class="fr-dia-data">{{ d.rotulo }}</span>
+              <span class="fr-dia-conta">{{ d.fichas.length === 1 ? '1 ficha' : `${d.fichas.length} fichas` }}</span>
+            </div>
+            <button v-for="f in d.fichas" :key="f.id" type="button" class="fr-ficha-linha"
+                    @click="abrirFichaDoHistorico(f)">
+              <span class="fr-ficha-carro">{{ f.veiculoNome }}</span>
+              <span class="fr-ficha-km">{{ f.hodometro != null ? `${f.hodometro.toLocaleString('pt-BR')} km` : '—' }}</span>
+              <span class="fr-ficha-quem">{{ f.pessoa_nome || 'quem fez não ficou registrado' }}</span>
+              <span class="fr-ficha-selos">
+                <span class="fr-selo" :class="{ 'com-ressalva': f.resultado === 'com_ressalvas' }">
+                  {{ f.resultado === 'com_ressalvas' ? 'Com ressalvas' : 'Liberado' }}
+                </span>
+                <!-- "Não assinada" é dito com todas as letras: um espaço em
+                     branco aqui seria indistinguível de "a tela não sabe". -->
+                <span class="fr-selo" :class="{ 'sem-assinatura': !f.assinada }">
+                  {{ f.assinada ? 'Assinada' : 'Sem assinatura' }}
+                </span>
+              </span>
+            </button>
+          </div>
+          <!-- DIZ O PRÓPRIO LIMITE. A consulta traz 120 dias; sem esta frase a
+               tela deixaria parecer que isto é tudo que já foi feito. -->
+          <p class="fr-ajuda">Mostrando os últimos 120 dias.</p>
+        </div>
+      </Gaveta>
+
       <Gaveta v-if="gv('problemas')" :titulo="gv('problemas').titulo" :estado="gv('problemas').estado"
               :aberta="gv('problemas').aberta" :travada-aberta="gv('problemas').travadaAberta"
               id="gv-problemas" @alternar="alternarGaveta('problemas')">
@@ -4931,6 +5047,44 @@ onMounted(async () => {
   font-family:var(--fonte-dados);font-size:16px;color:var(--text);background:var(--surface);
   border:1px solid var(--border);border-radius:var(--radius-md);}
 .tela-frota .fr-digitar-tel-linha input:focus-visible{outline:2px solid var(--accent);outline-offset:1px;}
+
+/* ── Histórico de checklists (D6) ─────────────────────────────────────────── */
+.tela-frota .fr-filtros-campo{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;}
+.tela-frota .fr-filtro-campo{display:flex;flex-direction:column;gap:4px;flex:1 1 170px;min-width:0;}
+.tela-frota .fr-filtro-campo span{color:var(--muted);font-family:var(--fonte-principal);
+  font-size:max(9px, calc(12px * var(--escala-texto, 1)));}
+/* 16px no select pelo mesmo motivo do input: abaixo disso o iOS dá zoom. */
+.tela-frota .fr-filtro-campo select{min-height:40px;font-size:16px;padding:0 10px;
+  color:var(--text);background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius-md);font-family:var(--fonte-principal);}
+.tela-frota .fr-dia-de-ficha{margin-bottom:16px;}
+.tela-frota .fr-dia-cab{display:flex;align-items:baseline;justify-content:space-between;gap:10px;
+  margin-bottom:6px;padding-bottom:5px;border-bottom:1px solid var(--border);}
+.tela-frota .fr-dia-data{font-family:var(--fonte-dados);font-weight:500;
+  font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));}
+.tela-frota .fr-dia-conta{color:var(--muted);font-family:var(--fonte-principal);
+  font-size:max(9px, calc(12px * var(--escala-texto, 1)));}
+/* A linha inteira é o alvo de toque — 44px, acima do mínimo de 40. Botão, e não
+   div com @click, pra chegar pelo teclado e ser anunciada como acionável. */
+.tela-frota .fr-ficha-linha{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;
+  width:100%;min-height:44px;padding:8px 2px;text-align:left;background:transparent;
+  border:0;border-bottom:1px solid var(--border);cursor:pointer;font-family:var(--fonte-principal);}
+.tela-frota .fr-ficha-linha:hover{background:var(--surface2);}
+.tela-frota .fr-ficha-linha:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;}
+.tela-frota .fr-ficha-carro{font-weight:600;color:var(--text);overflow-wrap:anywhere;
+  font-size:max(10px, calc(13.5px * var(--escala-texto, 1)));}
+.tela-frota .fr-ficha-km{font-family:var(--fonte-dados);font-variant-numeric:tabular-nums;
+  text-align:right;color:var(--text);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));}
+.tela-frota .fr-ficha-quem{grid-column:1;color:var(--muted);overflow-wrap:anywhere;
+  font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));}
+.tela-frota .fr-ficha-selos{grid-column:2;display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap;}
+.tela-frota .fr-selo.com-ressalva{background:color-mix(in srgb, var(--orange) 12%, var(--surface));
+  border-color:color-mix(in srgb, var(--orange) 36%, var(--surface));}
+/* Sem esta regra o selo "Sem assinatura" ficaria IDÊNTICO ao "Assinada": a
+   classe que já existia é `.fr-cobranca-selo.sem-assinatura`, de outro bloco.
+   Classe escrita no template não é classe que existe no CSS. */
+.tela-frota .fr-selo.sem-assinatura{background:color-mix(in srgb, var(--orange) 16%, var(--surface));
+  border-color:color-mix(in srgb, var(--orange) 40%, var(--surface));color:var(--text);}
 .tela-frota .fr-card-topo{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;}
 .tela-frota .fr-card-ident{display:flex;flex-direction:column;gap:2px;min-width:0;}
 .tela-frota .fr-card-nome{font-family:var(--fonte-principal);font-size:max(9px, calc(13.5px * var(--escala-texto, 1)));font-weight:700;color:var(--text);}
