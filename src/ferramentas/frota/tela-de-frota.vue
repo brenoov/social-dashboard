@@ -4913,9 +4913,13 @@ onMounted(async () => {
    duas coisas diferentes — o combinado e o que o carro realmente fez. */
 .tela-frota .fr-prova{margin-top:var(--sp-3);padding-top:var(--sp-3);border-top:1px solid var(--border);
   display:flex;flex-direction:column;gap:6px;}
+/* CAIXA ALTA ESPAÇADA SÓ ONDE SEPARA SEÇÃO, nunca como rótulo dentro do
+   cartão (D7). Este título aparecia em TODO cartão, em 700 com 1,5px de
+   espaçamento, competindo com o nome do carro logo acima. Ele não é um segundo
+   título — é uma legenda. Agora tem o peso de uma. */
 .tela-frota .fr-hist-titulo{margin:0;font-family:var(--fonte-principal);
-  font-size:max(9px, calc(10px * var(--escala-texto, 1)));font-weight:700;letter-spacing:1.5px;
-  text-transform:uppercase;color:var(--muted);}
+  font-size:max(9px, calc(11px * var(--escala-texto, 1)));font-weight:600;letter-spacing:.4px;
+  text-transform:none;color:var(--muted);}
 .tela-frota .fr-hist-linha{margin:0;font-family:var(--fonte-principal);
   font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));line-height:1.55;color:var(--text);
   overflow-wrap:anywhere;}
@@ -5095,7 +5099,13 @@ onMounted(async () => {
 
 .tela-frota .fr-dados{display:flex;gap:26px;margin-top:12px;flex-wrap:wrap;}
 .tela-frota .fr-dado{display:flex;flex-direction:column;gap:1px;}
-.tela-frota .fr-dado-lab{font-family:var(--fonte-principal);font-size:max(9px, calc(9.5px * var(--escala-texto, 1)));letter-spacing:.8px;text-transform:uppercase;color:var(--muted);}
+/* Idem: 9,5px em caixa alta com espaçamento é a letra mais difícil de ler do
+   cartão, e ela estava carregando o rótulo de CADA campo. Vira minúscula, um
+   ponto maior, e sem espaçamento — o contraste com o valor (13px, 600) já
+   separa os dois sem precisar de um segundo recurso. */
+.tela-frota .fr-dado-lab{font-family:var(--fonte-principal);
+  font-size:max(9px, calc(11px * var(--escala-texto, 1)));letter-spacing:0;
+  text-transform:none;color:var(--muted);}
 .tela-frota .fr-dado-val{font-family:var(--fonte-dados);font-size:max(9px, calc(13px * var(--escala-texto, 1)));font-weight:600;color:var(--text);font-variant-numeric:tabular-nums;}
 .tela-frota .fr-dado-val.alerta{color:var(--orange,#d97706);}
 /* `flex-wrap` porque um cartão pode ter quatro botões ("Abrir ficha",
@@ -5193,7 +5203,18 @@ onMounted(async () => {
 @media(min-width:900px){
   .tela-frota .fr-topbar{padding:12px 24px;}
   .tela-frota .fr-resumo{padding:12px 24px;}
-  .tela-frota .fr-lista{padding:4px 24px 40px;display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;}
+    /* `align-items:start` — O CONSERTO DO BURACO DE 250px (D7, 19/08/2026).
+     Sem ele a grade nasce com `align-items:stretch`, e TODA a linha fica com a
+     altura do cartão mais alto dela. Medido na tela no ar em 19/08: a primeira
+     linha tinha um cartão de reserva (com destino, finalidade e rastro) ao lado
+     de três posses de três linhas — e os três vizinhos viravam caixas brancas
+     com ~250px de nada dentro. Era o que mais fazia a tela parecer montada no
+     olho.
+
+     Com `start`, cada cartão tem a altura do que ele diz. O espaço que sobra
+     na linha vira FUNDO, não caixa vazia. */
+  .tela-frota .fr-lista{padding:4px 24px 40px;display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;align-items:start;}
 
   /* O BOTÃO PARA DE ESTICAR NO COMPUTADOR (bronca do dono, 13/08/2026).
      `.fr-btn` nasce com `flex:1 1 auto` porque no celular o dedo quer a

@@ -1607,7 +1607,13 @@ img{max-width:100%;}
    quatro ou cinco itens num conjunto fixo, esconder algum atrás de rolagem é
    o mesmo erro que deixou duas abas inalcançáveis no Colaboradores. */
 .abas{display:flex;flex-wrap:wrap;justify-content:center;gap:2px 4px;padding:2px 12px 0;border-bottom:1px solid var(--border);}
-.abas button{flex:0 1 auto;appearance:none;background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-1px;padding:11px 12px;font-family:var(--fonte-principal);font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);cursor:pointer;touch-action:manipulation;line-height:1.25;}
+/* `min-height:40px` — CORREÇÃO DE PADRÃO (19/08/2026), e ela vale para as 4
+   telas que usam `.abas` (Frota, Patrimônio, Acessos, Autenticidade).
+   Medido com o CSS do build: a aba tinha 35px de altura a 375px e 39px no
+   computador. O PADRAO-DA-CENTRAL exige 40px de alvo de toque, e não é
+   opinião — é o que o dedo acerta. Estava assim desde que a barra nasceu, em
+   nenhuma das quatro telas ninguém tinha medido. */
+.abas button{flex:0 1 auto;appearance:none;background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-1px;padding:11px 12px;min-height:40px;font-family:var(--fonte-principal);font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);cursor:pointer;touch-action:manipulation;line-height:1.25;}
 .abas button:hover{color:var(--text);}
 .abas button.on{color:var(--accent);border-bottom-color:var(--accent);}
 @media(min-width:768px){
@@ -1619,7 +1625,7 @@ img{max-width:100%;}
 }
 @media(max-width:400px){
   .abas{padding:2px 8px 0;}
-  .abas button{font-size:max(9px, calc(10.5px * var(--escala-texto, 1)));letter-spacing:.5px;padding:10px 9px;}
+  .abas button{font-size:max(9px, calc(10.5px * var(--escala-texto, 1)));letter-spacing:.5px;padding:10px 9px;min-height:40px;}
 }
 
 /* ── AÇÕES DA BARRA DE TOPO ────────────────────────────────────────────────
