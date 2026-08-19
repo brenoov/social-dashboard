@@ -143,8 +143,8 @@
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
           </div>
           <div class="home-card-text">
-            <h3>Painel de Status<br>do Claude</h3>
-            <p>Robôs de IA, custo por ação e status dos projetos em desenvolvimento</p>
+            <h3>Status<br>da IA</h3>
+            <p>Robôs de IA, quanto cada tarefa custou e o gasto real das contas</p>
           </div>
           <span class="home-card-enter">→</span>
         </div>

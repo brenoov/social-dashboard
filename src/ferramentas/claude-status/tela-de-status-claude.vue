@@ -1,10 +1,10 @@
 <template>
-  <!-- Painel de Status do Claude: mission control em linguagem simples (pra quem não é
+  <!-- Painel de Status da IA: mission control em linguagem simples (pra quem não é
        técnico). Robôs de IA em produção (custo/tempo/volume reais de ia_execucoes) +
        status dos projetos (projetos_status, derivado dos planos). Classes .csc- para não
        colidir com o CSS global. Full-bleed e responsivo. -->
   <div class="csc-tela">
-    <barra-de-topo voltar="Central" titulo="Status do Claude" @voltar="voltar">
+    <barra-de-topo voltar="Central" titulo="Status da IA" @voltar="voltar">
       <template #acoes>
         <span class="csc-live"><i></i>Ao vivo</span>
         <span class="csc-upd">{{ statusCarga }}</span>
@@ -73,6 +73,15 @@
             <template v-else>Nunca funcionou desde que passamos a medir.</template>
             <template v-if="r.falhas_24h"> Falhou {{ r.falhas_24h }}× nas últimas 24 horas.</template>
           </p>
+          <!-- Um robô como o coletar-dados roda para 8 perfis, 4 vezes por dia.
+               Dizer só "coletar-dados parou" manda procurar agulha em 32 rodadas
+               — quando o banco já sabe exatamente qual delas travou. -->
+          <p v-if="r.quem_falhou && r.quem_falhou.length" class="csc-alerta-txt">
+            Parou {{ r.quem_falhou.length === 1 ? 'em' : 'em' }}
+            <b>{{ r.quem_falhou.join(', ') }}</b>{{ r.variantes_vivas > r.quem_falhou.length
+              ? ' — as outras ' + (r.variantes_vivas - r.quem_falhou.length) + ' rodadas deste robô estão em dia.'
+              : '.' }}
+          </p>
           <p class="csc-alerta-porque">{{ r.porque }}</p>
         </div>
       </section>
@@ -105,69 +114,6 @@
       </div>
 
       <faixa-de-erro :erro="erroCarregar" @tentar-de-novo="carregar" />
-
-      <!-- PROJETOS -->
-      <div class="csc-sec csc-sec-proj">
-        <div>
-          <h2 class="csc-sec-t">Projetos em construção</h2>
-          <p class="csc-sec-d">Em que pé está cada coisa. Da esquerda pra direita é o caminho: <b>ainda não começou → sendo construído → pronto e no ar</b>. Você pode <b>arrastar os cards</b> entre as colunas, ou usar o lápis pra editar.</p>
-        </div>
-        <button class="csc-add-btn" @click="abrirNovo('em-andamento')">+ Novo projeto</button>
-      </div>
-
-      <!-- Alterna entre o quadro curado e o quadro completo -->
-      <div class="csc-quadro-abas">
-        <button class="csc-quadro-aba" :class="{ ativa: quadro === 'simples' }" @click="quadro = 'simples'">
-          Acompanhamento
-          <span class="csc-quadro-cont">{{ projetosSimples.length }}</span>
-        </button>
-        <button class="csc-quadro-aba" :class="{ ativa: quadro === 'tecnico' }" @click="quadro = 'tecnico'">
-          Detalhado (automático)
-          <span class="csc-quadro-cont">{{ projetosTecnicos.length }}</span>
-        </button>
-      </div>
-      <p class="csc-quadro-desc">
-        <template v-if="quadro === 'simples'">
-          Só o que foi adicionado à mão — a lista curta do que vale acompanhar.
-        </template>
-        <template v-else>
-          Lido sozinho dos planos, sem ninguém tocar. Mostra tudo, inclusive o que só interessa a quem constrói.
-        </template>
-      </p>
-
-      <div class="csc-kanban">
-        <div v-for="col in colunas" :key="col.key" class="csc-col" :class="{ 'is-over': arrastando }" @dragover.prevent @dragenter.prevent @drop="onDropCol(col.key)">
-          <div class="csc-col-head" :class="'sit-' + col.key">
-            <span class="csc-col-nome">{{ col.label }}</span>
-            <span class="csc-col-acoes">
-              <span class="csc-col-cont">{{ (porSitAtivo[col.key] || []).length }}</span>
-              <button class="csc-col-add" title="Adicionar aqui" @click="abrirNovo(col.key)">+</button>
-            </span>
-          </div>
-          <p class="csc-col-desc">{{ col.desc }}</p>
-          <div class="csc-col-body">
-            <div v-for="p in (porSitAtivo[col.key] || [])" :key="p.projeto" class="csc-proj" draggable="true" @dragstart="onDrag(p)" @dragend="arrastando = null">
-              <div class="csc-proj-top">
-                <span class="csc-proj-titulo">{{ p.titulo }}</span>
-                <span class="csc-proj-tags">
-                  <span v-if="p.etapa" class="csc-proj-etapa" title="Etapa/fase atual">{{ p.etapa }}</span>
-                  <span v-if="p.manual" class="csc-proj-manual" title="Editado à mão (a leitura automática não mexe nele)">à mão</span>
-                </span>
-              </div>
-              <div v-if="p.descricao" class="csc-proj-desc">{{ p.descricao }}</div>
-              <template v-if="p.checkboxes_total">
-                <div class="csc-bar"><i :style="{ width: p.progresso + '%' }"></i></div>
-                <div class="csc-proj-prog">{{ p.progresso }}% pronto ({{ p.checkboxes_feitos }} de {{ p.checkboxes_total }} passos)</div>
-              </template>
-              <div class="csc-proj-ferramentas">
-                <button title="Editar" @click="abrirEditar(p)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
-                <button title="Remover" @click="excluir(p)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
-              </div>
-            </div>
-            <div v-if="!(porSitAtivo[col.key] || []).length" class="csc-col-vazio">{{ quadro === 'simples' ? 'Nada por aqui. Arraste um card ou clique no +.' : 'Nenhum plano nesta etapa.' }}</div>
-          </div>
-        </div>
-      </div>
 
       <!-- LINHA DO TEMPO -->
       <div class="csc-sec">
@@ -351,40 +297,18 @@
         </div>
       </div><!-- fim aba extrato -->
     </div>
-
-    <!-- Modal criar/editar projeto -->
-    <div v-if="modal.aberto" v-trava-rolagem class="csc-modal-bg" @click.self="fecharModal">
-      <div class="csc-modal">
-        <h3 class="csc-modal-t">{{ modal.editando ? 'Editar projeto' : 'Novo projeto' }}</h3>
-        <label class="csc-campo"><span>Nome do projeto</span><input v-model="modal.titulo" type="text" placeholder="Ex.: Portal de Notícias" @keyup.enter="salvarModal"></label>
-        <label class="csc-campo"><span>Etapa (opcional)</span><input v-model="modal.etapa" type="text" placeholder="Ex.: Fase 2, SP6…"></label>
-        <label class="csc-campo"><span>Descrição (opcional)</span><textarea v-model="modal.descricao" rows="3" placeholder="Em que pé está, em uma ou duas frases."></textarea></label>
-        <label class="csc-campo"><span>Situação</span>
-          <select v-model="modal.situacao">
-            <option v-for="c in colunas" :key="c.key" :value="c.key">{{ c.label }}</option>
-          </select>
-        </label>
-        <div class="csc-modal-foot">
-          <button class="csc-btn-sec" @click="fecharModal">Cancelar</button>
-          <button class="csc-btn-pri" @click="salvarModal">{{ modal.editando ? 'Salvar' : 'Criar' }}</button>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
 <script setup>
 import { fraseDoCusto, ehZeroDeVerdade, somarFornecedores } from './custo-do-extrato.js'
-import { onMounted, onUnmounted, ref, reactive, computed, watch } from 'vue'
+import { criarCacheDeCusto } from './cache-de-custo.js'
+import { onMounted, onUnmounted, ref, computed, watch } from 'vue'
 import BarraDeTopo from '../../compartilhado/barra-de-topo.vue'
 import { useRouter } from 'vue-router'
 import { sb } from '../../compartilhado/buscar-e-salvar-dados.js'
 import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
-import { adminToast } from '../../compartilhado/avisos.js'
 import FaixaDeErro from '../../compartilhado/faixa-de-erro.vue'
-// Trava a rolagem do fundo enquanto o modal de projeto estiver aberto (bronca
-// do dono: "abro um modal e a tela atrás continua rolando").
-import { vTravaRolagem } from '../../compartilhado/travar-rolagem-de-fundo.js'
 
 const router = useRouter()
 const voltar = () => router.push({ name: 'inicio' })
@@ -402,29 +326,13 @@ const ROBOS = [
   { slug: 'fabrica-gerar',    label: 'Fábrica · Criar Criativos', faz: 'Cria as imagens (criativos) dos anúncios.', quando: 'quando você manda', verbo: 'Criou' },
   { slug: 'fabrica-subir',    label: 'Fábrica · Subir Campanha', faz: 'Monta a campanha e sobe os anúncios para o Meta.', quando: 'quando você manda', verbo: 'Subiu' },
   { slug: 'fabrica-ativar',   label: 'Fábrica · Ligar Anúncios', faz: 'Liga os anúncios no Gerenciador do Meta.', quando: 'quando você manda', verbo: 'Ligou' },
-  { slug: 'status-projetos',  label: 'Atualizador do Painel', faz: 'Atualiza este painel com o andamento dos projetos.', quando: 'a cada mudança nos planos', verbo: 'Atualizou' },
+  { slug: 'status-projetos',  label: 'Andamento dos Projetos', faz: 'Lê os planos e anota em que pé está cada projeto. O quadro saiu desta tela em 19/08/2026; ele segue guardando o andamento, que fica no banco.', quando: 'a cada mudança nos planos', verbo: 'Anotou' },
   { slug: 'sugerir-interesses', label: 'Sugestões de Interesse', faz: 'Descobre os interesses de público de cada objetivo buscando no catálogo do Meta, e mostra na Fábrica.', quando: 'todo domingo de manhã', verbo: 'Sugeriu' },
 ]
 const META = Object.fromEntries(ROBOS.map(r => [r.slug, r]))
 const nomeRobo = (slug) => (META[slug]?.label) || slug
 
-// Colunas do kanban, em linguagem bem literal.
-// A ORDEM aqui é o caminho que um projeto percorre: começa, é construído, e fica
-// pronto. Antes "Fazendo agora" vinha ANTES de "Ainda não começou" — o meio antes
-// do início — e por isso o quadro não se lia como algo caminhando.
-//
-// "Parado" fica por último de propósito: não é uma etapa do caminho, é o desvio.
-// Projeto parado saiu da esteira; deixá-lo no meio dava a impressão de que todo
-// mundo passa por ali.
-const colunas = [
-  { key: 'planejado',    label: '1 · Ainda não começou', desc: 'Está na fila. O trabalho ainda não foi iniciado.' },
-  { key: 'em-andamento', label: '2 · Sendo construído',  desc: 'Alguém está trabalhando nisso agora.' },
-  { key: 'no-ar',        label: '3 · Pronto e no ar',    desc: 'Terminado e funcionando de verdade, em produção.' },
-  { key: 'pausado',      label: '⏸ Parado',              desc: 'Começou e travou. Está esperando alguma coisa pra destravar.' },
-]
-
 const execucoes = ref([])
-const projetos = ref([])
 const relogio = ref('')
 const statusCarga = ref('carregando…')
 
@@ -506,32 +414,6 @@ const robosView = computed(() => {
   })
 })
 
-// Dois quadros, duas origens.
-//
-// O TÉCNICO é lido sozinho dos planos em docs/superpowers/plans/ (robô
-// status-projetos). É detalhado e mostra tudo — inclusive coisa que só interessa
-// a quem constrói. É o quadro que "atualiza sozinho".
-//
-// O SIMPLIFICADO tem só o que foi posto à mão. É a lista curta e curada: o que
-// alguém decidiu que merece ser acompanhado, sem o ruído dos 31 planos.
-//
-// A separação é por origem (`manual`), não por conteúdo — é o mesmo card, no
-// quadro certo.
-function _agruparPorSituacao(lista) {
-  const g = {}
-  for (const p of lista) (g[p.situacao] = g[p.situacao] || []).push(p)
-  return g
-}
-const projetosTecnicos = computed(() => projetos.value.filter(p => !p.manual))
-const projetosSimples  = computed(() => projetos.value.filter(p => !!p.manual))
-const porSitTecnico = computed(() => _agruparPorSituacao(projetosTecnicos.value))
-const porSitSimples = computed(() => _agruparPorSituacao(projetosSimples.value))
-
-// Qual quadro está na tela. Começa no curado: é a lista curta, a que responde
-// "em que pé estamos" sem os 31 planos no meio.
-const quadro = ref('simples')
-const porSitAtivo = computed(() => quadro.value === 'simples' ? porSitSimples.value : porSitTecnico.value)
-
 // ── extrato de gastos ──
 const aba = ref('visao')
 const periodos = [{ d: 7, label: '7 dias' }, { d: 14, label: '14 dias' }, { d: 30, label: '30 dias' }, { d: 3650, label: 'Tudo' }]
@@ -549,12 +431,23 @@ const periodoLabel = computed(() => {
 // desenvolvimento com IA (Claude Code), as buscas na web e o cache. A edge
 // function `custo-anthropic` devolve esse número real (só admin tem acesso).
 // Nunca inventamos um número: se a busca falhar, mostramos o erro, nunca R$ 0.
+// A fatura é a MESMA pergunta para o total do topo e para o extrato quando os
+// dois olham 30 dias — que é como a tela abre. Sem isto, cada abertura fazia as
+// quatro chamadas (duas contas × duas janelas), e a mais lenta delas segurava o
+// número do topo. Ver `cache-de-custo.js` para os números medidos.
+const _cacheCusto = criarCacheDeCusto()
+
 async function _buscarCustoReal(funcao, dias) {
+  const guardado = _cacheCusto.ler(funcao, dias, Date.now())
+  if (guardado) return { dados: guardado }
   try {
     const { data, error } = await sbClient.functions.invoke(funcao, { body: { dias } })
     if (error) return { erro: error.message || 'não consegui falar com o servidor' }
     if (data && data.error) return { erro: data.detalhe || data.error }
     if (!data || typeof data.totalBrl !== 'number') return { erro: 'resposta sem valor' }
+    // Só o que deu certo é guardado: cachear erro grudaria a frase "não consegui
+    // puxar a conta" na tela por dez minutos depois de o problema já ter passado.
+    _cacheCusto.guardar(funcao, dias, data, Date.now())
     return { dados: data }
   } catch (e) {
     return { erro: (e && e.message) || 'falha inesperada' }
@@ -797,9 +690,12 @@ const robosComProblema = computed(() =>
 )
 
 async function carregar() {
-  const [ex, pr, sa] = await Promise.all([
+  // `projetos_status` NÃO é lido aqui: o quadro de projetos saiu da tela em
+  // 19/08/2026. A tabela e o robô que a alimenta continuam intactos — se o
+  // quadro voltar um dia, o dado está lá. Buscar o que ninguém mostra só faz
+  // a tela demorar mais para abrir.
+  const [ex, sa] = await Promise.all([
     sb('ia_execucoes?select=*&order=run_at.desc&limit=200'),
-    sb('projetos_status?select=*&arquivado=is.false&order=ordem.desc'),
     // Saúde dos robôs agendados. NÃO entra no erroCarregar abaixo: se esta
     // consulta falhar, o painel inteiro não pode sumir por causa dela — o pior
     // que acontece é o aviso não aparecer.
@@ -809,69 +705,12 @@ async function carregar() {
   // Antes: falha virava [] e a tela dizia "0 execuções, R$ 0" como se fosse
   // verdade. Só sobrescreve os dados bons quando a busca deu certo — assim um
   // blip de rede no refresh de 60s não apaga o que já estava na tela.
-  erroCarregar.value = ex.erro || pr.erro || null
+  erroCarregar.value = ex.erro || null
   if (!ex.erro) execucoes.value = ex
-  if (!pr.erro) projetos.value = pr
   if (erroCarregar.value) return
   const hh = new Date()
   statusCarga.value = 'atualizado às ' + hh.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 }
-
-// ── kanban interativo: arrastar + criar/editar/excluir ──
-const arrastando = ref(null)
-function onDrag(p) { arrastando.value = p }
-async function onDropCol(situacao) {
-  const p = arrastando.value
-  arrastando.value = null
-  if (!p || p.situacao === situacao) return
-  await moverPara(p, situacao)
-}
-async function moverPara(p, situacao) {
-  p.situacao = situacao // otimista
-  const { error } = await sbClient.from('projetos_status')
-    .update({ situacao, manual: true, atualizado_em: new Date().toISOString() })
-    .eq('projeto', p.projeto)
-  if (error) { adminToast('Não consegui mover: ' + error.message, false); carregar() }
-  else adminToast('Movido para "' + (colunas.find(c => c.key === situacao)?.label || situacao) + '"', true)
-}
-
-// Modal de criar/editar
-const modal = reactive({ aberto: false, editando: null, titulo: '', etapa: '', descricao: '', situacao: 'em-andamento' })
-function abrirNovo(situacao) {
-  Object.assign(modal, { aberto: true, editando: null, titulo: '', etapa: '', descricao: '', situacao: situacao || 'em-andamento' })
-}
-function abrirEditar(p) {
-  Object.assign(modal, { aberto: true, editando: p, titulo: p.titulo || '', etapa: p.etapa || '', descricao: p.descricao || '', situacao: p.situacao })
-}
-function fecharModal() { modal.aberto = false }
-function slugDe(txt) {
-  const base = (txt || 'projeto').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'projeto'
-  return 'm-' + base + '-' + Math.random().toString(36).slice(2, 6)
-}
-async function salvarModal() {
-  const t = modal.titulo.trim()
-  if (!t) { adminToast('Dá um nome pro projeto.', false); return }
-  const campos = { titulo: t, etapa: modal.etapa.trim() || null, descricao: modal.descricao.trim() || null, situacao: modal.situacao, manual: true, atualizado_em: new Date().toISOString() }
-  if (modal.editando) {
-    const { error } = await sbClient.from('projetos_status').update(campos).eq('projeto', modal.editando.projeto)
-    if (error) { adminToast('Erro ao salvar: ' + error.message, false); return }
-    adminToast('Projeto atualizado.', true)
-  } else {
-    const { error } = await sbClient.from('projetos_status').insert({ ...campos, projeto: slugDe(t), progresso: 0, arquivado: false, ordem: Math.floor(Date.now() / 86400000) })
-    if (error) { adminToast('Erro ao criar: ' + error.message, false); return }
-    adminToast('Projeto criado.', true)
-  }
-  modal.aberto = false
-  await carregar()
-}
-async function excluir(p) {
-  if (!window.confirm(`Tirar "${p.titulo}" do painel?`)) return
-  const { error } = await sbClient.from('projetos_status').update({ arquivado: true, manual: true }).eq('projeto', p.projeto)
-  if (error) { adminToast('Erro ao excluir: ' + error.message, false); return }
-  adminToast('Removido do painel.', true)
-  await carregar()
-}
-
 let _clockTimer = null, _refreshTimer = null
 function tickRelogio() {
   relogio.value = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
@@ -884,7 +723,13 @@ onMounted(() => {
   carregarGastoReal()
   carregarGastoOaMes()
   carregarGastoOa()
-  _refreshTimer = setInterval(() => { carregar(); carregarGastoRealMes(); carregarGastoReal(); carregarGastoOaMes(); carregarGastoOa() }, 60000)
+  // O ciclo de 60s cuida só do que MUDA de minuto a minuto: o que os robôs
+  // acabaram de fazer. A fatura das duas contas de IA fica de fora de propósito
+  // — ela é fechada por DIA pelos fornecedores, e repuxá-la a cada minuto era o
+  // que fazia o número do topo ficar em "…" e a frase de erro piscar. Quem quiser
+  // o valor mais novo recarrega a página; passados 10 minutos, o cache vence
+  // sozinho e a próxima abertura já busca de novo.
+  _refreshTimer = setInterval(() => { carregar() }, 60000)
 })
 onUnmounted(() => {
   if (_clockTimer) clearInterval(_clockTimer)
@@ -1063,80 +908,12 @@ onUnmounted(() => {
 .csc-robo-vazio { font-size: 13px; color: var(--muted); font-style: italic; }
 .csc-robo-foot { margin-top: auto; font-size: 11px; color: var(--muted); border-top: 1px solid var(--border); padding-top: 9px; }
 
-/* Kanban */
-.csc-kanban { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; align-items: start; }
-.csc-col { background: var(--surface2); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; animation: cscUp .5s cubic-bezier(.22,1,.36,1) both; transition: border-color .2s; }
-.csc-col-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 15px 4px; }
-.csc-col-nome { font-family: var(--fs); font-size: 12.5px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; }
-.csc-col-head.sit-em-andamento .csc-col-nome { color: var(--accent); }
-.csc-col-head.sit-no-ar .csc-col-nome { color: var(--green); }
-.csc-col-head.sit-pausado .csc-col-nome { color: var(--yellow); }
-.csc-col-head.sit-planejado .csc-col-nome { color: var(--muted); }
-.csc-col-cont { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1px 9px; font-size: 12px; font-weight: 600; color: var(--text); }
-.csc-col-desc { font-size: 11.5px; color: var(--muted); padding: 0 15px 10px; border-bottom: 1px solid var(--border); }
-.csc-col-body { padding: 11px; display: flex; flex-direction: column; gap: 10px; }
-.csc-proj { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 11px 13px; display: flex; flex-direction: column; gap: 7px; }
-.csc-proj-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.csc-proj-titulo { font-weight: 600; font-size: 13.5px; color: var(--text); }
-.csc-proj-etapa { font-size: 10px; font-weight: 700; letter-spacing: .5px; color: var(--accent-forte); background: var(--accent-light); border: 1px solid var(--accent-mid); border-radius: 5px; padding: 2px 7px; flex-shrink: 0; }
-.csc-proj-desc { font-size: 12px; line-height: 1.45; color: var(--muted); }
-.csc-bar { height: 6px; background: var(--surface2); border-radius: 4px; overflow: hidden; }
-.csc-bar i { display: block; height: 100%; background: var(--accent); border-radius: 4px; transition: width .4s ease; }
-.csc-proj-prog { font-size: 11px; color: var(--muted); }
 .csc-col-vazio { text-align: center; color: var(--muted); font-size: 12.5px; padding: 8px 6px; line-height: 1.4; }
 
-/* Kanban interativo */
-.csc-sec-proj { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .csc-sec-d b { color: var(--text); font-weight: 600; }
-.csc-add-btn { flex-shrink: 0; background: var(--accent); color: var(--sobre-cor); border: none; border-radius: var(--radius-sm); padding: 9px 16px; font-size: 13px; font-weight: 600; cursor: pointer; transition: filter .15s, transform .12s; }
-.csc-add-btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
-.csc-col.is-over { outline: 2px dashed var(--accent-mid); outline-offset: -2px; }
-.csc-col-acoes { display: flex; align-items: center; gap: 7px; }
-.csc-col-add { width: 22px; height: 22px; border-radius: 5px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); font-size: 16px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: border-color .15s, color .15s; }
-.csc-col-add:hover { border-color: var(--accent); color: var(--accent); }
-.csc-proj { cursor: grab; position: relative; }
-.csc-proj:active { cursor: grabbing; }
-.csc-proj-tags { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
-.csc-proj-manual { font-size: 9px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: var(--muted); background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: 2px 5px; }
-.csc-proj-ferramentas { position: absolute; top: 8px; right: 8px; display: flex; gap: 4px; opacity: 0; transition: opacity .15s; }
-.csc-proj:hover .csc-proj-ferramentas, .csc-proj:focus-within .csc-proj-ferramentas { opacity: 1; }
-.csc-proj-ferramentas button { width: 24px; height: 24px; border-radius: 5px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: border-color .15s, color .15s; }
-.csc-proj-ferramentas button:hover { border-color: var(--accent); color: var(--accent); }
-.csc-proj-ferramentas button:last-child:hover { border-color: var(--red); color: var(--red); }
-
-/* Modal */
-.csc-modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 16px; backdrop-filter: blur(2px);padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));touch-action:none;overscroll-behavior:contain;}
-/* Modal */
-.csc-modal-bg > *{overscroll-behavior:contain;touch-action:pan-y;}
-.csc-modal { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px; width: min(440px, 100%); box-shadow: var(--shadow-lg); display: flex; flex-direction: column; gap: 13px; }
-.csc-modal-t { font-family: var(--fd); font-size: 23px; font-weight: 600; color: var(--text); letter-spacing: -.3px; }
-.csc-campo { display: flex; flex-direction: column; gap: 5px; }
-.csc-campo span { font-size: 12px; font-weight: 600; color: var(--muted); }
-.csc-campo input, .csc-campo textarea, .csc-campo select { font-family: inherit; font-size: 14px; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 9px 11px; outline: none; transition: border-color .15s; }
-.csc-campo input:focus, .csc-campo textarea:focus, .csc-campo select:focus { border-color: var(--accent); }
-.csc-campo textarea { resize: vertical; }
-.csc-modal-foot { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
-.csc-btn-sec { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: var(--radius-sm); padding: 9px 16px; font-size: 13px; font-weight: 500; cursor: pointer; }
-.csc-btn-sec:hover { border-color: var(--muted); color: var(--text); }
-.csc-btn-pri { background: var(--accent); color: var(--sobre-cor); border: none; border-radius: var(--radius-sm); padding: 9px 18px; font-size: 13px; font-weight: 600; cursor: pointer; }
-.csc-btn-pri:hover { filter: brightness(1.08); }
 
 /* Abas + extrato */
 .csc-wrap { display: contents; }
-/* Abas dos dois quadros de projeto (curado × automático). Prefixo csc- como o
-   resto do arquivo — o estilos-globais.css tem classes genéricas e este projeto
-   já teve bug de colisão entre global e tela scoped. */
-.csc-quadro-abas { display: flex; gap: 4px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 4px; width: fit-content; margin: 4px 0 0; }
-.csc-quadro-aba { display: flex; align-items: center; gap: 7px; border: none; background: none; color: var(--muted); font-family: inherit; font-size: 12.5px; font-weight: 600; padding: 7px 14px; border-radius: var(--radius-sm); cursor: pointer; transition: background .15s, color .15s; }
-.csc-quadro-aba.ativa { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm); }
-.csc-quadro-cont { font-size: 11px; font-weight: 700; min-width: 18px; padding: 1px 5px; border-radius: 9px; background: var(--border); color: var(--muted); }
-.csc-quadro-aba.ativa .csc-quadro-cont { background: var(--text); color: var(--surface); }
-.csc-quadro-desc { font-family: 'IBM Plex Sans', sans-serif; font-size: 12.5px; color: var(--muted); margin: 8px 0 14px; max-width: 70ch; }
-@media (max-width: 640px) {
-  .csc-quadro-abas { width: 100%; }
-  .csc-quadro-aba { flex: 1; justify-content: center; padding: 8px 8px; font-size: 11.5px; }
-  .csc-quadro-desc { font-size: 11.5px; }
-}
 
 .csc-tabs { display: flex; gap: 4px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 4px; width: fit-content; }
 .csc-tabs button { border: none; background: none; color: var(--muted); font-family: inherit; font-size: 13.5px; font-weight: 600; padding: 8px 18px; border-radius: var(--radius-sm); cursor: pointer; transition: background .15s, color .15s; }
@@ -1199,6 +976,9 @@ onUnmounted(() => {
   .csc-hero { flex-direction: column; align-items: flex-start; }
   .csc-hero-gasto { text-align: left; padding-left: 16px; border-left-width: 3px; }
   .csc-robos { grid-template-columns: 1fr; }
+  /* A legenda é um flex de dois textos lado a lado. No celular isso virava duas
+     colunas de ~150px, com palavra quebrada no meio — ninguém lê assim. */
+  .csc-legenda { flex-direction: column; align-items: flex-start; gap: 10px; }
   .csc-tabs, .csc-periodo { width: 100%; }
   .csc-tabs button, .csc-periodo button { flex: 1; text-align: center; }
   /* Extrato empilhado no celular */

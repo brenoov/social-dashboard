@@ -85,6 +85,15 @@ export function decidirRepeticao({
   estourouOPrazo = false,
   msDecorridos = 0,
   retryAfterSegundos = null,
+  // Quem está do outro lado. Só muda as frases — a política é a mesma, e ela
+  // vale para qualquer API de fora: 404/403 é resposta, 429/5xx/mudo é falha
+  // dele. Padrão 'Bling' porque foi de lá que a regra saiu, e assim o
+  // bling-proxy (e os testes dele) não mudam uma linha.
+  fornecedor = 'Bling',
+  // Prazo e orçamento também variam por fornecedor: os 11s/25s saíram das
+  // medições do Bling. Quem chama pode passar os seus.
+  prazoPorTentativaMs = PRAZO_POR_TENTATIVA_MS,
+  orcamentoMs = ORCAMENTO_MS,
 } = {}) {
   const nao = (motivo) => ({ repetir: false, esperarMs: 0, motivo });
 
@@ -93,7 +102,7 @@ export function decidirRepeticao({
 
   // 404, 403, 400… são a RESPOSTA do Bling. Repetir não muda nada.
   const ehFalhaDele = estourouOPrazo || status === null || status === 429 || (ehNumero(status) && status >= 500);
-  if (!ehFalhaDele) return nao('o Bling respondeu, e a resposta é essa');
+  if (!ehFalhaDele) return nao(`o ${fornecedor} respondeu, e a resposta é essa`);
 
   if (tentativa >= TENTATIVAS_MAX) return nao(`já tentei ${TENTATIVAS_MAX} vezes`);
 
@@ -105,24 +114,24 @@ export function decidirRepeticao({
   }
 
   // A tentativa seguinte tem de caber INTEIRA no que resta.
-  if (msDecorridos + esperarMs + PRAZO_POR_TENTATIVA_MS > ORCAMENTO_MS) {
+  if (msDecorridos + esperarMs + prazoPorTentativaMs > orcamentoMs) {
     return nao('não caberia outra tentativa no tempo desta chamada');
   }
 
   const motivo = estourouOPrazo
-    ? 'o Bling não respondeu no prazo'
+    ? `o ${fornecedor} não respondeu no prazo`
     : status === 429
-      ? 'o Bling pediu para esperar'
+      ? `o ${fornecedor} pediu para esperar`
       : status === null
-        ? 'a chamada não chegou ao Bling'
-        : `o Bling falhou do lado dele (${status})`;
+        ? `a chamada não chegou ao ${fornecedor}`
+        : `o ${fornecedor} falhou do lado dele (${status})`;
   return { repetir: true, esperarMs, motivo };
 }
 
 /** A frase que a tela recebe quando as tentativas acabaram. Diz o que houve e o
  *  que fazer — erro que só diz "erro" vira chamado. */
-export function fraseDeDesistencia(motivo, tentativas) {
-  return `Não consegui falar com o Bling agora (${motivo}). `
+export function fraseDeDesistencia(motivo, tentativas, fornecedor = 'Bling') {
+  return `Não consegui falar com o ${fornecedor} agora (${motivo}). `
     + `Tentei ${tentativas} ${tentativas === 1 ? 'vez' : 'vezes'}. `
-    + 'Tente de novo em instantes; se continuar, o Bling está fora do ar.';
+    + `Tente de novo em instantes; se continuar, o ${fornecedor} está fora do ar.`;
 }

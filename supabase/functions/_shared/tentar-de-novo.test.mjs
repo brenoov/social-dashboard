@@ -140,3 +140,46 @@ test('a frase da desistência diz o que houve e o que fazer', () => {
   assert.match(f, /3 vezes/);
   assert.match(f, /Tente de novo/);
 });
+
+// ── a política serve a QUALQUER fornecedor (19/08/2026) ─────────────────────
+// Nasceu para o Bling, mas nada nela é do Bling: "404 é resposta, 429 é falha
+// dele" vale igual para a API de custos da OpenAI, que em 24h devolveu 500 em 3
+// de 26 chamadas do `custo-openai`. Trocar só as frases evita a gambiarra de
+// copiar o arquivo — e um erro que diz "não consegui falar com o Bling" numa
+// tela de custo da OpenAI manda a pessoa investigar o lugar errado.
+
+test('o nome do fornecedor entra nas frases, e o padrão continua Bling', () => {
+  const oa = decidirRepeticao({ tentativa: 1, status: 429, fornecedor: 'OpenAI' });
+  assert.match(oa.motivo, /OpenAI/);
+  assert.doesNotMatch(oa.motivo, /Bling/);
+
+  // sem passar nada, nada muda para quem já usava
+  const bl = decidirRepeticao({ tentativa: 1, status: 429 });
+  assert.match(bl.motivo, /Bling/);
+
+  assert.match(fraseDeDesistencia('deu ruim', 2, 'OpenAI'), /OpenAI/);
+  assert.match(fraseDeDesistencia('deu ruim', 2), /Bling/);
+});
+
+test('404 continua sendo RESPOSTA, seja de quem for', () => {
+  for (const forn of ['Bling', 'OpenAI', 'Anthropic']) {
+    const r = decidirRepeticao({ tentativa: 1, status: 404, fornecedor: forn });
+    assert.equal(r.repetir, false);
+    assert.match(r.motivo, new RegExp(forn));
+  }
+});
+
+test('prazo e orçamento próprios: o que cabe para um não cabe para o outro', () => {
+  // mesma situação, dois orçamentos. Com o do Bling (25s) ainda cabe outra
+  // tentativa aos 10s; com um orçamento apertado de 12s, não cabe — e a
+  // política tem de dizer NÃO em vez de começar algo que será morto no meio.
+  const folgado = decidirRepeticao({ tentativa: 1, status: 500, msDecorridos: 10000 });
+  assert.equal(folgado.repetir, true);
+
+  const apertado = decidirRepeticao({
+    tentativa: 1, status: 500, msDecorridos: 10000,
+    prazoPorTentativaMs: 6000, orcamentoMs: 12000,
+  });
+  assert.equal(apertado.repetir, false);
+  assert.match(apertado.motivo, /não caberia/);
+});

@@ -31,7 +31,7 @@ const RECURSOS = [
   { key: 'noticias', label: 'Portal de Notícias', acoes: ['ver'] },
   { key: 'gestor', label: 'Gestão Comercial (IA)', acoes: ['ver'] },
   { key: 'gestor.relatorios', label: 'Relatórios Comerciais', acoes: ['ver', 'exportar'] },
-  { key: 'claude.status', label: 'Painel de Status do Claude', acoes: ['ver'] },
+  { key: 'claude.status', label: 'Painel de Status da IA', acoes: ['ver'] },
   { key: 'conteudo', label: 'Redes Sociais — Central de Conteúdo', acoes: ['ver', 'criar', 'editar', 'excluir'] },
   { key: 'conteudo.aprovar', label: 'Redes Sociais — Aprovar peças', acoes: ['ver'] },
 ]
@@ -52,7 +52,7 @@ const TREE = [
     { key: 'frota.aprovar', label: 'Aprovar requisição de veículo' },
     { key: 'autenticidade', label: 'Autenticidade e Garantia' },
   ] },
-  { key: 'claude.status', label: 'Painel de Status do Claude', children: [] },
+  { key: 'claude.status', label: 'Painel de Status da IA', children: [] },
   { key: 'conteudo', label: 'Central de Conteúdo', children: [] },
 ]
 
@@ -87,7 +87,7 @@ test('rótulo do grupo vem da árvore; ferramenta desconhecida com 1 recurso usa
   assert.equal(porKey.meta, 'Meta Ads')
   assert.equal(porKey['gestao-interna'], 'Gestão Interna')
   // 'claude' não existe na árvore (lá a chave é 'claude.status')
-  assert.equal(porKey.claude, 'Painel de Status do Claude')
+  assert.equal(porKey.claude, 'Painel de Status da IA')
 })
 
 test('rótulo cai na própria chave quando a árvore não conhece e o grupo tem 2+', () => {
