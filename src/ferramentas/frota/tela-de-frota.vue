@@ -3657,18 +3657,29 @@ onMounted(async () => {
                  esqueceu de devolver, e não havia caminho na tela pra desfazer.
                  Antes disto, "Passar o carro" só existia na aba Motorista e só
                  pro carro fixo da própria pessoa. -->
-            <!-- Aparece em TODO carro ativo, e cada palavra do rótulo diz o que
-                 dá pra fazer com aquele: passar/devolver quando há alguém com
-                 ele, e recolher pro estoque em qualquer um. Antes só aparecia
-                 com posse aberta, e aí não havia como recolher um carro que
-                 ninguém tinha pegado. `passarPara` trata "não havia posse": só
-                 abre, ou nem isso. -->
+            <!-- Aparece em TODO carro ativo. Antes só aparecia com posse
+                 aberta, e aí não havia como recolher um carro que ninguém tinha
+                 pegado. `passarPara` trata "não havia posse": só abre, ou nem
+                 isso.
+
+                 O RÓTULO ERA TRÊS, E VIROU UM (20/08/2026, pedido do dono:
+                 "encurta o rótulo"). Ele enumerava as ações — "Passar, devolver
+                 ou recolher" / "Encerrar ou recolher" / "Passar ou recolher" —
+                 pra dizer o que dava pra fazer com aquele carro ANTES do
+                 clique. A intenção era boa e o preço apareceu na medição: com
+                 28 caracteres, o botão quebrava em quatro linhas numa coluna de
+                 95px e era ele que empurrava a altura de todos os vizinhos.
+
+                 Quem faz esse trabalho agora é o modal, que já se chama "Quem
+                 está com o {carro}" e explica tudo dentro. O botão só precisa
+                 levar até lá — e continua sendo verbo, como o padrão manda:
+                 controle diz o que acontece.
+
+                 "Devolver" e "encerrar" saíram do rótulo, não da tela: devolver
+                 é passar de volta pro dono, e encerrar é recolher. As duas
+                 continuam no modal, com nome próprio. -->
             <button v-if="podeEditar && l.veiculo.situacao !== 'alienado'" class="fr-btn"
-                    @click="abrirPasse(l.veiculo)">
-              {{ l.porPosse
-                ? (l.veiculo.pessoa_id ? 'Passar, devolver ou recolher' : 'Encerrar ou recolher')
-                : 'Passar ou recolher' }}
-            </button>
+                    @click="abrirPasse(l.veiculo)">Passar ou recolher</button>
             <a v-if="zapDoVeiculo(l.veiculo)" class="fr-btn fr-zap" :href="zapDoVeiculo(l.veiculo)"
                  target="_blank" rel="noopener"
                  :title="l.veiculo.contato_nome ? ('Falar com ' + l.veiculo.contato_nome + ' no WhatsApp') : 'Falar no WhatsApp'">
