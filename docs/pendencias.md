@@ -293,6 +293,38 @@ repositório diferente do código no ar, e isso é o tipo de coisa que morde daq
 três meses. Fecha sozinho no próximo deploy da `bling-proxy`; não vale subir só
 por isso, porque ela acabou de ser estabilizada.
 
+### B23 · Barra de Topo › o lado das ações não encolhia ✅ *fechado em 20/08*
+
+**O que era.** `.bt-dir` — o lado direito da `barra-de-topo`, onde as ações
+moram — era `flex: 0 0 auto`. Ela reservava sempre o *conteúdo máximo* dos
+filhos, e o `.bt-meio` (título + subtítulo) ficava com o que sobrasse. Nas telas
+de faixa larga o título era esmagado até zerar. Medido a 768px, antes:
+
+| Tela | altura da barra | título |
+|---|---|---|
+| Gestão à Vista | 732px | 0px, **19 linhas** |
+| Análise de Campanhas | 685px | 0px, 18 linhas |
+| Gestão de Tráfego | 632px | 0px, 15 linhas |
+| Análise de Vendas | 513px | 0px, 15 linhas |
+
+Uma letra por linha, e a barra comendo 600–700px de uma tela de 900px. Não era
+um caso extremo: era o estado normal dessas quatro telas em tablet.
+
+**O conserto.** `flex: 0 1 auto; min-width: 0` em `.bt-dir`. As mesmas quatro
+telas passam a ter barra de 93 a 108px e título em 2 linhas legíveis.
+
+**Conferido nas 25 telas que usam a barra**, em 7 larguras (1920, 1440, 1280,
+1024, 768, 640, 375), comparando antes × depois na mesma página: **6 melhoraram,
+19 ficaram idênticas, nenhuma piorou.** O único custo são 26–27px a mais de
+barra a 1024px na Análise de Campanhas e na Gestão de Tráfego, onde a faixa de
+controles passa a quebrar em duas fileiras em vez de esmagar o título — que é
+exatamente o que esta barra promete fazer.
+
+⚠️ **A regra nova para quem puser faixa larga na barra:** o que não encolhe não
+fica menor, **vaza para fora da barra**. Uma régua de botões precisa de
+`min-width: 0` e `overflow-x: auto`. A Análise de Campanhas não tinha e ficou com
+três botões pendurados 17px além da borda; foi corrigida junto.
+
 ---
 
 ## Parte C — Ideias guardadas (ninguém pediu ainda)

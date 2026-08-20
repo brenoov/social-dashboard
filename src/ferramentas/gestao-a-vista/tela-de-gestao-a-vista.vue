@@ -130,6 +130,7 @@ import {
 } from '../../compartilhado/canais-de-venda-permitidos.js'
 import { adminToast } from '../../compartilhado/avisos.js'
 import { filtrarPedidosPorCanal, depositosVisiveis, prepararEstoque, statusSaldo, categoriasDisponiveis, DEPOSITOS } from './estoque-gv.js'
+import { montarLinhas, posicionarLinhas, alturaComum } from './velocimetro-gv.js'
 import { aplicarDataDaVenda } from '../../compartilhado/data-da-venda.js'
 // A PORTA DO BLING E O QUE FAZER QUANDO ELE NÃO RESPONDE. Mesmo módulo da
 // Análise de Vendas: em 12/08/2026 a chamada devolvia o corpo sem olhar o status
@@ -1108,38 +1109,20 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
       ${line4svg}
     </svg>`;
   }
-  function smGauge(p,hexColor,uid,topText,vendidoStr,metaStr,desvioStr,desvioCol,canalNm,deltaStr,deltaCol){
+  // `linhas` já vem pronta de montarLinhas() (velocimetro-gv.js) e `alturaMinima`
+  // é a altura comum da rodada — é ela que faz todos os cards saírem do MESMO
+  // tamanho. O porquê das duas coisas está escrito no cabeçalho daquele módulo.
+  function smGauge(p,hexColor,uid,topText,linhas,alturaMinima){
     const R=34,cx=50,cy=44;
     const C=2*Math.PI*R,sweep=240/360*C,gap=C-sweep;
     const fill=p!==null?Math.min(Math.max(p,0),100)/100*sweep:0;
     const rot=150;
-    // As linhas abaixo do arco EMPILHAM: cada uma só ocupa espaço se existir.
-    //
-    // Antes cada linha tinha um y fixo (86, 99, 111, 123, 135) e o viewBox tinha
-    // altura fixa. Quando o canal não tem meta, as três do meio (vendido, meta,
-    // desvio) não renderizam — mas o delta continuava cravado lá embaixo e a altura
-    // continuava reservada, deixando um vão enorme entre o valor e a última linha.
-    // Era o caso mais comum na tela, porque a maioria dos canais não tem meta.
-    //
-    // O `vao` de cada linha é a distância até a PRÓXIMA. Os valores preservam o
-    // espaçamento original de quando todas as 5 aparecem — só o caso incompleto muda.
-    const linhas=[
-      vendidoStr&&{t:vendidoStr,tam:15, peso:500,fonte:'IBM Plex Mono,ui-monospace,monospace',      cor:'var(--text)',            vao:13},
-      metaStr   &&{t:metaStr,   tam:9,  peso:400,fonte:'Sora,sans-serif',cor:'var(--muted)',          vao:12},
-      desvioStr &&{t:desvioStr, tam:7.5,peso:700,fonte:'Sora,sans-serif',cor:desvioCol||'var(--muted)',vao:12},
-      canalNm   &&{t:canalNm,   tam:5.4,peso:400,fonte:'Sora,sans-serif',cor:'var(--muted)',          vao:12},
-      deltaStr  &&{t:deltaStr,  tam:7.5,peso:700,fonte:'Sora,sans-serif',cor:deltaCol||'var(--muted)', vao:0},
-    ].filter(Boolean);
-    let _y=86; // primeira linha logo abaixo do arco (que termina em y≈78)
-    const linhasSvg=linhas.map(l=>{
+    const posicionadas=posicionarLinhas(linhas,alturaMinima);
+    const linhasSvg=posicionadas.linhas.map(l=>{
       const mono=/Mono/.test(l.fonte);
-      const svg=`<text x="50" y="${_y}" text-anchor="middle" font-family="${l.fonte}" font-size="${l.tam}" font-weight="${l.peso}" fill="${l.cor}"${fitAttr(l.t,l.tam,92,mono)}>${l.t}</text>`;
-      _y+=l.vao;
-      return svg;
+      return `<text x="50" y="${l.y}" text-anchor="middle" font-family="${l.fonte}" font-size="${l.tam}" font-weight="${l.peso}" fill="${l.cor}"${fitAttr(l.t,l.tam,92,mono)}>${l.t}</text>`;
     }).join('');
-    // Altura sob medida: sobra só o respiro da última linha. Sem linha nenhuma, 62
-    // (só o arco), como era antes.
-    const vbH=linhas.length?_y+10:62;
+    const vbH=posicionadas.altura;
     const isGoal=p!==null&&p>=100;
     const gid=`sgliq_${uid}`;
     const neonFilter=isGoal?`drop-shadow(0 0 4px ${hexColor}) drop-shadow(0 0 12px ${hexColor}99)`:`drop-shadow(0 0 4px ${hexColor}88)`;
@@ -1183,7 +1166,11 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
 
   // ── SMALL GAUGES (per canal) ── um gauge por canal em EXIBIÇÃO (canaisArr já
   // é o universo completo — ver comentário acima), incluindo os com R$ 0,00.
-  const smGaugesHtml=canaisArr.map((c,i)=>{
+  // DUAS PASSADAS, de propósito: a 1ª monta as linhas de cada canal, a 2ª desenha.
+  // No meio delas sai a `alturaDosCards` — a maior altura da rodada, aplicada a
+  // TODOS. Sem isso, canal sem meta e sem histórico saía com menos da metade da
+  // altura do canal completo, e a fileira ficava desalinhada.
+  const cardsCanal=canaisArr.map((c,i)=>{
     const hasMeta=!!metasMap[c.id];
     const cMetaP=hasMeta?_calcMetaPeriodo(c.id,metasMap[c.id]/diasMes*diasTotMeta):null;
     const cPct=cMetaP?Math.round(c.v/cMetaP*100):null;
@@ -1192,17 +1179,21 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
     const cPrev=porCanalPrev[c.id]||0;
     const cDelta=cPrev>0?Math.round((c.v-cPrev)/cPrev*100):null;
     const cDesvio=cMetaP!=null?c.v-cMetaP:null;
-    const vendStr=hasMeta?fmtR0(c.v):null;
-    const metaTxt=cMetaP?'meta '+fmtR0(cMetaP):null;
-    const desvTxt=cDesvio!=null?(cDesvio>=0?'↑ R$':'↓ R$')+fmtK(Math.abs(cDesvio))+' da meta':null;
-    const desvCol=cDesvio!=null?(cDesvio>=0?'var(--green)':'var(--red)'):null;
-    const cDeltaTxt=cDelta!=null?(cDelta>=0?'↑':'↓')+Math.abs(cDelta)+'% vs '+prevLbl:null;
-    const cDeltaCol=cDelta!=null?(cDelta>=0?'var(--green)':'var(--red)'):null;
-    return `<div class="gv-sm-item">
-      <div class="gv-sm-item-lbl">${escHtml(c.nm)}</div>
-      ${smGauge(hasMeta?cPct:null,cHex,'gv-g-c'+i,topText,vendStr,metaTxt,desvTxt,desvCol,'',cDeltaTxt,cDeltaCol)}
-    </div>`;
-  }).join('');
+    const linhas=montarLinhas({
+      vendidoStr:hasMeta?fmtR0(c.v):null,
+      metaStr:cMetaP?'meta '+fmtR0(cMetaP):null,
+      desvioStr:cDesvio!=null?(cDesvio>=0?'↑ R$':'↓ R$')+fmtK(Math.abs(cDesvio))+' da meta':null,
+      desvioCol:cDesvio!=null?(cDesvio>=0?'var(--green)':'var(--red)'):null,
+      deltaStr:cDelta!=null?(cDelta>=0?'↑':'↓')+Math.abs(cDelta)+'% vs '+prevLbl:null,
+      deltaCol:cDelta!=null?(cDelta>=0?'var(--green)':'var(--red)'):null,
+    });
+    return {c,i,linhas,pct:hasMeta?cPct:null,hex:cHex,topText};
+  });
+  const alturaDosCards=alturaComum(cardsCanal.map(k=>k.linhas));
+  const smGaugesHtml=cardsCanal.map(k=>`<div class="gv-sm-item">
+      <div class="gv-sm-item-lbl">${escHtml(k.c.nm)}</div>
+      ${smGauge(k.pct,k.hex,'gv-g-c'+k.i,k.topText,k.linhas,alturaDosCards)}
+    </div>`).join('');
 
   // ── RANKINGS ──
   const canaisRank=canaisArr.map((c,i)=>{
@@ -1508,7 +1499,12 @@ onUnmounted(() => {
    (que já é overflow-y:auto por conta própria). */
 .tela-gestao-a-vista.is-est-open{height:auto;min-height:100vh;max-height:none;overflow-y:auto;}
 .tela-gestao-a-vista :deep(#gv-watermark){position:absolute;bottom:100px;right:32px;font-family:var(--fonte-principal);font-size:max(16px, calc(73px * var(--escala-texto, 1)));font-weight:700;letter-spacing:8px;text-transform:uppercase;color:var(--text);opacity:.18;pointer-events:none;user-select:none;z-index:1;line-height:1;}
-.tela-gestao-a-vista :deep(.gv-topbar){display:flex;align-items:center;justify-content:space-between;padding:7px 28px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;}
+/* ⚠️ `.gv-topbar` e `.gv-topbar-brand` NÃO EXISTEM MAIS NO TEMPLATE: saíram em
+   06/08/2026, quando a faixa de controles passou para o encaixe de ações do
+   <barra-de-topo>. Hoje a barra é `.bt-barra > .bt-dir > .gv-controles`. Estas
+   regras ficam por serem inertes, mas mexer nelas não muda nada na tela —
+   quem for ajustar a margem do topo ajusta `.gv-controles` e a barra-de-topo. */
+.tela-gestao-a-vista :deep(.gv-topbar){display:flex;align-items:center;justify-content:space-between;padding:var(--gv-pad-y) var(--gv-pad-borda);border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;}
 .tela-gestao-a-vista :deep(.gv-back){display:flex;align-items:center;gap:4px;font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));font-weight:600;color:var(--accent);cursor:pointer;background:none;border:none;padding:0;transition:opacity .15s;letter-spacing:.3px;text-transform:uppercase;}
 .tela-gestao-a-vista :deep(.gv-back:hover){opacity:.75;}
 .tela-gestao-a-vista :deep(.gv-tut-btn){display:flex;align-items:center;gap:5px;font-family:var(--fonte-principal);font-size:max(9px, calc(9px * var(--escala-texto, 1)));font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--accent);cursor:pointer;background:transparent;border:1px solid var(--border);border-radius:999px;padding:4px 10px;transition:border-color .12s,background .12s;}
@@ -1537,7 +1533,7 @@ onUnmounted(() => {
 .tela-gestao-a-vista :deep(.gv-update-status){font-family:var(--fonte-principal);font-size:max(9px, calc(8px * var(--escala-texto, 1)));letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);opacity:.45;margin-top:4px;text-align:right;}
 .tela-gestao-a-vista :deep(.gv-cf-lbl){font-family:var(--fonte-principal);font-size:max(9px, calc(8px * var(--escala-texto, 1)));letter-spacing:4px;text-transform:uppercase;color:var(--muted);}
 .tela-gestao-a-vista :deep(.gv-cf-dd){position:relative;}
-.tela-gestao-a-vista :deep(.gv-cf-trigger){font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));letter-spacing:.3px;padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;display:inline-flex;align-items:center;gap:10px;min-width:170px;justify-content:space-between;transition:border-color .12s ease,background .12s ease;}
+.tela-gestao-a-vista :deep(.gv-cf-trigger){font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));letter-spacing:.3px;padding:0 var(--sp-3);border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;display:inline-flex;align-items:center;gap:10px;min-width:170px;justify-content:space-between;transition:border-color .12s ease,background .12s ease;}
 .tela-gestao-a-vista :deep(.gv-cf-trigger:hover){border-color:var(--accent);}
 .tela-gestao-a-vista :deep(.gv-cf-dd.open .gv-cf-trigger){border-color:var(--accent);background:var(--surface);}
 .tela-gestao-a-vista :deep(.gv-cf-trigger-txt){font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -1558,7 +1554,7 @@ onUnmounted(() => {
    filho fica do tamanho do conteúdo e quebra por dentro em vez de usar a folga
    que está bem ali. Agora ele cresce até o que houver. Medido em 1280/1366/
    1440/1920. */
-.tela-gestao-a-vista :deep(.gv-topbar-controls){display:flex;align-items:center;justify-content:flex-end;gap:12px;flex-wrap:wrap;flex:1 1 auto;min-width:0;}
+.tela-gestao-a-vista :deep(.gv-topbar-controls){display:flex;align-items:center;justify-content:flex-end;gap:var(--sp-3);flex-wrap:wrap;flex:1 1 auto;min-width:0;}
 /* ── Topbar do notebook (1025–1500px) ──────────────────────────────────────
    Nesta faixa a barra pedia ~1.390px de conteúdo: marca 544 + períodos 493 +
    canal 218 + relógio 110. O filtro de canal caía para uma segunda linha, e a
@@ -1589,16 +1585,16 @@ onUnmounted(() => {
 .tela-gestao-a-vista :deep(.gv-aviso svg){flex:0 0 auto;color:var(--orange);}
 .tela-gestao-a-vista :deep(.gv-aviso span){color:var(--muted);}
 .tela-gestao-a-vista :deep(.gv-board){flex:1;display:grid;grid-template-columns:480px 1fr;gap:1px;background:var(--border);overflow:hidden;min-height:0;position:relative;z-index:2;backdrop-filter:none;}
-.tela-gestao-a-vista :deep(.gv-left){background:var(--bg);display:flex;flex-direction:column;align-items:center;padding:8px 22px;gap:0;overflow:hidden;justify-content:space-between;}
+.tela-gestao-a-vista :deep(.gv-left){background:var(--bg);display:flex;flex-direction:column;align-items:center;padding:var(--gv-pad-y) var(--gv-pad-borda);gap:0;overflow:hidden;justify-content:space-between;}
 /* align-items:safe center — quando o conteúdo é mais alto que a área (telão/dev-tv com
    muitos canais), 'safe' alinha pelo TOPO em vez de centralizar e cortar o topo do
    velocímetro/rótulo (o overflow:hidden cortava o topo). Ao caber, se comporta como center. */
 .tela-gestao-a-vista :deep(.gv-gauge-wrap){flex:1;min-height:0;max-height:min(50vh,420px);width:100%;display:flex;align-items:safe center;justify-content:center;}
 .tela-gestao-a-vista :deep(.gv-gauge-inner){width:100%;max-width:460px;aspect-ratio:1;}
 .tela-gestao-a-vista :deep(.gv-right){display:grid;grid-template-rows:55fr 45fr;gap:1px;background:var(--border);overflow:hidden;min-height:0;}
-.tela-gestao-a-vista :deep(.gv-canal-panel){background:var(--bg);padding:7px 12px;display:flex;flex-direction:column;overflow:hidden;}
+.tela-gestao-a-vista :deep(.gv-canal-panel){background:var(--bg);padding:var(--gv-pad-y) var(--gv-pad-x);display:flex;flex-direction:column;overflow:hidden;}
 .tela-gestao-a-vista :deep(.gv-canal-head){display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px;}
-.tela-gestao-a-vista :deep(.gv-canal-vermais){font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));font-weight:600;letter-spacing:.3px;padding:4px 11px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--accent);cursor:pointer;flex-shrink:0;white-space:nowrap;transition:border-color .12s ease;}
+.tela-gestao-a-vista :deep(.gv-canal-vermais){font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));font-weight:600;letter-spacing:.3px;display:inline-flex;align-items:center;justify-content:center;padding:0 var(--sp-3);border:1px solid var(--border);background:var(--surface2);color:var(--accent);cursor:pointer;flex-shrink:0;white-space:nowrap;transition:border-color .12s ease;}
 .tela-gestao-a-vista :deep(.gv-canal-vermais:hover){border-color:var(--accent);}
 /* Colapsado: uma linha horizontal de ATÉ 5 velocímetros (largura fixa = 1/5, normalizada) */
 .tela-gestao-a-vista :deep(.gv-canal-scroll){flex:1;min-height:0;overflow:hidden;display:flex;align-items:safe center;scrollbar-width:thin;}
@@ -1613,7 +1609,10 @@ onUnmounted(() => {
 .tela-gestao-a-vista :deep(.gv-canal-panel.gv-canal-expandido .gv-canal-grid > .gv-sm-item){flex:none;max-width:none;}
 .tela-gestao-a-vista :deep(.gv-canal-panel.gv-canal-expandido .gv-canal-grid > .gv-sm-item:nth-child(n+6)){display:flex;}
 .tela-gestao-a-vista :deep(.gv-sm-item){display:flex;flex-direction:column;align-items:center;gap:2px;}
-.tela-gestao-a-vista :deep(.gv-sm-item-lbl){font-family:var(--fonte-principal);font-size:max(9px, calc(14px * var(--escala-texto, 1)));font-weight:700;letter-spacing:.5px;color:var(--muted);text-align:center;line-height:1.3;overflow-wrap:break-word;word-break:break-word;max-width:100%;}
+/* min-height de DUAS linhas: "Site" (uma linha) e "Mercado Livre" (duas) deixavam
+   os cards da fileira com alturas diferentes e os arcos desalinhados. A caixa é
+   sempre de duas linhas e o nome curto fica centrado nela. */
+.tela-gestao-a-vista :deep(.gv-sm-item-lbl){font-family:var(--fonte-principal);font-size:max(9px, calc(14px * var(--escala-texto, 1)));font-weight:700;letter-spacing:.5px;color:var(--muted);text-align:center;line-height:1.3;min-height:2.6em;display:flex;align-items:center;justify-content:center;overflow-wrap:anywhere;max-width:100%;}
 .tela-gestao-a-vista :deep(.gv-sm-item-val){font-family:var(--fonte-dados);font-size:max(9px, calc(13px * var(--escala-texto, 1)));color:var(--text);}
 .tela-gestao-a-vista :deep(.gv-sm-item-delta){font-family:var(--fonte-principal);font-size:max(9px, calc(9px * var(--escala-texto, 1)));font-weight:700;letter-spacing:.3px;text-align:center;}
 .tela-gestao-a-vista :deep(.gv-sm-item-delta.up){color:var(--green);}
@@ -1626,7 +1625,7 @@ onUnmounted(() => {
 .tela-gestao-a-vista :deep(.gv-rank-desvio.pos){color:var(--green);}
 .tela-gestao-a-vista :deep(.gv-rank-desvio.neg){color:var(--red);}
 .tela-gestao-a-vista :deep(.gv-rankings){display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);overflow:hidden;min-height:0;}
-.tela-gestao-a-vista :deep(.gv-rank-panel){background:var(--bg);padding:7px 12px;display:flex;flex-direction:column;overflow:hidden;}
+.tela-gestao-a-vista :deep(.gv-rank-panel){background:var(--bg);padding:var(--gv-pad-y) var(--gv-pad-x);display:flex;flex-direction:column;overflow:hidden;}
 .tela-gestao-a-vista :deep(.gv-rank-scroll){flex:1;overflow:hidden;min-height:0;position:relative;}
 .tela-gestao-a-vista :deep(.gv-rank-scroll-inner){display:flex;flex-direction:column;}
 @keyframes gvRankUp{0%,8%{transform:translateY(0)}92%,100%{transform:translateY(var(--gv-scroll-h,0px))}}
@@ -1715,13 +1714,37 @@ onUnmounted(() => {
 @media(prefers-reduced-motion:reduce){
   .tela-gestao-a-vista :deep(.gauge-shimmer){animation:none!important;}
 }
+/* ── MEDIDA ÚNICA DE BOTÃO ──────────────────────────────────────────────────
+   A faixa de controles tinha três alturas na mesma linha (período 22px, AUTO
+   22px com raio diferente, Canal 27px) e o período ainda variava de largura com
+   o texto — "1D" contra "MÊS PASS.". Daqui pra frente os quatro botões desta
+   tela saem da mesma medida; quem muda o tamanho muda AQUI, não em cada regra.
+   `--gv-btn-larg` está em `ch` (largura do "0" da fonte em uso) para acompanhar
+   a escala de texto em vez de virar um pixel cravado. 12ch é o que cabe o
+   rótulo mais largo, "ATÉ AGORA".
+   HISTÓRIA, porque quase virou "não dá": a largura igual leva a faixa de 712px
+   para 963px, e enquanto `.bt-dir` da barra-de-topo foi `flex:0 0 auto` isso
+   esmagava o título até zerar. Só passou a caber depois que a barra ganhou
+   `flex:0 1 auto;min-width:0` (20/08/2026, conferido nas 25 telas). Se um dia
+   alguém reverter a barra, é ESTA linha que volta a quebrar o título. */
+.tela-gestao-a-vista{--gv-btn-alt:28px;--gv-btn-larg:12ch;--gv-btn-raio:var(--radius-md);
+  /* MARGEM: cada painel do board tinha a sua (topo 7/28, esquerda 8/22, painéis
+     7/12) e nenhuma saía da escala do PADRAO-DA-CENTRAL. Agora são duas medidas,
+     em token, reafinadas por faixa igual à do botão. */
+  --gv-pad-y:var(--sp-2);--gv-pad-x:var(--sp-3);--gv-pad-borda:var(--sp-5);}
+.tela-gestao-a-vista :deep(.gv-pbtn),
+.tela-gestao-a-vista :deep(.vs-ac-toggle),
+.tela-gestao-a-vista :deep(.gv-cf-trigger),
+.tela-gestao-a-vista :deep(.gv-canal-vermais){box-sizing:border-box;min-height:var(--gv-btn-alt);border-radius:var(--gv-btn-raio);}
+
 /* Botão de período (compartilhado com Análise de Vendas/Meta Ads/GT no legado —
    aqui portado só para a Gestão à Vista, que é a única já migrada) */
-.tela-gestao-a-vista :deep(.gv-period-btns){display:flex;align-items:center;gap:4px;}
-.tela-gestao-a-vista :deep(.gv-pbtn){font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));padding:4px 9px;border-radius:5px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;transition:all .15s;}
+.tela-gestao-a-vista :deep(.gv-period-btns){display:flex;align-items:center;gap:var(--sp-1);}
+.tela-gestao-a-vista :deep(.gv-pbtn){font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));display:inline-flex;align-items:center;justify-content:center;min-width:var(--gv-btn-larg);padding:0 var(--sp-2);border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;white-space:nowrap;transition:all .15s;}
 .tela-gestao-a-vista :deep(.gv-pbtn.active){background:var(--accent);color:var(--sobre-cor);border-color:var(--accent);}
-/* Auto-ciclo (idem — classe compartilhada, portada só aqui) */
-.tela-gestao-a-vista :deep(.vs-ac-toggle){font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));letter-spacing:.8px;text-transform:uppercase;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;transition:all .15s;margin-left:6px;}
+/* Auto-ciclo (idem — classe compartilhada, portada só aqui). Sem margin-left
+   avulso: o `gap` da faixa já dá o respiro, e a margem desalinhava o conjunto. */
+.tela-gestao-a-vista :deep(.vs-ac-toggle){font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));letter-spacing:.8px;text-transform:uppercase;display:inline-flex;align-items:center;justify-content:center;min-width:var(--gv-btn-larg);padding:0 var(--sp-2);border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;white-space:nowrap;transition:all .15s;}
 .tela-gestao-a-vista :deep(.vs-ac-toggle.running){border-color:var(--green);color:var(--green);}
 
 /* ── RESPONSIVE: GESTÃO À VISTA (legacy L625-767) ── */
@@ -1729,11 +1752,12 @@ onUnmounted(() => {
   .tela-gestao-a-vista{height:auto;min-height:100vh;max-height:none;overflow-y:auto;-webkit-overflow-scrolling:touch;}
   .tela-gestao-a-vista :deep(#gv-bg-anim){display:none;}
   .tela-gestao-a-vista :deep(.gv-board){display:flex;flex-direction:column;gap:1px;background:var(--border);overflow:visible;min-height:0;padding:0;}
-  .tela-gestao-a-vista :deep(.gv-left){overflow:visible;flex:none;min-height:auto;padding:16px 20px;gap:12px;justify-content:flex-start;}
+  .tela-gestao-a-vista :deep(.gv-left){overflow:visible;flex:none;min-height:auto;padding:var(--gv-pad-y) var(--gv-pad-borda);gap:var(--sp-3);justify-content:flex-start;}
   /* Tablet e celular deitado: 260px era pouco pro elemento principal da tela. */
   .tela-gestao-a-vista :deep(.gv-gauge-wrap){flex:none;min-height:0;height:340px;max-height:340px;}
   .tela-gestao-a-vista :deep(.gv-right){display:flex;flex-direction:column;gap:1px;background:var(--border);overflow:visible;min-height:0;}
-  .tela-gestao-a-vista :deep(.gv-canal-panel){overflow:visible;padding:12px 16px;}
+  .tela-gestao-a-vista{--gv-pad-y:var(--sp-3);--gv-pad-x:var(--sp-4);--gv-pad-borda:var(--sp-4);}
+  .tela-gestao-a-vista :deep(.gv-canal-panel){overflow:visible;padding:var(--gv-pad-y) var(--gv-pad-x);}
   .tela-gestao-a-vista :deep(.gv-canal-scroll){display:block;overflow:visible;flex:none;min-height:0;}
   /* Mobile em grade; o "ver mais" também vale aqui (colapsado = 5, expandido = todos).
      A base .gv-sm-item:nth-child(n+6){display:none} esconde os extras; a classe
@@ -1741,10 +1765,10 @@ onUnmounted(() => {
   .tela-gestao-a-vista :deep(.gv-canal-grid){display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:6px;}
   .tela-gestao-a-vista :deep(.gv-canal-grid > .gv-sm-item){flex:none;max-width:none;}
   .tela-gestao-a-vista :deep(.gv-rankings){display:flex;flex-direction:column;gap:1px;background:var(--border);overflow:visible;min-height:0;}
-  .tela-gestao-a-vista :deep(.gv-rank-panel){overflow:visible;padding:12px 16px;}
+  .tela-gestao-a-vista :deep(.gv-rank-panel){overflow:visible;padding:var(--gv-pad-y) var(--gv-pad-x);}
   .tela-gestao-a-vista :deep(.gv-rank-scroll){overflow:visible;flex:none;min-height:0;}
   .tela-gestao-a-vista :deep(.gv-rank-scroll-inner){animation:none!important;transform:none!important;}
-  .tela-gestao-a-vista :deep(.gv-topbar){flex-wrap:wrap;padding:8px 14px;gap:6px;}
+  .tela-gestao-a-vista :deep(.gv-topbar){flex-wrap:wrap;padding:var(--gv-pad-y) var(--gv-pad-borda);gap:var(--sp-2);}
   .tela-gestao-a-vista :deep(.gv-clock-wrap){display:none;}
   .tela-gestao-a-vista :deep(.gv-ticker){height:auto;flex-shrink:0;padding:8px 12px;gap:6px;}
   .tela-gestao-a-vista :deep(.gv-ticker-outer){flex:1;overflow-x:auto;}
@@ -1752,13 +1776,17 @@ onUnmounted(() => {
   .tela-gestao-a-vista :deep(.gv-ticker-inner.animate){animation:none;}
 }
 @media(max-width:640px){
-  .tela-gestao-a-vista :deep(.gv-topbar){padding:6px 10px;}
+  .tela-gestao-a-vista{--gv-pad-y:var(--sp-2);--gv-pad-x:var(--sp-3);--gv-pad-borda:var(--sp-3);}
+  .tela-gestao-a-vista :deep(.gv-topbar){padding:var(--gv-pad-y) var(--gv-pad-borda);}
   .tela-gestao-a-vista :deep(.gv-brand-tag){display:none;}
   .tela-gestao-a-vista :deep(.gv-period-btns){flex-wrap:wrap;gap:3px;}
-  .tela-gestao-a-vista :deep(.gv-pbtn){font-size:max(9px, calc(9px * var(--escala-texto, 1)));padding:3px 7px;border-radius:4px;}
-  .tela-gestao-a-vista :deep(#gv-ac-toggle){font-size:max(9px, calc(9px * var(--escala-texto, 1)));padding:3px 7px;}
+  /* Cada faixa reafina a medida única em vez de mexer botão a botão. */
+  .tela-gestao-a-vista{--gv-btn-alt:24px;--gv-btn-raio:var(--radius-sm);}
+  .tela-gestao-a-vista :deep(.gv-pbtn),
+  .tela-gestao-a-vista :deep(.vs-ac-toggle){font-size:max(9px, calc(9px * var(--escala-texto, 1)));padding:0 var(--sp-1);}
+  .tela-gestao-a-vista :deep(#gv-ac-toggle){flex-shrink:0;}
   .tela-gestao-a-vista :deep(.gv-update-status){display:none;}
-  .tela-gestao-a-vista :deep(.gv-left){display:grid!important;grid-template-columns:42% 1fr;grid-template-rows:auto 1fr;padding:8px 12px;gap:4px 10px;align-items:start;flex:none;}
+  .tela-gestao-a-vista :deep(.gv-left){display:grid!important;grid-template-columns:42% 1fr;grid-template-rows:auto 1fr;padding:var(--gv-pad-y) var(--gv-pad-borda);gap:4px 10px;align-items:start;flex:none;}
   .tela-gestao-a-vista :deep(.gv-kpi-period){grid-column:1/-1;margin-bottom:0;}
   .tela-gestao-a-vista :deep(.gv-gauge-wrap){grid-column:1;grid-row:2;height:auto!important;max-height:none!important;align-self:center;}
   .tela-gestao-a-vista :deep(.gv-gauge-inner){max-width:none;}
@@ -1767,7 +1795,7 @@ onUnmounted(() => {
   .tela-gestao-a-vista :deep(.gv-main-kpi-v){font-size:max(9px, calc(14px * var(--escala-texto, 1)));}
   .tela-gestao-a-vista :deep(.gv-main-kpi-l){font-size:max(9px, calc(8px * var(--escala-texto, 1)));letter-spacing:.3px;}
   .tela-gestao-a-vista :deep(.gv-main-kpi-d){font-size:max(9px, calc(8px * var(--escala-texto, 1)));width:100%;}
-  .tela-gestao-a-vista :deep(.gv-canal-panel), .tela-gestao-a-vista :deep(.gv-rank-panel){padding:8px 12px;}
+  .tela-gestao-a-vista :deep(.gv-canal-panel), .tela-gestao-a-vista :deep(.gv-rank-panel){padding:var(--gv-pad-y) var(--gv-pad-x);}
   .tela-gestao-a-vista :deep(.gv-canal-grid){grid-template-columns:repeat(3,1fr);gap:6px;}
   .tela-gestao-a-vista :deep(.gv-rankings){display:flex!important;flex-direction:column;}
   .tela-gestao-a-vista :deep(.gv-big-num){font-size:max(16px, calc(30px * var(--escala-texto, 1)));}
@@ -1797,10 +1825,21 @@ onUnmounted(() => {
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-cf-dd){order:3;width:100%;box-sizing:border-box;padding:0 14px 9px;background:var(--surface);}
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-cf-trigger){width:100%;}
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-cf-menu){left:14px;right:14px;min-width:0;}
-  #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-pbtn){font-size:max(9px, calc(10px * var(--escala-texto, 1)));padding:5px 11px;flex-shrink:0;border-radius:4px;}
-  #gestao-vista-screen.tela-gestao-a-vista :deep(#gv-ac-toggle){flex-shrink:0;font-size:max(9px, calc(9px * var(--escala-texto, 1)));padding:5px 10px;}
-  #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-board){display:flex;flex-direction:column;gap:12px;background:var(--surface2);overflow:visible;height:auto;min-height:0;flex:none;padding:12px;}
-  #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-left){display:flex!important;flex-direction:column;align-items:center;padding:16px;gap:12px;overflow:visible;height:auto;background:var(--surface);border:1px solid var(--border);border-radius:6px;width:100%;box-sizing:border-box;flex:none;justify-content:flex-start;}
+  .tela-gestao-a-vista{--gv-btn-alt:28px;--gv-btn-raio:var(--radius-sm);}
+  #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-pbtn),
+  #gestao-vista-screen.tela-gestao-a-vista :deep(.vs-ac-toggle){font-size:max(9px, calc(10px * var(--escala-texto, 1)));padding:0 var(--sp-2);flex-shrink:0;}
+  /* ALVO DE TOQUE DE 40px SEM ENGORDAR O BOTÃO (PADRAO-DA-CENTRAL, item 6).
+     O ::after estica só a área que recebe o dedo. Sem `pointer-events:none` —
+     é ele que precisa receber o toque. Cresce apenas na vertical, para não
+     cobrir o botão vizinho da faixa (a conferência de que cada alvo ainda cai
+     nele mesmo está em docs/provar-botoes-gv.md). */
+  #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-pbtn),
+  #gestao-vista-screen.tela-gestao-a-vista :deep(.vs-ac-toggle){position:relative;}
+  #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-pbtn)::after,
+  #gestao-vista-screen.tela-gestao-a-vista :deep(.vs-ac-toggle)::after{content:'';position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);height:40px;}
+  #gestao-vista-screen.tela-gestao-a-vista :deep(#gv-ac-toggle){flex-shrink:0;}
+  #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-board){display:flex;flex-direction:column;gap:var(--sp-3);background:var(--surface2);overflow:visible;height:auto;min-height:0;flex:none;padding:var(--sp-3);}
+  #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-left){display:flex!important;flex-direction:column;align-items:center;padding:var(--sp-4);gap:var(--sp-3);overflow:visible;height:auto;background:var(--surface);border:1px solid var(--border);border-radius:6px;width:100%;box-sizing:border-box;flex:none;justify-content:flex-start;}
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-kpi-period){align-self:flex-start;grid-column:unset;grid-row:unset;margin:0;}
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-col-grid-label.gv-main-chart-title){align-self:flex-start;grid-column:unset;margin:0;border-bottom:none;padding-bottom:0;}
   /* O velocimetro geral e o numero que a pessoa abre a tela pra ver. Estava
@@ -1817,7 +1856,7 @@ onUnmounted(() => {
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-main-kpi-l){font-size:max(9px, calc(8px * var(--escala-texto, 1)));letter-spacing:.5px;}
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-main-kpi-d){font-size:max(9px, calc(9px * var(--escala-texto, 1)));width:auto;}
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-right){display:flex;flex-direction:column;gap:12px;background:transparent;overflow:visible;height:auto;min-height:0;}
-  #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-canal-panel){display:flex;flex-direction:column;gap:10px;overflow:visible;height:auto;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:6px;}
+  #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-canal-panel){display:flex;flex-direction:column;gap:10px;overflow:visible;height:auto;padding:var(--sp-4);background:var(--surface);border:1px solid var(--border);border-radius:6px;}
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-col-grid-label){border-bottom:none;padding-bottom:0;margin-bottom:0;}
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-canal-scroll){display:block;overflow:visible;flex:none;height:auto;min-height:0;}
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-canal-grid){display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
@@ -1825,13 +1864,15 @@ onUnmounted(() => {
   /* "Ver mais" no celular: colapsado esconde do 6º em diante (precisa de id + !important
      pra vencer o display:flex!important do .gv-sm-item acima); expandido mostra todos. */
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-canal-panel:not(.gv-canal-expandido) .gv-canal-grid > .gv-sm-item:nth-child(n+6)){display:none!important;}
-  #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-sm-item-lbl){font-size:max(9px, calc(9px * var(--escala-texto, 1)));font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);width:100%;word-break:break-word;line-height:1.2;}
+  /* min-height acompanha a line-height deste bloco (1.2), para a caixa continuar
+     valendo duas linhas — mesma razão da regra base. */
+  #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-sm-item-lbl){font-size:max(9px, calc(9px * var(--escala-texto, 1)));font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);width:100%;overflow-wrap:anywhere;line-height:1.2;min-height:2.4em;}
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-sm-item svg){width:100%!important;}
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-sm-item-val){display:none;}
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-sm-item-delta){display:none;}
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-sm-item-desvio){display:none;}
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-rankings){display:flex;flex-direction:column;gap:12px;background:transparent;overflow:visible;height:auto;}
-  #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-rank-panel){display:flex;flex-direction:column;gap:10px;overflow:visible;height:auto;padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:6px;}
+  #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-rank-panel){display:flex;flex-direction:column;gap:10px;overflow:visible;height:auto;padding:var(--sp-4);background:var(--surface);border:1px solid var(--border);border-radius:6px;}
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-rank-col-hdr){margin-bottom:0;font-size:max(9px, calc(8px * var(--escala-texto, 1)));letter-spacing:4px;}
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-rank-scroll){overflow:visible;flex:none;height:auto;min-height:0;}
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-rank-scroll-inner){display:flex;flex-direction:column;animation:none;transform:none;}
@@ -1855,7 +1896,7 @@ onUnmounted(() => {
 @media(min-width:1025px) and (max-width:1600px){
   .tela-gestao-a-vista :deep(.gv-board){grid-template-columns:360px 1fr;}
   .tela-gestao-a-vista :deep(.gv-gauge-wrap){max-height:min(42vh,340px);}
-  .tela-gestao-a-vista :deep(.gv-left){padding:6px 14px;}
+  .tela-gestao-a-vista{--gv-pad-borda:var(--sp-4);}
   .tela-gestao-a-vista :deep(.gv-main-kpi){gap:0;}
   .tela-gestao-a-vista :deep(.gv-main-kpi-v){font-size:max(16px, calc(16px * var(--escala-texto, 1)));}
   .tela-gestao-a-vista :deep(.gv-main-kpi-l){font-size:max(9px, calc(8px * var(--escala-texto, 1)));}
@@ -1882,12 +1923,12 @@ onUnmounted(() => {
    exposto na UI Vue (existia no menu de administração do legado) ── */
 body.dev-tv .tela-gestao-a-vista :deep(.gv-board){grid-template-columns:1fr 2fr;}
 body.dev-tv .tela-gestao-a-vista :deep(.gv-right){grid-template-rows:62fr 38fr;}
-body.dev-tv .tela-gestao-a-vista :deep(.gv-left){padding:20px 36px;gap:0;}
+body.dev-tv .tela-gestao-a-vista :deep(.gv-left){padding:var(--gv-pad-y) var(--gv-pad-borda);gap:0;}
 body.dev-tv .tela-gestao-a-vista :deep(.gv-gauge-wrap){max-height:none;}
 body.dev-tv .tela-gestao-a-vista :deep(.gv-gauge-inner){max-width:680px;}
-body.dev-tv .tela-gestao-a-vista :deep(.gv-canal-panel){padding:18px 28px;}
+body.dev-tv .tela-gestao-a-vista :deep(.gv-canal-panel){padding:var(--gv-pad-y) var(--gv-pad-x);}
 body.dev-tv .tela-gestao-a-vista :deep(.gv-canal-grid){gap:10px;}
-body.dev-tv .tela-gestao-a-vista :deep(.gv-rank-panel){padding:18px 44px;}
+body.dev-tv .tela-gestao-a-vista :deep(.gv-rank-panel){padding:var(--gv-pad-y) var(--gv-pad-x);}
 body.dev-tv .tela-gestao-a-vista :deep(.gv-clock-time){font-size:max(16px, calc(72px * var(--escala-texto, 1)));letter-spacing:5px;}
 body.dev-tv .tela-gestao-a-vista :deep(.gv-clock-date){font-size:max(16px, calc(20px * var(--escala-texto, 1)));}
 body.dev-tv .tela-gestao-a-vista :deep(.gv-kpi-period){font-size:max(16px, calc(20px * var(--escala-texto, 1)));letter-spacing:4px;}
@@ -1914,13 +1955,15 @@ body.dev-tv .tela-gestao-a-vista :deep(.gv-ticker){height:70px;}
 body.dev-tv .tela-gestao-a-vista :deep(.gv-ticker-lbl){font-size:max(16px, calc(20px * var(--escala-texto, 1)));}
 body.dev-tv .tela-gestao-a-vista :deep(.gv-ticker-item){font-size:max(16px, calc(30px * var(--escala-texto, 1)));}
 body.dev-tv .tela-gestao-a-vista :deep(.gv-ticker-dot){width:6px;height:6px;}
-body.dev-tv .tela-gestao-a-vista :deep(.gv-topbar){padding:22px 56px;}
+body.dev-tv .tela-gestao-a-vista{--gv-pad-y:var(--sp-5);--gv-pad-x:var(--sp-6);--gv-pad-borda:var(--sp-8);}
+body.dev-tv .tela-gestao-a-vista :deep(.gv-topbar){padding:var(--gv-pad-y) var(--gv-pad-borda);}
 body.dev-tv .tela-gestao-a-vista :deep(.gv-back){font-size:max(16px, calc(18px * var(--escala-texto, 1)));}
 body.dev-tv .tela-gestao-a-vista :deep(.gv-brand-tag){font-size:max(16px, calc(16px * var(--escala-texto, 1)));color:var(--text);}
 body.dev-tv .tela-gestao-a-vista :deep(.gv-perf-tag){font-size:max(16px, calc(24px * var(--escala-texto, 1)));color:var(--text);}
 body.dev-tv .tela-gestao-a-vista :deep(.gv-main-chart-title){font-size:max(16px, calc(20px * var(--escala-texto, 1)))!important;font-weight:700!important;color:var(--text)!important;}
-body.dev-tv .tela-gestao-a-vista :deep(.gv-pbtn){font-size:max(16px, calc(21px * var(--escala-texto, 1)));padding:8px 19px;border-radius:8px;}
-body.dev-tv .tela-gestao-a-vista :deep(#gv-ac-toggle){font-size:max(16px, calc(21px * var(--escala-texto, 1)));padding:8px 17px;}
+body.dev-tv .tela-gestao-a-vista{--gv-btn-alt:48px;--gv-btn-raio:var(--radius-lg);}
+body.dev-tv .tela-gestao-a-vista :deep(.gv-pbtn),
+body.dev-tv .tela-gestao-a-vista :deep(#gv-ac-toggle){font-size:max(16px, calc(21px * var(--escala-texto, 1)));padding:0 var(--sp-4);}
 
 /* ── Estoque por canal (Task 3) — prefixo gv-est-* pra não colidir com nada
    global; segue os mesmos tokens de tema da tela (funciona claro/escuro). */
@@ -1966,6 +2009,11 @@ body.dev-tv .tela-gestao-a-vista :deep(#gv-ac-toggle){font-size:max(16px, calc(2
   .tela-gestao-a-vista :deep(.gv-est-col){flex:1 1 auto;width:100%;}
 }
 /* FAIXA DE CONTROLES — ver o comentario no template. */
-.tela-gestao-a-vista :deep(.gv-controles){display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;padding:0;background:transparent;}  /* mora DENTRO da barra: fundo, borda de baixo e respiro lateral sao dela */
-@media(max-width:640px){.tela-gestao-a-vista :deep(.gv-controles){padding:8px 12px;flex-direction:column;align-items:stretch;gap:8px;}}
+/* A régua e a faixa PRECISAM encolher: com o `.bt-dir` da barra encolhendo, o
+   que não encolhe não fica menor — vaza para fora da barra. */
+.tela-gestao-a-vista :deep(.gv-controles){display:flex;align-items:center;justify-content:flex-end;gap:var(--sp-2);flex-wrap:wrap;padding:0;background:transparent;min-width:0;}
+.tela-gestao-a-vista :deep(.gv-period-btns){min-width:0;overflow-x:auto;scrollbar-width:none;}
+.tela-gestao-a-vista :deep(.gv-period-btns)::-webkit-scrollbar{display:none;}
+.tela-gestao-a-vista :deep(.gv-pbtn),.tela-gestao-a-vista :deep(.vs-ac-toggle){flex-shrink:0;}  /* mora DENTRO da barra: fundo, borda de baixo e respiro lateral sao dela */
+@media(max-width:640px){.tela-gestao-a-vista :deep(.gv-controles){padding:var(--gv-pad-y) var(--gv-pad-x);flex-direction:column;align-items:stretch;gap:var(--sp-2);}}
 </style>
