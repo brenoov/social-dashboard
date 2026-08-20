@@ -293,6 +293,36 @@ repositório diferente do código no ar, e isso é o tipo de coisa que morde daq
 três meses. Fecha sozinho no próximo deploy da `bling-proxy`; não vale subir só
 por isso, porque ela acabou de ser estabilizada.
 
+### B23 · Barra de Topo › o lado das ações não encolhe, e isso trava a largura dos botões 🟡 *aberto em 20/08*
+
+**O que é.** Na Gestão à Vista o dono pediu que os botões de período ficassem
+todos do mesmo tamanho. Altura e cantos foram igualados; **a largura não**, e o
+motivo está fora da tela.
+
+**Por que não deu.** `.bt-dir` — o lado direito da `barra-de-topo`, onde a faixa
+de controles mora — é `flex: 0 0 auto`. Ela reserva sempre o *conteúdo máximo*
+dos filhos, e o `.bt-meio` (título + subtítulo) fica com o que sobrar. Medido a
+20/08 num harness com o CSS do build:
+
+| | faixa de controles | título |
+|---|---|---|
+| largura seguindo o rótulo (hoje) | 712px | 181px, 2 linhas |
+| todos os botões iguais | 963px | **0px, 19 linhas** |
+
+A 1920px em modo telão o efeito é o mesmo. Como o título nunca pode cortar — é a
+regra nº 1 da barra, e foi por violá-la que a primeira versão dela foi revertida
+—, a largura igual foi desfeita.
+
+**Não adianta tentar de novo pela tela.** `max-width` na `.gv-controles`,
+`flex-basis` em vw e `width: min(100%, Nvw)` na faixa foram os três testados: o
+filho encolhe, mas a barra continua reservando o conteúdo máximo e o título
+continua sem espaço.
+
+**O que resolveria.** Deixar `.bt-dir` encolher: `flex: 0 1 auto; min-width: 0`
+em `src/compartilhado/barra-de-topo.vue`. É uma linha — **mas vale para as 25
+telas que usam a barra**, então precisa de decisão do dono e de uma passada nas
+telas com muitas ações antes de entrar.
+
 ---
 
 ## Parte C — Ideias guardadas (ninguém pediu ainda)
