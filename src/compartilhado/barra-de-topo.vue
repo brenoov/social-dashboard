@@ -72,7 +72,27 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .bt-titulo{font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));font-weight:600;letter-spacing:1.6px;text-transform:uppercase;color:var(--text);line-height:1.25;overflow-wrap:anywhere;}
 .bt-sub{font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));color:var(--muted);line-height:1.3;overflow-wrap:anywhere;}
 
-.bt-dir{display:flex;align-items:center;gap:8px;flex:0 0 auto;}
+/* O LADO DAS AÇÕES ENCOLHE (20/08/2026). Era `flex:0 0 auto`: reservava sempre
+   o CONTEÚDO MÁXIMO, e o `.bt-meio` ficava com as sobras. Nas telas de faixa
+   larga isso destruía o título — medido a 768px, antes desta mudança:
+
+     Análise de Campanhas .... barra de 685px de altura, título em 0px / 18 linhas
+     Gestão à Vista .......... barra de 732px, título em 0px / 19 linhas
+     Análise de Vendas ....... barra de 513px, título em 0px / 15 linhas
+     Gestão de Tráfego ....... barra de 632px, título em 0px / 15 linhas
+
+   Com `0 1 auto` + `min-width:0` as mesmas telas ficam com barra de 93 a 107px
+   e título em 2 linhas legíveis. A conta foi conferida nas 25 telas que usam a
+   barra, em 7 larguras: 4 melhoraram muito, 19 ficaram idênticas, e o único
+   custo são 26-27px a mais de barra a 1024px na Análise de Campanhas e na
+   Gestão de Tráfego, onde a faixa de controles passa a quebrar em duas fileiras
+   em vez de esmagar o título — que é o comportamento que esta barra promete.
+
+   ⚠️ Quem puser uma faixa larga aqui dentro precisa deixá-la encolher também
+   (`min-width:0` e, se for uma régua de botões, `overflow-x:auto`). Sem isso o
+   conteúdo não encolhe: ele VAZA para fora da barra. Foi o que aconteceu com a
+   régua da Análise de Campanhas, corrigida junto. */
+.bt-dir{display:flex;align-items:center;gap:8px;flex:0 1 auto;min-width:0;}
 .bt-voltar{display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:var(--muted);font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));font-weight:600;cursor:pointer;text-transform:uppercase;letter-spacing:1.2px;white-space:nowrap;padding:6px 2px;touch-action:manipulation;}
 .bt-voltar:hover{color:var(--text);}
 /* A regra global manda .rbv-logo com 52px, que é o tamanho da HOME. */

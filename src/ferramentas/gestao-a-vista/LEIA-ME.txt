@@ -92,8 +92,14 @@ cravavam fonte e padding próprios no botão AUTO e o deixavam menor que os
 demais em todo celular — saíram. As margens dos painéis passaram para a escala
 de tokens (--sp-*).
 
-⚠️ A LARGURA dos botões NÃO foi igualada, e não é esquecimento: ver B23 em
-docs/pendencias.md. Igualar esmaga o título da barra-de-topo até zerar.
+A LARGURA também é única (--gv-btn-larg: 12ch, o tamanho do rótulo mais largo,
+"ATÉ AGORA"). Ela só passou a caber depois que a barra-de-topo ganhou
+flex:0 1 auto + min-width:0 no .bt-dir (B23, 20/08/2026) — antes disso a faixa
+crescia de 712px para 963px e o título "Performance de Vendas" quebrava em 19
+linhas. Se alguém reverter a barra, é essa linha que quebra o título de novo.
+
+Como a barra agora encolhe, a régua PRECISA encolher junto (min-width:0 +
+overflow-x:auto). O que não encolhe não fica menor: vaza para fora da barra.
 
 ⚠️ .gv-topbar e .gv-topbar-brand no <style> são CSS ÓRFÃO desde 06/08/2026 —
 não existem mais no template. Quem for ajustar a margem do topo mexe em

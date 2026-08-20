@@ -293,35 +293,37 @@ repositório diferente do código no ar, e isso é o tipo de coisa que morde daq
 três meses. Fecha sozinho no próximo deploy da `bling-proxy`; não vale subir só
 por isso, porque ela acabou de ser estabilizada.
 
-### B23 · Barra de Topo › o lado das ações não encolhe, e isso trava a largura dos botões 🟡 *aberto em 20/08*
+### B23 · Barra de Topo › o lado das ações não encolhia ✅ *fechado em 20/08*
 
-**O que é.** Na Gestão à Vista o dono pediu que os botões de período ficassem
-todos do mesmo tamanho. Altura e cantos foram igualados; **a largura não**, e o
-motivo está fora da tela.
+**O que era.** `.bt-dir` — o lado direito da `barra-de-topo`, onde as ações
+moram — era `flex: 0 0 auto`. Ela reservava sempre o *conteúdo máximo* dos
+filhos, e o `.bt-meio` (título + subtítulo) ficava com o que sobrasse. Nas telas
+de faixa larga o título era esmagado até zerar. Medido a 768px, antes:
 
-**Por que não deu.** `.bt-dir` — o lado direito da `barra-de-topo`, onde a faixa
-de controles mora — é `flex: 0 0 auto`. Ela reserva sempre o *conteúdo máximo*
-dos filhos, e o `.bt-meio` (título + subtítulo) fica com o que sobrar. Medido a
-20/08 num harness com o CSS do build:
-
-| | faixa de controles | título |
+| Tela | altura da barra | título |
 |---|---|---|
-| largura seguindo o rótulo (hoje) | 712px | 181px, 2 linhas |
-| todos os botões iguais | 963px | **0px, 19 linhas** |
+| Gestão à Vista | 732px | 0px, **19 linhas** |
+| Análise de Campanhas | 685px | 0px, 18 linhas |
+| Gestão de Tráfego | 632px | 0px, 15 linhas |
+| Análise de Vendas | 513px | 0px, 15 linhas |
 
-A 1920px em modo telão o efeito é o mesmo. Como o título nunca pode cortar — é a
-regra nº 1 da barra, e foi por violá-la que a primeira versão dela foi revertida
-—, a largura igual foi desfeita.
+Uma letra por linha, e a barra comendo 600–700px de uma tela de 900px. Não era
+um caso extremo: era o estado normal dessas quatro telas em tablet.
 
-**Não adianta tentar de novo pela tela.** `max-width` na `.gv-controles`,
-`flex-basis` em vw e `width: min(100%, Nvw)` na faixa foram os três testados: o
-filho encolhe, mas a barra continua reservando o conteúdo máximo e o título
-continua sem espaço.
+**O conserto.** `flex: 0 1 auto; min-width: 0` em `.bt-dir`. As mesmas quatro
+telas passam a ter barra de 93 a 108px e título em 2 linhas legíveis.
 
-**O que resolveria.** Deixar `.bt-dir` encolher: `flex: 0 1 auto; min-width: 0`
-em `src/compartilhado/barra-de-topo.vue`. É uma linha — **mas vale para as 25
-telas que usam a barra**, então precisa de decisão do dono e de uma passada nas
-telas com muitas ações antes de entrar.
+**Conferido nas 25 telas que usam a barra**, em 7 larguras (1920, 1440, 1280,
+1024, 768, 640, 375), comparando antes × depois na mesma página: **6 melhoraram,
+19 ficaram idênticas, nenhuma piorou.** O único custo são 26–27px a mais de
+barra a 1024px na Análise de Campanhas e na Gestão de Tráfego, onde a faixa de
+controles passa a quebrar em duas fileiras em vez de esmagar o título — que é
+exatamente o que esta barra promete fazer.
+
+⚠️ **A regra nova para quem puser faixa larga na barra:** o que não encolhe não
+fica menor, **vaza para fora da barra**. Uma régua de botões precisa de
+`min-width: 0` e `overflow-x: auto`. A Análise de Campanhas não tinha e ficou com
+três botões pendurados 17px além da borda; foi corrigida junto.
 
 ---
 

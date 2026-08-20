@@ -1719,16 +1719,15 @@ onUnmounted(() => {
    22px com raio diferente, Canal 27px) e o período ainda variava de largura com
    o texto — "1D" contra "MÊS PASS.". Daqui pra frente os quatro botões desta
    tela saem da mesma medida; quem muda o tamanho muda AQUI, não em cada regra.
-   NÃO EXISTE `--gv-btn-larg`: igualar a LARGURA foi tentado em 20/08/2026 e
-   revertido com a medida na mão. Com `min-width` os oito períodos ficam de 53px
-   para 75px cada, a faixa vai de 712px para 963px, e como `.bt-dir` da
-   barra-de-topo é `flex:0 0 auto` ela reserva o CONTEÚDO MÁXIMO da faixa: o
-   `.bt-meio` vai a ZERO e "Performance de Vendas" quebra em 19 linhas a 1024px
-   e no telão a 1920px. Nem `max-width`, nem `flex-basis`, nem `width` em vw
-   seguram — nenhum deles reduz o conteúdo máximo que a barra reserva. Só
-   deixando `.bt-dir` encolher (`flex:0 1 auto;min-width:0`), e isso é a barra
-   de 25 telas. Enquanto não for decidido, a largura segue o rótulo. */
-.tela-gestao-a-vista{--gv-btn-alt:28px;--gv-btn-raio:var(--radius-md);
+   `--gv-btn-larg` está em `ch` (largura do "0" da fonte em uso) para acompanhar
+   a escala de texto em vez de virar um pixel cravado. 12ch é o que cabe o
+   rótulo mais largo, "ATÉ AGORA".
+   HISTÓRIA, porque quase virou "não dá": a largura igual leva a faixa de 712px
+   para 963px, e enquanto `.bt-dir` da barra-de-topo foi `flex:0 0 auto` isso
+   esmagava o título até zerar. Só passou a caber depois que a barra ganhou
+   `flex:0 1 auto;min-width:0` (20/08/2026, conferido nas 25 telas). Se um dia
+   alguém reverter a barra, é ESTA linha que volta a quebrar o título. */
+.tela-gestao-a-vista{--gv-btn-alt:28px;--gv-btn-larg:12ch;--gv-btn-raio:var(--radius-md);
   /* MARGEM: cada painel do board tinha a sua (topo 7/28, esquerda 8/22, painéis
      7/12) e nenhuma saía da escala do PADRAO-DA-CENTRAL. Agora são duas medidas,
      em token, reafinadas por faixa igual à do botão. */
@@ -1741,11 +1740,11 @@ onUnmounted(() => {
 /* Botão de período (compartilhado com Análise de Vendas/Meta Ads/GT no legado —
    aqui portado só para a Gestão à Vista, que é a única já migrada) */
 .tela-gestao-a-vista :deep(.gv-period-btns){display:flex;align-items:center;gap:var(--sp-1);}
-.tela-gestao-a-vista :deep(.gv-pbtn){font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));display:inline-flex;align-items:center;justify-content:center;padding:0 var(--sp-2);border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;white-space:nowrap;transition:all .15s;}
+.tela-gestao-a-vista :deep(.gv-pbtn){font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));display:inline-flex;align-items:center;justify-content:center;min-width:var(--gv-btn-larg);padding:0 var(--sp-2);border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;white-space:nowrap;transition:all .15s;}
 .tela-gestao-a-vista :deep(.gv-pbtn.active){background:var(--accent);color:var(--sobre-cor);border-color:var(--accent);}
 /* Auto-ciclo (idem — classe compartilhada, portada só aqui). Sem margin-left
    avulso: o `gap` da faixa já dá o respiro, e a margem desalinhava o conjunto. */
-.tela-gestao-a-vista :deep(.vs-ac-toggle){font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));letter-spacing:.8px;text-transform:uppercase;display:inline-flex;align-items:center;justify-content:center;padding:0 var(--sp-2);border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;white-space:nowrap;transition:all .15s;}
+.tela-gestao-a-vista :deep(.vs-ac-toggle){font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));letter-spacing:.8px;text-transform:uppercase;display:inline-flex;align-items:center;justify-content:center;min-width:var(--gv-btn-larg);padding:0 var(--sp-2);border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;white-space:nowrap;transition:all .15s;}
 .tela-gestao-a-vista :deep(.vs-ac-toggle.running){border-color:var(--green);color:var(--green);}
 
 /* ── RESPONSIVE: GESTÃO À VISTA (legacy L625-767) ── */
@@ -2010,6 +2009,11 @@ body.dev-tv .tela-gestao-a-vista :deep(#gv-ac-toggle){font-size:max(16px, calc(2
   .tela-gestao-a-vista :deep(.gv-est-col){flex:1 1 auto;width:100%;}
 }
 /* FAIXA DE CONTROLES — ver o comentario no template. */
-.tela-gestao-a-vista :deep(.gv-controles){display:flex;align-items:center;justify-content:flex-end;gap:var(--sp-2);flex-wrap:wrap;padding:0;background:transparent;min-width:0;}  /* mora DENTRO da barra: fundo, borda de baixo e respiro lateral sao dela */
+/* A régua e a faixa PRECISAM encolher: com o `.bt-dir` da barra encolhendo, o
+   que não encolhe não fica menor — vaza para fora da barra. */
+.tela-gestao-a-vista :deep(.gv-controles){display:flex;align-items:center;justify-content:flex-end;gap:var(--sp-2);flex-wrap:wrap;padding:0;background:transparent;min-width:0;}
+.tela-gestao-a-vista :deep(.gv-period-btns){min-width:0;overflow-x:auto;scrollbar-width:none;}
+.tela-gestao-a-vista :deep(.gv-period-btns)::-webkit-scrollbar{display:none;}
+.tela-gestao-a-vista :deep(.gv-pbtn),.tela-gestao-a-vista :deep(.vs-ac-toggle){flex-shrink:0;}  /* mora DENTRO da barra: fundo, borda de baixo e respiro lateral sao dela */
 @media(max-width:640px){.tela-gestao-a-vista :deep(.gv-controles){padding:var(--gv-pad-y) var(--gv-pad-x);flex-direction:column;align-items:stretch;gap:var(--sp-2);}}
 </style>

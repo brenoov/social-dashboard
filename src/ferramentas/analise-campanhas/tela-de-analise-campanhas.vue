@@ -1270,7 +1270,13 @@ Object.assign(window, {
 .tela-analise-campanhas :deep(.gv-clock-time){font-family:var(--fonte-dados);font-size:max(16px, calc(28px * var(--escala-texto, 1)));font-weight:400;letter-spacing:3px;color:var(--text);line-height:1;}
 .tela-analise-campanhas :deep(.gv-clock-date){font-family:var(--fonte-principal);font-size:max(9px, calc(8px * var(--escala-texto, 1)));letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-top:3px;}
 .tela-analise-campanhas :deep(.gv-update-status){font-family:var(--fonte-principal);font-size:max(9px, calc(8px * var(--escala-texto, 1)));letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);opacity:.45;margin-top:4px;text-align:right;}
-.tela-analise-campanhas :deep(.gv-period-btns){display:flex;align-items:center;gap:4px;}
+/* min-width:0 + overflow-x:auto desde SEMPRE, não só no celular: com o
+   `.bt-dir` da barra encolhendo (20/08/2026), uma régua que não encolhe não
+   fica menor — ela VAZA para fora da barra. A 768px eram três botões pendurados
+   17px além da borda. A Gestão à Vista já tinha esse par; aqui faltava. */
+.tela-analise-campanhas :deep(.gv-period-btns){display:flex;align-items:center;gap:4px;min-width:0;overflow-x:auto;scrollbar-width:none;}
+.tela-analise-campanhas :deep(.gv-period-btns)::-webkit-scrollbar{display:none;}
+.tela-analise-campanhas :deep(.gv-controles){min-width:0;}
 .tela-analise-campanhas :deep(.gv-pbtn){font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));padding:4px 9px;border-radius:5px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;transition:all .15s;}
 .tela-analise-campanhas :deep(.gv-pbtn.active){background:var(--accent);color:var(--sobre-cor);border-color:var(--accent);}
 .tela-analise-campanhas :deep(.custom-range-btn){font-family:var(--fonte-principal);font-weight:500;font-size:max(9px, calc(11px * var(--escala-texto, 1)));padding:5px 14px;border-radius:3px;background:transparent;border:1px solid var(--border);color:var(--muted);cursor:pointer;transition:all .18s;white-space:nowrap;}
