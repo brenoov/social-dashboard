@@ -915,11 +915,11 @@ async function _gvRenderEstoque(){
   };
   const limitSel=document.getElementById('gv-est-limit').value;
   const lim=limitSel==='all'?'all':parseInt(limitSel,10);
-  let mostrado=0,filtrado=0;
+  let mostrado=0,filtrado=0,ocultos=0;
   document.getElementById('gv-est-cols').innerHTML=deps.map(dep=>{
     const itensDep=itens.filter(it=>it.deposito_id===dep.id);
-    const { rows, full }=prepararEstoque(itensDep,{...opts,limit:lim});
-    mostrado+=rows.length; filtrado+=full;
+    const { rows, full, semClassificacao }=prepararEstoque(itensDep,{...opts,limit:lim});
+    mostrado+=rows.length; filtrado+=full; ocultos+=semClassificacao;
     const tot=rows.reduce((a,b)=>a+(Number(b.saldo)||0),0);
     const more=(lim!=='all'&&full>rows.length)?`<div class="gv-est-more">+ ${full-rows.length} ocultos · ${rows.length} de ${full}</div>`:'';
     const linhas=rows.length?rows.map(r=>{
@@ -929,7 +929,12 @@ async function _gvRenderEstoque(){
     }).join(''):'<div class="gv-est-empty">Nada com esse filtro.</div>';
     return `<div class="gv-est-col"><div class="gv-est-colh"><span>${escHtml(dep.nome)}${dep.pulmao?' · pulmão':''}</span><span class="gv-est-tot">${tot} un.</span></div>${linhas}${more}</div>`;
   }).join('');
-  document.getElementById('gv-est-count').textContent=`mostrando ${mostrado} de ${filtrado} itens · ${deps.length} depósito(s)`;
+  // O que a tela esconde SEMPRE (matéria-prima e o que o coletor não classificou)
+  // aparece aqui como número. Sem isto a tela dá a entender que aquilo é tudo o
+  // que existe no depósito — e some calada com produto novo que a lista de
+  // classificação ainda não conhece.
+  const nota=ocultos?` · ${ocultos} oculto${ocultos>1?'s':''} (matéria-prima/sem classificação)`:'';
+  document.getElementById('gv-est-count').textContent=`mostrando ${mostrado} de ${filtrado} itens · ${deps.length} depósito(s)${nota}`;
 }
 
 function initGvBgAnim(){

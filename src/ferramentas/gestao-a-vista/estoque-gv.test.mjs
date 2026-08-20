@@ -98,3 +98,41 @@ test('filtrarPedidosPorCanal', () => {
   // aceita Set também
   assert.equal(filtrarPedidosPorCanal(peds, new Set([1,2])).length, 3);
 });
+
+// ── QUANTOS FICARAM DE FORA (20/08/2026) ─────────────────────────────────────
+// A tela esconde matéria-prima e, desde o conserto do coletor, esconde também o
+// que a lista de classificação não reconheceu. Esconder calado é o defeito
+// gêmeo de mostrar o que não devia: quem olha o telão não tem como saber que
+// falta coisa. Por isso o número sai junto da contagem.
+test('prepararEstoque conta quantos ficaram de fora por não ter categoria', () => {
+  const itens = [
+    { sku: 'A1', produto: 'Bolsa Tote', categoria: 'Tote', saldo: 5 },
+    { sku: 'A2', produto: 'Cinto Couro', categoria: 'Cinto', saldo: 9 },
+    { sku: 'B1', produto: 'Argola - 1.6cm', categoria: null, saldo: 764 },
+    { sku: 'B2', produto: 'Sacola TNT', categoria: '', saldo: 30 },
+    { sku: 'B3', produto: 'Couro Bristol', categoria: '   ', saldo: 2 },
+  ];
+  const r = prepararEstoque(itens, {});
+  assert.equal(r.rows.length, 2);
+  assert.equal(r.full, 2);
+  assert.equal(r.semClassificacao, 3);
+});
+
+test('semClassificacao não muda com busca, status nem limite', () => {
+  const itens = [
+    { sku: 'A1', produto: 'Bolsa Tote', categoria: 'Tote', saldo: 5 },
+    { sku: 'A2', produto: 'Cinto Couro', categoria: 'Cinto', saldo: 900 },
+    { sku: 'B1', produto: 'Argola', categoria: null, saldo: 1 },
+  ];
+  // O número é sobre o que a TELA esconde por não ser produto, e isso não
+  // depende do que a pessoa digitou no filtro.
+  assert.equal(prepararEstoque(itens, { busca: 'bolsa' }).semClassificacao, 1);
+  assert.equal(prepararEstoque(itens, { status: 'crit' }).semClassificacao, 1);
+  assert.equal(prepararEstoque(itens, { limit: 1 }).semClassificacao, 1);
+  assert.equal(prepararEstoque(itens, { categorias: ['Tote'] }).semClassificacao, 1);
+});
+
+test('sem nada escondido, o número é 0 e não some', () => {
+  const r = prepararEstoque([{ sku: 'A1', produto: 'Bolsa', categoria: 'Tote', saldo: 1 }], {});
+  assert.equal(r.semClassificacao, 0);
+});
