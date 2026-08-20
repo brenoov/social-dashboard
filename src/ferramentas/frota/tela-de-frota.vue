@@ -3102,7 +3102,7 @@ onMounted(async () => {
            o carro sumiu da lista. -->
       <template v-if="painel.comOutros.length">
         <h2 class="fr-secao">Na rua com outras pessoas</h2>
-        <ul class="fr-outros">
+        <ul class="fr-com-outros">
           <li v-for="l in painel.comOutros" :key="l.veiculo.id">
             <strong>{{ l.veiculo.nome }}</strong>
             <span v-if="l.comQuem"> · com {{ l.comQuem }}</span>
@@ -4859,7 +4859,11 @@ onMounted(async () => {
 /* "Outros carros sem checklist hoje" (D21b). Uma linha por carro: nome, de quem
    ele é, e o botão. No celular vira coluna, senão o nome comprido ("FIAT PUNTO
    ESSENCE 1.6") espremeria o botão contra a borda — e `overflow-x:clip` cortaria
-   isso em silêncio, sem barra de rolagem pra denunciar. */
+   isso em silêncio, sem barra de rolagem pra denunciar.
+
+   ⚠️ `fr-outros` é SÓ desta lista. A de "Na rua com outras pessoas" usava o
+   mesmo nome até 20/08/2026, e as duas saíam trocadas — ver o comentário de
+   `fr-com-outros`, mais abaixo. Lista nova aqui nasce com nome próprio. */
 .tela-frota .fr-outros{list-style:none;margin:0;padding:0 14px;display:flex;flex-direction:column;gap:10px;}
 .tela-frota .fr-outros li{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface);}
 .tela-frota .fr-outros-ident{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 160px;overflow-wrap:anywhere;}
@@ -4902,9 +4906,25 @@ onMounted(async () => {
 .tela-frota .fr-erro-inline{margin:4px 0 0;font-family:var(--fonte-principal);font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));color:var(--red,#c0392b);line-height:1.4;}
 .tela-frota .fr-copiado-tel{margin-top:8px;font-family:var(--fonte-principal);font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));color:var(--green,#16a34a);}
 /* Os carros de outras pessoas: lista simples, sem cartão e sem botão. Dar
-   cartão a eles daria a entender que há algo a fazer, e não há. */
-.tela-frota .fr-outros{margin:0;padding:0 14px 40px;list-style:none;display:flex;flex-direction:column;gap:7px;font-family:var(--fonte-principal);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));color:var(--muted);}
-.tela-frota .fr-outros strong{color:var(--text);font-weight:600;}
+   cartão a eles daria a entender que há algo a fazer, e não há.
+
+   NOME PRÓPRIO desde 20/08/2026, e é ele que faz o comentário acima virar
+   verdade. Esta lista se chamava `fr-outros`, o MESMO nome da lista de
+   "Outros carros sem checklist hoje" — que é de cartões, com botão. Duas
+   listas diferentes, uma classe só, e o resultado saía trocado nas duas:
+
+     - esta ganhava o cartão de lá (`.fr-outros li` põe borda, fundo branco e
+       canto arredondado), exatamente o que este comentário mandava não ter;
+     - e a de lá ganhava daqui o `gap:7px`, a fonte apagada de 12,5px e um
+       `padding-bottom:40px` de espaço morto embaixo dos cartões.
+
+   Medido com o CSS do build: as duas saíam com estilo IDÊNTICO.
+
+   `fr-com-outros` é o nome do dado que a alimenta (`painel.comOutros`). O
+   `padding-bottom:40px` fica AQUI porque é esta lista que termina a área do
+   Motorista — é respiro do fim da tela, não do cartão. */
+.tela-frota .fr-com-outros{margin:0;padding:0 14px 40px;list-style:none;display:flex;flex-direction:column;gap:7px;font-family:var(--fonte-principal);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));color:var(--muted);}
+.tela-frota .fr-com-outros strong{color:var(--text);font-weight:600;}
 .tela-frota .fr-pedidos{margin:0;padding:0 14px;list-style:none;display:flex;flex-direction:column;gap:9px;}
 .tela-frota .fr-pedido{background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:12px 14px;}
 .tela-frota .fr-pedido-topo{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));color:var(--text);}
