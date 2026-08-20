@@ -567,6 +567,27 @@
             </label>
           </div>
 
+          <!-- PLACA (20/08/2026). Só aparece pra Veículos, e é obrigatória: é
+               ela que faz o carro nascer na Frota. Sem ela o item fica órfão,
+               como o nº 291 "KWID" ficou.
+
+               NÃO é coluna de `patrimonio_bens` — é gravada do outro lado, em
+               `frota_veiculos.placa`, por `sincronizar_carro_e_bem`. Num item
+               que já tem carro, ela vem preenchida sozinha do carro ligado. -->
+          <div class="pat-placa-destaque" v-if="exigePlacaNoBem(form, categoriaVeiculoId)">
+            <label class="pat-campo">
+              <span>Placa
+                <em class="pat-obrigatorio" v-if="bemAberto.novo">obrigatória</em>
+              </span>
+              <input v-model="form.placa" type="text" placeholder="Ex.: RVU6B06">
+            </label>
+            <span class="pat-dica">
+              Com a placa, este item já aparece na Frota como carro. Se a placa já existir
+              lá, eu ligo os dois em vez de criar outro.<template v-if="!bemAberto.novo && !form.placa">
+              Sem ela, este item fica registrado aqui mas não vira carro na Frota.</template>
+            </span>
+          </div>
+
           <!-- A caixinha do "+" nasce e morre aqui: some ao criar, cancelar, ou
                fechar a ficha (cancelarNovaOpcao), pra nunca ficar aberta numa
                pergunta que já foi respondida. -->
@@ -934,7 +955,13 @@ import { resolverNovaOpcao } from '../../compartilhado/nova-opcao.js'
 import {
   temAcessoFrota, categoriaVeiculoEntre, bemEhCategoriaVeiculo,
   veiculoLigadoAoBem, veiculosParaLigar, patchVeiculoDoBem,
+  exigePlacaNoBem, placaObrigatoria,
 } from './ligacao-com-frota.js'
+// Da Frota, e NÃO reescrito aqui: normalizar placa diferente nos dois lados
+// criaria carro duplicado por causa de um hífen — `placa` é UNIQUE. Import
+// entre pastas de ferramenta já é prática desta base (tela-de-acessos.vue
+// importa deste mesmo arquivo).
+import { normalizarPlaca, fraseDaSincronia } from '../frota/etiqueta-do-veiculo.js'
 // Trava a rolagem do fundo enquanto um destes 4 modais estiver aberto (bronca
 // do dono: "abro um modal e a tela atrás continua rolando").
 import { vTravaRolagem } from '../../compartilhado/travar-rolagem-de-fundo.js'
@@ -1550,6 +1577,10 @@ watch(bemAberto, async (bem) => {
   Object.assign(form, {
     nome: bem.nome || '',
     numero: bem.numero === null || bem.numero === undefined ? '' : String(bem.numero),
+    // A placa vem do CARRO ligado, não de coluna do item — ela não existe em
+    // `patrimonio_bens`. Assim editar um item antigo não pede digitação
+    // nenhuma: dos 11 itens de veículo, 10 já têm carro.
+    placa: (veiculoLigadoAoBem(veiculosFrota.value, bem.id) || {}).placa || '',
     numero_serie: bem.numero_serie || '',
     valor: bem.valor_centavos === null || bem.valor_centavos === undefined ? '' : formatarValor(bem.valor_centavos),
     data_compra: bem.data_compra ? String(bem.data_compra).slice(0, 10) : '',
@@ -1611,6 +1642,17 @@ async function salvarBem() {
     adminToast('Não entendi o valor. Use algo como 1.234,56', false); return
   }
 
+  // A PLACA, quando é veículo. `ehVeiculo` decide se há costura a fazer;
+  // `placaObrigatoria` decide se a falta dela BARRA — e ela só barra no
+  // cadastro novo. Ver ligacao-com-frota.js: item que já existe fica sem placa
+  // sem travar, porque o nº 291 vai ficar assim até o carro dele aparecer.
+  const ehVeiculo = exigePlacaNoBem(form, categoriaVeiculoId.value)
+  const placa = normalizarPlaca(form.placa)
+  if (placaObrigatoria(form, categoriaVeiculoId.value, bemAberto.value.novo) && !placa) {
+    adminToast('Item de veículo precisa da placa — é ela que cria o carro na Frota', false)
+    return
+  }
+
   salvando.value = true
   const linha = {
     nome,
@@ -1646,9 +1688,38 @@ async function salvarBem() {
   }
 
   await sincronizarPosse(bemId, form.pessoa_id || null)
+
+  // A VIA DE MÃO DUPLA. Só quando é veículo E há placa: sem placa não há o que
+  // costurar, e o item fica esperando (é o caso do nº 291, por decisão do dono).
+  // Só depois do item existir, porque a função precisa do `bem_id` gravado.
+  let seloDaFrota = null
+  if (ehVeiculo && placa) {
+    const { data: sinc, error: erroSinc } = await sbClient.rpc('sincronizar_carro_e_bem', {
+      p_bem_id: bemId,
+      p_placa: placa,
+      p_nome: nome,
+      p_marca: linha.marca,
+      p_valor_centavos: valorCentavos,
+    })
+    if (erroSinc) {
+      // O ITEM JÁ ESTÁ GRAVADO, e a mensagem diz isso na cara. Senão a pessoa
+      // cadastra de novo e cria item duplicado — `numero` é UNIQUE, mas nome
+      // repetido passa liso, e foi assim que os KWIDs soltos nasceram.
+      // A frase do banco já vem em português de leigo (migrations 049/050).
+      salvando.value = false
+      adminToast('O item foi salvo, mas não consegui criar o carro na Frota: '
+        + erroSinc.message, false)
+      await carregar()
+      return
+    }
+    seloDaFrota = fraseDaSincronia(sinc)
+  }
+
   salvando.value = false
   fecharFicha()
-  adminToast('Bem salvo')
+  // A frase DIZ o que aconteceu do outro lado, em vez de um "Bem salvo" que
+  // esconde metade do trabalho que a gravação fez.
+  adminToast(seloDaFrota || 'Bem salvo')
   await carregar()
 }
 
@@ -2199,6 +2270,14 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
    baixo vencia — então "Liberar mais 100 números (até 500)" era desenhado
    dentro de uma caixa de 38 pixels, em TODO dispositivo. */
 .tela-patrimonio .pat-btn-ampliar{width:100%;margin-top:20px;}
+
+/* A PLACA, destacada (20/08/2026). Mesmo motivo do nº de patrimônio na Frota:
+   é o único campo desta ficha que cria registro na OUTRA ferramenta, e precisa
+   parecer diferente dos que só guardam texto. */
+.tela-patrimonio .pat-placa-destaque{margin:0 0 14px;padding:12px 14px;border:1px solid var(--accent);border-radius:10px;background:color-mix(in srgb,var(--accent) 6%,var(--surface));}
+.tela-patrimonio .pat-placa-destaque .pat-campo{margin:0;}
+.tela-patrimonio .pat-obrigatorio{font-style:normal;font-size:max(9px, calc(10px * var(--escala-texto, 1)));font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--accent);margin-left:6px;}
+.tela-patrimonio .pat-dica{display:block;margin-top:8px;font-family:var(--fonte-principal);font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));line-height:1.5;color:var(--muted);}
 
 /* Selo de recém-cadastrado: verde, pequeno, sem competir com a situação. */
 .tela-patrimonio .pat-selo-novo{flex-shrink:0;margin-left:6px;background:var(--green);color:var(--sobre-cor);font-family:var(--fonte-principal);font-size:max(9px, calc(9px * var(--escala-texto, 1)));font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:2px 7px;border-radius:999px;white-space:nowrap;vertical-align:1px;}
