@@ -3217,7 +3217,7 @@ onMounted(async () => {
            porque é onde a pessoa cai depois de fechar a ficha do carro novo.
            Nunca um "pronto!" genérico: a frase diz se nasceu item novo lá ou se
            só amarrou no que já existia — ver fraseDaSincronia. -->
-      <p class="fr-aviso fr-selo-sincronia" v-if="seloDaSincronia">{{ seloDaSincronia }}</p>
+      <p class="fr-prova-frase boa" v-if="seloDaSincronia">{{ seloDaSincronia }}</p>
 
       <!-- FILA DE APROVAÇÃO, na área de Gestão. Só aparece pra quem aprova.
            Pedido do dono: logo abaixo dos botões, não no fim da tela. -->
@@ -3876,7 +3876,7 @@ onMounted(async () => {
                        placeholder="o número do adesivo colado no carro"
                        @blur="conferirEtiqueta" @input="avisoEtiqueta = null">
               </label>
-              <p class="fr-etiqueta-aviso" v-if="avisoEtiqueta" :class="avisoEtiqueta.tom">
+              <p class="fr-prova-frase fr-etiqueta-aviso" v-if="avisoEtiqueta" :class="avisoEtiqueta.tom">
                 {{ avisoEtiqueta.texto }}
               </p>
               <span class="fr-ajuda" v-else>
@@ -4997,14 +4997,12 @@ onMounted(async () => {
 .tela-frota .fr-patrimonio-destaque{margin:0 0 14px;padding:12px 14px;border:1px solid var(--accent);border-radius:var(--radius-md);background:color-mix(in srgb,var(--accent) 6%,var(--surface));}
 .tela-frota .fr-patrimonio-destaque .fr-campo{margin:0;}
 
-/* O aviso sobre o número digitado. Três tons, e eles não são enfeite: `ruim` é
-   caminho barrado (o número é de um microfone, ou de outro carro), `atencao` é
-   "vou ligar no que já existe" e `bom` é "vou criar". Cor sozinha não conta a
-   história — o TEXTO diz o nome do que o número é. */
-.tela-frota .fr-etiqueta-aviso{margin:8px 0 0;font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));line-height:1.5;}
-.tela-frota .fr-etiqueta-aviso.bom{color:var(--green,#16a34a);}
-.tela-frota .fr-etiqueta-aviso.atencao{color:var(--orange,#d97706);}
-.tela-frota .fr-etiqueta-aviso.ruim{color:var(--red,#dc2626);font-weight:600;}
+/* O aviso sobre o número digitado REUSA `fr-prova-frase`, que já existe nesta
+   tela com os mesmos três tons. Aqui fica só o espaçamento — inventar cor
+   própria daria dois avisos com caras diferentes na mesma ferramenta, e a
+   primeira versão deste bloco ainda pintava o TEXTO de laranja, que reprova no
+   contraste a 12px (PADRAO-DA-CENTRAL.md, seção 2). */
+.tela-frota .fr-etiqueta-aviso{margin-top:8px;}
 
 /* COMO O CARRO FICA: as quatro respostas como botões, não como lista suspensa.
    Lista suspensa esconde as opções atrás de um toque, e esta é uma pergunta que
@@ -5013,14 +5011,12 @@ onMounted(async () => {
    Grade de largura igual: rótulo comprido não pode fazer um botão virar o dobro
    do vizinho, que foi o defeito dos botões do cartão de veículo em 19/08. */
 .tela-frota .fr-comofica{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:6px;}
-.tela-frota .fr-comofica-btn{font-family:var(--fonte-principal);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));font-weight:600;min-height:40px;padding:9px 10px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);cursor:pointer;touch-action:manipulation;}
+.tela-frota .fr-comofica-btn{font-family:var(--fonte-principal);font-size:max(9px, calc(13.5px * var(--escala-texto, 1)));font-weight:600;min-height:44px;padding:11px 12px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);cursor:pointer;touch-action:manipulation;overflow-wrap:anywhere;}
 .tela-frota .fr-comofica-btn.on{background:var(--accent);border-color:var(--accent);color:var(--sobre-cor);}
 @media (min-width:640px){
   .tela-frota .fr-comofica{grid-template-columns:repeat(4,1fr);}
 }
 
-/* O selo da sincronia: verde, porque é confirmação do que deu certo. */
-.tela-frota .fr-selo-sincronia{color:var(--green,#16a34a);font-weight:600;}
 
 /* "Outros carros sem checklist hoje" (D21b). Uma linha por carro: nome, de quem
    ele é, e o botão. No celular vira coluna, senão o nome comprido ("FIAT PUNTO

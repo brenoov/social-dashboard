@@ -127,7 +127,7 @@ test('fraseDaSincronia: resposta estranha não vira frase inventada', () => {
 
 test('avisoDaEtiqueta: número livre confirma que o item vai nascer', () => {
   assert.deepEqual(avisoDaEtiqueta({ existe: false }, 'RVU6B06'),
-    { tom: 'bom', texto: 'Número livre. O item vai ser criado no Patrimônio.' })
+    { tom: 'boa', texto: 'Número livre. O item vai ser criado no Patrimônio.' })
 })
 
 test('avisoDaEtiqueta: número que não é veículo BARRA, dizendo o que ele é', () => {
@@ -158,7 +158,7 @@ test('avisoDaEtiqueta: número DESTE mesmo veículo é confirmação, não erro'
     existe: true, nome: 'Fiat Punto 2008', categoria: 'Veículos',
     eh_veiculo: true, placa_ligada: 'EDC6H82',
   }, 'edc-6h82')
-  assert.equal(a.tom, 'bom')
+  assert.equal(a.tom, 'boa')
 })
 
 test('avisoDaEtiqueta: veículo que existe e está livre avisa que vai LIGAR, não criar', () => {

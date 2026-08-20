@@ -2276,7 +2276,10 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
    parecer diferente dos que só guardam texto. */
 .tela-patrimonio .pat-placa-destaque{margin:0 0 14px;padding:12px 14px;border:1px solid var(--accent);border-radius:10px;background:color-mix(in srgb,var(--accent) 6%,var(--surface));}
 .tela-patrimonio .pat-placa-destaque .pat-campo{margin:0;}
-.tela-patrimonio .pat-obrigatorio{font-style:normal;font-size:max(9px, calc(10px * var(--escala-texto, 1)));font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--accent);margin-left:6px;}
+/* `--accent-forte` e não `--accent`: esta etiqueta fica em cima do próprio tom
+   aguado do accent (o fundo do bloco), e o accent puro ali reprova por pouco no
+   contraste — o par certo já vem medido no padrão (seção 2). */
+.tela-patrimonio .pat-obrigatorio{font-style:normal;font-size:max(9px, calc(10px * var(--escala-texto, 1)));font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--accent-forte);margin-left:6px;}
 .tela-patrimonio .pat-dica{display:block;margin-top:8px;font-family:var(--fonte-principal);font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));line-height:1.5;color:var(--muted);}
 
 /* Selo de recém-cadastrado: verde, pequeno, sem competir com a situação. */

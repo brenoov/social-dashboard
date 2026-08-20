@@ -143,13 +143,19 @@ export function fraseDaSincronia(resposta) {
  * `etiqueta_quem_e` no banco. É o que substituiu a sugestão de número: em vez
  * de a tela escolher, ela conta a verdade sobre o que foi escolhido.
  *
- * `tom` diz à tela como pintar: 'ruim' barra o caminho, 'atencao' avisa,
- * 'bom' confirma. Resposta que não dá pra ler devolve `null` — sem inventar.
+ * `tom` usa o MESMO vocabulário de `fr-prova-frase`, que já existe nesta tela:
+ * 'ruim' barra o caminho, 'atencao' avisa, 'boa' confirma. Reusar as classes de
+ * lá em vez de inventar um aviso novo mantém os dois avisos da Frota com a
+ * mesma cara — e herda o acerto delas: fundo colorido por `color-mix` com texto
+ * em `var(--text)`, porque texto laranja pequeno sobre a superfície reprova no
+ * contraste (PADRAO-DA-CENTRAL.md, seção 2).
+ *
+ * Resposta que não dá pra ler devolve `null` — sem inventar.
  */
 export function avisoDaEtiqueta(resposta, placaAtual) {
   const r = resposta || {}
   if (r.existe === false) {
-    return { tom: 'bom', texto: 'Número livre. O item vai ser criado no Patrimônio.' }
+    return { tom: 'boa', texto: 'Número livre. O item vai ser criado no Patrimônio.' }
   }
   if (r.existe !== true || !r.nome) return null
 
@@ -165,7 +171,7 @@ export function avisoDaEtiqueta(resposta, placaAtual) {
     return { tom: 'ruim', texto: `Este número já é do veículo ${ligada}. Confira o adesivo.` }
   }
   if (ligada) {
-    return { tom: 'bom', texto: `Já é este veículo no Patrimônio ("${r.nome}").` }
+    return { tom: 'boa', texto: `Já é este veículo no Patrimônio ("${r.nome}").` }
   }
   return { tom: 'atencao', texto: `Vou ligar ao item "${r.nome}", que já existe no Patrimônio.` }
 }
