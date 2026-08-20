@@ -305,7 +305,7 @@
           </div>
         </template>
 
-        <button class="pat-btn primario pat-btn-mais" v-if="podeEditar" :disabled="salvandoTeto"
+        <button class="pat-btn primario pat-btn-ampliar" v-if="podeEditar" :disabled="salvandoTeto"
                 @click="ampliarNumeracao">
           {{ salvandoTeto ? 'Ampliando…' : `Liberar mais 100 números (até ${numeros.teto + 100})` }}
         </button>
@@ -2193,7 +2193,12 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-patrimonio .pat-faixa.usada{background:var(--surface2);color:var(--muted);}
 .tela-patrimonio .pat-faixa.fora{background:color-mix(in srgb,var(--orange) 12%,var(--surface));color:color-mix(in srgb,var(--orange) 75%,var(--text));}
 .tela-patrimonio .pat-faixa-vazio{font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));color:var(--muted);}
-.tela-patrimonio .pat-btn-mais{width:100%;margin-top:20px;}
+/* O botão de ampliar a numeração. Nome PRÓPRIO desde 20/08/2026: ele se
+   chamava `.pat-btn-mais`, mesmo nome do botãozinho "+" das listas de
+   seleção, definido 76 linhas abaixo com `width:38px`. Mesma força, e a de
+   baixo vencia — então "Liberar mais 100 números (até 500)" era desenhado
+   dentro de uma caixa de 38 pixels, em TODO dispositivo. */
+.tela-patrimonio .pat-btn-ampliar{width:100%;margin-top:20px;}
 
 /* Selo de recém-cadastrado: verde, pequeno, sem competir com a situação. */
 .tela-patrimonio .pat-selo-novo{flex-shrink:0;margin-left:6px;background:var(--green);color:var(--sobre-cor);font-family:var(--fonte-principal);font-size:max(9px, calc(9px * var(--escala-texto, 1)));font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:2px 7px;border-radius:999px;white-space:nowrap;vertical-align:1px;}
