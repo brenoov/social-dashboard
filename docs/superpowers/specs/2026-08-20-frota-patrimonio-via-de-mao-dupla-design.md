@@ -248,7 +248,25 @@ migration de dado, sem intervenção à mão.
 | **Numerar os 9 carros antigos** | É adesivo físico pra colar e conferir no carro, não código. Vai pra lista do dono. |
 | **Aposentar o `RBB-00X`** | Enquanto os 9 não tiverem etiqueta, ele é a única identificação que esses carros têm. Aposentar agora seria apagar o que resta. |
 | **Placa como coluna do bem** | Cópia que diverge. A placa tem dono: a Frota. |
-| **Sincronizar os outros campos** (valor, local, empresa) | O pedido é sobre **existir nos dois lados**, não sobre espelhar tudo. Espelhar campo a campo é decidir quem vence em cada conflito — assunto próprio, e maior que este. |
+| **Sincronizar valor, local e empresa** | O pedido é sobre **existir nos dois lados**, não sobre espelhar tudo. Espelhar campo a campo é decidir quem vence em cada conflito — assunto próprio, e maior que este. |
+
+⚠️ **O STATUS SAIU DESTA LISTA no mesmo dia.** Ele estava aqui como "espelhar
+tudo é assunto próprio", e o dono trouxe o assunto na mesma sessão: *"quando o
+bem for veículo, o status de patrimônio precisa ser igual à frota para
+sincronizar informação."* Virou a **migration 051**.
+
+A trava que o assunto escondia: os dois `CHECK` só compartilham **uma** palavra
+(`em_manutencao`), então "igual" ao pé da letra é recusado pelo banco. A solução
+foi tradução de um pra um, confirmada pelo dono linha a linha — Livre e Fixo
+viram `em_uso`, Parado vira `em_estoque`, Fora da frota vira `baixado`.
+
+Quem manda é a **Frota**, e são dois gatilhos: um empurra a mudança, o outro
+impede que uma edição no Patrimônio desfaça o espelho em silêncio.
+
+**Decisão do dono sobre a tela:** o campo de status do Patrimônio **continua
+editável**, sem travar e sem etiqueta de "vem da Frota". A consequência aceita é
+que editá-lo num item de veículo salva e volta sozinho ao valor do carro, sem
+aviso.
 
 ---
 

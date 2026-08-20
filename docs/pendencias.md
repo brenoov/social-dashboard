@@ -113,6 +113,20 @@ este item possa ser editado sem inventar placa. Placa inventada é pior que
 placa faltando: ela é UNIQUE, ocupa o lugar de uma real e some sem ninguém
 notar.
 
+### A16 · o status de item de veículo volta sozinho, sem avisar
+Desde 20/08 o status do carro manda no do item (migration 051). O campo de
+status na ficha do Patrimônio **continua editável** — decisão do dono, que
+preferiu não travar campo.
+
+A consequência aceita: mexer no status de um item que **tem carro ligado** salva
+e o valor **volta ao da Frota, sem nenhum aviso na tela**. Funciona como
+desenhado, mas é do tipo silencioso — a família de defeito que mais custou caro
+neste projeto.
+
+Não está quebrado e não precisa de conserto agora. Fica escrito para quando
+alguém estranhar: **é intencional, e o conserto é uma frase no rodapé** dizendo
+que o status veio da Frota, não travar o campo.
+
 ---
 
 ## Parte B — Precisa programar
