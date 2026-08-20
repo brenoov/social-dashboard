@@ -1,6 +1,6 @@
 # Pendências do iamundi
 
-Última revisão: **19/08/2026**
+Última revisão: **20/08/2026**
 
 O que é este arquivo: a lista viva do que está **em aberto** no projeto. Cada item
 diz o que falta, **por que importa** e **onde** se resolve. É a memória escrita —
@@ -77,8 +77,41 @@ por baixo, ou você não enxergar o Status do Claude, **é isto, e é intenciona
 
 ## Parte A — Só o dono resolve (clique, sem código)
 
-**Vazia em 18/08.** Não há nada esperando clique do dono. O que saiu daqui está
-na tabela de decisões lá em cima, com o motivo de cada um.
+*(Estava vazia em 18/08. Voltou a ter itens em 20/08, com a via de mão dupla
+entre Frota e Patrimônio.)*
+
+### A14 · os 9 carros antigos não têm etiqueta de patrimônio
+Medido em 20/08/2026: o sistema tem **362 itens, 353 com número**, e os **9 sem
+número são exatamente os 9 carros antigos** — nenhum outro item da empresa
+ficou de fora. Eles carregam o código `RBB-00X`, que é só da Frota e nenhum
+leitor de código lê.
+
+Desde 20/08 carro novo já nasce com número de etiqueta pelos dois caminhos.
+Falta o passado: **colar o adesivo nesses 9 e escrever o número na ficha do
+carro** (campo "Nº de patrimônio", na ficha do veículo).
+
+Enquanto não for feito, o leitor de código não acha carro nenhum, e o `RBB-00X`
+continua sendo a única identificação que eles têm — **por isso ele não foi
+aposentado.**
+
+Os 9: VOLVO XC60, FIAT DOBLO, FIAT BRAVO ESSENCE, FIAT BRAVO BLACKMOTION, HONDA
+FIT, FORD FIESTA SEDAN, VOLVO XC90, PORSCHE CAYENNE PHEV, BMW X1.
+*(O FIAT PUNTO escapou: já tem o nº 14.)*
+
+### A15 · o quarto KWID (item nº 291) está sem placa
+Decisão do dono em 20/08: são **quatro KWIDs**, e o item **nº 291** fica sem
+placa por enquanto, porque o carro dele ainda não foi levantado. Os outros três
+já estão na Frota com os números **298, 299 e 300**.
+
+Enquanto o 291 estiver sem placa, ele é um item do Patrimônio **sem carro na
+Frota** — não aparece pra reservar, não entra em checklist e não recebe multa.
+Para resolver: abrir o item nº 291 no Patrimônio, preencher a **Placa** e
+salvar; o carro nasce na Frota sozinho.
+
+⚠️ A obrigatoriedade da placa vale só pro **cadastro novo**, justamente pra que
+este item possa ser editado sem inventar placa. Placa inventada é pior que
+placa faltando: ela é UNIQUE, ocupa o lugar de uma real e some sem ninguém
+notar.
 
 ---
 

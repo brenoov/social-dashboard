@@ -91,6 +91,10 @@ import {
   agruparPorDia, filtrarFichas, resumoDasFichas, FILTROS_DE_FICHA,
 } from './historico-de-checklists.js'
 import { bensLivresParaFrota, patchDoBem } from './bens-para-veiculo.js'
+import {
+  normalizarPlaca, validarEtiqueta, etiquetaDoCodigo, COMO_FICA,
+  comoFicaParaDados, validarCadastro, fraseDaSincronia, avisoDaEtiqueta,
+} from './etiqueta-do-veiculo.js'
 import { dadosDoLocal, insertDaArvore } from './local-do-veiculo.js'
 import {
   contatoParaCobranca, podeCopiarTelefoneDoCarro,
@@ -2295,6 +2299,33 @@ const categoriaVeiculoId = ref(null)
 const bensLivres = computed(() =>
   bensLivresParaFrota(bensVeiculo.value, veiculos.value, categoriaVeiculoId.value))
 
+/* O NÚMERO DE PATRIMÔNIO, e o aviso sobre ele.
+ *
+ * A tela não sugere número (decisão do dono, 20/08/2026): quem cadastra tem o
+ * adesivo na mão. O que ela faz é contar o que o número digitado JÁ É, antes de
+ * gravar — e quem responde isso é `etiqueta_quem_e` no BANCO, não uma conta
+ * aqui: quem só tem a Frota não lê `patrimonio_bens` de forma confiável (a RLS
+ * de leitura é por equipe), então a conta local mentiria em silêncio pra ele. */
+const avisoEtiqueta = ref(null)
+const conferindoEtiqueta = ref(false)
+
+async function conferirEtiqueta() {
+  const et = validarEtiqueta(vForm.etiqueta, { obrigatoria: false })
+  if (!et.ok) { avisoEtiqueta.value = { tom: 'ruim', texto: et.erro }; return }
+  if (et.numero === null) { avisoEtiqueta.value = null; return }
+
+  conferindoEtiqueta.value = true
+  const { data, error } = await sbClient.rpc('etiqueta_quem_e', { p_numero: et.numero })
+  conferindoEtiqueta.value = false
+  // Falhou a consulta? Fica CALADA. Um "número livre" dito por engano faria a
+  // pessoa colar adesivo repetido — e a gravação ainda vai conferir de novo no
+  // banco, então não se perde a trava, só o aviso adiantado.
+  avisoEtiqueta.value = error ? null : avisoDaEtiqueta(data, vForm.placa)
+}
+
+/* O que a sincronia com o Patrimônio fez, em português. Nulo = nada a dizer. */
+const seloDaSincronia = ref(null)
+
 function abrirVeiculo(v) {
   subirCamada('veiculo')
   veiculoAberto.value = v
@@ -2303,6 +2334,15 @@ function abrirVeiculo(v) {
   // "conferem" verde herdado seria dito sobre um carro que ninguém conferiu.
   conferencia.value = null
   for (const c of CAMPOS_VEICULO) vForm[c] = v[c] ?? ''
+  // A ETIQUETA NÃO É COLUNA DE `frota_veiculos` — é o número do item do outro
+  // lado. Mas o `codigo_patrimonial` que já está na ficha muitas vezes É esse
+  // número: medido em 20/08, os três KWIDs novos carregam "298", "299", "300".
+  // Os nove antigos carregam "RBB-004", e `etiquetaDoCodigo` devolve nulo pra
+  // esses de propósito — sugerir o 4 dali ligaria o carro num Macbook.
+  vForm.etiqueta = v.bem_id ? '' : (etiquetaDoCodigo(v.codigo_patrimonial) ?? '')
+  vForm.comoFica = ''
+  avisoEtiqueta.value = null
+  seloDaSincronia.value = null
   vForm.aluguel = v.aluguel_centavos == null ? '' : (v.aluguel_centavos / 100).toString()
   vForm.fipe = v.fipe_centavos == null ? '' : (v.fipe_centavos / 100).toString()
   vForm.seguroValor = v.seguro_valor_centavos == null ? '' : (v.seguro_valor_centavos / 100).toString()
@@ -2319,13 +2359,19 @@ function abrirVeiculoNovo() {
   errosDoVeiculo.value = []
   conferencia.value = null
   for (const c of CAMPOS_VEICULO) vForm[c] = ''
-  // Decisão do dono: todo carro nasce ativo e sem dono fixo (de rodízio).
-  // Fixado aqui e de novo em salvarVeiculo() — a ficha nem mostra os campos
-  // pra mudar isso na criação, ver template.
-  vForm.situacao = 'ativo'
+  // COMO O CARRO FICA passou a ser PERGUNTA, não decisão da tela (20/08/2026).
+  // Até aqui todo carro nascia 'ativo' e sem dono fixo, e a ficha nem mostrava
+  // os campos pra mudar isso; o dono pediu o contrário — que a resposta seja
+  // obrigatória na hora. Nasce VAZIA de propósito: um valor pré-escolhido
+  // viraria a resposta de quem só apertou Gravar sem ler.
+  vForm.comoFica = ''
+  vForm.situacao = ''
+  vForm.etiqueta = ''
   vForm.aluguel = ''
   vForm.fipe = ''
   vForm.seguroValor = ''
+  avisoEtiqueta.value = null
+  seloDaSincronia.value = null
 }
 function fecharVeiculo() { descerCamada('veiculo');
   veiculoAberto.value = null
@@ -2565,15 +2611,23 @@ const centavosDe = (v) => {
 
 async function salvarVeiculo() {
   if (gravando.value) return
-  if (!String(vForm.nome || '').trim() || !String(vForm.placa || '').trim()) {
+  const criando = !!(veiculoAberto.value && veiculoAberto.value.novo)
+
+  // CADASTRO NOVO cobra os quatro obrigatórios de uma vez (decisão do dono,
+  // 20/08/2026): nome, placa, nº de patrimônio e como o carro fica. Numa volta
+  // só, pra pessoa ver tudo que falta em vez de descobrir um erro por tentativa.
+  // A conta mora em etiqueta-do-veiculo.js, testada.
+  if (criando) {
+    const erros = validarCadastro(vForm)
+    if (erros.length) { errosDoVeiculo.value = erros; return }
+  } else if (!String(vForm.nome || '').trim() || !String(vForm.placa || '').trim()) {
     errosDoVeiculo.value = ['Nome e placa são obrigatórios — é por eles que o carro é reconhecido.']
     return
   }
-  const criando = !!(veiculoAberto.value && veiculoAberto.value.novo)
   gravando.value = true
   const dados = {}
   for (const c of CAMPOS_VEICULO) dados[c] = vForm[c] === '' ? null : vForm[c]
-  dados.placa = String(vForm.placa).toUpperCase().replace(/[^A-Z0-9]/g, '')
+  dados.placa = normalizarPlaca(vForm.placa)
   dados.ano = vForm.ano ? parseInt(vForm.ano, 10) : null
   dados.aluguel_centavos = centavosDe(vForm.aluguel)
   dados.fipe_centavos = centavosDe(vForm.fipe)
@@ -2602,12 +2656,18 @@ async function salvarVeiculo() {
     // ainda não foi gravado não tem id. Sem dono na criação, não há posse pra
     // abrir — quem quiser dar dono usa a ficha depois, num carro que já
     // existe, pelo caminho de sempre.
-    dados.situacao = 'ativo'
-    dados.pessoa_id = null
+    // COMO O CARRO FICA, respondido no cadastro (20/08/2026). Até aqui o carro
+    // nascia sempre 'ativo' e sem dono fixo, e quem quisesse outra coisa tinha
+    // que reabrir a ficha. `comoFicaParaDados` traduz a escolha nas duas colunas
+    // — e devolve nulo pra escolha desconhecida, que `validarCadastro` acima já
+    // barrou. O `||` aqui é cinto de segurança, não regra: 'ativo' chutado num
+    // carro parado o deixaria disponível pra qualquer um pegar.
+    Object.assign(dados, comoFicaParaDados(vForm.comoFica, vForm.pessoa_id)
+      || { situacao: 'ativo', pessoa_id: null })
 
     const { error } = await sbClient.from('frota_veiculos').insert(dados)
-    gravando.value = false
     if (error) {
+      gravando.value = false
       // Placa é UNIQUE no banco (migration 022): duas pessoas cadastrando o
       // mesmo carro, ou alguém repetindo sem perceber, batem aqui.
       errosDoVeiculo.value = [/duplicate|unique/i.test(error.message || '')
@@ -2615,6 +2675,34 @@ async function salvarVeiculo() {
         : 'Não consegui gravar. Confira a conexão e tente de novo.']
       return
     }
+
+    // A VIA DE MÃO DUPLA. Só depois do carro existir: a função o acha pela placa
+    // gravada. Ela cria o item no Patrimônio se o número não existir lá, liga se
+    // existir, e RECUSA número que seja de outra coisa — ver migration 050.
+    const et = validarEtiqueta(vForm.etiqueta, { obrigatoria: false })
+    const { data: sinc, error: erroSinc } = et.numero === null ? { data: null, error: null }
+      : await sbClient.rpc('sincronizar_carro_e_bem', {
+        p_placa: dados.placa,
+        p_etiqueta: et.numero,
+        p_nome: dados.nome,
+        p_marca: dados.marca,
+        p_valor_centavos: dados.fipe_centavos,
+      })
+    gravando.value = false
+
+    if (erroSinc) {
+      // O CARRO JÁ FOI GRAVADO, e a tela tem que dizer isso. Um "não consegui
+      // gravar" aqui faria a pessoa cadastrar de novo e bater na placa UNIQUE —
+      // e ela ficaria sem entender por que o carro que "não salvou" já existe.
+      // A mensagem do banco já vem em português de leigo (migrations 049/050).
+      errosDoVeiculo.value = ['O veículo foi cadastrado, mas não consegui ligá-lo ao '
+        + `Patrimônio: ${erroSinc.message} Abra a ficha dele e tente de novo.`]
+      fecharVeiculo()
+      carregar()
+      return
+    }
+
+    seloDaSincronia.value = fraseDaSincronia(sinc)
     fecharVeiculo()
     carregar()
     return
@@ -3124,6 +3212,12 @@ onMounted(async () => {
          Gestão pra este bloco aparecer, mesmo com a tela ainda carregando. -->
     <template v-else-if="area === 'gestao'">
       <BotoesRapidos data-tour="fr-botoes-gestao" :botoes="botoesGestao" @escolher="irPara" />
+
+      <!-- O QUE A SINCRONIA COM O PATRIMÔNIO FEZ. Fica aqui, no topo da aba,
+           porque é onde a pessoa cai depois de fechar a ficha do carro novo.
+           Nunca um "pronto!" genérico: a frase diz se nasceu item novo lá ou se
+           só amarrou no que já existia — ver fraseDaSincronia. -->
+      <p class="fr-aviso fr-selo-sincronia" v-if="seloDaSincronia">{{ seloDaSincronia }}</p>
 
       <!-- FILA DE APROVAÇÃO, na área de Gestão. Só aparece pra quem aprova.
            Pedido do dono: logo abaixo dos botões, não no fim da tela. -->
@@ -3765,10 +3859,49 @@ onMounted(async () => {
         <PasseioGuiado v-model="passeioVeiculoAberto" :passos="PASSOS_VEICULO" />
         <div class="fr-ficha-corpo">
           <p class="fr-tutorial-fixo">{{ TEXTOS.veiculoAberto }}</p>
-          <p class="fr-aviso" v-if="veiculoAberto.novo">
-            Este carro entra ativo e sem responsável fixo — um carro de rodízio, que qualquer um
-            pode pegar. Para dar um responsável fixo a ele, abra a ficha de novo depois de gravar.
-          </p>
+          <!-- O NÚMERO DE PATRIMÔNIO VEM PRIMEIRO, e destacado (pedido do dono,
+               20/08/2026: "destacar mais esse campo, talvez jogar acima"). É ele
+               que faz o item nascer no Patrimônio — sem ele o carro fica órfão,
+               como os três KWIDs ficaram naquele mesmo dia.
+
+               A tela NÃO sugere número: decisão dele, porque quem cadastra tem o
+               adesivo na mão. No lugar da sugestão, `avisoDaEtiqueta` conta o
+               que o número digitado JÁ É — inclusive que o 47 é um microfone. -->
+          <template v-if="veiculoAberto.novo">
+            <h3 class="fr-grupo">O que é obrigatório</h3>
+            <div class="fr-patrimonio-destaque" data-tour="veic-patrimonio">
+              <label class="fr-campo">
+                <span class="fr-lab">Nº de patrimônio</span>
+                <input v-model="vForm.etiqueta" type="text" inputmode="numeric"
+                       placeholder="o número do adesivo colado no carro"
+                       @blur="conferirEtiqueta" @input="avisoEtiqueta = null">
+              </label>
+              <p class="fr-etiqueta-aviso" v-if="avisoEtiqueta" :class="avisoEtiqueta.tom">
+                {{ avisoEtiqueta.texto }}
+              </p>
+              <span class="fr-ajuda" v-else>
+                O mesmo número da etiqueta do Patrimônio. Se ainda não existir lá, eu crio
+                o item junto ao gravar — você não precisa cadastrar duas vezes.
+              </span>
+            </div>
+
+            <!-- COMO O CARRO FICA. As quatro respostas são as palavras do dono, e
+                 por baixo são as duas colunas que já existiam (`situacao` e
+                 `pessoa_id`) — ver COMO_FICA em etiqueta-do-veiculo.js.
+
+                 Até 20/08 estes dois campos ficavam ESCONDIDOS no cadastro e o
+                 carro nascia sempre "ativo e sem responsável". Ele pediu o
+                 contrário: que a resposta seja obrigatória na hora. -->
+            <div class="fr-campo">
+              <span class="fr-lab">Como este carro fica?</span>
+              <div class="fr-comofica">
+                <button v-for="o in COMO_FICA" :key="o.chave" type="button"
+                        class="fr-comofica-btn" :class="{ on: vForm.comoFica === o.chave }"
+                        @click="vForm.comoFica = o.chave">{{ o.rotulo }}</button>
+              </div>
+            </div>
+          </template>
+
           <h3 class="fr-grupo">Identificação</h3>
           <div class="fr-dupla">
             <label class="fr-campo" data-tour="veic-nome"><span class="fr-lab">Nome</span><input v-model="vForm.nome" type="text"></label>
@@ -3803,7 +3936,8 @@ onMounted(async () => {
                que ela já trocou. -->
           <h3 class="fr-grupo">De quem é, onde fica e com quem falar</h3>
           <div class="fr-dupla">
-            <div class="fr-campo" v-if="!veiculoAberto.novo" data-tour="veic-responsavel">
+            <div class="fr-campo" data-tour="veic-responsavel"
+                 v-if="!veiculoAberto.novo || vForm.comoFica === 'responsavel'">
               <span class="fr-lab">Responsável — de quem é o carro</span>
               <p class="fr-erro-inline" v-if="falhaPessoas">
                 Não consegui carregar a lista de colaboradores. O campo pode estar vazio por
@@ -4855,6 +4989,38 @@ onMounted(async () => {
    atrasado NÃO invalida ficha. A prova é a assinatura gravada no banco; o PDF
    é cópia de arquivo. */
 .tela-frota .fr-copia-calma{margin:0;font-family:var(--fonte-principal);font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));line-height:1.55;color:var(--muted);}
+
+/* O NÚMERO DE PATRIMÔNIO, destacado (pedido do dono, 20/08/2026). A moldura
+   existe porque este campo faz uma coisa que nenhum outro da ficha faz: criar
+   registro na OUTRA ferramenta. Ele merece parecer diferente dos campos que só
+   guardam texto. */
+.tela-frota .fr-patrimonio-destaque{margin:0 0 14px;padding:12px 14px;border:1px solid var(--accent);border-radius:var(--radius-md);background:color-mix(in srgb,var(--accent) 6%,var(--surface));}
+.tela-frota .fr-patrimonio-destaque .fr-campo{margin:0;}
+
+/* O aviso sobre o número digitado. Três tons, e eles não são enfeite: `ruim` é
+   caminho barrado (o número é de um microfone, ou de outro carro), `atencao` é
+   "vou ligar no que já existe" e `bom` é "vou criar". Cor sozinha não conta a
+   história — o TEXTO diz o nome do que o número é. */
+.tela-frota .fr-etiqueta-aviso{margin:8px 0 0;font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));line-height:1.5;}
+.tela-frota .fr-etiqueta-aviso.bom{color:var(--green,#16a34a);}
+.tela-frota .fr-etiqueta-aviso.atencao{color:var(--orange,#d97706);}
+.tela-frota .fr-etiqueta-aviso.ruim{color:var(--red,#dc2626);font-weight:600;}
+
+/* COMO O CARRO FICA: as quatro respostas como botões, não como lista suspensa.
+   Lista suspensa esconde as opções atrás de um toque, e esta é uma pergunta que
+   a pessoa precisa VER inteira pra responder — ela não sabe de antemão que
+   "livre" e "fixo com uma pessoa" são coisas diferentes aqui.
+   Grade de largura igual: rótulo comprido não pode fazer um botão virar o dobro
+   do vizinho, que foi o defeito dos botões do cartão de veículo em 19/08. */
+.tela-frota .fr-comofica{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:6px;}
+.tela-frota .fr-comofica-btn{font-family:var(--fonte-principal);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));font-weight:600;min-height:40px;padding:9px 10px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);cursor:pointer;touch-action:manipulation;}
+.tela-frota .fr-comofica-btn.on{background:var(--accent);border-color:var(--accent);color:var(--sobre-cor);}
+@media (min-width:640px){
+  .tela-frota .fr-comofica{grid-template-columns:repeat(4,1fr);}
+}
+
+/* O selo da sincronia: verde, porque é confirmação do que deu certo. */
+.tela-frota .fr-selo-sincronia{color:var(--green,#16a34a);font-weight:600;}
 
 /* "Outros carros sem checklist hoje" (D21b). Uma linha por carro: nome, de quem
    ele é, e o botão. No celular vira coluna, senão o nome comprido ("FIAT PUNTO
