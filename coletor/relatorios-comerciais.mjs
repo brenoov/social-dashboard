@@ -14,7 +14,7 @@ import './lib/carregar-env.mjs';   // popula process.env do .env ANTES de import
 import { pathToFileURL } from 'node:url';
 import {
   loginServico, blingProxy, blingPedidos, blingProdutos, blingSaldoFoco,
-  classificarItem, DEP_FOCO,
+  classificarItem, classificarItemDetalhado, categoriaDeEstoque, DEP_FOCO,
 } from './lib/bling-comercial.mjs';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://kounqtdoioootxqegkij.supabase.co';
@@ -159,21 +159,43 @@ async function main() {
   }
 
   // ── Estoque por depósito foco (snapshot atual) ──
+  //
+  // Aqui vale `categoriaDeEstoque`, NÃO `classificarItem`: no estoque a pergunta
+  // é "isto é produto vendável?", e o pega-tudo da lista respondia "sim" a todo
+  // nome desconhecido. Era assim que argola, botão, couro e camurça chegavam ao
+  // telão da Gestão à Vista.
   console.log('→ Estoque por depósito foco…');
   const prodMap = await blingProdutos(token);
   const saldoPorDep = await blingSaldoFoco(token, prodMap);
+  const naoReconhecidos = new Map();   // sku -> nome, para a vigia abaixo
   for (const { deposito_id, canal } of DEP_FOCO) {
     const saldos = saldoPorDep[deposito_id] || {};
     const rows = Object.entries(saldos).map(([pid, saldo]) => {
       const meta = prodMap[pid] || {};
       const nome = meta.nome || '';
+      const sku = String(meta.codigo || pid);
+      if (nome.trim() && !classificarItemDetalhado(nome).reconhecido) naoReconhecidos.set(sku, nome);
       return {
-        deposito_id: Number(deposito_id), sku: String(meta.codigo || pid), produto: nome.slice(0, 120),
-        categoria: classificarItem(nome), saldo: Math.round(Number(saldo) || 0),
+        deposito_id: Number(deposito_id), sku, produto: nome.slice(0, 120),
+        categoria: categoriaDeEstoque(nome), saldo: Math.round(Number(saldo) || 0),
       };
     });
     await upsert('gc_estoque_item', 'deposito_id,sku', rows);
     console.log(`  ${canal}: ${rows.length} SKUs com saldo`);
+  }
+
+  // ── A VIGIA ───────────────────────────────────────────────────────────────
+  // O conserto acima inverteu o lado para o qual a lista erra: agora o nome que
+  // ela não conhece fica FORA do estoque. Isso é o certo para insumo e é o
+  // errado para uma linha de produto nova — e sumir da tela sem ninguém saber é
+  // pior de perceber do que aparecer indevidamente. Por isso o número sai no log
+  // de toda rodada, com exemplos: se ele crescer de repente, é produto novo
+  // faltando na lista, não insumo.
+  if (naoReconhecidos.size) {
+    const exemplos = [...naoReconhecidos.values()].slice(0, 8).join(' | ');
+    console.warn(`  ⚠️ ${naoReconhecidos.size} SKUs sem classificação (ficam FORA do estoque): ${exemplos}`);
+  } else {
+    console.log('  todos os SKUs do estoque foram reconhecidos pela lista.');
   }
 
   console.log('✓ concluído.');
