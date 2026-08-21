@@ -194,3 +194,32 @@ export function trocarDonoFixo({ usos, veiculoId, deId, paraId, paraNome, quando
     abrir: { veiculo_id: veiculoId, tipo: 'posse', pessoa_id: paraId, pessoa_nome: paraNome || null, saida_em: quando },
   };
 }
+
+/**
+ * QUEM DEVE CONFERIR O CARRO HOJE — e por que não é `quemEstaComOCarro`.
+ *
+ * Aquela responde "de quem é este carro", e por isso olha só a POSSE: a viagem
+ * é passageira e não muda de dono nada. Esta responde outra coisa — "quem está
+ * com a chave na mão agora" —, e aí a viagem aberta vence, porque é ela que diz
+ * quem vai dirigir hoje.
+ *
+ * O QUE ISTO CONSERTA (relatado pelo dono em 21/08/2026): ele retirou a Bravo
+ * Blackmotion, um carro de rodízio, e o cartão do checklist não abria pra ele —
+ * o app só reconhecia como "seu carro" o que estava por posse. Para fazer o
+ * checklist do carro que estava DIRIGINDO, ele tinha que caçar o veículo num
+ * seletor, coisa que só quem administra a Frota enxerga.
+ *
+ * A ordem é: viagem aberta → posse → dono no papel.
+ */
+export function quemDeveConferir(veiculo, usos, pessoas) {
+  const viagem = (usos || []).find((u) => u
+    && u.veiculo_id === (veiculo && veiculo.id)
+    && !u.volta_em
+    && (u.tipo || 'viagem') === 'viagem') || null;
+  if (viagem && viagem.pessoa_id) {
+    const nome = viagem.pessoa_nome
+      || (pessoas ? ((pessoas.find((p) => p && p.id === viagem.pessoa_id) || {}).nome || null) : null);
+    return { pessoaId: viagem.pessoa_id, pessoaNome: nome || null, porViagem: true };
+  }
+  return { ...quemEstaComOCarro(veiculo, usos, pessoas), porViagem: false };
+}

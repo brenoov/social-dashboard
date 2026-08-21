@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   estadoDoVeiculo, resumoDoEstado, ordenarEstados, usoAberto, ultimoUsoFechado,
-  rotuloDoTanque, precisaAbastecer, problemasDaDevolucao, ultimoHodometro,
+  rotuloDoTanque, precisaAbastecer, problemasDaDevolucao, problemasDoRegistroAvulso, ultimoHodometro,
 } from './estado-do-veiculo.js'
 
 const carro = (extra = {}) => ({ id: 'v1', nome: 'FORD FIESTA SEDAN', placa: 'ERO3G55', situacao: 'ativo', ...extra })
@@ -353,4 +353,39 @@ test('sem reserva nenhuma, "livre pra mim" é igual a "livre"', () => {
   const e = estadoDoVeiculo(carro(), [])
   assert.equal(e.disponivel, true)
   assert.equal(e.disponivelParaMim, true)
+})
+
+/* ── Registrar uma retirada que aconteceu FORA do aplicativo ──────────────── */
+
+test('registro avulso exige o KM e a hora em que o carro saiu', () => {
+  // Este caminho existe porque a vida acontece fora do app: alguém pega o carro
+  // no sábado, sem o celular na mão, e isso precisa entrar no sistema depois.
+  // Fechar essa porta não faz o checklist existir — faz a VIAGEM não existir.
+  assert.deepEqual(
+    problemasDoRegistroAvulso({ km: null, saidaEm: '2026-08-22T09:00', agoraIso: '2026-08-24T12:00:00Z' }),
+    ['Informe o KM que estava no painel quando o carro saiu.'])
+  assert.deepEqual(
+    problemasDoRegistroAvulso({ km: 185359, saidaEm: '', agoraIso: '2026-08-24T12:00:00Z' }),
+    ['Informe quando o carro saiu.'])
+})
+
+test('não dá pra registrar uma saída no futuro', () => {
+  // Registro avulso conta o que JÁ aconteceu. Data no futuro é dedo errado, e
+  // gravada vira um carro "na rua" antes de sair.
+  const p = problemasDoRegistroAvulso({ km: 185359, saidaEm: '2026-08-30T09:00', agoraIso: '2026-08-24T12:00:00Z' })
+  assert.equal(p.length, 1)
+  assert.match(p[0], /futuro|ainda não/i)
+})
+
+test('saída no passado, com KM, passa', () => {
+  assert.deepEqual(
+    problemasDoRegistroAvulso({ km: 185359, saidaEm: '2026-08-22T09:00', agoraIso: '2026-08-24T12:00:00Z' }), [])
+})
+
+test('data impossível é recusada, não tratada como vazia', () => {
+  // Vazio e podre são coisas diferentes: dizer "informe quando saiu" pra quem
+  // digitou uma data manda a pessoa preencher o campo que ela já preencheu.
+  const p = problemasDoRegistroAvulso({ km: 1, saidaEm: 'trinta e um de fevereiro', agoraIso: '2026-08-24T12:00:00Z' })
+  assert.equal(p.length, 1)
+  assert.match(p[0], /não entendi|inválida|confira/i)
 })

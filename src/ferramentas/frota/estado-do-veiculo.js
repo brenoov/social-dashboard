@@ -199,6 +199,42 @@ export function ordenarEstados(estados) {
  * Valida uma devolução ANTES de gravar. Devolve a lista de problemas em
  * português; vazia significa que pode gravar.
  */
+/**
+ * O que falta para registrar uma retirada que aconteceu FORA do aplicativo.
+ *
+ * POR QUE ESTE CAMINHO EXISTE: a vida acontece fora do app. Alguém pega o carro
+ * no sábado, sem o celular na mão, e isso precisa entrar no sistema depois.
+ * Antes de 21/08/2026 não havia porta nenhuma — só saía carro pelo "Peguei o
+ * carro", que exige reserva aprovada. Fechar essa porta não faz o checklist
+ * existir; faz a VIAGEM não existir, e aí o carro fica eternamente "livre" numa
+ * tela que jura que ele está na garagem.
+ *
+ * NÃO PEDE CHECKLIST, de propósito: ninguém confere hoje um carro que saiu
+ * sábado. O histórico marca essa retirada como "não ficou prova nenhuma" — é
+ * ponta VISÍVEL, que é o melhor que se pode fazer com o que já passou.
+ *
+ * O QUE É TRAVA: o KM (é ele que alimenta o aviso de revisão) e a hora da
+ * saída, que não pode estar no futuro — data adiante vira um carro "na rua"
+ * antes de sair.
+ */
+export function problemasDoRegistroAvulso({ km, saidaEm, agoraIso } = {}) {
+  if (!Number.isInteger(km) || km <= 0) {
+    return ['Informe o KM que estava no painel quando o carro saiu.'];
+  }
+  const texto = String(saidaEm || '').trim();
+  if (!texto) return ['Informe quando o carro saiu.'];
+  const quando = Date.parse(texto);
+  if (!Number.isFinite(quando)) {
+    return ['Não entendi a data da saída. Confira o dia e a hora.'];
+  }
+  const agora = Date.parse(agoraIso);
+  if (Number.isFinite(agora) && quando > agora) {
+    return ['Essa saída está no futuro. Este registro é para o que já aconteceu — '
+      + 'o carro ainda não saiu.'];
+  }
+  return [];
+}
+
 export function problemasDaDevolucao({ kmSaida, kmVolta }) {
   const p = [];
   if (!Number.isInteger(kmVolta) || kmVolta <= 0) {

@@ -832,3 +832,30 @@ test('carro na oficina não entra no quadro', () => {
     fichasDeHoje: [], usos: [], pessoas: [], hoje: SEXTA,
   }), [])
 })
+
+test('o carro que está na sua mão AGORA abre antes do seu carro fixo', () => {
+  // 21/08/2026: quem tem carro fixo e pegou um de rodízio via os dois como
+  // "meus", e o desempate era alfabético — o cartão abria no FIAT TORO
+  // enquanto a pessoa estava de pé ao lado da SAVEIRO que acabou de retirar.
+  const veiculos = [
+    { id: 'toro', nome: 'FIAT TORO FREEDOM', situacao: 'ativo', pessoa_id: 'p-eu' },
+    { id: 'saveiro', nome: 'VW SAVEIRO ROBUST', situacao: 'ativo', pessoa_id: null },
+  ]
+  const lista = veiculosParaConferir({
+    veiculos, euId: 'p-eu', ehGestor: false, fichas: [], hoje: '2026-08-21',
+    quemEstaCom: (v) => (v.id === 'saveiro' ? 'p-eu' : v.pessoa_id),
+    emViagem: (v) => (v.id === 'saveiro' ? 'p-eu' : null),
+  })
+  assert.deepEqual(lista.map((x) => x.veiculo.id), ['saveiro', 'toro'])
+  assert.equal(lista[0].naMinhaMao, true)
+  assert.equal(lista[1].naMinhaMao, false)
+})
+
+test('sem `emViagem`, a ordem é a de antes — nada muda para quem não passa isso', () => {
+  const veiculos = [
+    { id: 'b', nome: 'BBB', situacao: 'ativo', pessoa_id: 'p-eu' },
+    { id: 'a', nome: 'AAA', situacao: 'ativo', pessoa_id: 'p-eu' },
+  ]
+  const lista = veiculosParaConferir({ veiculos, euId: 'p-eu', ehGestor: false, fichas: [], hoje: '2026-08-21' })
+  assert.deepEqual(lista.map((x) => x.veiculo.id), ['a', 'b'])
+})

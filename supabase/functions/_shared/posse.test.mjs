@@ -2,8 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   posseAberta, passarPara, quemEstavaCom, abrirPossesQueFaltam,
-  quemEstaComOCarro, trocarDonoFixo,
-} from './posse.js'
+  quemEstaComOCarro, trocarDonoFixo, quemDeveConferir } from './posse.js'
 
 const AGORA = '2026-08-05T12:00:00.000Z'
 
@@ -299,3 +298,46 @@ test('pessoa DE FORA vira posse com nome e SEM identificador', () => {
   assert.equal(r.abrir.pessoa_id, null);
   assert.equal(r.abrir.pessoa_nome, 'Felipe modelista');
 });
+
+/* ── Quem deve conferir o carro hoje ──────────────────────────────────────── */
+
+test('quem está DIRIGINDO o carro hoje é quem confere, não o dono no papel', () => {
+  // O relato do dono (21/08/2026): retirou a Bravo, de rodízio, e o cartão do
+  // checklist não abria pra ele. O app só reconhecia "seu carro" por posse, e
+  // ele estava com o carro por VIAGEM.
+  const veiculo = { id: 'bravo', pessoa_id: 'p-dono-no-papel' }
+  const usos = [{ veiculo_id: 'bravo', tipo: 'viagem', pessoa_id: 'p-erick', pessoa_nome: 'Erick Martins', volta_em: null }]
+  const r = quemDeveConferir(veiculo, usos)
+  assert.equal(r.pessoaId, 'p-erick')
+  assert.equal(r.pessoaNome, 'Erick Martins')
+  assert.equal(r.porViagem, true)
+})
+
+test('viagem DEVOLVIDA não manda mais: volta a valer a posse ou o dono', () => {
+  const veiculo = { id: 'bravo', pessoa_id: 'p-dono' }
+  const usos = [{ veiculo_id: 'bravo', tipo: 'viagem', pessoa_id: 'p-erick', volta_em: '2026-08-21T20:00:00Z' }]
+  const r = quemDeveConferir(veiculo, usos)
+  assert.equal(r.pessoaId, 'p-dono')
+  assert.equal(r.porViagem, false)
+})
+
+test('sem viagem, é exatamente o que quemEstaComOCarro já dizia (posse vence o papel)', () => {
+  const veiculo = { id: 'doblo', pessoa_id: 'p-dono' }
+  const usos = [{ veiculo_id: 'doblo', tipo: 'posse', pessoa_id: 'p-jeremias', volta_em: null }]
+  const r = quemDeveConferir(veiculo, usos)
+  assert.equal(r.pessoaId, 'p-jeremias')
+  assert.equal(r.porPosse, true)
+  assert.equal(r.porViagem, false)
+})
+
+test('viagem sem pessoa registrada não rouba o carro de ninguém', () => {
+  const veiculo = { id: 'x', pessoa_id: 'p-dono' }
+  const usos = [{ veiculo_id: 'x', tipo: 'viagem', pessoa_id: null, volta_em: null }]
+  assert.equal(quemDeveConferir(veiculo, usos).pessoaId, 'p-dono')
+})
+
+test('o nome vem da lista quando a viagem gravou só o id', () => {
+  const usos = [{ veiculo_id: 'x', tipo: 'viagem', pessoa_id: 'p1', volta_em: null }]
+  const r = quemDeveConferir({ id: 'x' }, usos, [{ id: 'p1', nome: 'Fulano' }])
+  assert.equal(r.pessoaNome, 'Fulano')
+})

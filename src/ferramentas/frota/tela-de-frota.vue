@@ -19,7 +19,7 @@ import BarraDeTopo from '../../compartilhado/barra-de-topo.vue'
 import { useRouter } from 'vue-router'
 import { sbClient, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { hasPermission, estado } from '../../compartilhado/controle-de-login-e-usuario.js'
-import { estadoDoVeiculo, resumoDoEstado, ordenarEstados, rotuloDoTanque, NIVEIS_TANQUE, problemasDaDevolucao, ultimoHodometro } from './estado-do-veiculo.js'
+import { estadoDoVeiculo, resumoDoEstado, ordenarEstados, rotuloDoTanque, NIVEIS_TANQUE, problemasDaDevolucao, problemasDoRegistroAvulso, ultimoHodometro } from './estado-do-veiculo.js'
 import { nomeDeQuemAgiu } from './nome-de-quem-agiu.js'
 import { montarArvore } from '../../compartilhado/arvore-de-locais.js'
 import { localCurto } from './onde-o-carro-fica.js'
@@ -30,7 +30,7 @@ import { RELATORIOS_DA_FROTA } from './relatorios-da-frota.js'
 // Function do robô da manhã (Tarefa 12) roda em Deno e precisa da mesma regra
 // de "quem está com o carro" — ela não alcança src/, só o front alcança o
 // _shared.
-import { passarPara, quemEstaComOCarro, trocarDonoFixo } from '../../../supabase/functions/_shared/posse.js'
+import { passarPara, quemEstaComOCarro, quemDeveConferir, trocarDonoFixo } from '../../../supabase/functions/_shared/posse.js'
 // Mesmo motivo, mesma pasta: quem loga por cada colaborador é regra que a tela
 // e o robô do aviso PRECISAM responder igual. Ver quem-loga.js.
 import { pessoaDoUsuario } from '../../../supabase/functions/_shared/quem-loga.js'
@@ -427,7 +427,20 @@ const paraConferir = computed(() => veiculosParaConferir({
   // D9b: enquanto o carro está emprestado, quem confere é quem está COM ele.
   // Sem isto, o quadro de cobrança (que já olha a posse) cobraria da Barbara
   // uma ficha que o cartão não deixava ela preencher.
-  quemEstaCom: (v) => quemEstaComOCarro(v, usos.value).pessoaId || v.pessoa_id,
+  //
+  // `quemDeveConferir` e NÃO `quemEstaComOCarro`: a segunda olha só a POSSE, e
+  // por isso quem retirava um carro de rodízio não via o cartão do checklist
+  // dele — o carro estava com a pessoa por VIAGEM. O dono caiu nisso em
+  // 21/08/2026 com a Bravo Blackmotion: pra conferir o carro que estava
+  // dirigindo, teve que caçá-lo num seletor que só quem administra enxerga.
+  quemEstaCom: (v) => quemDeveConferir(v, usos.value).pessoaId || v.pessoa_id,
+  // Quem está com o carro POR VIAGEM: é o desempate do cartão que abre sozinho.
+  // Sem isto, quem tem carro fixo e pegou um de rodízio abria o fixo — o
+  // desempate era alfabético, e a pessoa estava de pé ao lado do outro.
+  emViagem: (v) => {
+    const q = quemDeveConferir(v, usos.value)
+    return q.porViagem ? q.pessoaId : null
+  },
 }))
 /* Qual carro está aberto pra preencher. Guarda o ID, nunca o objeto: a lista é
  * recalculada a cada leitura, e um objeto guardado ficaria velho — depois de
@@ -1249,6 +1262,7 @@ const rotuloDoBotaoDaFicha = computed(() => {
   const f = ficha.value
   if (!f) return 'Confirmar'
   if (f.jaAvisado) return 'Gravar assim mesmo'
+  if (f.avulsa) return 'Registrar retirada'
   if (f.modo === 'retirar'
     && precisaDeChecklist({ veiculoId: f.linha.veiculo.id, fichas: fichas.value, hoje: hoje.value })
     && f.reserva) {
@@ -1285,6 +1299,30 @@ function podePegar(linha) {
   })
 }
 
+/* REGISTRAR UMA RETIRADA QUE JÁ ACONTECEU, fora do aplicativo (21/08/2026).
+ *
+ * Até aqui não havia porta nenhuma: só saía carro pelo "Peguei o carro", que
+ * exige reserva aprovada. Quem pegasse o carro no sábado, sem o celular na
+ * mão, não tinha como registrar depois — e o carro ficava eternamente "livre"
+ * numa tela que jurava que ele estava na garagem.
+ *
+ * NÃO PEDE CHECKLIST: ninguém confere hoje um carro que saiu sábado. A ficha
+ * dessa retirada nasce marcada no histórico como "não ficou prova nenhuma", que
+ * é ponta visível — o melhor que se faz com o que já passou. */
+function abrirRetiradaAvulsa(linha) {
+  subirCamada('ficha')
+  ficha.value = { modo: 'retirar', linha, reserva: null, avulsa: true }
+  aceiteDaRetirada.value = null
+  Object.assign(form, {
+    pessoaId: '', km: linha.km == null ? '' : String(linha.km),
+    tanque: linha.tanque == null ? '' : String(linha.tanque),
+    destino: '', finalidade: '', observacao: '',
+    // Agora, arredondado pro minuto: é o que o <input datetime-local> aceita.
+    saidaEm: new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16),
+  })
+  problemas.value = []
+}
+
 function abrirRetirada(linha) {
   subirCamada('ficha')
   // A RESERVA VEM JUNTO, e é ela que faz a ficha encolher: quem chegou aqui
@@ -1301,6 +1339,7 @@ function abrirRetirada(linha) {
   Object.assign(form, {
     // Da reserva quando há; do próprio usuário quando é avulso.
     pessoaId: (reserva && reserva.pessoa_id) || meuId() || '',
+    saidaEm: '',
     km: linha.km == null ? '' : String(linha.km),
     tanque: linha.tanque == null ? '' : String(linha.tanque),
     destino: (reserva && reserva.destino) || '',
@@ -1486,7 +1525,15 @@ async function confirmar() {
        celular na mão). Fechar essa porta não faria o checklist existir — faria
        a viagem não existir. O histórico marca essa retirada como "não ficou
        prova nenhuma", que é ponta visível em vez de ponta solta. */
-    if (faltaChecklist) {
+    if (f.avulsa) {
+      /* REGISTRO DO QUE JÁ ACONTECEU: não pede checklist, e a regra do que ele
+         exige (KM e uma hora de saída que não esteja no futuro) mora em
+         estado-do-veiculo.js, testada, ao lado das irmãs da devolução. */
+      problemas.value = problemasDoRegistroAvulso({
+        km, saidaEm: form.saidaEm, agoraIso: new Date().toISOString(),
+      })
+      if (problemas.value.length) return
+    } else if (faltaChecklist) {
       // NOME PRÓPRIO, e não `painel`: já existe um `painel` no módulo (o do
       // motorista), e um const local com o mesmo nome o sombreia dentro desta
       // função inteira — inclusive ANTES desta linha. A guarda
@@ -1533,6 +1580,10 @@ async function confirmar() {
       : {}
     const r = await sbClient.from('frota_uso').insert({
       veiculo_id: f.linha.veiculo.id,
+      // A HORA REAL DA SAÍDA, só no registro avulso. Sem ela o banco carimba
+      // `now()`, e uma retirada de sábado entraria como se fosse de segunda —
+      // o histórico passaria a contar uma coisa que não aconteceu.
+      ...(f.avulsa && form.saidaEm ? { saida_em: new Date(form.saidaEm).toISOString() } : {}),
       pessoa_id: form.pessoaId || null,
       pessoa_nome: form.pessoaId ? nomeDaPessoa(form.pessoaId) : null,
       km_saida: km,
@@ -4020,6 +4071,17 @@ onMounted(async () => {
           <div class="fr-acoes fr-acoes-veiculo">
             <button class="fr-btn primario" v-if="podeEditar" @click="abrirVeiculo(l.veiculo)">Abrir ficha</button>
             <button v-if="podeEditar && l.naRua" class="fr-btn" @click="abrirDevolucao(l)">Devolver</button>
+            <!-- REGISTRAR O QUE ACONTECEU FORA DO APLICATIVO (21/08/2026).
+                 Antes disto não havia porta nenhuma: carro só saía pelo "Peguei
+                 o carro" da aba Motorista, que exige reserva aprovada. Quem
+                 pegasse o carro no sábado, sem o celular na mão, não tinha como
+                 registrar depois — e o carro ficava eternamente "livre" numa
+                 tela que jurava que ele estava na garagem.
+                 Só no carro que a tela mostra parado: oferecer isso num carro
+                 que já está na rua criaria duas viagens abertas do mesmo
+                 veículo. -->
+            <button v-if="podeEditar && !l.naRua && l.veiculo.situacao === 'ativo'"
+                    class="fr-btn" @click="abrirRetiradaAvulsa(l)">Registrar retirada</button>
             <!-- POSSE (D26): quem administra a Frota passa ou encerra a posse de
                  QUALQUER carro, não só do seu. O caso real: a Bravo Blackmotion
                  está com Gabriel Alves desde 11/08 — o dono emprestou, ele
@@ -4917,7 +4979,7 @@ onMounted(async () => {
       <div class="fr-ficha" role="dialog">
         <div class="fr-ficha-topo">
           <span class="fr-ficha-titulo">
-            {{ ficha.modo === 'retirar' ? 'Retirar' : 'Devolver' }} · {{ ficha.linha.veiculo.nome }}
+            {{ ficha.avulsa ? 'Registrar retirada' : (ficha.modo === 'retirar' ? 'Retirar' : 'Devolver') }} · {{ ficha.linha.veiculo.nome }}
           </span>
           <button class="fr-btn-ajuda" @click="passeioFichaAberto = true" title="Passeio pelos campos">?</button>
           <button class="fr-fechar" @click="fecharFicha" aria-label="Fechar">✕</button>
@@ -4974,7 +5036,7 @@ onMounted(async () => {
           </div>
 
           <PainelDeChecklist
-            v-if="ficha.modo === 'retirar' && precisaDeChecklist({ veiculoId: ficha.linha.veiculo.id, fichas, hoje })"
+            v-if="ficha.modo === 'retirar' && !ficha.avulsa && precisaDeChecklist({ veiculoId: ficha.linha.veiculo.id, fichas, hoje })"
             ref="painelDaRetirada"
             :botao-proprio="false"
             data-tour="ficha-checklist"
@@ -5005,6 +5067,21 @@ onMounted(async () => {
 
           <p class="fr-aviso" v-if="ficha.modo === 'retirar' && seloDoChecklist">{{ seloDoChecklist }}</p>
           <p class="fr-erro" v-if="ficha.modo === 'retirar' && erroChecklist">{{ erroChecklist }}</p>
+
+          <!-- O QUE ESTE REGISTRO É, dito antes de qualquer campo. Sem esta
+               frase, a ficha parece igual à de pegar o carro agora, e alguém
+               registraria uma saída que não aconteceu. -->
+          <p class="fr-tutorial-fixo" v-if="ficha.avulsa">
+            <strong>Registro do que já aconteceu:</strong> use isto quando o carro saiu fora do
+            aplicativo — no fim de semana, ou com o celular no bolso. <strong>Não pede
+            checklist</strong>, porque ninguém confere hoje um carro que saiu ontem: o histórico
+            vai marcar esta retirada como sem prova nenhuma.
+          </p>
+          <label class="fr-campo" v-if="ficha.avulsa">
+            <span class="fr-lab">Quando o carro saiu</span>
+            <input v-model="form.saidaEm" type="datetime-local">
+            <span class="fr-ajuda">A hora de verdade, não a de agora — é ela que vai para o histórico.</span>
+          </label>
 
           <!-- Estes três campos SOMEM quando a retirada vem de uma reserva
                aprovada (pedido do dono, 12/08/2026): a reserva já disse quem vai
@@ -5222,7 +5299,18 @@ onMounted(async () => {
    título da subseção é MENOR que o da gaveta que o contém — subtítulo maior que
    o título faz a pessoa achar que entrou noutra seção. Mesma família do
    `gv-titulo` (maiúsculas, espaçado), um degrau abaixo. */
-.tela-frota .fr-historico-no-pe{margin-top:var(--sp-6);padding-top:var(--sp-5);border-top:1px solid var(--border);}
+/* SEM margem própria no topo: a lista de cartões acima já termina com 40px de
+   respiro, e somar 32 dava um vão de 72px antes da linha — o buraco que o dono
+   viu. Medido, não deduzido. Fica 40px acima da linha e 24 abaixo, que é a
+   proporção certa pra linha pertencer ao que vem DEPOIS dela. */
+.tela-frota .fr-historico-no-pe{padding-top:var(--sp-5);border-top:1px solid var(--border);}
+/* O RECUO DE 14px É DE CADA BLOCO, não da gaveta: `fr-aviso`, `fr-filtros` e
+   `fr-dia-de-ficha` já se recuam sozinhos, e o corpo da gaveta tem padding
+   zero. O título e a frase desta subseção nasceram sem esse recuo e ficaram
+   colados na borda — medido a 390px: esquerda=0px, contra 14px de todo o
+   resto. Alinhar aqui é o que faz a subseção pertencer ao card. */
+.tela-frota .fr-historico-no-pe > .fr-subsecao,
+.tela-frota .fr-historico-no-pe > .fr-ajuda{padding-left:14px;padding-right:14px;}
 .tela-frota .fr-subsecao{font-family:var(--fonte-principal);
   font-size:max(9px, calc(10px * var(--escala-texto, 1)));font-weight:700;letter-spacing:1.4px;
   text-transform:uppercase;color:var(--muted);margin:0 0 4px;}
