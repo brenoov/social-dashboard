@@ -194,7 +194,7 @@ import { degrausDoRecurso, degrauDoConjunto, acoesDoDegrau } from './niveis-de-p
 import { oQueONivelFaz } from './o-que-o-nivel-faz.js'
 import { mexeEmDinheiro, SELO_DINHEIRO, EMOJI_DINHEIRO } from './consequencia-do-recurso.js'
 import { resumoDoAcesso } from './resumo-do-acesso.js'
-import { gruposExistentes, agruparCanais, timePorCanal, contarSemGrupo, normalizarGrupo } from '../../compartilhado/grupo-do-canal.js'
+import { gruposExistentes, agruparCanais, agruparTimesPorGrupo, timePorCanal, contarSemGrupo, normalizarGrupo } from '../../compartilhado/grupo-do-canal.js'
 // Quais notificações existem e qual o padrão de cada uma. A lista mora junto da
 // Edge que envia (supabase/functions/_shared) pra não haver duas verdades sobre
 // quem recebe o quê — a tela LÊ dela em vez de repetir os nomes.
@@ -958,7 +958,19 @@ function _eqDesenhar() {
       + 'Nenhum time ainda. Crie um para cada loja e cada canal de venda — é o que permite dizer que uma vendedora só enxerga a loja dela.</div>'
   }
 
-  for (const t of ordenarTimes(_eqTimes)) {
+  // ── OS TIMES SOB CABEÇALHO DE GRUPO (Peça 4, 20/08/2026) ──────────────────
+  // O time herda o grupo do canal a que está amarrado — ele não tem grupo
+  // próprio. O cabeçalho só aparece quando existe ao menos um time com grupo:
+  // enquanto ninguém marcar canal na lista "Canais de venda", esta parte da
+  // tela fica idêntica ao que sempre foi.
+  const baldesDeTime = agruparTimesPorGrupo(ordenarTimes(_eqTimes), _canaisComGrupo)
+  const mostrarCabecalhoDeGrupo = baldesDeTime.some(b => b.grupo !== null)
+  for (const balde of baldesDeTime) {
+    if (mostrarCabecalhoDeGrupo) {
+      html += '<div class="adm-times-grupo">' + escHtml(balde.grupo || 'Sem grupo')
+        + '<span class="adm-times-grupo-conta">' + balde.times.length + (balde.times.length === 1 ? ' time' : ' times') + '</span></div>'
+    }
+    for (const t of balde.times) {
     const l = linhaDoTime(t, _eqMembros)
     const meu = _eqMeuPapel(t.id)
     const posso = podeAdministrarTime(eu, meu)
@@ -989,6 +1001,7 @@ function _eqDesenhar() {
     // lista de baixo (é DOM, não texto, então não dá pra concatenar aqui).
     html += '<div data-eq-pessoas="' + escHtml(t.id) + '" style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);"></div>'
     html += '</div>'
+    }
   }
   if (_eqEditando === 'novo') html += '<div style="border:1px solid var(--accent);border-radius:12px;padding:14px 16px;margin-bottom:10px;background:var(--surface);">' + _eqFormulario(null) + '</div>'
 
@@ -3639,6 +3652,10 @@ Object.assign(window, {
 </script>
 
 <style scoped>
+/* ── CABEÇALHO DE GRUPO NOS TIMES (Peça 4, 20/08/2026) ─────────────────────
+   Só aparece quando algum time tem grupo; sem configuração, a tela fica igual. */
+.tela-admin :deep(.adm-times-grupo){display:flex;align-items:baseline;justify-content:space-between;gap:var(--sp-2);flex-wrap:wrap;margin:var(--sp-4) 0 var(--sp-2);font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);overflow-wrap:anywhere;}
+.tela-admin :deep(.adm-times-grupo-conta){font-weight:600;letter-spacing:.3px;text-transform:none;}
 /* ── CANAIS DE VENDA (20/08/2026) ──────────────────────────────────────────
    Só token: espaçamento da escala --sp-*, raio --radius-*, cor por token. */
 .tela-admin :deep(.adm-canais-topo){display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap;margin-bottom:var(--sp-2);font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));color:var(--muted);}

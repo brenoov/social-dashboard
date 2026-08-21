@@ -325,10 +325,10 @@ fica menor, **vaza para fora da barra**. Uma régua de botões precisa de
 `min-width: 0` e `overflow-x: auto`. A Análise de Campanhas não tinha e ficou com
 três botões pendurados 17px além da borda; foi corrigida junto.
 
-### B24 · Separação atacado/varejo › faltam três das quatro peças 🟡 *aberto em 20/08*
+### B24 · Separação atacado/varejo › falta SÓ a Peça 3 (a que mexe em trava) 🟡 *aberto em 20/08*
 
 A **Peça 1 está no ar** e a **Peça 2 também**: cada canal do Bling tem um grupo (`bling_lojas.grupo`),
-configurável em **Config de Admin › Canais de venda**. O seletor das dashboards já lê. Faltam:
+configurável em **Config de Admin › Canais de venda**. O seletor das dashboards e a lista de usuários já leem. Falta:
 
 - ~~**Peça 2 — o seletor das dashboards agrupado.**~~ ✅ **feita em 20/08.** Os
   dois menus (Gestão à Vista e Análise de Vendas) mostram um bloco por grupo, com
@@ -344,8 +344,11 @@ configurável em **Config de Admin › Canais de venda**. O seletor das dashboar
   TRÊS lugares**: o módulo `_shared/canais-de-venda-permitidos.js`, a edge
   `bling-proxy` (que não sobe com push) e a função `pode_ver_canal` no banco. Só
   na tela não vale — foi esse buraco que se fechou em 13/08. Vai em sessão própria.
-- **Peça 4 — Config de Usuários agrupada.** Os cards de time sob cabeçalhos de
-  grupo, herdando do canal.
+- ~~**Peça 4 — Config de Usuários agrupada.**~~ ✅ **feita em 20/08.** Os cards de
+  time ficam sob cabeçalhos de grupo, com a contagem ao lado. O time herda o grupo
+  do canal a que está amarrado — time sem canal, e time cujo canal está sem grupo,
+  caem juntos em *Sem grupo*, no fim; nenhum some. Sem grupo marcado em canal
+  nenhum, a tela fica idêntica ao que sempre foi.
 
 **O estoque não entra em nenhuma delas.** `pode_ver_estoque` tem regra própria e
 mais apertada ("estar no time não basta"), escrita de propósito.
