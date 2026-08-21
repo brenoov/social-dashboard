@@ -62,6 +62,14 @@ const props = defineProps({
   // parecendo assinada seria a mentira mais cara desta fase.
   podeAssinar: { type: Boolean, default: true },
   erroDaAssinatura: { type: String, default: '' },
+  /* O painel tem botão PRÓPRIO quando é o cartão do dia, na aba Motorista.
+   * Dentro da ficha de retirada ele NÃO tem: lá quem grava é o botão do pé da
+   * ficha, um só, que assina o checklist e tira o carro na mesma ação.
+   *
+   * Por que isso não é enfeite: com os dois botões, quem preenchia os itens e
+   * apertava o do pé (o grande, azul, no fim) tirava o carro e perdia tudo que
+   * tinha respondido, sem uma palavra. Aconteceu com o dono em 21/08/2026. */
+  botaoProprio: { type: Boolean, default: true },
 })
 const emit = defineEmits(['gravar'])
 
@@ -183,7 +191,16 @@ const textoDoBotao = computed(() => {
   return props.podeAssinar ? 'Assinar e gravar checklist' : 'Gravar checklist'
 })
 
-function gravar() {
+/**
+ * Confere o que está preenchido e monta a carga da gravação — ou devolve
+ * `null` e deixa na tela, escrito, o que falta.
+ *
+ * Separado do `gravar()` para poder ser chamado DE FORA (a ficha de retirada
+ * chama por `defineExpose`), sem duplicar a validação num segundo lugar. Duas
+ * regras de validação sobre a mesma ficha divergem com o tempo, e a mais
+ * frouxa é sempre a que grava.
+ */
+function validarEMontar() {
   erros.value = problemasDaFicha({
     hodometro: hodometroNumero.value, ultimoKm: props.ultimoKm,
     justificativa: justificativa.value, respostas, itens: daFicha.value,
@@ -195,8 +212,8 @@ function gravar() {
     erros.value = [...erros.value,
       'Digite sua senha para assinar. É a mesma senha com que você entra no aplicativo.']
   }
-  if (erros.value.length) return
-  emit('gravar', {
+  if (erros.value.length) return null
+  return {
     ficha: {
       veiculo_id: props.veiculo.id,
       feita_em: props.hoje,
@@ -223,8 +240,17 @@ function gravar() {
     assinatura: props.podeAssinar
       ? { senha: senha.value, aberta_em: abertaEm, rabisco: rabisco.value }
       : null,
-  })
+  }
 }
+
+function gravar() {
+  const carga = validarEMontar()
+  if (carga) emit('gravar', carga)
+}
+
+// A ficha de retirada usa isto para validar e gravar o checklist no MESMO
+// toque em que tira o carro.
+defineExpose({ validarEMontar })
 </script>
 
 <template>
@@ -366,7 +392,9 @@ function gravar() {
       <li v-for="e in erros" :key="e">{{ e }}</li>
     </ul>
 
-    <button class="ck-gravar" :class="{ incompleto: faltam > 0 }"
+    <!-- Dentro da ficha de retirada este botão NÃO existe: lá o botão do pé da
+         ficha faz as duas coisas. Ver a prop `botaoProprio`. -->
+    <button v-if="botaoProprio" class="ck-gravar" :class="{ incompleto: faltam > 0 }"
             :disabled="gravando" @click="gravar">{{ textoDoBotao }}</button>
 
     </div><!-- /.ck-fecho -->
