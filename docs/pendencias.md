@@ -327,22 +327,29 @@ três botões pendurados 17px além da borda; foi corrigida junto.
 
 ---
 
-### B25 · Frota › o aviso de reserva decidida está escrito e NÃO está no ar 🟡 *aberto em 20/08*
+### B25 · Frota › o aviso de reserva decidida 🟡 *banco e servidor prontos em 21/08; falta o deploy da tela*
 
-**O que é.** Aprovar ou recusar uma reserva não avisa ninguém — quem pediu só
-descobre abrindo o app. O código do aviso está pronto e commitado, mas **duas
-coisas dependem de você**, e enquanto elas não acontecerem o aviso não sai:
+**O que é.** Aprovar ou recusar uma reserva não avisava ninguém — quem pediu só
+descobria abrindo o app.
 
-1. **Aplicar a migration** `db/migrations/acessos/052_push_tipo_reserva.sql`
-   (solta o CHECK de `push_preferencias.tipo` pra aceitar `frota_reserva`).
-   Sem ela, ligar o interruptor na tela dá erro de Postgres na cara — foi o que
-   já aconteceu com `conteudo` e com `frota`.
-2. **Publicar a Edge Function** `avisar-decisao-de-reserva` (não sobe com push;
-   vai na mão, com as deps de `_shared`: `notificacoes.js`,
-   `aviso-de-reserva.js`, `quem-loga.js`).
+**Já está feito (21/08):**
 
-Depois disso, ligar **"Resposta do pedido de carro"** em Administração ›
-Usuários para quem pede carro — ela nasce desligada, como toda chave nova.
+- ✅ **Migration `052_push_tipo_reserva.sql` aplicada.** O CHECK de
+  `push_preferencias.tipo` aceita `frota_reserva`. Provado com `rollback`:
+  dentro da transação o insert passou, e o banco ficou com zero linha do tipo.
+- ✅ **Edge `avisar-decisao-de-reserva` publicada** (com as três deps de
+  `_shared`). Provada rodando: chamada sem crachá é barrada pela porta de fora
+  (401), e com o crachá de quem não aprova ela mesma responde
+  `{"ok":false,"erro":"sem_permissao"}` — ou seja, o portão do servidor fecha,
+  e não só o da tela.
+
+**Falta:**
+
+1. **Subir a tela** (as mudanças estão na branch `melhoria/frota-retirada-e-tutorial`,
+   não na main). Enquanto não subir, o interruptor novo não aparece e a tela não
+   chama a função — nada muda para ninguém.
+2. Depois disso, ligar **"Resposta do pedido de carro"** em Administração ›
+   Usuários para quem pede carro — ela nasce desligada, como toda chave nova.
 
 **Não há risco em ficar como está.** Provado na tela nos dois desfechos: com a
 função fora do ar, a decisão é gravada do mesmo jeito e quem decidiu lê *"Reserva

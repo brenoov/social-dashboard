@@ -71,9 +71,8 @@ export const TIPOS_DE_NOTIFICACAO = [
     // obrigaria quem quer saber da resposta do pedido a aceitar também a
     // cobrança diária do checklist.
     //
-    // ⚠️ O CHECK do banco precisa aceitar esta chave: ver a migration
-    // db/migrations/acessos/052_push_tipo_reserva.sql. Sem ela, ligar o
-    // interruptor na tela dá erro de restrição do Postgres na cara do dono.
+    // O CHECK do banco aceita esta chave desde a migration
+    // db/migrations/acessos/052_push_tipo_reserva.sql, aplicada em 21/08/2026.
     padrao: false,
   },
 ];

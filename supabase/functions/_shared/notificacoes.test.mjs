@@ -58,9 +58,10 @@ test('a lista de tipos bate com o CHECK de push_preferencias.tipo', () => {
   //   frota           db/migrations/acessos/030_push_tipo_frota.sql
   //   frota_reserva   db/migrations/acessos/052_push_tipo_reserva.sql
   //
-  // ⚠️ A 052 está ESCRITA e ainda NÃO FOI APLICADA no banco (20/08/2026).
-  // Enquanto não for, ligar "Resposta do pedido de carro" na tela de Usuários
-  // quebra em runtime — e é por isso que ela nasce desligada.
+  // A 052 foi APLICADA no banco em 21/08/2026, e a prova foi feita com
+  // `rollback`: dentro da transação o insert de 'frota_reserva' passou, e
+  // depois do rollback a tabela ficou com zero linha do tipo. Ligar o
+  // interruptor na tela não quebra mais.
   assert.deepEqual(
     TIPOS_DE_NOTIFICACAO.map((t) => t.chave).sort(),
     ['conteudo', 'frota', 'frota_reserva', 'saldo', 'vendas'],
