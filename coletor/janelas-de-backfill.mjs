@@ -56,7 +56,19 @@ const RECORTES_DE_N_DIAS = [1, 7, 14, 30];
 // jeitos, conforme quem passou por último — e nesse dia não há resposta certa
 // para pôr aqui. Ponha a data BRT do primeiro dia INTEIRO com os dois novos, no
 // formato 'AAAA-MM-DD'. Nem antes, nem depois.
-export const PRIMEIRO_DIA_COM_A_JANELA_NOVA = null;
+// MEDIDO, não deduzido (21/08/2026, contra os dados de produção): comparando o
+// agregado de 7 dias de cada perfil com a soma dos gastos diários, 4 dos 5 perfis
+// já batiam com a janela NOVA em 21/08 — e a La Vessel Dom Pedro ainda batia com
+// a VELHA, porque só a Edge escreve os anúncios dela (ela não está no mapa fixo
+// do coletar.py) e a Edge só subiu às 08h13, depois da rodada das 07h.
+//
+// Ou seja, 21/08 é um dia MISTURADO. Ele fica tratado como dia da janela velha:
+// no pior caso o backfill repete uma pergunta de 8 dias para uma linha de 7, o
+// que é o mesmo estado em que ela já esteve; marcá-lo como novo arriscaria o
+// contrário para a La Vessel, que é a linha que sabidamente não é nova.
+//
+// 22/08 é o primeiro dia em que TODA rodada, dos dois robôs, usa a janela nova.
+export const PRIMEIRO_DIA_COM_A_JANELA_NOVA = '2026-08-22';
 
 export function janelaDoRecorte(capturedAt, periodDays, viradaEm = PRIMEIRO_DIA_COM_A_JANELA_NOVA) {
   if (!capturedAt) return null;
