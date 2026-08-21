@@ -63,6 +63,10 @@ import { botoesDoMotorista, botoesDaGestao } from './botoes-rapidos.js'
 // Quem abre por último fica na frente. Sem isto, um modal aberto DE DENTRO de
 // outro pode nascer atrás dele — o defeito que o dono relatou em 12/08.
 import { abrirCamada, fecharCamada } from '../../compartilhado/camada-de-modal.js'
+// O aviso rápido no canto da tela, o mesmo que Admin, Acessos, Redes e
+// Gestão de Tráfego já usam. Entra aqui porque gravar sem dizer que gravou
+// deixa a pessoa clicando de novo, sem saber se pegou.
+import { adminToast } from '../../compartilhado/avisos.js'
 // Pessoa de fora da empresa usando o carro (D25): nome escrito na hora, sem
 // cadastro. A regra e as sugestões moram em nomes-de-fora.js, testadas.
 import {
@@ -1719,6 +1723,7 @@ async function salvarItemDeChecklist(dados) {
         + '— o que você digitou continua no campo.'
     return
   }
+  adminToast(`"${dados.item}" entrou na lista.`)
   carregar()
 }
 /* Qual item deixa o carro NÃO LIBERADO. É o dono quem decide, e a decisão dele
@@ -1762,6 +1767,9 @@ async function salvarConfigDeChecklist(cfg) {
       + 'administra a Frota.'
     return
   }
+  // Esta é a que mais precisa do aviso: gravar os dias não muda NADA na tela —
+  // os mesmos números continuam nos mesmos campos.
+  adminToast('Dias salvos.')
   carregar()
 }
 
@@ -2077,6 +2085,7 @@ async function salvarEdicao() {
     erroDaEdicao.value = error.message || 'Não consegui salvar. Confira a conexão e tente de novo.'
     return
   }
+  adminToast('Reserva salva.')
   fecharEdicao()
   carregar()
 }
@@ -2246,13 +2255,18 @@ async function salvarItem() {
     : await sbClient.from('frota_plano_revisao').update(dados).eq('id', itemEmEdicao.value.id)
   gravando.value = false
   if (r.error) { errosDoItem.value = ['Não consegui gravar. Tente de novo.']; return }
+  adminToast(itemEmEdicao.value.novo ? 'Item acrescentado.' : 'Item salvo.')
   fecharItem()
   carregar()
 }
 
 async function alternarItem(p) {
   const { error } = await sbClient.from('frota_plano_revisao').update({ ativo: !p.ativo }).eq('id', p.id)
-  if (!error) carregar()
+  // A falha era ENGOLIDA: sem `carregar()` o interruptor voltava sozinho para
+  // onde estava e a tela não dizia uma palavra — a pessoa clicava de novo
+  // achando que tinha errado o dedo.
+  if (error) { adminToast(`Não consegui ${p.ativo ? 'desligar' : 'religar'} "${p.item}". Ele continua como estava.`, false); return }
+  carregar()
 }
 
 // O link de WhatsApp do contato do carro. Já leva o modelo e a placa escritos:

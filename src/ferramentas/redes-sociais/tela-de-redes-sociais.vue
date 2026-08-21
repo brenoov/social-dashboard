@@ -3373,11 +3373,27 @@ async function saveCampaignFilter() {
   const checked = allCbs.filter(cb => cb.checked).map(cb => cb.value)
   const toSave = checked.length === allCbs.length ? null : checked
   const token = estado.currentSession?.access_token || SUPABASE_ANON_KEY
-  await fetch(SUPABASE_URL + '/rest/v1/campaign_filters', {
-    method: 'POST',
-    headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + token, 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates' },
-    body: JSON.stringify({ account_id: currentAccountId, selected_ids: toSave, updated_at: new Date().toISOString() }),
-  })
+  // A RESPOSTA É CONFERIDA. Até 20/08/2026 este `fetch` era disparado e
+  // esquecido: o modal fechava e o contador mudava mesmo quando o banco tinha
+  // recusado a gravação. A tela dizia que o filtro estava salvo, e no próximo
+  // carregamento ele voltava ao que era, sem uma palavra de explicação — o
+  // defeito que o padrão da casa chama de "campo que parece salvo e não
+  // salvou", o mais caro de perceber.
+  let r = null
+  try {
+    r = await fetch(SUPABASE_URL + '/rest/v1/campaign_filters', {
+      method: 'POST',
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + token, 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates' },
+      body: JSON.stringify({ account_id: currentAccountId, selected_ids: toSave, updated_at: new Date().toISOString() }),
+    })
+  } catch (e) { r = null }
+  if (!r || !r.ok) {
+    // O modal FICA ABERTO: fechar aqui jogaria fora a escolha que a pessoa
+    // acabou de fazer, e ela teria que remarcar tudo de novo.
+    adminToast('Não consegui salvar o filtro. Confira a conexão e clique em Salvar de novo.', false)
+    return
+  }
+  adminToast('Filtro salvo.')
   document.getElementById('campaign-modal-overlay').style.display = 'none'
   // Contagem por tipo desconhecida neste ponto (o recorte só é montado no
   // fetchData); o refresh() logo abaixo completa a frase.
