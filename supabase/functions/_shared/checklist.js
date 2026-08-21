@@ -436,3 +436,21 @@ export function porQueDoResultado(respostas, itens) {
   const leves = problemas.filter((r) => !bloqueia.has(nome(r))).map(nome);
   return { graves, leves };
 }
+
+/**
+ * O fim da frase "Pela sua reserva de ..., para ...". Aqui só falta ___.
+ *
+ * Era texto fixo — "o checklist e o combustível" — e mentia na tela em que
+ * outra pessoa já tinha conferido o carro: ali não há checklist nenhum para
+ * fazer, só a assinatura de quem está recebendo. A pessoa procurava na ficha
+ * uma coisa que não estava lá.
+ *
+ * Recebe o `pedir` de oQuePedirNaRetirada(), e nunca devolve vazio.
+ */
+export function oQueFaltaNaRetirada(pedir) {
+  switch (pedir) {
+    case 'checklist': return 'Aqui só falta o checklist e o combustível.';
+    case 'aceite': return 'Aqui só falta assinar que está recebendo o carro, e o combustível.';
+    default: return 'Aqui só falta o combustível.';
+  }
+}

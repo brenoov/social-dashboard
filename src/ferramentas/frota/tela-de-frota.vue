@@ -79,7 +79,7 @@ import {
 import {
   quemFaltaHoje, resumoDaCobranca, precisaDeChecklist,
   problemasAbertosHoje, veiculosParaConferir, cadenciasDoDia,
-  oQuePedirNaRetirada, porQuePedirOAceite,
+  oQuePedirNaRetirada, porQuePedirOAceite, oQueFaltaNaRetirada,
 } from '../../../supabase/functions/_shared/checklist.js'
 // O histórico da aba Gestão: a linha do tempo de reservas e retiradas, com a
 // prova de cada uma e o que o admin pode fazer com ela.
@@ -4481,7 +4481,12 @@ onMounted(async () => {
           </label>
           <label class="fr-campo" data-tour="ped-destino">
             <span class="fr-lab">Destino</span>
-            <input v-model="pedidoForm.destino" type="text">
+            <!-- `@change` aqui também: sem ele o aviso "sem destino, quem aprova
+                 não sabe o que está aprovando" continuava na tela DEPOIS de a
+                 pessoa escrever o destino, porque a conferência só rodava nos
+                 campos de cima. Aviso que não some quando o problema acaba
+                 ensina a ignorar aviso. -->
+            <input v-model="pedidoForm.destino" type="text" @change="conferirPedido">
             <span class="fr-ajuda">Ex.: Conchal, Campinas</span>
           </label>
           <label class="fr-campo">
@@ -4752,7 +4757,10 @@ onMounted(async () => {
             Pela sua reserva de {{ quando(ficha.reserva.retirada_prevista) }}<template
               v-if="ficha.reserva.destino">, para {{ ficha.reserva.destino }}</template><template
               v-if="ficha.reserva.finalidade"> ({{ ficha.reserva.finalidade }})</template>.
-            Aqui só falta o checklist e o combustível.
+            <!-- O fim da frase depende do que ESTA ficha ainda pede:
+                 prometer checklist na tela em que outra pessoa já conferiu
+                 o carro manda a pessoa procurar o que não está lá. -->
+            {{ oQueFaltaNaRetirada(pedidoDaRetirada.pedir) }}
           </p>
 
           <p class="fr-aviso" v-if="ficha.modo === 'retirar' && seloDoChecklist">{{ seloDoChecklist }}</p>
