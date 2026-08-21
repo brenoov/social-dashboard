@@ -131,6 +131,7 @@ import {
 import { adminToast } from '../../compartilhado/avisos.js'
 import { filtrarPedidosPorCanal, depositosVisiveis, prepararEstoque, statusSaldo, categoriasDisponiveis, DEPOSITOS } from './estoque-gv.js'
 import { montarLinhas, posicionarLinhas, alturaComum } from './velocimetro-gv.js'
+import { agruparCanais, estadoDoGrupo, alternarGrupo } from '../../compartilhado/grupo-do-canal.js'
 import { aplicarDataDaVenda } from '../../compartilhado/data-da-venda.js'
 // A PORTA DO BLING E O QUE FAZER QUANDO ELE NÃO RESPONDE. Mesmo módulo da
 // Análise de Vendas: em 12/08/2026 a chamada devolvia o corpo sem olhar o status
@@ -654,7 +655,9 @@ async function loadGestaoVistaData(period){
 
     // Supabase: pode rodar em paralelo (API diferente)
     const[canaisCheio,metasRows,eqTimes,eqMembros]=await Promise.all([
-      sbClient.from('bling_lojas').select('loja_id,nome').then(r=>{const mp={};(r.data||[]).forEach(l=>mp[l.loja_id]=l.nome);return mp;}).catch(()=>({})),
+      // O GRUPO vem na mesma leitura do nome (Peça 2, 20/08/2026): é ele que
+      // separa o menu de canais em Atacado / Varejo / Outros.
+      sbClient.from('bling_lojas').select('loja_id,nome,grupo').then(r=>{const mp={};_gvGrupoDoCanal={};(r.data||[]).forEach(l=>{mp[l.loja_id]=l.nome;_gvGrupoDoCanal[l.loja_id]=l.grupo||null;});return mp;}).catch(()=>({})),
       sbClient.from('bling_metas').select('loja_id,meta_valor,daily_goals').eq('year',metaY).eq('month',metaM).then(r=>r.data||[]).catch(()=>[]),
       // Os times e quem está neles. Falhar devolve lista vazia — e com ela quem
       // é de time fica com `[]` (tela vazia com o motivo escrito), não com a
@@ -773,13 +776,47 @@ function _gvUpdateCanalTrigger(){
   }
   t.textContent=n+' canais';
 }
+// O grupo de cada canal, lido de bling_lojas junto com o nome. Fora do ctx de
+// propósito: o ctx é reconstruído a cada render e isto muda só quando o dono
+// mexe na Config de Admin.
+let _gvGrupoDoCanal={};
+
 function _gvMontaChips(){
   const ctx=window._gvRenderCtx; if(!ctx)return;
   const ids=Object.keys(ctx.canais||{}).map(id=>parseInt(id,10)).filter(id=>!isNaN(id))
     .sort((a,b)=>String(ctx.canais[a]||'').localeCompare(String(ctx.canais[b]||''),'pt-BR'));
   const chips=document.getElementById('gv-cf-chips'); if(!chips)return;
   const mk=(id,nome)=>`<button class="gv-cf-chip${(id===null?_gvCanaisSel.size===0:_gvCanaisSel.has(id))?' active':''}" data-id="${id===null?'':id}"><svg class="gv-cf-check" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>${escHtml(nome)}</span></button>`;
-  chips.innerHTML=mk(null,'Todos os canais')+ids.map(id=>mk(id,ctx.canais[id]||('Canal #'+String(id).slice(-4)))).join('');
+  // ── O MENU AGRUPADO (Peça 2) ──────────────────────────────────────────────
+  // Um bloco por grupo do canal, com marcar/desmarcar todos em cada um. Canal
+  // sem grupo NÃO some: cai no bloco "Outros", no fim. Enquanto o dono não
+  // marcar nenhum canal na Config, existe só esse bloco — e o menu fica igual
+  // ao que sempre foi, sem cabeçalho nenhum.
+  const canais=ids.map(id=>({loja_id:id,nome:ctx.canais[id]||('Canal #'+String(id).slice(-4)),grupo:_gvGrupoDoCanal[id]||null}));
+  const baldes=agruparCanais(canais);
+  const temGrupo=baldes.some(b=>b.grupo!==null);
+  let html=mk(null,'Todos os canais');
+  for(const b of baldes){
+    if(temGrupo){
+      const est=estadoDoGrupo(b.canais,_gvCanaisSel);
+      const rotulo=est==='todos'?'desmarcar todos':'marcar todos';
+      html+=`<div class="gv-cf-grupo"><span class="gv-cf-grupo-nome">${escHtml(b.grupo||'Outros')}</span>`
+        +`<button type="button" class="gv-cf-grupo-todos" data-grupo="${escHtml(b.grupo||'')}">${rotulo}</button></div>`;
+    }
+    html+=b.canais.map(c=>mk(c.loja_id,c.nome)).join('');
+  }
+  chips.innerHTML=html;
+  chips.querySelectorAll('.gv-cf-grupo-todos').forEach(bt=>{
+    bt.onclick=(e)=>{
+      e.stopPropagation();   // o menu só fecha no clique-fora
+      const alvo=baldes.find(b=>(b.grupo||'')===bt.dataset.grupo);
+      if(!alvo)return;
+      _gvCanaisSel=alternarGrupo(alvo.canais,_gvCanaisSel);
+      _gvMontaChips();       // recria: os rótulos "marcar/desmarcar" mudaram
+      _gvUpdateCanalTrigger();
+      _gvAplicaFiltro({rebuildChips:false});
+    };
+  });
   chips.querySelectorAll('.gv-cf-chip').forEach(b=>{
     b.onclick=(e)=>{
       // não deixa o clique borbulhar pro handler de clique-fora (senão o menu fecharia
@@ -1547,6 +1584,19 @@ onUnmounted(() => {
 .tela-gestao-a-vista :deep(.gv-cf-menu){position:absolute;top:calc(100% + 6px);left:0;z-index:40;min-width:230px;max-height:min(60vh,360px);overflow-y:auto;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:0 14px 34px rgba(0,0,0,.30);padding:6px;}
 .tela-gestao-a-vista :deep(.gv-cf-menu[hidden]){display:none;}
 .tela-gestao-a-vista :deep(.gv-cf-chips){display:flex;flex-direction:column;gap:2px;}
+/* ── CABEÇALHO DE GRUPO NO MENU DE CANAIS (Peça 2, 20/08/2026) ──────────────
+   Só aparece quando existe ao menos um canal com grupo: enquanto o dono não
+   marcar nada na Config de Admin, o menu fica idêntico ao que sempre foi. */
+.tela-gestao-a-vista :deep(.gv-cf-grupo){display:flex;align-items:center;justify-content:space-between;gap:var(--sp-2);padding:var(--sp-2) var(--sp-2) var(--sp-1);margin-top:var(--sp-1);border-top:1px solid var(--border);}
+.tela-gestao-a-vista :deep(.gv-cf-grupo:first-child){border-top:none;margin-top:0;}
+.tela-gestao-a-vista :deep(.gv-cf-grupo-nome){font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);overflow-wrap:anywhere;}
+.tela-gestao-a-vista :deep(.gv-cf-grupo-todos){flex:0 0 auto;font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));font-weight:600;color:var(--accent);background:none;border:1px solid var(--border);border-radius:var(--radius-md);padding:var(--sp-1) var(--sp-2);cursor:pointer;white-space:nowrap;transition:border-color .12s ease;}
+.tela-gestao-a-vista :deep(.gv-cf-grupo-todos:hover){border-color:var(--accent);}
+/* Alvo do dedo de 40px sem engordar o botão — receita do PADRAO-DA-CENTRAL. */
+@media(max-width:640px){
+  .tela-gestao-a-vista :deep(.gv-cf-grupo-todos){position:relative;}
+  .tela-gestao-a-vista :deep(.gv-cf-grupo-todos)::after{content:'';position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);height:40px;}
+}
 .tela-gestao-a-vista :deep(.gv-cf-chip){font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));padding:8px 10px;border-radius:7px;border:1px solid transparent;background:none;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:9px;text-align:left;width:100%;transition:background .1s ease;}
 .tela-gestao-a-vista :deep(.gv-cf-chip:hover){background:color-mix(in srgb,var(--accent) 13%,transparent);}
 .tela-gestao-a-vista :deep(.gv-cf-check){opacity:0;color:var(--accent);flex-shrink:0;}

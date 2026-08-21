@@ -162,3 +162,21 @@ perceber do que aparecer indevidamente. Duas coisas cuidam disso:
     para a tela não dar a entender que aquilo é tudo o que existe no depósito.
 
 Se aparecer produto novo sumido: a lista de palavras está em classificarItem().
+
+MENU DE CANAIS AGRUPADO — ATACADO / VAREJO (20/08/2026)
+--------------------------------------------------------
+O dropdown de canal mostra um bloco por GRUPO do canal, com "marcar todos" /
+"desmarcar todos" em cada bloco. O grupo vem de `bling_lojas.grupo` e se
+configura em Config de Admin > Canais de venda — não aqui.
+
+Canal sem grupo NÃO some: cai no bloco "Outros", no fim. E enquanto nenhum canal
+tiver grupo, o menu fica IDÊNTICO ao que sempre foi, sem cabeçalho nenhum — a
+tela não pede configuração para funcionar.
+
+A regra de agrupar e a de marcar/desmarcar todos moram em
+`src/compartilhado/grupo-do-canal.js`, testadas sem navegador, e são as MESMAS
+que a Análise de Vendas usa. Duas cópias da regra é como duas telas decidindo o
+mesmo: mais cedo ou mais tarde discordam.
+
+O menu já tinha `max-height:360px` + rolagem, então os cabeçalhos não escondem
+canal nenhum — o que não cabe rola.

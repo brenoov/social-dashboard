@@ -76,3 +76,45 @@ export function timePorCanal(times) {
 export function contarSemGrupo(canais) {
   return (canais || []).filter((c) => normalizarGrupo(c && c.grupo) === null).length;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MARCAR / DESMARCAR TODOS DE UM GRUPO (Peça 2)
+//
+// PEDIDO DO DONO: "atacado (opção pra marcar/desmarcar todos) e varejo".
+//
+// O id é comparado como TEXTO: ele vem number do banco e string do atributo do
+// HTML. Casar por tipo diferente faria o botão dizer "nenhum marcado" com o
+// grupo inteiro marcado na tela.
+
+function _ids(canaisDoGrupo) {
+  return (canaisDoGrupo || [])
+    .map((c) => (c && c.loja_id !== undefined && c.loja_id !== null ? String(c.loja_id) : null))
+    .filter((id) => id !== null);
+}
+
+// 'todos' | 'alguns' | 'nenhum'. Grupo vazio é 'nenhum', nunca 'todos': "todos
+// de nada" é verdade vazia, e faria o botão oferecer desmarcar o que não há.
+export function estadoDoGrupo(canaisDoGrupo, selecionados) {
+  const ids = _ids(canaisDoGrupo);
+  if (!ids.length) return 'nenhum';
+  const sel = new Set([...(selecionados || [])].map(String));
+  const marcados = ids.filter((id) => sel.has(id)).length;
+  if (marcados === 0) return 'nenhum';
+  return marcados === ids.length ? 'todos' : 'alguns';
+}
+
+// Devolve um Set NOVO com o grupo inteiro marcado, ou o grupo inteiro fora se
+// ele já estava todo marcado. Canal de outro grupo não é tocado — o que sai é o
+// mesmo tipo que entrou, para a tela não precisar converter de volta.
+export function alternarGrupo(canaisDoGrupo, selecionados) {
+  const atual = new Set(selecionados || []);
+  const ids = new Set(_ids(canaisDoGrupo));
+  if (estadoDoGrupo(canaisDoGrupo, atual) === 'todos') {
+    for (const v of [...atual]) if (ids.has(String(v))) atual.delete(v);
+    return atual;
+  }
+  for (const c of canaisDoGrupo || []) {
+    if (c && c.loja_id !== undefined && c.loja_id !== null) atual.add(c.loja_id);
+  }
+  return atual;
+}

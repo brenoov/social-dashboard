@@ -327,14 +327,16 @@ três botões pendurados 17px além da borda; foi corrigida junto.
 
 ### B24 · Separação atacado/varejo › faltam três das quatro peças 🟡 *aberto em 20/08*
 
-A **Peça 1 está pronta**: cada canal do Bling tem um grupo (`bling_lojas.grupo`),
-configurável em **Config de Admin › Canais de venda**. Ninguém lê esse grupo ainda
-além da própria tela. Faltam:
+A **Peça 1 está no ar** e a **Peça 2 também**: cada canal do Bling tem um grupo (`bling_lojas.grupo`),
+configurável em **Config de Admin › Canais de venda**. O seletor das dashboards já lê. Faltam:
 
-- **Peça 2 — o seletor das dashboards agrupado.** O dropdown de canal passa a ter
-  os blocos *Atacado* e *Varejo*, cada um com marcar/desmarcar todos, e um bloco
-  *Outros* para canal sem grupo. Vale para Gestão à Vista e Análise de Vendas, que
-  dividem a mesma regra. Só tela.
+- ~~**Peça 2 — o seletor das dashboards agrupado.**~~ ✅ **feita em 20/08.** Os
+  dois menus (Gestão à Vista e Análise de Vendas) mostram um bloco por grupo, com
+  *marcar/desmarcar todos* em cada um, e um bloco *Outros* no fim para canal sem
+  grupo. Enquanto nenhum canal tiver grupo marcado na Config, o menu fica idêntico
+  ao que sempre foi — sem cabeçalho nenhum. O menu da Análise de Vendas ganhou de
+  quebra o teto de altura que a irmã já tinha (`max-height` + rolagem): sem ele os
+  cabeçalhos novos o levariam a 547px e a lista passaria do fim da tela.
 - **Peça 3 — o alcance da supervisora.** Hoje o recorte de canais **ignora o
   papel**: supervisora vê o mesmo que vendedora. Passa a ser: supervisora vê todos
   os canais do **grupo** dos times onde ela é supervisora; gerente (`gestor`) e
