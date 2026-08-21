@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  SITUACOES_DO_HISTORICO, rotuloDaSituacao, corDaSituacao, diaEmBrasilia,
+  SITUACOES_DO_HISTORICO, rotuloDaSituacao, corDaSituacao, resumoCurtoDaLinha, diaEmBrasilia,
   acoesDaReserva, porQueNaoDaEmPortugues, provaDaRetirada, copiaNoZoho,
   retiradaDaReserva, linhaDoTempo, filtrar, resumoDoHistorico, FILTROS, fraseDaPosse,
 } from './historico-de-reservas.js'
@@ -598,4 +598,30 @@ test('a cor do selo é sempre uma que existe no CSS', () => {
   assert.equal(corDaSituacao('posse-aberta'), 'neutra', "'info' não existe no CSS")
   assert.equal(corDaSituacao('coisa-que-nao-existe'), 'neutra')
   assert.equal(corDaSituacao(null), 'neutra')
+})
+
+test('a linha fechada diz quem, quando e para onde — numa frase só', () => {
+  // O card passou a abrir sob demanda; fechado, ele precisa continuar
+  // respondendo o básico. Linha que some e não diz nada obriga a abrir uma por
+  // uma pra achar a que interessa.
+  const frase = resumoCurtoDaLinha({
+    tipo: 'reserva', situacao: 'usada', quando: Date.parse('2026-08-21T12:03:00Z'),
+    reserva: { pessoa_nome: 'Erick Martins', destino: 'Conchal' },
+  }, () => '21/08 às 09:03')
+  assert.equal(frase, 'Erick Martins · 21/08 às 09:03 · Conchal')
+})
+
+test('sem destino, a frase não inventa nem deixa separador solto', () => {
+  const frase = resumoCurtoDaLinha({
+    tipo: 'retirada', situacao: 'usada', quando: Date.parse('2026-08-21T12:03:00Z'),
+    uso: { pessoa_nome: 'Thiago Siqueira' },
+  }, () => '21/08 às 09:03')
+  assert.equal(frase, 'Thiago Siqueira · 21/08 às 09:03')
+})
+
+test('sem nada, a frase ainda diz o que a linha é', () => {
+  // Vazio parece defeito de carregamento.
+  assert.equal(resumoCurtoDaLinha({ situacao: 'revogada' }), 'Revogada')
+  assert.equal(resumoCurtoDaLinha({}), 'sem situação')
+  assert.equal(resumoCurtoDaLinha(null), 'sem situação')
 })

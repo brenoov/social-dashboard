@@ -44,6 +44,36 @@ export const SITUACOES_DO_HISTORICO = {
   'posse-encerrada': { rotulo: 'Foi fixo', cor: 'neutro' },
 };
 
+/**
+ * A FRASE CURTA da linha fechada: quem e quando, em uma linha só.
+ *
+ * O card do histórico passou a abrir só quando alguém pede (21/08/2026, pedido
+ * do dono: "os registros vão ter um botão de abrir para mostrar mais
+ * detalhes"). Fechado, ele precisa continuar respondendo o básico — linha que
+ * some e não diz nada obriga a abrir uma por uma pra achar a que interessa,
+ * que é pior do que a lista comprida que existia antes.
+ */
+export function resumoCurtoDaLinha(linha, formatarInstante) {
+  const l = linha || {};
+  const quandoTexto = typeof formatarInstante === 'function' && l.quando
+    ? formatarInstante(new Date(l.quando).toISOString()) : null;
+  const partes = [];
+
+  const quem = texto(l.pessoa_nome)
+    || texto(l.reserva && l.reserva.pessoa_nome)
+    || texto(l.uso && l.uso.pessoa_nome);
+  if (quem) partes.push(quem);
+  if (quandoTexto) partes.push(quandoTexto);
+
+  const destino = texto(l.reserva && l.reserva.destino) || texto(l.uso && l.uso.destino);
+  if (destino) partes.push(destino);
+
+  // Nunca devolve vazio: a linha fechada sem uma palavra parece defeito de
+  // carregamento. Sem nome, sem data e sem destino, ela ao menos diz o que é.
+  if (!partes.length) return rotuloDaSituacao(l.situacao);
+  return partes.join(' · ');
+}
+
 /** O rótulo em português de uma situação, sem nunca devolver vazio. */
 export function rotuloDaSituacao(situacao) {
   return (SITUACOES_DO_HISTORICO[situacao] || {}).rotulo || String(situacao || 'sem situação');

@@ -8,7 +8,7 @@ import {
   problemasDoItemDeChecklist,
   telefoneDaCobranca, problemasAbertosHoje, veiculosParaConferir,
   resultadoDoChecklist, porQueDoResultado,
-  oQuePedirNaRetirada, porQuePedirOAceite, oQueFaltaNaRetirada,
+  oQuePedirNaRetirada, porQuePedirOAceite, oQueFaltaNaRetirada, checklistDeHoje,
 } from './checklist.js'
 
 /* ── O que pedir a quem está pegando o carro ────────────────────────────────
@@ -744,4 +744,91 @@ test('a frase da reserva não promete checklist quando ele já foi feito', () =>
   // Chave desconhecida não pode devolver vazio: a frase some da tela e a
   // pessoa fica sem saber o que a ficha ainda quer dela.
   assert.ok(oQueFaltaNaRetirada('coisa-nova').length > 0)
+})
+
+/* ── O quadro de checklist de hoje, com fixos e retiradas ─────────────────── */
+
+const carro = (id, nome, extra = {}) => ({ id, nome, situacao: 'ativo', pessoa_id: null, ...extra })
+const SEXTA = '2026-08-21'
+const SABADO = '2026-08-22'
+
+test('o carro retirado hoje entra no quadro, mesmo sem dono fixo', () => {
+  // O BURACO MEDIDO EM 21/08/2026: o dono retirou a Bravo Blackmotion, um carro
+  // de rodízio, e o quadro não mostrava esse carro pra ninguém — nem pendente,
+  // nem feito. Retirada sem checklist não era cobrada de pessoa nenhuma.
+  const linhas = checklistDeHoje({
+    veiculos: [carro('bravo', 'FIAT BRAVO BLACKMOTION')],
+    fichasDeHoje: [],
+    usos: [{ veiculo_id: 'bravo', tipo: 'viagem', pessoa_id: 'p-erick', pessoa_nome: 'Erick Martins',
+      saida_em: '2026-08-21T12:03:58Z', volta_em: null }],
+    pessoas: [{ id: 'p-erick', nome: 'Erick Martins' }],
+    hoje: SEXTA,
+  })
+  assert.equal(linhas.length, 1)
+  assert.equal(linhas[0].tag, 'reserva')
+  assert.equal(linhas[0].fez, false)
+  assert.equal(linhas[0].quem, 'Erick Martins')
+})
+
+test('carro de retirada entra no SÁBADO; o carro fixo não', () => {
+  // Quem pega carro confere antes de sair, e o papel não conhece fim de semana.
+  // Já o checklist do carro fixo é de segunda a sexta.
+  const veiculos = [carro('bravo', 'BRAVO'), carro('volvo', 'VOLVO XC60', { pessoa_id: 'p-hum' })]
+  const usos = [{ veiculo_id: 'bravo', tipo: 'viagem', pessoa_nome: 'Erick', saida_em: '2026-08-22T13:00:00Z' }]
+  const linhas = checklistDeHoje({ veiculos, fichasDeHoje: [], usos, pessoas: [], hoje: SABADO })
+  assert.deepEqual(linhas.map((l) => l.veiculo.id), ['bravo'])
+  assert.equal(linhas[0].tag, 'reserva')
+})
+
+test('o que já foi feito aparece junto, marcado, e vai pro fim da lista', () => {
+  const veiculos = [carro('a', 'AAA', { pessoa_id: 'p1' }), carro('b', 'BBB', { pessoa_id: 'p2' })]
+  const linhas = checklistDeHoje({
+    veiculos,
+    fichasDeHoje: [{ veiculo_id: 'a', feita_em: SEXTA, assinada_em: '2026-08-21T10:00:00Z' }],
+    usos: [], pessoas: [{ id: 'p1', nome: 'Ana' }, { id: 'p2', nome: 'Bruno' }], hoje: SEXTA,
+  })
+  assert.deepEqual(linhas.map((l) => l.veiculo.id), ['b', 'a'], 'pendente primeiro')
+  assert.equal(linhas[1].fez, true)
+  assert.equal(linhas[1].assinada, true)
+  assert.equal(linhas[0].tag, 'fixo')
+})
+
+test('ficha sem assinatura conta como feita, mas o quadro sabe a diferença', () => {
+  const linhas = checklistDeHoje({
+    veiculos: [carro('a', 'AAA', { pessoa_id: 'p1' })],
+    fichasDeHoje: [{ veiculo_id: 'a', feita_em: SEXTA, assinada_em: null }],
+    usos: [], pessoas: [], hoje: SEXTA,
+  })
+  assert.equal(linhas[0].fez, true)
+  assert.equal(linhas[0].assinada, false)
+})
+
+test('viagem que começou ONTEM não pede checklist hoje', () => {
+  // O checklist de hoje é de quem pega o carro hoje. Uma viagem de três dias
+  // não faz o carro aparecer pendente todo dia.
+  const linhas = checklistDeHoje({
+    veiculos: [carro('bravo', 'BRAVO')],
+    fichasDeHoje: [], usos: [{ veiculo_id: 'bravo', tipo: 'viagem', saida_em: '2026-08-20T12:00:00Z', volta_em: null }],
+    pessoas: [], hoje: SEXTA,
+  })
+  assert.deepEqual(linhas, [])
+})
+
+test('posse não é retirada: carro emprestado continua sendo fixo', () => {
+  const linhas = checklistDeHoje({
+    veiculos: [carro('doblo', 'FIAT DOBLO')],
+    fichasDeHoje: [],
+    usos: [{ veiculo_id: 'doblo', tipo: 'posse', pessoa_id: 'p-jer', saida_em: '2026-08-21T11:00:00Z', volta_em: null }],
+    pessoas: [{ id: 'p-jer', nome: 'Jeremias' }], hoje: SEXTA,
+  })
+  assert.equal(linhas.length, 1)
+  assert.equal(linhas[0].tag, 'fixo')
+  assert.equal(linhas[0].quem, 'Jeremias', 'quem está com o carro vence o dono no papel (D9b)')
+})
+
+test('carro na oficina não entra no quadro', () => {
+  assert.deepEqual(checklistDeHoje({
+    veiculos: [carro('x', 'XXX', { pessoa_id: 'p1', situacao: 'em_manutencao' })],
+    fichasDeHoje: [], usos: [], pessoas: [], hoje: SEXTA,
+  }), [])
 })

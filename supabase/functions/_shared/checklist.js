@@ -454,3 +454,82 @@ export function oQueFaltaNaRetirada(pedir) {
     default: return 'Aqui só falta o combustível.';
   }
 }
+
+/**
+ * O CHECKLIST DE HOJE, INTEIRO: o que falta e o que já foi feito, num quadro só.
+ *
+ * `quemFaltaHoje` responde a outra pergunta — "de quem eu cobro hoje?" — e por
+ * isso olha só carro com dono fixo, e devolve vazio no fim de semana. Esta aqui
+ * responde "o que aconteceu de checklist hoje, na frota toda", e é o que o
+ * quadro da Gestão passa a mostrar.
+ *
+ * O BURACO QUE ELA FECHA (medido em 21/08/2026): o dono retirou a Bravo
+ * Blackmotion, um carro de rodízio, e o quadro não mostrava esse carro pra
+ * ninguém — nem como pendente, nem como feito. Carro sem dono fixo não entrava
+ * na conta, então uma retirada sem checklist não era cobrada de pessoa nenhuma.
+ *
+ * AS DUAS ETIQUETAS:
+ *   fixo    — o carro é de alguém (dono fixo ou posse aberta). Cobrado de
+ *             segunda a sexta, como sempre foi.
+ *   reserva — o carro saiu numa retirada de HOJE. Entra em QUALQUER dia,
+ *             inclusive sábado e domingo: quem pega carro confere antes de
+ *             sair, e o papel não conhece fim de semana.
+ */
+export function checklistDeHoje({ veiculos, fichasDeHoje, pessoas, usos, hoje }) {
+  const fichaDoCarro = new Map();
+  for (const f of fichasDeHoje || []) if (f && f.veiculo_id) fichaDoCarro.set(f.veiculo_id, f);
+  const diaUtil = !hoje || diaDaSemana(hoje) <= 5;
+  const nome = (id) => {
+    const p = (pessoas || []).find((x) => x && x.id === id);
+    return p ? p.nome : null;
+  };
+
+  // A retirada de hoje: viagem cuja saída caiu no dia de hoje. Uma viagem que
+  // começou ontem e continua aberta NÃO pede checklist hoje — o de hoje é de
+  // quem pega o carro hoje.
+  const retiradaDeHoje = new Map();
+  for (const u of usos || []) {
+    if (!u || (u.tipo || 'viagem') !== 'viagem') continue;
+    if (diaEmBrasiliaDoInstante(u.saida_em) !== hoje) continue;
+    retiradaDeHoje.set(u.veiculo_id, u);
+  }
+
+  const linhas = [];
+  for (const v of veiculos || []) {
+    if (!v || v.situacao !== 'ativo') continue;
+    const uso = retiradaDeHoje.get(v.id) || null;
+    const ficha = fichaDoCarro.get(v.id) || null;
+    const quem = usos ? quemEstaComOCarro(v, usos) : null;
+    const donoId = (quem && quem.pessoaId) || v.pessoa_id || null;
+    const ehFixo = !!donoId && !uso;
+
+    // Entra no quadro quem: saiu hoje (rodízio), é de alguém em dia útil, ou
+    // simplesmente teve ficha hoje — esta última pega o carro que alguém
+    // conferiu por fora das duas regras, e que sumiria do quadro sem ela.
+    if (!uso && !ficha && !(ehFixo && diaUtil)) continue;
+
+    linhas.push({
+      veiculo: v,
+      tag: uso ? 'reserva' : 'fixo',
+      quemId: uso ? (uso.pessoa_id || null) : donoId,
+      quem: uso ? (uso.pessoa_nome || nome(uso.pessoa_id)) : nome(donoId),
+      fez: !!ficha,
+      ficha,
+      assinada: !!(ficha && ficha.assinada_em),
+    });
+  }
+
+  // Pendente primeiro — é o que pede providência; depois por nome.
+  return linhas.sort((a, b) => (a.fez === b.fez
+    ? String(a.veiculo.nome || '').localeCompare(String(b.veiculo.nome || ''))
+    : (a.fez ? 1 : -1)));
+}
+
+/** O dia (AAAA-MM-DD) de um instante, no fuso de Brasília. Mesma conta do resto
+ *  da casa: `toISOString()` puro dá o dia em UTC, e depois das 21h isso já é o
+ *  dia seguinte. */
+function diaEmBrasiliaDoInstante(iso) {
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return null;
+  return new Date(t - 3 * 3600 * 1000).toISOString().slice(0, 10);
+}
