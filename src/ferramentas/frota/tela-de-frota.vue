@@ -19,7 +19,7 @@ import BarraDeTopo from '../../compartilhado/barra-de-topo.vue'
 import { useRouter } from 'vue-router'
 import { sbClient, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { hasPermission, estado } from '../../compartilhado/controle-de-login-e-usuario.js'
-import { estadoDoVeiculo, resumoDoEstado, ordenarEstados, rotuloDoTanque, NIVEIS_TANQUE, problemasDaDevolucao, problemasDaRetirada, ultimoHodometro } from './estado-do-veiculo.js'
+import { estadoDoVeiculo, resumoDoEstado, ordenarEstados, rotuloDoTanque, NIVEIS_TANQUE, problemasDaDevolucao, ultimoHodometro } from './estado-do-veiculo.js'
 import { nomeDeQuemAgiu } from './nome-de-quem-agiu.js'
 import { montarArvore } from '../../compartilhado/arvore-de-locais.js'
 import { localCurto } from './onde-o-carro-fica.js'
@@ -1235,6 +1235,24 @@ const gravando = ref(false)
  * tem `unique (veiculo_id, feita_em)` de propósito, e ninguém confere o mesmo
  * carro duas vezes no mesmo dia. */
 const aceiteDaRetirada = ref(null)   // os traços do rabisco, ou nulo
+/* O painel do checklist DENTRO da ficha de retirada. O botão do pé da ficha
+ * pede a ele a validação e a carga da gravação — é o que faz as duas coisas
+ * virarem um toque só. */
+const painelDaRetirada = ref(null)
+
+/* O nome do botão do pé da ficha. Ele faz coisas diferentes conforme o que
+ * está aberto, e precisa dizer qual delas. */
+const rotuloDoBotaoDaFicha = computed(() => {
+  const f = ficha.value
+  if (!f) return 'Confirmar'
+  if (f.jaAvisado) return 'Gravar assim mesmo'
+  if (f.modo === 'retirar'
+    && precisaDeChecklist({ veiculoId: f.linha.veiculo.id, fichas: fichas.value, hoje: hoje.value })
+    && f.reserva) {
+    return podeAssinar.value ? 'Assinar checklist e retirar o carro' : 'Gravar checklist e retirar o carro'
+  }
+  return 'Confirmar'
+})
 
 /** O que a ficha de retirada tem de pedir a quem está com ela aberta agora. */
 const pedidoDaRetirada = computed(() => {
@@ -1441,23 +1459,53 @@ async function confirmar() {
       return
     }
   } else {
-    // A FICHA DE RETIRADA TEM DOIS BOTÕES DE GRAVAR, e até 21/08/2026 este aqui
-    // não olhava o outro: quem preenchia o checklist ali dentro e apertava
-    // Confirmar tirava o carro e perdia tudo que tinha respondido, sem uma
-    // palavra. `precisaDeChecklist` continuar verdadeiro é a prova de que o
-    // checklist NÃO foi gravado — depois de gravar, `fichas` recarrega e ele
-    // vira falso.
-    problemas.value = problemasDaRetirada({
-      km,
-      faltaChecklist: precisaDeChecklist({ veiculoId: f.linha.veiculo.id, fichas: fichas.value, hoje: hoje.value }),
-      jaAvisado: f.jaAvisado,
+    const faltaChecklist = precisaDeChecklist({
+      veiculoId: f.linha.veiculo.id, fichas: fichas.value, hoje: hoje.value,
     })
-    if (problemas.value.length) {
-      // Só o aviso do checklist é confirmável na segunda vez; sem KM não sai
-      // nunca, e por isso `jaAvisado` não é marcado nesse caso.
-      if (km) f.jaAvisado = true
+    if (!Number.isInteger(km) || km <= 0) {
+      problemas.value = ['Informe o KM que está no painel agora.']
       return
     }
+
+    /* UM TOQUE, DUAS GRAVAÇÕES, NA ORDEM CERTA (21/08/2026).
+       Até aqui a ficha tinha dois botões de gravar — o do checklist, dentro
+       dela, e este do pé. Quem preenchia o checklist e apertava este tirava o
+       carro e perdia tudo que respondeu, sem uma palavra na tela. Aconteceu
+       com o dono, com a Bravo Blackmotion.
+
+       QUEM PEGA O PRÓPRIO CARRO RESERVADO NÃO SAI SEM CHECKLIST (decisão do
+       dono): faltando item, hodômetro, senha ou assinatura, o painel escreve o
+       que falta e NADA é gravado — nem o checklist, nem a viagem.
+
+       O REGISTRO AVULSO DA GESTÃO continua podendo gravar sem checklist, e não
+       é exceção de conveniência: é o único caminho para registrar o que
+       aconteceu FORA do aplicativo (alguém pegou o carro no sábado, sem o
+       celular na mão). Fechar essa porta não faria o checklist existir — faria
+       a viagem não existir. O histórico marca essa retirada como "não ficou
+       prova nenhuma", que é ponta visível em vez de ponta solta. */
+    if (faltaChecklist) {
+      // NOME PRÓPRIO, e não `painel`: já existe um `painel` no módulo (o do
+      // motorista), e um const local com o mesmo nome o sombreia dentro desta
+      // função inteira — inclusive ANTES desta linha. A guarda
+      // `sem-sombra-de-ajudante` reprovou exatamente isso.
+      const painelDoChecklist = painelDaRetirada.value
+      if (!painelDoChecklist) {
+        // Não deve acontecer: o painel é montado pela MESMA condição que o
+        // `faltaChecklist`. Se um dia divergirem, o carro NÃO sai caladinho
+        // sem checklist — a tela diz que não conseguiu montar a ficha.
+        problemas.value = ['Não consegui abrir o checklist deste carro. Recarregue a página '
+          + 'e tente de novo; nada foi gravado.']
+        return
+      }
+      // `null` = o painel já escreveu na tela, campo por campo, o que falta.
+      const carga = painelDoChecklist.validarEMontar()
+      if (!carga) { problemas.value = []; return }
+      const gravou = await gravarChecklist(carga)
+      // Falhou: `gravarChecklist` já explicou o quê na tela, e nada de viagem —
+      // tirar o carro depois de o checklist falhar é o defeito ao contrário.
+      if (!gravou) return
+    }
+    problemas.value = []
   }
 
   gravando.value = true
@@ -1548,8 +1596,12 @@ const seloDoChecklist = ref('')
 // Barbara, Marcus e Thiago são donos de carro e não têm conta no app.
 const podeAssinar = computed(() => !!estado.userId)
 
+/* Devolve `true` só quando a ficha ficou COMPLETA no banco (respostas e, quando
+ * há login, assinatura). O botão da retirada depende desta resposta pra decidir
+ * se tira o carro: gravar a viagem depois de o checklist falhar seria o mesmo
+ * defeito ao contrário. */
 async function gravarChecklist({ ficha, respostas, assinatura }) {
-  if (gravando.value) return
+  if (gravando.value) return false
   gravando.value = true
   erroChecklist.value = ''
   erroDaAssinatura.value = ''
@@ -1582,7 +1634,7 @@ async function gravarChecklist({ ficha, respostas, assinatura }) {
       const detalhe = erroConf ? await erroConf.context?.json?.().catch(() => null) : conf
       gravando.value = false
       erroDaAssinatura.value = recusaDaSenha(detalhe?.erro)
-      return
+      return false
     }
 
     // 2) A ficha anterior DESTE carro, pra encadear.
@@ -1597,7 +1649,7 @@ async function gravarChecklist({ ficha, respostas, assinatura }) {
       gravando.value = false
       erroDaAssinatura.value = 'Não consegui ler a ficha anterior deste carro para encadear a '
         + 'assinatura. Confira a conexão e tente de novo. Nada foi gravado.'
-      return
+      return false
     }
     const hashAnterior = anteriores?.[0]?.assinatura_hash || null
 
@@ -1656,7 +1708,7 @@ async function gravarChecklist({ ficha, respostas, assinatura }) {
     erroChecklist.value = /duplicate|unique/i.test(error.message || '')
       ? 'O checklist deste carro já foi preenchido hoje.'
       : 'Não consegui gravar o checklist. Confira a conexão e tente de novo.'
-    return
+    return false
   }
 
   // A ficha já tem `data.id` aqui — as respostas são um segundo insert, e
@@ -1682,7 +1734,7 @@ async function gravarChecklist({ ficha, respostas, assinatura }) {
       fichaGravada: true, respostasGravadas: false,
       assinaturaGravada: false, queriaAssinar: !!assinar,
     })
-    return
+    return false
   }
 
   let assinaturaGravada = false
@@ -1703,7 +1755,7 @@ async function gravarChecklist({ ficha, respostas, assinatura }) {
       // Recarrega: diferente dos dois casos acima, aqui o checklist do dia está
       // COMPLETO e vale. O cartão deve sair da frente; o aviso fica.
       await carregar()
-      return
+      return false
     }
   }
 
@@ -1715,6 +1767,7 @@ async function gravarChecklist({ ficha, respostas, assinatura }) {
   // e o cartão de outro carro pode reabrir sozinho no lugar errado.
   conferindoVeiculo.value = null
   await carregar()
+  return true
 }
 
 /* ── O editor da lista e dos dias (aba Gestão, F8) ────────────────────────────
@@ -4823,6 +4876,8 @@ onMounted(async () => {
 
           <PainelDeChecklist
             v-if="ficha.modo === 'retirar' && precisaDeChecklist({ veiculoId: ficha.linha.veiculo.id, fichas, hoje })"
+            ref="painelDaRetirada"
+            :botao-proprio="false"
             data-tour="ficha-checklist"
             :veiculo="ficha.linha.veiculo"
             :itens="itensDeChecklist"
@@ -4922,8 +4977,12 @@ onMounted(async () => {
 
         <div class="fr-ficha-rodape">
           <button class="fr-btn" @click="fecharFicha">Cancelar</button>
+          <!-- O BOTÃO DIZ O QUE VAI FAZER. Quando o checklist está aberto aqui
+               dentro, este toque assina o checklist E tira o carro — esconder
+               uma assinatura definitiva atrás de "Confirmar" é a surpresa que o
+               padrão da casa não admite. -->
           <button class="fr-btn primario" :disabled="gravando" @click="confirmar">
-            {{ gravando ? 'Gravando…' : (ficha.jaAvisado ? 'Gravar assim mesmo' : 'Confirmar') }}
+            {{ gravando ? 'Gravando…' : rotuloDoBotaoDaFicha }}
           </button>
         </div>
       </div>
