@@ -19,8 +19,10 @@
 //                  projetos/central-inteligencia/redes-sociais/coletor/coletar.py
 //                  linha 369  dias_mtd = max(date.today().day - 1, 0)
 //                  linha 394  coletar_ads_por_campanha(..., dias_mtd, hoje, store_as=99)
-//                  e a janela sai em coletar.py:251-252 (since = hoje − dias_mtd,
-//                  until = hoje) — ou seja, do 1º do mês até o dia. Confere.
+//                  e a janela sai hoje de `janela_do_mes_corrente` (since = hoje
+//                  − dias_mtd, until = hoje) — do 1º do mês até o dia. Confere, e
+//                  esse recorte NÃO mudou em 21/08: ele inclui o dia corrente de
+//                  propósito, que é o que o botão "MÊS / ATÉ AGORA" promete.
 //                  (Um comentário anterior citava recuperar-curtidas-zeradas.mjs:
 //                  aquele arquivo grava engagement_snapshots e NUNCA
 //                  campaign_insights. A janela calculada estava certa, a fonte
@@ -46,9 +48,14 @@ const RECORTES_DE_N_DIAS = [1, 7, 14, 30];
 // backfill perguntar à Meta um período diferente do que gravou o gasto da mesma
 // linha, e aí duas colunas vizinhas passariam a falar de semanas diferentes.
 //
-// COMO PREENCHER, depois de subir a `coletar-dados` pelo MCP: ponha aqui a data
-// da PRIMEIRA coleta feita com o código novo (a data BRT da primeira rodada
-// depois do deploy, no formato 'AAAA-MM-DD'). Nem antes, nem depois.
+// COMO PREENCHER: só quando OS DOIS robôs estiverem com o código novo. São dois
+// que gravam estas linhas, com a mesma chave, e quem roda por último vence:
+//   • o coletor deste Mac (`coletar.py`, launchd 5x/dia) — já vai com o arquivo;
+//   • a Edge `coletar-dados` — precisa de deploy na mão pelo MCP.
+// Enquanto só um estiver novo, a linha do dia pode sair de qualquer um dos dois
+// jeitos, conforme quem passou por último — e nesse dia não há resposta certa
+// para pôr aqui. Ponha a data BRT do primeiro dia INTEIRO com os dois novos, no
+// formato 'AAAA-MM-DD'. Nem antes, nem depois.
 export const PRIMEIRO_DIA_COM_A_JANELA_NOVA = null;
 
 export function janelaDoRecorte(capturedAt, periodDays, viradaEm = PRIMEIRO_DIA_COM_A_JANELA_NOVA) {
