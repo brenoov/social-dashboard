@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   estadoDoVeiculo, resumoDoEstado, ordenarEstados, usoAberto, ultimoUsoFechado,
-  rotuloDoTanque, precisaAbastecer, problemasDaDevolucao, ultimoHodometro,
+  rotuloDoTanque, precisaAbastecer, problemasDaDevolucao, problemasDaRetirada, ultimoHodometro,
 } from './estado-do-veiculo.js'
 
 const carro = (extra = {}) => ({ id: 'v1', nome: 'FORD FIESTA SEDAN', placa: 'ERO3G55', situacao: 'ativo', ...extra })
@@ -353,4 +353,41 @@ test('sem reserva nenhuma, "livre pra mim" é igual a "livre"', () => {
   const e = estadoDoVeiculo(carro(), [])
   assert.equal(e.disponivel, true)
   assert.equal(e.disponivelParaMim, true)
+})
+
+/* ── Tirar o carro sem ter gravado o checklist ────────────────────────────── */
+
+test('o checklist preenchido e NÃO gravado é avisado antes de o carro sair', () => {
+  // O QUE ACONTECEU DE VERDADE (21/08/2026, relatado pelo dono): ele pegou a
+  // Bravo Blackmotion, preencheu o checklist dentro da ficha de retirada e
+  // apertou "Confirmar". A ficha tem DOIS botões de gravar — o do checklist e
+  // o da retirada — e o "Confirmar" não olhava o primeiro. O carro saiu
+  // (frota_uso às 09h03, 185.359 km) e o checklist virou pó, sem uma palavra.
+  // Depois, na Gestão: "não ficou prova nenhuma desta retirada".
+  const avisos = problemasDaRetirada({ km: 185359, faltaChecklist: true, jaAvisado: false })
+  assert.equal(avisos.length, 1)
+  assert.match(avisos[0], /checklist/i)
+  assert.match(avisos[0], /Assinar e gravar/i, 'diz o nome do botão que a pessoa tem de tocar')
+})
+
+test('avisado uma vez, o carro sai — ninguém fica a pé no estacionamento', () => {
+  // Mesma filosofia do aceite e do item marcado como Problema: avisa, não
+  // tranca. Travar deixaria alguém parado por causa de um botão.
+  assert.deepEqual(problemasDaRetirada({ km: 185359, faltaChecklist: true, jaAvisado: true }), [])
+})
+
+test('sem KM não sai, nem na segunda tentativa — isso continua sendo trava', () => {
+  // O KM é o que alimenta o aviso de revisão. Sem ele a saída não serve pra nada.
+  assert.deepEqual(problemasDaRetirada({ km: null, faltaChecklist: false, jaAvisado: true }),
+    ['Informe o KM que está no painel agora.'])
+  assert.equal(problemasDaRetirada({ km: 0, faltaChecklist: false, jaAvisado: true }).length, 1)
+})
+
+test('com o checklist gravado, a retirada não pergunta nada', () => {
+  assert.deepEqual(problemasDaRetirada({ km: 185359, faltaChecklist: false, jaAvisado: false }), [])
+})
+
+test('sem KM e sem checklist, o KM vem primeiro — é o que trava', () => {
+  const avisos = problemasDaRetirada({ km: null, faltaChecklist: true, jaAvisado: false })
+  assert.match(avisos[0], /KM/)
 })

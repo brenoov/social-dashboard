@@ -19,7 +19,7 @@ import BarraDeTopo from '../../compartilhado/barra-de-topo.vue'
 import { useRouter } from 'vue-router'
 import { sbClient, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { hasPermission, estado } from '../../compartilhado/controle-de-login-e-usuario.js'
-import { estadoDoVeiculo, resumoDoEstado, ordenarEstados, rotuloDoTanque, NIVEIS_TANQUE, problemasDaDevolucao, ultimoHodometro } from './estado-do-veiculo.js'
+import { estadoDoVeiculo, resumoDoEstado, ordenarEstados, rotuloDoTanque, NIVEIS_TANQUE, problemasDaDevolucao, problemasDaRetirada, ultimoHodometro } from './estado-do-veiculo.js'
 import { nomeDeQuemAgiu } from './nome-de-quem-agiu.js'
 import { montarArvore } from '../../compartilhado/arvore-de-locais.js'
 import { localCurto } from './onde-o-carro-fica.js'
@@ -1440,9 +1440,24 @@ async function confirmar() {
       if (soAviso) f.jaAvisado = true
       return
     }
-  } else if (!km) {
-    problemas.value = ['Informe o KM que está no painel agora.']
-    return
+  } else {
+    // A FICHA DE RETIRADA TEM DOIS BOTÕES DE GRAVAR, e até 21/08/2026 este aqui
+    // não olhava o outro: quem preenchia o checklist ali dentro e apertava
+    // Confirmar tirava o carro e perdia tudo que tinha respondido, sem uma
+    // palavra. `precisaDeChecklist` continuar verdadeiro é a prova de que o
+    // checklist NÃO foi gravado — depois de gravar, `fichas` recarrega e ele
+    // vira falso.
+    problemas.value = problemasDaRetirada({
+      km,
+      faltaChecklist: precisaDeChecklist({ veiculoId: f.linha.veiculo.id, fichas: fichas.value, hoje: hoje.value }),
+      jaAvisado: f.jaAvisado,
+    })
+    if (problemas.value.length) {
+      // Só o aviso do checklist é confirmável na segunda vez; sem KM não sai
+      // nunca, e por isso `jaAvisado` não é marcado nesse caso.
+      if (km) f.jaAvisado = true
+      return
+    }
   }
 
   gravando.value = true
