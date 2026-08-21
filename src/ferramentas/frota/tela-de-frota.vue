@@ -81,7 +81,7 @@ import {
   linhasParaGravar, mensagemDoLancamento, centavos, VALOR_INVALIDO,
 } from './lancamento-de-manutencao.js'
 import {
-  quemFaltaHoje, resumoDaCobranca, precisaDeChecklist,
+  checklistDeHoje, resumoDaCobranca, precisaDeChecklist,
   problemasAbertosHoje, veiculosParaConferir, cadenciasDoDia,
   oQuePedirNaRetirada, porQuePedirOAceite, oQueFaltaNaRetirada,
 } from '../../../supabase/functions/_shared/checklist.js'
@@ -89,12 +89,13 @@ import {
 // prova de cada uma e o que o admin pode fazer com ela.
 import {
   linhaDoTempo, filtrar, resumoDoHistorico, FILTROS,
-  rotuloDaSituacao, corDaSituacao, porQueNaoDaEmPortugues, diaEmBrasilia, fraseDaPosse,
+  rotuloDaSituacao, corDaSituacao, resumoCurtoDaLinha, porQueNaoDaEmPortugues, diaEmBrasilia, fraseDaPosse,
 } from './historico-de-reservas.js'
 import {
   agruparPorDia, filtrarFichas, resumoDasFichas, FILTROS_DE_FICHA,
 } from './historico-de-checklists.js'
 import { bensLivresParaFrota, patchDoBem } from './bens-para-veiculo.js'
+import { PRIMEIRO_DEGRAU, proximoLimite, rotuloDeVerMais } from './mostrar-mais.js'
 import {
   normalizarPlaca, validarEtiqueta, etiquetaDoCodigo, COMO_FICA,
   comoFicaParaDados, validarCadastro, fraseDaSincronia, avisoDaEtiqueta,
@@ -341,20 +342,10 @@ const gavetasDaGestao = computed(() => gavetasVisiveis([
     titulo: 'Checklist de hoje',
     estado: botoesGestao.value.find((b) => b.chave === 'conferir-checklists')?.estado || null,
     padraoAberta: true,
-    // Fim de semana não pede checklist: `quemFaltaHoje` devolve vazio, e a
-    // gaveta some em vez de dizer "faltam 0".
+    // Fim de semana sem retirada nenhuma não pede checklist: a lista vem
+    // vazia e a gaveta some, em vez de dizer "faltam 0". Sábado COM retirada
+    // continua aparecendo — quem pega carro confere antes de sair.
     vazia: !cobranca.value.length,
-  },
-  {
-    chave: 'fichas',
-    titulo: 'Histórico de checklists',
-    // O título fechado já responde ("3 fichas em 3 dias"), como os outros.
-    estado: resumoDasFichas(fichas.value),
-    // Consulta, não coisa esperando o dono: fica fechada até ele querer.
-    padraoAberta: false,
-    // Sem ficha nenhuma a gaveta some, em vez de virar um título que abre pro
-    // nada. É medida, não "não carreguei" — `fichas` vem junto com o resto.
-    vazia: !fichas.value.length,
   },
   {
     chave: 'problemas',
@@ -481,9 +472,21 @@ const fichasDeHoje = computed(() => fichas.value.filter((f) => f.feita_em === ho
 // Barbara está com o Volvo, ela é.
 // `hoje` entra pelo calendário: sábado e domingo não cobram ninguém, do mesmo
 // jeito que o robô da manhã já não cobrava.
-const cobranca = computed(() => quemFaltaHoje({
+/* O QUADRO DE HOJE, INTEIRO — o que falta e o que já foi feito, com etiqueta.
+ *
+ * Era `quemFaltaHoje`, que responde a outra pergunta ("de quem eu cobro?") e
+ * por isso só olhava carro com dono fixo. Em 21/08/2026 o dono retirou a Bravo
+ * Blackmotion, de rodízio, e o carro não aparecia PARA NINGUÉM neste quadro —
+ * nem pendente, nem feito. Retirada sem checklist não era cobrada de pessoa
+ * nenhuma. `checklistDeHoje` traz também quem saiu numa retirada de hoje.
+ *
+ * `dono` e `donoId` seguem com o mesmo nome porque meia dúzia de coisas nesta
+ * tela dependem deles (o zap de cobrança, o convite ao dono, o selo). Renomear
+ * tudo aqui seria outra tarefa, e não é a que o dono pediu. */
+const cobranca = computed(() => checklistDeHoje({
   veiculos: veiculos.value, fichasDeHoje: fichasDeHoje.value, pessoas: pessoas.value,
-  usos: usos.value, hoje: hoje.value }))
+  usos: usos.value, hoje: hoje.value,
+}).map((l) => ({ ...l, dono: l.quem, donoId: l.quemId })))
 
 // O QUE foi marcado nas fichas de hoje (pedido do dono: o quadro dizia QUEM
 // fez, mas não deixava ver O QUE). Só de HOJE — decisão dele, sem navegação
@@ -2067,7 +2070,36 @@ const historico = computed(() => linhaDoTempo({
   temPermissaoAprovar: podeAprovar.value,
   agoraIso: new Date().toISOString(),
 }))
+/* CADA REGISTRO ABRE SÓ QUANDO ALGUÉM PEDE (21/08/2026, pedido do dono). O
+ * fechado mostra o básico — `resumoCurtoDaLinha` —, e os detalhes ficam a um
+ * toque. Antes, cada linha vinha inteira e a lista era um paredão.
+ *
+ * Um Set NOVO a cada troca: mutar o de dentro não acorda a tela. */
+const detalhesAbertos = ref(new Set())
+function alternarDetalhe(chave) {
+  const s = new Set(detalhesAbertos.value)
+  if (s.has(chave)) s.delete(chave); else s.add(chave)
+  detalhesAbertos.value = s
+}
+
 const historicoFiltrado = computed(() => filtrar(historico.value, filtroDoHistorico.value))
+/* MESMA ORDEM DA OUTRA LISTA: filtra, DEPOIS corta. Cortar antes faria o filtro
+ * valer só sobre o pedaço que coube, e a tela mostraria menos do que existe. */
+const limiteDoHistorico = ref(PRIMEIRO_DEGRAU)
+const historicoNaTela = computed(() => historicoFiltrado.value.slice(0, limiteDoHistorico.value))
+const verMaisHistorico = computed(() => rotuloDeVerMais(limiteDoHistorico.value, historicoFiltrado.value.length))
+function mostrarMaisHistorico() {
+  limiteDoHistorico.value = proximoLimite(limiteDoHistorico.value, historicoFiltrado.value.length)
+}
+watch(filtroDoHistorico, () => { limiteDoHistorico.value = PRIMEIRO_DEGRAU })
+
+/* O ATALHO da retirada até o checklist assinado (pedido do dono). Ele abre a
+ * MESMA ficha que o histórico de checklists abre — não é uma segunda tela com
+ * a mesma coisa dentro. */
+function verChecklistDaLinha(l) {
+  const f = l && l.prova && l.prova.ficha
+  if (f) abrirFichaDoHistorico(f)
+}
 
 /* Quantas linhas cada filtro tem — vai no rótulo do próprio botão do filtro.
  * A resposta ANTES do clique, mesma ideia dos botões rápidos que o dono já
@@ -2096,7 +2128,24 @@ const fichasDoHistorico = computed(() => filtrarFichas(fichas.value, {
   veiculoId: carroDaFicha.value || null,
   pessoaNome: pessoaDaFicha.value || null,
 }))
-const diasDeFicha = computed(() => agruparPorDia(fichasDoHistorico.value, { veiculos: veiculos.value }))
+/* O HISTÓRICO MORA NO PÉ DO CARD DE HOJE (21/08/2026, pedido do dono): era
+ * gaveta própria, e ir de "quem falta hoje" pra "o que foi feito" custava
+ * fechar uma seção e abrir outra. Duas perguntas sobre o mesmo assunto, dois
+ * lugares.
+ *
+ * A CONTA É FEITA NESTA ORDEM: filtra, DEPOIS corta. Cortar antes de filtrar
+ * mostraria menos linha do que existe — o filtro sobraria só sobre o pedaço que
+ * coube, e a tela diria "nenhuma ficha com estes filtros" tendo várias. */
+const limiteDeFichas = ref(PRIMEIRO_DEGRAU)
+const diasDeFicha = computed(() => agruparPorDia(
+  fichasDoHistorico.value.slice(0, limiteDeFichas.value), { veiculos: veiculos.value }))
+const verMaisFichas = computed(() => rotuloDeVerMais(limiteDeFichas.value, fichasDoHistorico.value.length))
+function mostrarMaisFichas() {
+  limiteDeFichas.value = proximoLimite(limiteDeFichas.value, fichasDoHistorico.value.length)
+}
+// Mexeu no filtro, volta pro primeiro degrau: continuar em 50 depois de trocar
+// o recorte mostraria uma lista que a pessoa não pediu.
+watch([filtroDeFicha, carroDaFicha, pessoaDaFicha], () => { limiteDeFichas.value = PRIMEIRO_DEGRAU })
 
 /* Quem aparece no seletor de pessoa: só quem REALMENTE fez alguma ficha. Listar
  * os 31 colaboradores faria a pessoa procurar num monte de nome que nunca vai
@@ -3446,7 +3495,7 @@ onMounted(async () => {
         </p>
 
         <div class="fr-lista" v-else>
-          <div v-for="l in historicoFiltrado" :key="l.chave" class="fr-card"
+          <div v-for="l in historicoNaTela" :key="l.chave" class="fr-card"
                :class="{ espera: l.situacao === 'pendente', ruimzao: ['recusada','cancelada','revogada'].includes(l.situacao), parado: l.tipo === 'retirada', fixo: l.tipo === 'posse', arquivada: l.arquivada }">
 
             <div class="fr-card-topo">
@@ -3461,6 +3510,23 @@ onMounted(async () => {
                    fixo") e este ramo só pega retirada de verdade. -->
               <span class="fr-selo">{{ l.tipo === 'retirada' ? 'Pegou sem reservar' : rotuloDaSituacao(l.situacao) }}</span>
             </div>
+
+            <!-- O BÁSICO, SEMPRE VISÍVEL: quem, quando e para onde. Linha
+                 fechada que não diz nada obriga a abrir uma por uma pra achar
+                 a que interessa — pior que o paredão que existia antes. -->
+            <p class="fr-hist-resumo">{{ resumoCurtoDaLinha(l, quando) }}</p>
+            <div class="fr-hist-abrir">
+              <button type="button" class="fr-btn" @click="alternarDetalhe(l.chave)">
+                {{ detalhesAbertos.has(l.chave) ? 'Fechar' : 'Abrir' }}
+              </button>
+              <!-- O ATALHO até o checklist assinado (pedido do dono). Só
+                   aparece quando existe ficha daquele dia: botão que abre pro
+                   nada é pior que botão nenhum. -->
+              <button type="button" class="fr-btn" v-if="l.prova && l.prova.ficha"
+                      @click="verChecklistDaLinha(l)">Ver o checklist</button>
+            </div>
+
+            <template v-if="detalhesAbertos.has(l.chave)">
 
             <!-- O QUE FOI PEDIDO. Só existe quando houve reserva: retirada
                  avulsa não tem pedido nenhum atrás, e inventar uma linha
@@ -3602,7 +3668,14 @@ onMounted(async () => {
               Arquivada: ela não aparece mais na lista principal. O pedido, o motivo e quem
               decidiu continuam guardados.
             </p>
+            </template>
           </div>
+        </div>
+
+        <!-- O histórico segue no pé do próprio card, com o "ver mais" que só
+             aparece quando há linha escondida (mostrar-mais.js). -->
+        <div class="fr-ver-mais" v-if="verMaisHistorico">
+          <button type="button" class="fr-btn" @click="mostrarMaisHistorico">{{ verMaisHistorico }}</button>
         </div>
       </Gaveta>
 
@@ -3618,8 +3691,19 @@ onMounted(async () => {
         <div v-for="c in cobranca" :key="c.veiculo.id" class="fr-card fr-card-cobranca" :class="{ pendente: !c.fez }">
           <div class="fr-card-topo">
             <div class="fr-card-ident">
-              <span class="fr-card-nome">{{ c.veiculo.nome }}</span>
-              <span class="fr-placa">{{ c.dono || 'dono saiu do cadastro' }}</span>
+              <span class="fr-card-nome">
+                {{ c.veiculo.nome }}
+                <!-- A TAG diz POR QUE este carro está no quadro hoje:
+                     "fixo" é o carro de alguém, cobrado de segunda a sexta;
+                     "reserva" é o que saiu numa retirada de hoje, e esse conta
+                     em qualquer dia, inclusive sábado. Sem ela, o carro de
+                     rodízio aparece no meio dos fixos sem explicação.
+                     NÃO se chama "etiqueta": nesta base essa palavra é o número
+                     de patrimônio do veículo, e dois sentidos pro mesmo nome é
+                     como se lê a coisa errada seis meses depois. -->
+                <span class="fr-tag" :class="c.tag">{{ c.tag === 'reserva' ? 'reserva' : 'fixo' }}</span>
+              </span>
+              <span class="fr-placa">{{ c.dono || (c.tag === 'reserva' ? 'quem pegou não ficou registrado' : 'dono saiu do cadastro') }}</span>
             </div>
             <!-- Três estados, não dois (D22): feito e assinado, feito SEM
                  assinatura, e falta. Laranja no do meio porque é um dado a
@@ -3754,16 +3838,17 @@ onMounted(async () => {
         </div>
       </div>
 
-      </Gaveta>
+      
+        <!-- ── O HISTÓRICO, NO PÉ DO MESMO CARD (21/08/2026) ──────────────
+             Pedido do dono: "o histórico de checklist entra dentro de checklist
+             de hoje, no fim do card". Era gaveta própria, e ir de "quem falta
+             hoje" para "o que já foi feito" custava fechar uma seção e abrir
+             outra — duas perguntas do mesmo assunto, em dois lugares.
+             O separador deixa claro onde HOJE acaba e o passado começa. -->
+        <div class="fr-historico-no-pe">
+          <h3 class="fr-subsecao">Histórico de checklists</h3>
+          <p class="fr-ajuda">{{ resumoDasFichas(fichas) }}</p>
 
-      <!-- HISTÓRICO DE CHECKLISTS (D6). Por DIA, do mais novo pro mais velho —
-           escolha do dono: a pergunta que ele faz é "o que aconteceu essa
-           semana", não "me mostra tudo do Cayenne" (pra essa já existe a ficha
-           do veículo). Clicar abre o MESMO detalhe que o histórico de reservas
-           já usa: não nasce tela nova. -->
-      <Gaveta v-if="gv('fichas')" :titulo="gv('fichas').titulo" :estado="gv('fichas').estado"
-              :aberta="gv('fichas').aberta" :travada-aberta="gv('fichas').travadaAberta"
-              id="gv-fichas" @alternar="alternarGaveta('fichas')">
 
         <div class="fr-filtros">
           <button v-for="f in FILTROS_DE_FICHA" :key="f.chave" type="button" class="fr-filtro"
@@ -3823,7 +3908,21 @@ onMounted(async () => {
                tela deixaria parecer que isto é tudo que já foi feito. -->
           <p class="fr-ajuda fr-fichas-limite">Mostrando os últimos 120 dias.</p>
         </div>
+
+          <!-- O botão só existe quando há linha escondida. Ver mostrar-mais.js:
+               "ver mais 50" numa lista de 12 é promessa que a tela não cumpre. -->
+          <div class="fr-ver-mais" v-if="verMaisFichas">
+            <button type="button" class="fr-btn" @click="mostrarMaisFichas">{{ verMaisFichas }}</button>
+          </div>
+        </div>
       </Gaveta>
+
+      <!-- HISTÓRICO DE CHECKLISTS (D6). Por DIA, do mais novo pro mais velho —
+           escolha do dono: a pergunta que ele faz é "o que aconteceu essa
+           semana", não "me mostra tudo do Cayenne" (pra essa já existe a ficha
+           do veículo). Clicar abre o MESMO detalhe que o histórico de reservas
+           já usa: não nasce tela nova. -->
+
 
       <Gaveta v-if="gv('problemas')" :titulo="gv('problemas').titulo" :estado="gv('problemas').estado"
               :aberta="gv('problemas').aberta" :travada-aberta="gv('problemas').travadaAberta"
@@ -5113,6 +5212,34 @@ onMounted(async () => {
    Pior que a diferença: `rem` cravado IGNORA o ajuste de tamanho de letra da
    Central (`--escala-texto`) — quem aumenta a letra via ajuste via este selo
    ficar para trás dos outros. */
+/* A linha fechada do histórico: o resumo em cima, os dois botões embaixo. */
+.tela-frota .fr-hist-resumo{font-family:var(--fonte-principal);
+  font-size:max(9px, calc(12px * var(--escala-texto, 1)));color:var(--muted);margin:6px 0 0;}
+.tela-frota .fr-hist-abrir{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
+.tela-frota .fr-hist-abrir .fr-btn{flex:1 1 auto;min-width:44%;}
+
+/* O HISTÓRICO NO PÉ DO CARD: uma linha separa o HOJE do que já passou, e o
+   título da subseção é MENOR que o da gaveta que o contém — subtítulo maior que
+   o título faz a pessoa achar que entrou noutra seção. Mesma família do
+   `gv-titulo` (maiúsculas, espaçado), um degrau abaixo. */
+.tela-frota .fr-historico-no-pe{margin-top:var(--sp-6);padding-top:var(--sp-5);border-top:1px solid var(--border);}
+.tela-frota .fr-subsecao{font-family:var(--fonte-principal);
+  font-size:max(9px, calc(10px * var(--escala-texto, 1)));font-weight:700;letter-spacing:1.4px;
+  text-transform:uppercase;color:var(--muted);margin:0 0 4px;}
+.tela-frota .fr-ver-mais{display:flex;justify-content:center;margin-top:var(--sp-4);}
+.tela-frota .fr-ver-mais .fr-btn{min-width:60%;}
+
+/* A TAG do quadro de hoje: por que este carro está aqui. Texto pequeno e
+   discreto ao lado do nome — não é selo de estado (esse é o `fr-cobranca-selo`,
+   à direita), é classificação. Cor vem de token, como manda o padrão. */
+.tela-frota .fr-tag{font-family:var(--fonte-principal);font-size:max(8px, calc(9px * var(--escala-texto, 1)));
+  font-weight:700;letter-spacing:.6px;text-transform:uppercase;padding:2px 7px;border-radius:999px;
+  margin-left:8px;vertical-align:middle;white-space:nowrap;
+  background:color-mix(in srgb,var(--muted) 14%,transparent);color:var(--muted);}
+/* "reserva" ganha a cor do acento: é o carro que saiu HOJE, e é o que o dono
+   não estava enxergando antes de 21/08. */
+.tela-frota .fr-tag.reserva{background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent);}
+
 .tela-frota .fr-cobranca-selo{font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));font-weight:700;letter-spacing:.4px;padding:4px 10px;border-radius:999px;background:var(--surface2);color:var(--green);white-space:nowrap;}
 .tela-frota .fr-cobranca-selo.pendente{color:var(--red);}
 /* "feito, sem assinatura" (D22): laranja, não vermelho. Vermelho é FALTA, e
