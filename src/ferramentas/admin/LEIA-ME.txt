@@ -163,3 +163,21 @@ em docs/pendencias.md.
 Prova da trava: docs/provar-grupo-do-canal.sql (roda com a trava armada, dentro
 de um bloco que se desfaz sozinho).
 Spec: docs/superpowers/specs/2026-08-20-grupo-do-canal-design.md
+
+OS TIMES SOB CABEÇALHO DE GRUPO (Peça 4, 20/08/2026)
+-----------------------------------------------------
+Os cards de time da seção de Usuários ficam sob um cabeçalho por grupo, com a
+contagem ao lado. O time NÃO tem grupo próprio: ele herda do canal a que está
+amarrado (`equipes.canal_loja_id` -> `bling_lojas.grupo`).
+
+Time sem canal (loja que ainda vai abrir, como o Iguatemi) e time cujo canal
+está sem grupo caem juntos em "Sem grupo", no fim. Nenhum some — sumir da gestão
+de usuários seria perder o time inteiro de vista.
+
+Cabeçalho SÓ aparece quando existe ao menos um time com grupo. Enquanto ninguém
+marcar canal na lista "Canais de venda", esta parte da tela fica idêntica ao que
+sempre foi. E grupo que só existe em canal SEM time não vira cabeçalho vazio.
+
+A regra é `agruparTimesPorGrupo` em `src/compartilhado/grupo-do-canal.js`, com
+testes. Ela precisa de `_canaisComGrupo` carregado — por isso `loadAdminCanais()`
+roda ANTES de `loadAdminEquipes()` em `loadAdminUsers`.

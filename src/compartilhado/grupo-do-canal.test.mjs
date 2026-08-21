@@ -150,3 +150,71 @@ test('alternarGrupo devolve um Set NOVO — não mexe no que recebeu', () => {
   assert.deepEqual([...sel], [1], 'o original ficou intacto');
   assert.notEqual(novo, sel);
 });
+
+// ── OS TIMES SOB CABEÇALHO DE GRUPO (Peça 4) ─────────────────────────────────
+import { agruparTimesPorGrupo } from './grupo-do-canal.js';
+
+const CANAIS_P4 = [
+  { loja_id: 205451611, nome: 'Atacado Nuvem Shop', grupo: 'Atacado' },
+  { loja_id: 205657609, nome: 'Loja Dom Pedro', grupo: 'Varejo' },
+  { loja_id: 205834140, nome: "Loja Santa Bárbara d'Oeste", grupo: 'Varejo' },
+  { loja_id: 205395333, nome: 'Atacado Fábrica', grupo: null },
+];
+const TIMES_P4 = [
+  { id: 'a', nome: 'Atacado Nuvem Shop', canal_loja_id: 205451611 },
+  { id: 'b', nome: 'Dom Pedro', canal_loja_id: 205657609 },
+  { id: 'c', nome: 'Tivoli', canal_loja_id: 205834140 },
+  { id: 'd', nome: 'Iguatemi Campinas', canal_loja_id: null },
+];
+
+test('agruparTimesPorGrupo: o time herda o grupo do canal dele', () => {
+  const r = agruparTimesPorGrupo(TIMES_P4, CANAIS_P4);
+  assert.deepEqual(r.map((b) => b.grupo), ['Atacado', 'Varejo', null]);
+  assert.deepEqual(r[0].times.map((t) => t.nome), ['Atacado Nuvem Shop']);
+  assert.deepEqual(r[1].times.map((t) => t.nome), ['Dom Pedro', 'Tivoli']);
+});
+
+test('time SEM canal não some — cai no balde sem grupo', () => {
+  // Iguatemi ainda vai abrir e não tem canal do Bling. Sumir da gestão de
+  // usuários seria perder o time inteiro de vista.
+  const r = agruparTimesPorGrupo(TIMES_P4, CANAIS_P4);
+  assert.deepEqual(r[2].times.map((t) => t.nome), ['Iguatemi Campinas']);
+});
+
+test('time cujo canal existe mas está SEM grupo também cai no balde sem grupo', () => {
+  const times = [{ id: 'x', nome: 'Fábrica', canal_loja_id: 205395333 }];
+  const r = agruparTimesPorGrupo(times, CANAIS_P4);
+  assert.equal(r.length, 1);
+  assert.equal(r[0].grupo, null);
+  assert.deepEqual(r[0].times.map((t) => t.nome), ['Fábrica']);
+});
+
+test('a ordem dos times DENTRO do balde é a que chegou', () => {
+  // A tela já ordena com ordenarTimes antes de passar; reordenar aqui
+  // desfaria a ordem que o dono definiu.
+  const times = [
+    { id: 'c', nome: 'Tivoli', canal_loja_id: 205834140 },
+    { id: 'b', nome: 'Dom Pedro', canal_loja_id: 205657609 },
+  ];
+  const r = agruparTimesPorGrupo(times, CANAIS_P4);
+  assert.deepEqual(r[0].times.map((t) => t.nome), ['Tivoli', 'Dom Pedro']);
+});
+
+test('nenhum canal com grupo: um balde só, e a tela fica como sempre foi', () => {
+  const semGrupo = CANAIS_P4.map((c) => ({ ...c, grupo: null }));
+  const r = agruparTimesPorGrupo(TIMES_P4, semGrupo);
+  assert.equal(r.length, 1);
+  assert.equal(r[0].grupo, null);
+  assert.equal(r[0].times.length, 4);
+});
+
+test('sem time nenhum, devolve lista vazia — não um balde vazio', () => {
+  assert.deepEqual(agruparTimesPorGrupo([], CANAIS_P4), []);
+  assert.deepEqual(agruparTimesPorGrupo(null, null), []);
+});
+
+test('grupo que só existe em canal SEM time não vira cabeçalho vazio', () => {
+  const canais = [...CANAIS_P4, { loja_id: 999, nome: 'Marketplace X', grupo: 'Marketplace' }];
+  const r = agruparTimesPorGrupo(TIMES_P4, canais);
+  assert.ok(!r.some((b) => b.grupo === 'Marketplace'), 'cabeçalho sem time embaixo não ajuda ninguém');
+});

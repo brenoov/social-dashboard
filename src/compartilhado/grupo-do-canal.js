@@ -118,3 +118,45 @@ export function alternarGrupo(canaisDoGrupo, selecionados) {
   }
   return atual;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// OS TIMES SOB CABEÇALHO DE GRUPO (Peça 4)
+//
+// PEDIDO DO DONO: "em usuários tem as seções de cada time, eu preciso também de
+// uma separação por atacado e varejo".
+//
+// O time NÃO tem grupo próprio: ele herda do canal a que está amarrado. Time sem
+// canal (loja que ainda vai abrir) e time cujo canal está sem grupo caem no
+// mesmo balde do fim — sumir da gestão de usuários seria perder o time de vista.
+//
+// Cabeçalho de grupo que não tem time embaixo NÃO é criado: um canal marcado
+// como "Marketplace" sem time nenhum viraria um título vazio na tela.
+export function agruparTimesPorGrupo(times, canais) {
+  const lista = times || [];
+  if (!lista.length) return [];
+  const grupoDoCanal = new Map();
+  for (const c of canais || []) {
+    if (c == null || c.loja_id === undefined || c.loja_id === null) continue;
+    grupoDoCanal.set(String(c.loja_id), normalizarGrupo(c.grupo));
+  }
+  const doTime = (t) => {
+    const id = t && t.canal_loja_id;
+    if (id === null || id === undefined || id === '') return null;
+    return grupoDoCanal.get(String(id)) || null;
+  };
+  const nomes = [];
+  const vistos = new Set();
+  for (const t of lista) {
+    const g = doTime(t);
+    if (g === null) continue;
+    const chave = g.toLocaleLowerCase('pt-BR');
+    if (vistos.has(chave)) continue;
+    vistos.add(chave);
+    nomes.push(g);
+  }
+  nomes.sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  const baldes = nomes.map((g) => ({ grupo: g, times: lista.filter((t) => mesmoGrupo(doTime(t), g)) }));
+  const orfaos = lista.filter((t) => doTime(t) === null);
+  if (orfaos.length) baldes.push({ grupo: null, times: orfaos });
+  return baldes;
+}
