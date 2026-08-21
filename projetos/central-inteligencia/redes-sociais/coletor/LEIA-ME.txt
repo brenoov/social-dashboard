@@ -27,3 +27,22 @@ Isso já foi suspeitado ao contrário; a suspeita estava errada.
 
 A linha deste coletor no `crontab` aponta para uma pasta do iCloud que não existe
 mais — ela falha calada. Quem manda é o launchd acima.
+
+A JANELA DOS ANÚNCIOS (corrigida em 21/08/2026)
+-----------------------------------------------
+Os recortes rolantes (0, 1, 7, 14, 30) pediam à Meta `until = hoje`. Como o
+`time_range` dela conta as DUAS pontas, "7 dias" cobria OITO — e o oitavo era o
+dia corrente, ainda incompleto. Isso valia para as duas funções de anúncio:
+`coletar_ads_por_campanha` (campaign_insights) e `coletar_ads_conta`
+(account_insights, de onde saem o ALCANCE deduplicado e a FREQUÊNCIA do painel).
+
+Agora a janela sai de `janela_de_ads.py`, que é cópia da que a Edge Function usa
+(supabase/functions/_shared/janela-de-ads.js). Os dois PRECISAM concordar: os
+dois robôs gravam as mesmas linhas, com a mesma chave, e quem roda por último
+vence — consertar um só seria o outro desfazendo. O vigia disso é
+coletor/lib/janela-python-e-nuvem-batem.test.mjs, que roda os dois de verdade e
+exige a mesma resposta. Mexeu num, mexe no outro.
+
+O recorte 99 (MÊS / ATÉ AGORA) NÃO mudou: ele vai do 1º do mês até hoje, com o
+dia corrente dentro, que é o que o botão promete. Fica em
+`janela_do_mes_corrente`, separado, para ninguém "consertar" por engano.
