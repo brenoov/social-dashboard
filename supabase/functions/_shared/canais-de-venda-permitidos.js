@@ -37,29 +37,62 @@
 // PURO de propósito: quem decide o que aparece na tela de faturamento é a coisa
 // mais cara de errar aqui, e precisa poder ser provada sem navegador.
 
+import { normalizarGrupo } from './grupo-do-canal.js';
+
 // `null` = vê TODOS os canais (é o estado dos 15 de 17 perfis de hoje).
 // `[]`   = não vê canal nenhum — e isso é diferente de `null`, com todas as
 //          letras: confundir os dois é o defeito que faz uma vendedora sem time
 //          enxergar a empresa inteira.
-export function canaisDoEscopo({ isSuperadmin, escopoPorEquipe, meuId, times, membros }) {
+export function canaisDoEscopo({ isSuperadmin, escopoPorEquipe, meuId, times, membros, canais }) {
   if (isSuperadmin) return null;
   // `!== true` e não `=== false`: coluna ausente na consulta não pode virar
   // "vê tudo" por omissão. O default do banco é o fechado, e o da tela também.
   if (escopoPorEquipe !== true) return null;
   if (!meuId) return [];
 
-  const meus = new Set(
-    (membros || [])
-      .filter((m) => String(m.profile_id) === String(meuId))
-      .map((m) => String(m.equipe_id)),
-  );
+  // Os MEUS vínculos, com o papel em cada time. Antes isto era só um Set de
+  // equipe_id: o papel era ignorado, e supervisora via o mesmo que vendedora.
+  const meus = new Map();
+  for (const m of membros || []) {
+    if (String(m.profile_id) !== String(meuId)) continue;
+    // Papel ausente é tratado como 'vendedora'. Se o select esquecer a coluna,
+    // o certo é NÃO ampliar — falta de dado nunca pode dar acesso a mais.
+    meus.set(String(m.equipe_id), String((m && m.papel) || 'vendedora'));
+  }
+
+  const grupoDoCanal = new Map();
+  for (const c of canais || []) {
+    if (c == null || c.loja_id === undefined || c.loja_id === null) continue;
+    const g = normalizarGrupo(c.grupo);
+    if (g !== null) grupoDoCanal.set(String(c.loja_id), g.toLocaleLowerCase('pt-BR'));
+  }
+
   const ids = [];
+  const gruposQueSupervisiono = new Set();
   for (const t of times || []) {
-    if (!meus.has(String(t.id))) continue;
+    const papel = meus.get(String(t.id));
+    if (papel === undefined) continue;
     // Time sem canal do Bling não some nem vira "vê tudo": ele simplesmente não
     // acrescenta canal. Quem está só nele fica com `[]`, e a tela diz o motivo.
     if (t.canal_loja_id === null || t.canal_loja_id === undefined || t.canal_loja_id === '') continue;
     ids.push(Number(t.canal_loja_id));
+    // ── O ALCANCE DA SUPERVISORA (20/08/2026) ─────────────────────────────
+    // Decisão do dono: supervisora vê TODOS os canais do grupo dos times onde
+    // ela supervisiona; gestor (a "gerente" da fala dele) e vendedora seguem
+    // vendo só a loja delas. O grupo vem do canal (`bling_lojas.grupo`).
+    if (papel === 'supervisora') {
+      const g = grupoDoCanal.get(String(t.canal_loja_id));
+      // Canal SEM grupo não amplia nada — e isso não pode virar "vê tudo".
+      if (g) gruposQueSupervisiono.add(g);
+    }
+  }
+
+  if (gruposQueSupervisiono.size) {
+    for (const c of canais || []) {
+      if (c == null || c.loja_id === undefined || c.loja_id === null) continue;
+      const g = grupoDoCanal.get(String(c.loja_id));
+      if (g && gruposQueSupervisiono.has(g)) ids.push(Number(c.loja_id));
+    }
   }
   return [...new Set(ids)];
 }

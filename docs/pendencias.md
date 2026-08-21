@@ -325,42 +325,65 @@ fica menor, **vaza para fora da barra**. Uma régua de botões precisa de
 `min-width: 0` e `overflow-x: auto`. A Análise de Campanhas não tinha e ficou com
 três botões pendurados 17px além da borda; foi corrigida junto.
 
-### B24 · Separação atacado/varejo › falta SÓ a Peça 3 (a que mexe em trava) 🟡 *aberto em 20/08*
+### B24 · Separação atacado/varejo ✅ *fechada em 20-21/08 — as quatro peças no ar*
 
-A **Peça 1 está no ar** e a **Peça 2 também**: cada canal do Bling tem um grupo (`bling_lojas.grupo`),
-configurável em **Config de Admin › Canais de venda**. O seletor das dashboards e a lista de usuários já leem. Falta:
+Cada canal do Bling tem um **grupo** (`bling_lojas.grupo`), configurável em
+**Config de Admin › Canais de venda**. O grupo é do CANAL, não do time: dos 14
+canais só 3 têm time, e o time herda pelo `canal_loja_id`.
 
-- ~~**Peça 2 — o seletor das dashboards agrupado.**~~ ✅ **feita em 20/08.** Os
-  dois menus (Gestão à Vista e Análise de Vendas) mostram um bloco por grupo, com
-  *marcar/desmarcar todos* em cada um, e um bloco *Outros* no fim para canal sem
-  grupo. Enquanto nenhum canal tiver grupo marcado na Config, o menu fica idêntico
-  ao que sempre foi — sem cabeçalho nenhum. O menu da Análise de Vendas ganhou de
-  quebra o teto de altura que a irmã já tinha (`max-height` + rolagem): sem ele os
-  cabeçalhos novos o levariam a 547px e a lista passaria do fim da tela.
-- **Peça 3 — o alcance da supervisora.** Hoje o recorte de canais **ignora o
-  papel**: supervisora vê o mesmo que vendedora. Passa a ser: supervisora vê todos
-  os canais do **grupo** dos times onde ela é supervisora; gerente (`gestor`) e
-  vendedora seguem vendo só a loja delas. ⚠️ **Mexe em trava e precisa entrar em
-  TRÊS lugares**: o módulo `_shared/canais-de-venda-permitidos.js`, a edge
-  `bling-proxy` (que não sobe com push) e a função `pode_ver_canal` no banco. Só
-  na tela não vale — foi esse buraco que se fechou em 13/08. Vai em sessão própria.
-- ~~**Peça 4 — Config de Usuários agrupada.**~~ ✅ **feita em 20/08.** Os cards de
-  time ficam sob cabeçalhos de grupo, com a contagem ao lado. O time herda o grupo
-  do canal a que está amarrado — time sem canal, e time cujo canal está sem grupo,
-  caem juntos em *Sem grupo*, no fim; nenhum some. Sem grupo marcado em canal
-  nenhum, a tela fica idêntica ao que sempre foi.
+| Peça | O que entrou |
+|---|---|
+| 1 | a coluna, a política de escrita e a tela de configuração |
+| 2 | o seletor das dashboards com um bloco por grupo e marcar/desmarcar todos |
+| 4 | os cards de time da gestão de usuários sob cabeçalho de grupo |
+| 3 | **o alcance da supervisora**, nas três camadas |
 
-**O estoque não entra em nenhuma delas.** `pode_ver_estoque` tem regra própria e
-mais apertada ("estar no time não basta"), escrita de propósito.
+**A regra da Peça 3:** supervisora vê todos os canais do **grupo** dos times onde
+ela é supervisora; **gestor** (a "gerente" da fala do dono) e **vendedora** seguem
+vendo só a loja delas. Canal sem grupo **não amplia nada** — e isso jamais pode
+virar "vê tudo".
 
-⚠️ **Achado de segurança para decidir um dia:** existem **dois "superadmin"** neste
-banco — a coluna `profiles.is_superadmin`, que é o que a tela usa, e a função
+Entrou nos três lugares, porque só na tela não vale (o front é público):
+`_shared/canais-de-venda-permitidos.js`, a edge `bling-proxy` e `pode_ver_canal`.
+Provado no banco com a trava armada, dentro de `rollback`, nos quatro cenários —
+`docs/provar-alcance-da-supervisora.sql`.
+
+⚠️ **Hoje isso não muda nada para ninguém:** os 4 membros de time são todos
+`vendedora` e nenhum canal tem grupo. A regra só passa a valer quando o dono
+marcar os grupos e promover alguém a supervisora.
+
+**O estoque não entrou.** `pode_ver_estoque` tem regra própria e mais apertada
+("estar no time não basta"), escrita de propósito.
+
+⚠️ **Achado de segurança que continua aberto:** existem **dois "superadmin"** —
+a coluna `profiles.is_superadmin`, que é o que a tela usa, e a função
 `public.is_superadmin()`, que confere o e-mail contra uma **lista de três cravada
 no código**. Hoje concordam. Se alguém marcar a coluna para uma quarta pessoa,
-divergem, e essa pessoa passa a ver telas onde não consegue salvar. Unificar é
-decisão do dono.
+divergem, e essa pessoa vê telas onde não consegue salvar. Unificar é decisão do
+dono.
 
-Spec: `docs/superpowers/specs/2026-08-20-grupo-do-canal-design.md`
+### B25 · A `bling-proxy` ficou fora do ar por alguns minutos em 21/08 ✅ *fechado no mesmo dia*
+
+**O que houve.** Ao subir a Peça 3, a edge ganhou uma variável `canais`… e já
+havia um `const canais` logo abaixo, com o resultado de `canaisDoEscopo`.
+`Identifier 'canais' has already been declared`. A função entrou em BOOT_ERROR —
+**503 em toda chamada** — e com ela as duas dashboards de venda, porque é a
+`bling-proxy` que busca os pedidos no Bling. Foi por volta de meia-noite (03:00Z),
+a janela mais vazia, e durou poucos minutos até o conserto.
+
+**Por que passou.** `npm test` roda os `.js` de regra do `_shared` e `npm run
+build` compila o `src/`. **Nenhum dos dois olhava os `index.ts` das edges** — e
+elas não sobem com push, vão à mão. Dava para ter suíte verde, build limpo,
+subir, e só descobrir no primeiro clique.
+
+**O que fechou o buraco.** `supabase/functions/toda-edge-compila.test.mjs`, irmã
+de `todo-vue-compila.test.mjs`: manda cada `.ts`/`.js` das edges pelo esbuild só
+para parsear. Foi conferido que ela REPROVA o defeito real — o `canais`
+duplicado foi reintroduzido de propósito e ela pegou.
+
+⚠️ **A regra que fica:** depois de subir edge, **chamar a função** e conferir que
+volta o erro da PRÓPRIA função (aqui, `401 "nao autenticado"`) e não o `503
+BOOT_ERROR` da plataforma. Deploy que não boota só aparece no primeiro clique.
 
 ---
 

@@ -99,6 +99,9 @@ import { agruparCanais, estadoDoGrupo, alternarGrupo } from '../../compartilhado
 
 // O grupo de cada canal, lido de bling_lojas junto com o nome (Peça 2).
 let _saGrupoDoCanal={}
+// As linhas cruas de bling_lojas: o escopo da supervisora precisa da LISTA para
+// ampliar para o grupo inteiro. Sem ela a regra não amplia (lado seguro).
+let _saCanaisBrutos=[]
 
 const router = useRouter()
 
@@ -382,7 +385,7 @@ async function loadSalesAnalysisData(period,opcoes){
       blingPages('pedidos/vendas',{dataInicial:diPrev,dataFinal:dfPrev,'idsSituacoes[]':9}).catch(()=>[]),
       // O GRUPO vem junto do nome (Peça 2, 20/08/2026): é ele que separa o
       // menu de canais em Atacado / Varejo / Outros.
-      sbClient.from('bling_lojas').select('loja_id,nome,grupo').order('loja_id').then(r=>{const mp={};_saGrupoDoCanal={};(r.data||[]).forEach(l=>{mp[l.loja_id]=l.nome;_saGrupoDoCanal[l.loja_id]=l.grupo||null;});return mp;}),
+      sbClient.from('bling_lojas').select('loja_id,nome,grupo').order('loja_id').then(r=>{const mp={};_saGrupoDoCanal={};_saCanaisBrutos=r.data||[];_saCanaisBrutos.forEach(l=>{mp[l.loja_id]=l.nome;_saGrupoDoCanal[l.loja_id]=l.grupo||null;});return mp;}),
       sbClient.from('bling_metas').select('loja_id,meta_valor,daily_goals').eq('year',effY).eq('month',effM).then(r=>r.data||[]),
       sbClient.from('bling_vendedores').select('vendor_id,nome').then(r=>r.data||[]),
       blingPages('pedidos/vendas',{dataInicial:di15,dataFinal:df15,'idsSituacoes[]':9}).catch(()=>[]),
@@ -392,7 +395,8 @@ async function loadSalesAnalysisData(period,opcoes){
       // faturamento da empresa inteira para quem não pode ver.
       Promise.all([
         sbClient.from('equipes').select('id,nome,canal_loja_id').then(r=>r.data||[]),
-        sbClient.from('equipes_membros').select('equipe_id,profile_id').then(r=>r.data||[]),
+        // `papel` entrou em 20/08: sem ele a supervisora vira vendedora.
+        sbClient.from('equipes_membros').select('equipe_id,profile_id,papel').then(r=>r.data||[]),
       ]).then(([t,m])=>({times:t,membros:m})).catch(()=>({times:[],membros:[]}))
     ]);
 
@@ -403,6 +407,9 @@ async function loadSalesAnalysisData(period,opcoes){
       escopoPorEquipe:estado.escopo_por_equipe,
       meuId:estado.userId,
       times:meusTimes.times,membros:meusTimes.membros,
+      // A lista de canais com grupo: é ela que deixa a supervisora ver o grupo
+      // inteiro dos times onde supervisiona (Peça 3).
+      canais:_saCanaisBrutos,
     });
     const lojaMap=filtrarMapaDeCanais(lojaMapCheio,meusCanais);
     // A META TAMBÉM. Sem isto a tela mediria a venda de UMA loja contra a meta
