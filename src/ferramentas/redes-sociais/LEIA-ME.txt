@@ -37,6 +37,29 @@ Como funciona (resumido):
   diferentes. A frequência não tem meta editável — ela acende vermelho a
   partir de 4, que é o mesmo limiar que a Gestão de Tráfego usa para mandar
   reduzir verba.
+
+  A CONTA DO CUSTO POR SEGUIDOR FECHA NA MÃO (corrigido em 20/08/2026). O
+  divisor é o MESMO número de seguidores que está impresso na seção 01 — em
+  7D/14D/30D é o bruto ("Seguidores", quem seguiu); em HOJE e 1D, onde o
+  Instagram ainda não publicou a quebra seguiu/saiu, é o líquido que o cartão
+  mostra, e o custo sai com o selo "⏳ prévia" porque ele se ajusta quando o
+  dia fecha. Antes disso o divisor vinha da última coleta do robô enquanto o
+  dinheiro vinha do minuto: na Raíssa, em HOJE, a tela mostrava 53 seguidores
+  e dividia R$ 435,88 por 26, imprimindo R$ 16,76 onde a conta na mão dá
+  R$ 8,22 — e sem selo nenhum avisando. Quem decide de onde sai o divisor é
+  seguidores-do-custo.js, com teste ao lado.
+
+  A JANELA DOS RESULTADOS ERA DE UM DIA A MAIS (corrigido no coletor em
+  20/08/2026). O investimento sempre cobriu os N dias que a tela diz; os
+  denominadores (impressões, alcance, cliques, interações, curtidas, conversas,
+  cadastros, visitas, vendas) vinham de N+1 dias, com o dia de HOJE — incompleto
+  — dentro, porque o `time_range` da Meta conta as duas pontas. Todo custo por
+  resultado saía barato demais (uns 10 a 14% em 7D, ~3% em 30D) e o ALCANCE
+  nunca fechava com o "Últimos 7 dias" do painel da Meta. O conserto está em
+  supabase/functions/_shared/janela-de-ads.js e vale só para as coletas NOVAS:
+  os dias já gravados continuam com a janela velha, então os números dessa
+  seção acertam aos poucos, conforme a janela exibida vai só tendo captura nova.
+
   Perfil recém-adicionado (antes da primeira coleta dos conjuntos): a tela
   avisa em vermelho que a classificação por tipo ainda é provisória — o
   destino de cada campanha ainda não foi confirmado, então ela cai pelo
@@ -73,6 +96,20 @@ Como funciona (resumido):
   novo valor e clique fora (ou aperte Enter): a barrinha de progresso do
   card atualiza sozinha. A meta é salva por conta + período, tanto no
   navegador quanto no banco (compartilhada entre quem usa o dashboard).
+- A LINHA "vs …" DIZ DE QUANDO É O NÚMERO (corrigido em 21/08/2026). Esta tela
+  tem DUAS janelas anteriores, e cada cartão usa a sua: o que vem AO VIVO (e
+  também os novos seguidores e os stories) compara com os N dias imediatamente
+  anteriores; o que vem do agregado coletado (engajamento, posts, reels, e o
+  gasto quando o ao vivo não responde) compara com a mesma janela de N dias
+  tirada UM MÊS atrás. Havia um rótulo só, o do mês atrás, escrito ao lado de
+  todos: em 7D o cartão de investimento dizia "vs 14 Jul – 21 Jul" mostrando o
+  gasto de 07–13/08. O número estava certo; a data, um mês fora — e quem lê
+  acredita na data.
+  Junto saiu a comparação do CUSTO POR SEGUIDOR nos casos em que os dois lados
+  da divisão eram de janelas diferentes (sem ao vivo, o gasto anterior é de um
+  mês atrás e os seguidores anteriores são da semana passada). Ali o cartão
+  passa a dizer "Acumulando histórico…", que é a verdade, em vez de imprimir uma
+  seta sobre um número que não é de período nenhum.
 - Painel de administração embutido (enviar convite por e-mail, listar
   usuários): existe no código, mas hoje NENHUM botão do dashboard o abre —
   isso já vinha assim do site antigo (não foi quebrado nesta migração).

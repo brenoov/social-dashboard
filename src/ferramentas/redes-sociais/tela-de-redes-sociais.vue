@@ -520,6 +520,10 @@ import { barraDoDia, diasSemPublicacao } from './estimativa-de-seguidores.js'
 import { BALDES, idsDoBalde, idsParaConsulta, conjuntosMaisRecentes, baldesSemGasto, baldeEfetivo, classificacaoEhProvisoria, campanhasSemTipoConfirmado, fraseDoRecorte } from './baldes-do-painel.js'
 import { cartoesDoBalde, podeDarVeredito, chaveDeMeta, ehMetaDeTaxa } from './cartoes-do-balde.js'
 import { capturaDoAgregado } from './captura-do-agregado.js'
+// Por quantos seguidores o custo por seguidor divide. Puro e com teste ao lado:
+// o denominador tem de sair da MESMA fonte do número impresso no cartão de
+// seguidores — era daí que vinha o R$ 16,76 no lugar de R$ 8,22.
+import { seguidoresDoCusto, FONTES } from './seguidores-do-custo.js'
 
 const router = useRouter()
 
@@ -830,7 +834,7 @@ function desenharCartoesDoBalde(cartoes, ctx) {
     // desta tela cujo denominador a Meta publica com ~1 dia de atraso, e os selos
     // "⏳ consolidando" e "⏳ prévia" existem por causa disso. O NÚMERO, porém, é o
     // mesmo dos outros custos: investimento do cartão ÷ novos seguidores.
-    if (cartao.id === 'cps') { desenharCustoPorSeguidor(ctx.d, ctx.pl, ctx.inv, ctx.invAnt, cartao, meta); return }
+    if (cartao.id === 'cps') { desenharCustoPorSeguidor(ctx.d, ctx.pl, ctx.inv, ctx.invAnt, cartao, meta, ctx.segCusto); return }
     const valEl = document.getElementById('ads-' + slot + '-val')
     if (valEl) {
       if (cartao.valor != null && cartao.formato === 'inteiro') animCount(valEl, cartao.valor)
@@ -958,25 +962,49 @@ function desenharGraficosDosCartoes(cartoes, balde, diario) {
   })
 }
 
-// ── CUSTO POR SEGUIDOR: investimento ÷ NOVOS seguidores BRUTOS (soma de gained) do período. ──
-// Nunca usa o líquido. Quando dá pra calcular (soma de gained > 0, caso normal em 7d/30d) → custo
-// real, sem selo. Quando a soma de gained é 0 SÓ porque os dias recentes ainda não consolidaram na
-// Meta (contagem mexeu, mas "quem seguiu" não publicou) → "consolidando" em vez de R$0. Nunca
-// R$0, número negativo, nem valor por líquido.
+// ── CUSTO POR SEGUIDOR: investimento ÷ os NOVOS SEGUIDORES QUE ESTÃO NA TELA. ──
+// Em 7D/14D/30D isso é o BRUTO (quem seguiu), nunca o líquido — a régua de
+// sempre. Em HOJE e 1D a Meta ainda não publicou a quebra "seguiu/saiu", o
+// cartão de cima esconde essas duas linhas e mostra só o líquido pela contagem:
+// ali o denominador é esse líquido, com selo de prévia, porque é o único número
+// de seguidor que a pessoa tem na frente para refazer a conta.
 //
-// O VALOR vem do cartão (investimento impresso ÷ novos seguidores do período) —
-// igual a todos os outros custos do balde. O que é só dele são os dois selos: a
-// Meta publica "quem seguiu" com cerca de um dia de atraso, e isso é sobre o
-// DENOMINADOR, não sobre qual gasto está em cima.
-function desenharCustoPorSeguidor(d, pl, inv, invAnt, cartao, meta) {
+// De ONDE sai esse número quem decide é seguidores-do-custo.js (puro, testado).
+// Aqui só se desenha — e os dois selos, que são sobre o DENOMINADOR e não sobre
+// qual gasto está em cima: a Meta publica "quem seguiu" com ~1 dia de atraso.
+//
+// `seg` pode faltar numa pintura antiga que não passe pelo update() novo; nesse
+// caso vale o caminho coletado de sempre, que é o que existia antes.
+function desenharCustoPorSeguidor(d, pl, inv, invAnt, cartao, meta, seg) {
   const _cpsVal = document.getElementById('ads-cps-val')
   const _cpsPrev = document.getElementById('previa-cps')
   const cps = cartao.valor
-  // O período anterior segue a mesma regra do atual: o investimento que o cartão
-  // de cima compara ÷ os seguidores daquele período. null = sem base pra comparar.
-  const cpsAnterior = (invAnt > 0 && d.divSeguidoresAnterior > 0) ? invAnt / d.divSeguidoresAnterior : null
+  const _seg = seg || { valor: d.divSeguidores, anterior: d.divSeguidoresAnterior, previa: !!d.cpsPrevia, fonte: FONTES.coletado }
+  // O CUSTO ANTERIOR SÓ EXISTE QUANDO OS DOIS LADOS SÃO DA MESMA JANELA.
+  //
+  // Isso só acontece com o ao vivo respondendo em 7D/14D/30D: ali o investimento
+  // anterior e os seguidores anteriores vêm os dois do período imediatamente
+  // anterior, da mesma leitura. Nos outros casos a divisão juntava janelas
+  // diferentes — sem ao vivo, `d.prevSpend` é de UM MÊS atrás e o bruto de
+  // seguidores é da semana passada, e o quociente não é custo de período nenhum.
+  // Em HOJE/1D `_seg.anterior` já vem null (líquido de hoje contra bruto de
+  // ontem seriam medidas diferentes).
+  // Sem base, o cartão diz "Acumulando histórico…" — que é a verdade — em vez de
+  // imprimir uma seta verde sobre um número que ninguém mediu.
+  const mesmaJanelaNosDoisLados = _seg.fonte === FONTES.brutoAoVivo
+  const cpsAnterior = (mesmaJanelaNosDoisLados && invAnt > 0 && _seg.anterior > 0) ? invAnt / _seg.anterior : null
   const _temInv = (d.spend > 0) || (inv > 0) // só faz sentido falar de custo se houve investimento
-  const _cpsConsolidando = !!d.cpsConsolidando && _temInv
+  // "Consolidando" = houve dinheiro e mesmo assim não há denominador para dividir.
+  //
+  // SÓ HOJE/1D ganham regra nova, e de propósito: ali o denominador é o líquido
+  // impresso no cartão, e se ele não for positivo não há custo a afirmar — a
+  // quebra "quem seguiu" desses dias é justamente a que o Instagram ainda não
+  // publicou, que é o que o aviso diz. Em todos os outros caminhos continua
+  // mandando o `cpsConsolidando` que o fetchData calcula: ele já distingue "a
+  // Meta não fechou" de "ninguém seguiu mesmo", e trocar isso por "não é
+  // positivo" faria a tela dizer "aguardando o Instagram" num dia em que a
+  // resposta é zero de verdade.
+  const _cpsConsolidando = _temInv && (_seg.fonte === FONTES.impressoAoVivo ? !(_seg.valor > 0) : !!d.cpsConsolidando)
   if (_cpsConsolidando) {
     // Sem novos seguidores brutos ainda (dias recentes não fecharam) → não inventa custo, avisa.
     if (_cpsVal) _cpsVal.textContent = '—'
@@ -991,7 +1019,7 @@ function desenharCustoPorSeguidor(d, pl, inv, invAnt, cartao, meta) {
     const _pc = document.getElementById('pct-cps'); if (_pc) { _pc.textContent = 'consolidando'; _pc.className = 'mc-pct c-orange' }
     const _df = document.getElementById('diff-cps'); if (_df) { _df.textContent = 'aguardando o Instagram publicar os novos seguidores'; _df.className = 'mc-diff c-orange' }
     _mcBorderColor('cps', 'orange')
-  } else if (d.cpsPrevia && cps > 0) {
+  } else if (_seg.previa && cps > 0) {
     // PRÉVIA: o custo foi calculado pelo crescimento da CONTAGEM de hoje (a Meta ainda não
     // publicou o bruto oficial de "quem seguiu"). Mostra o número (não zera!) mas avisa que é
     // prévia e pode ajustar quando fechar. Ex.: R$40 investidos ÷ +5 seguidores hoje = R$8.
@@ -1322,13 +1350,10 @@ function metaDefinida(key, period, accountId) {
   const v = parseFloat(loadGoal(key, period, accountId))
   return isFinite(v) ? v : null
 }
-function getPrevLabel(period) {
-  const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
-  const end = new Date(); end.setDate(end.getDate() - 30)
-  if (period === 1) return end.getDate() + ' ' + months[end.getMonth()]
-  const start = new Date(end); start.setDate(start.getDate() - period + 1)
-  return start.getDate() + ' ' + months[start.getMonth()] + ' – ' + end.getDate() + ' ' + months[end.getMonth()]
-}
+// (Havia aqui um `getPrevLabel(period)` que ninguém chamava e que fazia a MESMA
+// conta errada de "30 dias atrás" para qualquer período. Removido em 21/08/2026
+// junto com o conserto do rótulo: função morta é armadilha esperando quem
+// precisar de um rótulo e achar que ela serve.)
 
 /* ── COMPARE ROW (legacy L3465-3482, verbatim) ── */
 function setCompare(id, curr, prev, prefix, periodLabel, lowerIsBetter) {
@@ -2313,10 +2338,28 @@ async function fetchData(accountId, period, customStart, customEnd) {
   // Stories postados: soma diária dentro da janela (corrige HOJE = 1D). Posts/Reels NÃO mudam (são por-período).
   const storiesCount = storyDailyCurr.reduce((s, r) => s + (r.stories_count || 0), 0)
   const prevStoriesCount = storyDailyPrev.length ? storyDailyPrev.reduce((s, r) => s + (r.stories_count || 0), 0) : null
-  // Etiqueta de comparação baseada no período anterior real
+  // ── DOIS RÓTULOS, PORQUE HÁ DUAS JANELAS ANTERIORES NESTA TELA ──
+  //
+  // O rótulo não é enfeite: ele afirma DE QUANDO é o número que está do lado
+  // dele. Havia um só, e ele descrevia a janela de um mês atrás — enquanto o ao
+  // vivo (o caminho normal) compara com o período IMEDIATAMENTE anterior. Em 7D
+  // o cartão de investimento dizia "vs 13 Jul – 20 Jul" mostrando o gasto de
+  // 06–12/08: o número certo, com a data um mês fora. Quem lê acredita na data.
+  //
+  //   `pl`         → a MESMA janela de N dias, tirada UM MÊS atrás. É o que as
+  //                  consultas do agregado coletado comparam: engajamento,
+  //                  posts/reels, e o gasto quando o ao vivo não responde.
+  //   `plAnterior` → os N dias IMEDIATAMENTE anteriores (prevStartStr..prevEndStr,
+  //                  as mesmas datas que já recortam o bruto de seguidores). É o
+  //                  que o ao vivo compara, e também os stories.
+  //
+  // Cada `setCompare` escolhe o seu conforme a fonte do número anterior — não há
+  // um rótulo "geral", porque não há uma janela só.
   const _mm = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
   const _fd = d => d.getDate() + ' ' + _mm[d.getMonth()]
   const pl = effectivePeriod <= 1 ? _fd(prevRefDate) : (() => { const s = new Date(prevRefDate.getTime() - effectivePeriod * 86400000); return _fd(s) + ' – ' + _fd(prevRefDate) })()
+  const _fdIso = iso => _fd(new Date(iso + 'T12:00:00'))
+  const plAnterior = prevStartStr === prevEndStr ? _fdIso(prevEndStr) : _fdIso(prevStartStr) + ' – ' + _fdIso(prevEndStr)
   return {
     followerTotal: (trueLastRows[0]?.followers_count ?? latest), newFollowers, prevNewFollowers, avgPerDay, bestDay: '—', engRate, followerDeltas, effectivePeriod, impressions, clicks, reach,
     chart: { gained: chartGained, lost: chartLost, labels: chartLabels, dates: chartDates },
@@ -2355,7 +2398,7 @@ async function fetchData(accountId, period, customStart, customEnd) {
     eng: { likes: eng.likes, saves: eng.saves, shares: eng.shares, comments: eng.comments ?? 0, reach: eng.reach ?? 0, views: eng.views ?? 0, interactions: eng.total_interactions ?? 0, engaged: eng.accounts_engaged ?? 0, profileViews: eng.profile_views ?? 0, prevLikes: prevEng?.likes ?? null, prevSaves: prevEng?.saves ?? null, prevShares: prevEng?.shares ?? null, prevComments: prevEng?.comments ?? null, prevReach: prevEng?.reach ?? null, prevViews: prevEng?.views ?? null, prevInteractions: prevEng?.total_interactions ?? null, prevEngaged: prevEng?.accounts_engaged ?? null, prevProfileViews: prevEng?.profile_views ?? null },
     cnt: { posts: cnt.posts_count, stories: storiesCount, reels: cnt.reels_count, postsReels: cnt.posts_count + cnt.reels_count, prevPosts: prevCnt != null ? prevCnt.posts_count : null, prevReels: prevCnt != null ? prevCnt.reels_count : null, prevPostsReels: prevCnt != null ? prevCnt.posts_count + prevCnt.reels_count : null, prevStories: prevStoriesCount },
     storyEng: { shares: storyShares, replies: storyRep, prevShares: prevStoryShares, prevReplies: prevStoryRep, reach: storyReach, interactions: storyInter, navigation: storyNav, profileVisits: storyPV, follows: storyFol, navForward: storyNavF, navBack: storyNavB, navExit: storyNavE, navNext: storyNavN, prevReach: prevStoryReach, prevInteractions: prevStoryInter, prevNavigation: prevStoryNav, prevProfileVisits: prevStoryPV, prevFollows: prevStoryFol },
-    pl,
+    pl, plAnterior,
     // Última coleta REAL do perfil (não o fim da janela) → frescor honesto em todo período.
     trueLastSnap: trueLastRows.length ? trueLastRows[0].captured_at : null,
     grossGained, grossLost, grossPartial, previaReal, partialSince: _partialSince, confirmadoIG, lastGrossDay,
@@ -2607,14 +2650,15 @@ function renderInteracoes() {
   if (ehStory) {
     const val = naoNeg(ctx.respostas != null ? ctx.respostas : 0)
     animCount(document.getElementById('eng-replies'), val)
-    setCompare('cmp-replies', val, ctx.respostasAnt != null ? naoNeg(ctx.respostasAnt) : null, '', ctx.pl, false)
+    setCompare('cmp-replies', val, ctx.respostasAnt != null ? naoNeg(ctx.respostasAnt) : null, '', ctx.plRespostas || ctx.pl, false)
     applyMetric('replies', val, getGoal('replies'))
   }
 }
 
 /* ── MAIN UPDATE (legacy L4045-4157, verbatim) ── */
 function update(d, period) {
-  const pl = d.pl
+  const pl = d.pl                     // janela de um mês atrás (agregado coletado)
+  const plAnt = d.plAnterior || d.pl  // janela imediatamente anterior (ao vivo, bruto, stories)
   // Balde sem gasto no período fica apagado, com o motivo. A conta usa o gasto
   // COLETADO por campanha (o ao vivo não sabe separar por tipo). `baldeEfetivo`
   // é o que as consultas REALMENTE usaram — pode ser Todos, quando o escolhido
@@ -2693,8 +2737,11 @@ function update(d, period) {
   // Comparação só quando confirmado (no período em consolidação o "anterior" do bruto distorceria).
   const cmpEl = document.getElementById('cmp-followers')
   // AO VIVO: compara total atual vs total do período ANTERIOR (exato, mesma janela). Senão, coletado.
-  if (d.live) setCompare('cmp-followers', d.live.novos.total, d.live.anterior ? d.live.anterior.novos.total : null, '', pl, false)
-  else if (confirmado) setCompare('cmp-followers', d.newFollowers, d.prevNewFollowers, '', pl, false)
+  // Os DOIS caminhos comparam com o período imediatamente anterior: o ao vivo
+  // porque a edge recebe essa janela, e o coletado porque `prevNewFollowers` sai
+  // de prevStartStr..prevEndStr. Por isso os dois levam `plAnt`.
+  if (d.live) setCompare('cmp-followers', d.live.novos.total, d.live.anterior ? d.live.anterior.novos.total : null, '', plAnt, false)
+  else if (confirmado) setCompare('cmp-followers', d.newFollowers, d.prevNewFollowers, '', plAnt, false)
   else if (cmpEl) cmpEl.innerHTML = ''
   // Nota de desempenho SÓ com número fechado.
   //
@@ -2737,6 +2784,20 @@ function update(d, period) {
   // por 17 horas. Onde o banco sabe diferenciar (conversas, cadastros, compras,
   // visitas — colunas sem default), o null vem do banco e o 0 é resposta de
   // verdade: passa direto.
+  // ── E UM DENOMINADOR SÓ, PELA MESMA RAZÃO ──
+  // O numerador já vinha do cartão; o denominador do custo por seguidor continuava
+  // vindo do coletor, e os dois passaram a falar de momentos diferentes. Medido na
+  // tela em 20/08/2026 (Raíssa, HOJE): o cartão mostrava 53 seguidores — a contagem
+  // AO VIVO de agora menos a de ontem — e o custo dividia R$ 435,88 (ao vivo, do
+  // minuto) por 26, que era a foto que o coletor tinha tirado de manhã. Saiu
+  // R$ 16,76 onde a conta na mão dá R$ 8,22, e sem selo nenhum avisando.
+  // Quem decide de onde sai o denominador é seguidores-do-custo.js, puro e testado.
+  const _segCusto = seguidoresDoCusto({
+    live: d.live ? { seguiu: d.live.novos.seguiu, anteriorSeguiu: d.live.anterior ? d.live.anterior.novos.seguiu : null } : null,
+    ehRecenteLive,
+    numeroImpresso: headlineVal,
+    coletado: { bruto: d.divSeguidores, brutoAnterior: d.divSeguidoresAnterior, previa: !!d.cpsPrevia },
+  })
   const _numerosDoBalde = {
     // UM NUMERADOR SÓ, e é o que está na tela: o investimento do CARTÃO (ao vivo
     // quando existe), não o do banco. Os três custos do balde dividem exatamente
@@ -2745,7 +2806,7 @@ function update(d, period) {
     // ninguém consegue conferir: a Vessel mostrava R$ 7.802 de investimento
     // enquanto os custos dividiam R$ 461,52.
     investimento: _inv > 0 ? _inv : null,
-    seguidores: d.divSeguidores,
+    seguidores: _segCusto.valor,
     interacoes: d.adEngagement > 0 ? d.adEngagement : null,
     curtidas: d.adLikes > 0 ? d.adLikes : null,
     conversas: d.conversas, cadastros: d.cadastros, compras: d.compras, visitas: d.visitas,
@@ -2759,7 +2820,10 @@ function update(d, period) {
   // dono iria para uma linha que nenhuma tela lê de volta.
   const _balde = d.baldeEfetivo || _baldeAtual
   const _cartoes = cartoesDoBalde(_balde, _numerosDoBalde)
-  desenharCartoesDoBalde(_cartoes, { d, pl, inv: _inv, invAnt: _invAnt, alcanceRepete: _alcanceRepete, balde: _balde })
+  // O rótulo do "vs" segue a FONTE do investimento anterior: ao vivo é o período
+  // imediatamente anterior; sem ao vivo, `d.prevSpend` vem de um mês atrás.
+  const _plInv = (d.live && d.live.anterior) ? plAnt : pl
+  desenharCartoesDoBalde(_cartoes, { d, pl: _plInv, inv: _inv, invAnt: _invAnt, alcanceRepete: _alcanceRepete, balde: _balde, segCusto: _segCusto })
   // ── Gráficos diários (abaixo de cada cartão) ──
   // Um por LUGAR da grade, com o gráfico do cartão que caiu ali neste balde.
   // As metas são lidas lá dentro, na hora de desenhar, porque o dono edita o
@@ -2790,8 +2854,13 @@ function update(d, period) {
   // apareciam juntos na tela: o cartão "CUSTO POR MIL IMPRESSÕES R$ X" e a
   // linha "CPM R$ Y", mesmo nome, mesmo denominador, números diferentes — e não
   // tinham como bater, porque a janela do ao vivo é de N dias e a do agregado
-  // coletado é de N+1. Dois números com o mesmo nome na mesma tela é o dono
-  // perguntando qual dos dois está errado.
+  // coletado era de N+1 — com o dia de HOJE, incompleto, dentro. Dois números com
+  // o mesmo nome na mesma tela é o dono perguntando qual dos dois está errado.
+  //
+  // A CAUSA foi consertada no coletor em 20/08/2026 (ver janela-de-ads.js): as
+  // capturas NOVAS já vêm com N dias completos. As antigas continuam de N+1, e
+  // por isso os denominadores desta seção ainda encolhem um pouco a cada dia que
+  // passa, até a janela exibida só conter captura nova.
   const _invChips = _inv > 0 ? _inv : 0
   if (d.clicks > 0 && _invChips > 0) custoChips.push('CPC ' + fmtR(_invChips / d.clicks))
   if (d.impressions > 0 && _invChips > 0) custoChips.push('CPM ' + fmtR(_invChips / d.impressions * 1000))
@@ -2814,7 +2883,11 @@ function update(d, period) {
     ant: (d.live && d.live.anterior && d.live.anterior.interacoes) ? d.live.anterior.interacoes : null,
     respostas: (d.live && d.live.respostas != null) ? d.live.respostas : null,
     respostasAnt: (d.live && d.live.anterior && d.live.anterior.respostas != null) ? d.live.anterior.respostas : null,
-    eng: d.eng, pl,
+    eng: d.eng,
+    // Com o ao vivo, `ant` é o período imediatamente anterior; sem ele, os
+    // `prev*` do coletado são de um mês atrás. O rótulo acompanha.
+    pl: (d.live && d.live.anterior) ? plAnt : pl,
+    plRespostas: plAnt, // respostas só existem ao vivo
   }
   renderInteracoes()
   // Cards novos (alcance/visualizações/interações/contas engajadas/visitas) — sem meta/progresso.
@@ -2825,14 +2898,16 @@ function update(d, period) {
     const val = naoNeg(engLive ? (engLive[k] || 0) : (d.eng[k] || 0))
     const prevAcc = engAnt ? engAnt[k] : d.eng[pk]
     animCount(document.getElementById('eng-' + id), val)
-    setCompare('cmp-' + id, val, prevAcc != null ? naoNeg(prevAcc) : null, '', pl, false)
+    setCompare('cmp-' + id, val, prevAcc != null ? naoNeg(prevAcc) : null, '', engAnt ? plAnt : pl, false)
     applyMetric(id, val, getGoal(id))
   })
   const avgPerPost = d.cnt.posts > 0 ? Math.round(d.eng.likes / d.cnt.posts) : 0
   setChips('chips-eng', ['Taxa de eng.: ' + d.engRate + '%', 'Comentários: ' + fmtN(d.eng.comments || 0), 'Média curtidas/post: ' + fmtN(avgPerPost), prevEngTotal > 0 ? 'Total: ' + fmtN(engTotal) + ' vs ' + fmtN(prevEngTotal) + ' (' + pctDiff(engTotal, prevEngTotal) + ')' : 'Total engajamento: ' + fmtN(engTotal)])
   // Engajamento de Stories agora é a aba "Stories" da seção 03 (Engajamento) — seção separada removida.
   animCount(document.getElementById('cnt-stories'), d.cnt.stories)
-  setCompare('cmp-stories', d.cnt.stories, d.cnt.prevStories, '', pl, false); applyMetric('stories', d.cnt.stories, getGoal('stories'))
+  // Stories saem da soma diária de prevStartStr..prevEndStr — janela imediatamente
+  // anterior. Posts e Reels, logo abaixo, vêm do agregado de um mês atrás.
+  setCompare('cmp-stories', d.cnt.stories, d.cnt.prevStories, '', plAnt, false); applyMetric('stories', d.cnt.stories, getGoal('stories'))
   animCount(document.getElementById('cnt-posts'), d.cnt.posts)
   setCompare('cmp-posts', d.cnt.posts, d.cnt.prevPosts, '', pl, false); applyMetric('posts', d.cnt.posts, getGoal('posts'))
   animCount(document.getElementById('cnt-reels'), d.cnt.reels)

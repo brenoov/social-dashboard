@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   janelaDoRecorte, alvosPendentes, interpretarArgumentos, respostaTemAcoes,
-  PAUSA_PADRAO, PAUSA_MINIMA,
+  PAUSA_PADRAO, PAUSA_MINIMA, PRIMEIRO_DIA_COM_A_JANELA_NOVA,
 } from './janelas-de-backfill.mjs';
 
 test('recorte 0 é o dia isolado', () => {
@@ -33,6 +33,35 @@ test('a virada de mês e de ano não escorrega um dia', () => {
 test('recorte desconhecido devolve null em vez de inventar janela', () => {
   assert.equal(janelaDoRecorte('2026-08-14', 3), null);
   assert.equal(janelaDoRecorte('2026-08-14', null), null);
+});
+
+// ── A VIRADA DA JANELA (20/08/2026) ────────────────────────────────────────
+// A `coletarAdsPorCampanha` passou a pedir N dias COMPLETOS (terminando ONTEM)
+// em vez de N+1 com o dia de hoje dentro. O backfill não conserta linha velha:
+// ele REPETE a pergunta que gravou cada linha. Então a janela que ele usa
+// depende de QUANDO a linha foi coletada.
+
+test('enquanto a Edge nova não subiu, toda linha é linha da janela velha', () => {
+  assert.equal(PRIMEIRO_DIA_COM_A_JANELA_NOVA, null,
+    'preencher esta data ANTES do deploy faria o backfill perguntar o período errado');
+  assert.deepEqual(janelaDoRecorte('2026-08-14', 7), { since: '2026-08-07', until: '2026-08-14' });
+});
+
+test('linha coletada ANTES da virada continua sendo lida pela janela velha', () => {
+  assert.deepEqual(janelaDoRecorte('2026-08-14', 7, '2026-08-21'),
+    { since: '2026-08-07', until: '2026-08-14' }, 'oito dias, como ela foi gravada');
+});
+
+test('linha coletada A PARTIR da virada usa a janela nova', () => {
+  assert.deepEqual(janelaDoRecorte('2026-08-21', 7, '2026-08-21'),
+    { since: '2026-08-14', until: '2026-08-20' }, 'sete dias, terminando ontem');
+  assert.deepEqual(janelaDoRecorte('2026-08-25', 30, '2026-08-21'),
+    { since: '2026-07-26', until: '2026-08-24' });
+});
+
+test('a virada não encosta no recorte 0 nem no 99 — eles nunca mudaram', () => {
+  assert.deepEqual(janelaDoRecorte('2026-08-25', 0, '2026-08-21'), { since: '2026-08-25', until: '2026-08-25' });
+  assert.deepEqual(janelaDoRecorte('2026-08-25', 99, '2026-08-21'), { since: '2026-08-01', until: '2026-08-25' });
 });
 
 test('alvos: uma chamada por conta+data+recorte, sem repetir campanha', () => {
