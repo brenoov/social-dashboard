@@ -49,6 +49,20 @@ export function rotuloDaSituacao(situacao) {
   return (SITUACOES_DO_HISTORICO[situacao] || {}).rotulo || String(situacao || 'sem situação');
 }
 
+/**
+ * A cor do selo daquela situação, sempre uma que EXISTE no CSS.
+ *
+ * Por que não ler `SITUACOES[x].cor` direto na tela: `revogada` não mora em
+ * `SITUACOES` (mora aqui), e `SITUACOES['revogada']` é `undefined` — ler `.cor`
+ * dele derruba a renderização inteira do bloco. E duas cores desta tabela
+ * ('info', 'neutro', dos estados de posse) não têm classe no CSS: chegariam na
+ * tela como selo sem cor nenhuma.
+ */
+export function corDaSituacao(situacao) {
+  const cor = (SITUACOES_DO_HISTORICO[situacao] || {}).cor;
+  return ['espera', 'boa', 'ruim', 'neutra'].includes(cor) ? cor : 'neutra';
+}
+
 const ms = (v) => { const t = Date.parse(v); return Number.isFinite(t) ? t : null; };
 const texto = (v) => String(v ?? '').trim();
 const mesmoNome = (a, b) => {

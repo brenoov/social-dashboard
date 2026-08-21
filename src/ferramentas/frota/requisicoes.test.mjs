@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import {
   seAtropelam, conflitosDe, problemasDaRequisicao, bloqueios,
   podeDecidir, motivoEmPortugues, ordenarFila, quando, ANTECEDENCIA_IDEAL_DIAS,
-  reservaParaPegar, reservaSegurando,
+  reservaParaPegar, reservaSegurando, meusPedidos,
 } from './requisicoes.js'
 
 const AGORA = '2026-08-04T12:00:00Z'
@@ -331,3 +331,73 @@ test('sem colaborador E sem nome nenhum continua bloqueado', () => {
   const p = problemasDaRequisicao(req({ pessoa_id: null, pessoa_nome: '  ' }), [], AGORA)
   assert.ok(bloqueios(p).some((x) => /quem vai dirigir/i.test(x.texto)))
 })
+
+/* ── O que a pessoa vê em "Seus pedidos" ──────────────────────────────────── */
+
+test('a recusa CHEGA em quem pediu, com o motivo escrito por quem recusou', () => {
+  // O defeito (medido em 20/08/2026): a lista trazia só pendente e aprovada.
+  // Quem recusa é OBRIGADO pela tela a escrever o motivo — "quem pediu precisa
+  // saber o que fazer diferente" —, e esse motivo não chegava em ninguém: o
+  // pedido simplesmente sumia da tela de quem pediu.
+  const lista = meusPedidos({
+    requisicoes: [
+      { id: 'a', situacao: 'pendente', pessoa_id: 'p-eu', retirada_prevista: '2026-08-22T11:00Z' },
+      { id: 'b', situacao: 'aprovada', pessoa_id: 'p-eu', retirada_prevista: '2026-08-21T11:00Z' },
+      { id: 'c', situacao: 'recusada', pessoa_id: 'p-eu', retirada_prevista: '2026-08-23T11:00Z',
+        decidida_em: '2026-08-20T09:00Z', motivo_decisao: 'A Strada já está com a equipe de Conchal.' },
+    ],
+    minhaPessoaId: 'p-eu',
+    agoraIso: '2026-08-20T12:00Z',
+  });
+  assert.deepEqual(lista.map((r) => r.id), ['b', 'a', 'c'], 'ordenadas pela retirada, a mais próxima primeiro');
+});
+
+test('a reserva REVOGADA também chega — quem ia pegar o carro precisa saber', () => {
+  // Revogada é a que já valia e alguém encerrou no meio. Sumir em silêncio faz
+  // a pessoa ir até o estacionamento buscar um carro que não é mais dela.
+  const lista = meusPedidos({
+    requisicoes: [{
+      id: 'r', situacao: 'revogada', pessoa_id: 'p-eu', retirada_prevista: '2026-08-21T11:00Z',
+      encerrada_em: '2026-08-20T08:00Z', encerrada_motivo: 'O carro entrou na oficina.',
+    }],
+    minhaPessoaId: 'p-eu',
+    agoraIso: '2026-08-20T12:00Z',
+  });
+  assert.equal(lista.length, 1);
+});
+
+test('recusa velha sai da frente sozinha, e a recente fica', () => {
+  const recusa = (id, decidida) => ({
+    id, situacao: 'recusada', pessoa_id: 'p-eu',
+    retirada_prevista: '2026-08-10T11:00Z', decidida_em: decidida,
+  });
+  const lista = meusPedidos({
+    requisicoes: [recusa('ontem', '2026-08-19T09:00Z'), recusa('mes-passado', '2026-07-15T09:00Z')],
+    minhaPessoaId: 'p-eu',
+    agoraIso: '2026-08-20T12:00Z',
+  });
+  assert.deepEqual(lista.map((r) => r.id), ['ontem'], 'a lista é um aviso, não um arquivo morto');
+});
+
+test('pedido dos outros não entra na minha lista, nem por engano', () => {
+  const lista = meusPedidos({
+    requisicoes: [
+      { id: 'dele', situacao: 'pendente', pessoa_id: 'p-outro', retirada_prevista: '2026-08-22T11:00Z' },
+      { id: 'que-eu-abri', situacao: 'pendente', pessoa_id: 'p-outro', criada_por: 'u-eu',
+        retirada_prevista: '2026-08-23T11:00Z' },
+    ],
+    minhaPessoaId: 'p-eu', meuUsuarioId: 'u-eu',
+    agoraIso: '2026-08-20T12:00Z',
+  });
+  // O pedido que EU abri pra outra pessoa continua meu de acompanhar: fui eu
+  // que pedi, é a mim que a resposta interessa.
+  assert.deepEqual(lista.map((r) => r.id), ['que-eu-abri']);
+});
+
+test('sem saber quem eu sou, a lista fica vazia — nunca a de outra pessoa', () => {
+  const lista = meusPedidos({
+    requisicoes: [{ id: 'x', situacao: 'pendente', pessoa_id: 'p-outro' }],
+    agoraIso: '2026-08-20T12:00Z',
+  });
+  assert.deepEqual(lista, []);
+});

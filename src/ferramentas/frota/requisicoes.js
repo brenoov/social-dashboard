@@ -219,3 +219,56 @@ export function reservaSegurando({ requisicoes, veiculoId, agoraIso }) {
     return agora >= ini && agora <= fim;
   }) || null;
 }
+
+/**
+ * Por quantos dias uma recusa continua aparecendo pra quem pediu.
+ *
+ * A lista "Seus pedidos" é um AVISO, não um arquivo morto: o histórico
+ * completo mora na aba Gestão. Sete dias é tempo de a pessoa abrir o app na
+ * semana em que pediu; depois disso a linha só ocuparia a tela de quem está de
+ * pé no estacionamento.
+ */
+export const DIAS_MOSTRANDO_A_RECUSA = 7;
+
+/**
+ * Os pedidos que ESTA pessoa vê em "Seus pedidos".
+ *
+ * O DEFEITO QUE ISTO CONSERTA (medido em 20/08/2026): a lista filtrava só
+ * `pendente` e `aprovada`. Quem recusa é obrigado pela tela a escrever o
+ * motivo — a mensagem é "Diga o motivo. Quem pediu precisa saber o que fazer
+ * diferente" —, e o motivo não chegava em ninguém: o pedido recusado sumia da
+ * tela sem uma palavra. Havia até a linha pronta pra mostrá-lo no card, que
+ * nunca rodava. Sem aviso nenhum por push ou e-mail, o resultado é uma pessoa
+ * esperando resposta de um pedido já respondido.
+ *
+ * `revogada` entra pela mesma razão, e mais grave: é a reserva que JÁ VALIA e
+ * foi encerrada no meio. Sumir em silêncio manda a pessoa até o estacionamento
+ * buscar um carro que não é mais dela.
+ *
+ * `cancelada` NÃO entra: quase sempre é a própria pessoa desmarcando, e
+ * avisar alguém do que ela mesma acabou de fazer é ruído.
+ *
+ * `criada_por` conta junto com `pessoa_id`: quem abre o pedido para outra
+ * pessoa (a Gestão pedindo pelo motorista de fora) é quem espera a resposta.
+ */
+export function meusPedidos({ requisicoes, minhaPessoaId, meuUsuarioId, agoraIso } = {}) {
+  const agora = ms(agoraIso) ?? Date.now();
+  const limite = DIAS_MOSTRANDO_A_RECUSA * DIA;
+  const meu = (r) => (!!minhaPessoaId && r.pessoa_id === minhaPessoaId)
+    || (!!meuUsuarioId && r.criada_por === meuUsuarioId);
+
+  return ordenarFila((requisicoes || []).filter((r) => {
+    if (!r || !meu(r)) return false;
+    if (r.situacao === 'pendente' || r.situacao === 'aprovada') return true;
+    if (r.situacao !== 'recusada' && r.situacao !== 'revogada') return false;
+    // `decidida_em` é o carimbo da recusa; `encerrada_em`, o da revogação.
+    // Vale o mais recente dos dois — uma reserva aprovada na segunda e
+    // revogada na quarta tem os dois carimbos, e o que interessa é o segundo.
+    const carimbos = [ms(r.decidida_em), ms(r.encerrada_em)].filter((t) => t !== null);
+    // Sem carimbo nenhum não dá pra dizer se é velha. Mostrar é o lado seguro:
+    // some uma linha a mais na tela, em vez de sumir uma recusa que a pessoa
+    // nunca soube que existiu.
+    if (!carimbos.length) return true;
+    return agora - Math.max(...carimbos) <= limite;
+  }));
+}

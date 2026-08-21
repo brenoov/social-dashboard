@@ -8,7 +8,7 @@ import {
   problemasDoItemDeChecklist,
   telefoneDaCobranca, problemasAbertosHoje, veiculosParaConferir,
   resultadoDoChecklist, porQueDoResultado,
-  oQuePedirNaRetirada, porQuePedirOAceite,
+  oQuePedirNaRetirada, porQuePedirOAceite, oQueFaltaNaRetirada,
 } from './checklist.js'
 
 /* ── O que pedir a quem está pegando o carro ────────────────────────────────
@@ -730,3 +730,18 @@ test('a tela consegue DIZER por que, separando grave de leve', () => {
   assert.deepEqual(p.graves, ['Vazamentos sob o veículo']);
   assert.deepEqual(p.leves, ['Buzina']);
 });
+
+test('a frase da reserva não promete checklist quando ele já foi feito', () => {
+  // A ficha de retirada mostrava, fixo, "Aqui só falta o checklist e o
+  // combustível" — inclusive na tela em que outra pessoa JÁ tinha conferido o
+  // carro e o que se pede é só a assinatura de recebimento. A frase dizia à
+  // pessoa para procurar um checklist que não estava lá.
+  assert.match(oQueFaltaNaRetirada('checklist'), /checklist e o combustível/)
+  assert.match(oQueFaltaNaRetirada('aceite'), /assinar/)
+  assert.doesNotMatch(oQueFaltaNaRetirada('aceite'), /checklist/)
+  assert.match(oQueFaltaNaRetirada('nada'), /combustível/)
+  assert.doesNotMatch(oQueFaltaNaRetirada('nada'), /checklist|assinar/)
+  // Chave desconhecida não pode devolver vazio: a frase some da tela e a
+  // pessoa fica sem saber o que a ficha ainda quer dela.
+  assert.ok(oQueFaltaNaRetirada('coisa-nova').length > 0)
+})

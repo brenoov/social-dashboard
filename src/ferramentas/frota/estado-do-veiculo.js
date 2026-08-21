@@ -130,8 +130,25 @@ export function estadoDoVeiculo(veiculo, usos, fichas, revisoes) {
     // agenda de requisições.
     disponivel: !aberto && veiculo.situacao === 'ativo' && !veiculo.pessoa_id
       && !veiculo.reservada,
+    // LIVRE PARA MIM é a mesma coisa, com UMA exceção: a reserva que segura o
+    // carro não segura contra quem a fez. Medido em 20/08/2026: da hora
+    // marcada em diante, `disponivel` escondia o carro de "Livres para pegar"
+    // pra todo mundo — e é lá dentro que mora o botão "Peguei o carro". Quem
+    // chegava no horário combinado abria o app e o carro tinha sumido; só
+    // funcionava pra quem abria ANTES da hora.
+    //
+    // Os dois campos convivem de propósito: a Gestão continua lendo
+    // `disponivel` e vendo o carro como reservado, que é a verdade da frota. O
+    // que muda é só o painel de quem dirige. `reservada_para_mim` é
+    // enriquecido por quem chama, no mesmo molde de `reservada` — esta função
+    // é pura e não sabe quem está logado.
+    disponivelParaMim: !aberto && veiculo.situacao === 'ativo' && !veiculo.pessoa_id
+      && (!veiculo.reservada || !!veiculo.reservada_para_mim),
     // Quem reservou, pra frase da tela poder dizer com quem falar.
     reservadaPor: (!aberto && veiculo.reservada && veiculo.reservada_por) || null,
+    // A minha reserva em vigor neste carro: o selo "Sua reserva" no card sai
+    // daqui. Sem ele, o carro reaparece nos livres sem dizer por quê.
+    reservadaParaMim: !aberto && !!veiculo.reservada && !!veiculo.reservada_para_mim,
   };
 }
 

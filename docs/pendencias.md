@@ -387,6 +387,40 @@ BOOT_ERROR` da plataforma. Deploy que não boota só aparece no primeiro clique.
 
 ---
 
+### B25 · Frota › o aviso de reserva decidida 🟡 *banco e servidor prontos em 21/08; falta o deploy da tela*
+
+**O que é.** Aprovar ou recusar uma reserva não avisava ninguém — quem pediu só
+descobria abrindo o app.
+
+**Já está feito (21/08):**
+
+- ✅ **Migration `052_push_tipo_reserva.sql` aplicada.** O CHECK de
+  `push_preferencias.tipo` aceita `frota_reserva`. Provado com `rollback`:
+  dentro da transação o insert passou, e o banco ficou com zero linha do tipo.
+- ✅ **Edge `avisar-decisao-de-reserva` publicada** (com as três deps de
+  `_shared`). Provada rodando: chamada sem crachá é barrada pela porta de fora
+  (401), e com o crachá de quem não aprova ela mesma responde
+  `{"ok":false,"erro":"sem_permissao"}` — ou seja, o portão do servidor fecha,
+  e não só o da tela.
+
+**Falta:**
+
+1. **Subir a tela** (as mudanças estão na branch `melhoria/frota-retirada-e-tutorial`,
+   não na main). Enquanto não subir, o interruptor novo não aparece e a tela não
+   chama a função — nada muda para ninguém.
+2. Depois disso, ligar **"Resposta do pedido de carro"** em Administração ›
+   Usuários para quem pede carro — ela nasce desligada, como toda chave nova.
+
+**Não há risco em ficar como está.** Provado na tela nos dois desfechos: com a
+função fora do ar, a decisão é gravada do mesmo jeito e quem decidiu lê *"Reserva
+aprovada. Não consegui avisar quem pediu — fale com a pessoa."* Já é melhor que
+hoje, que é silêncio.
+
+**Alcance medido em 20/08:** das 14 pessoas que podem pedir carro, **8 têm
+aparelho registrado** para push. WhatsApp alcançaria 6, e 2 dessas nem ficha de
+colaborador têm — o push é o melhor canal único. As 6 restantes continuam
+dependendo de alguém avisar, e é por isso que a tela diz isso a quem decide.
+
 ## Parte C — Ideias guardadas (ninguém pediu ainda)
 
 ### C2 · Gestor de Tráfego › subir campanha por upload 🟡 *metade já está de pé — conferido em 18/08*

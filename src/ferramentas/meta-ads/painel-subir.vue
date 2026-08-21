@@ -2,6 +2,9 @@
 import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue'
 import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { sb } from '../../compartilhado/buscar-e-salvar-dados.js'
+// O aviso do canto da tela, o mesmo do resto da central. Substituiu o
+// `alert()` nativo, que trava a página inteira até alguém clicar em OK.
+import { adminToast } from '../../compartilhado/avisos.js'
 import { useJobStatus } from './use-job-status.js'
 import AjudaTooltip from './ajuda-tooltip.vue'
 import TourCoachmark from './tour-coachmark.vue'
@@ -289,14 +292,18 @@ async function salvarPreset() {
   const preset = { ...publicoParaEnvio(), nome }
   if (publico.presetId) preset.id = publico.presetId
   const { data, error } = await sbClient.functions.invoke('fabrica-publicos', { body: { acao: 'salvar', preset } })
-  if (error) return alert('Falha ao salvar: ' + error.message)
+  if (error) { adminToast('Não consegui salvar o preset: ' + error.message, false); return }
   publico.nome = nome; await carregarPresets(); if (data?.id) publico.presetId = data.id
+  // Salvar não mudava nada visível: o mesmo público continuava na tela, e a
+  // pessoa não tinha como saber se o preset entrou na lista.
+  adminToast(`Preset "${nome}" salvo.`)
 }
 async function apagarPreset() {
   if (!publico.presetId) return; if (!confirm('Apagar este preset?')) return
   const { error } = await sbClient.functions.invoke('fabrica-publicos', { body: { acao: 'apagar', id: publico.presetId } })
-  if (error) return alert('Falha ao apagar: ' + error.message)
+  if (error) { adminToast('Não consegui apagar o preset: ' + error.message, false); return }
   publico.presetId = ''; await carregarPresets()
+  adminToast('Preset apagado.')
 }
 
 // ===== Públicos salvos (audiences do Meta: engajamento/lookalike) =====
