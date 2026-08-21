@@ -168,6 +168,10 @@ import { sbClient, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../compartilhado/c
 import { estado, PERMISSION_TREE, RECURSOS } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { agruparRecursos, contarAcoes, estadoDaSelecao, marcarTudo } from './agrupar-permissoes.js'
 import { derivarFeatures } from '../../compartilhado/derivar-features.js'
+// A mensagem de acesso pronta pra colar no WhatsApp. Mora fora da tela
+// porque é a MESMA em todo lugar que entrega senha — e porque texto solto
+// dentro de uma tela de 3.000 linhas ninguém acha pra corrigir.
+import { recadoDeAcesso } from '../../compartilhado/recado-de-acesso.js'
 import { linhaDeContato, partesDeContato } from './linha-de-contato.js'
 // A sobreposição perfil × exceção (D9) e QUEM MUDA de acesso se um perfil for
 // regravado (D11). Puro e testado à parte (perfis-de-acesso.test.mjs): aqui só
@@ -2407,7 +2411,7 @@ function _secaoSenha(alvo, p) {
   const sec = mkEl('div', 'ficha-sec')
   sec.appendChild(mkEl('div', 'ficha-sec-tit', 'Senha'))
   sec.appendChild(mkEl('div', 'ficha-txt',
-    'Gere uma senha, copie e mande para a pessoa. '
+    'Gere uma senha, salve e copie a mensagem pronta para mandar à pessoa. '
     + 'Ela vai ser obrigada a trocar por uma dela no primeiro acesso.'))
 
   const inp = mkEl('input', 'admin-form-input'); inp.type = 'text'
@@ -2419,11 +2423,16 @@ function _secaoSenha(alvo, p) {
   const gerar = mkEl('button', 'btn', 'Gerar'); gerar.type = 'button'
   gerar.addEventListener('click', () => { inp.value = gerarSenhaForte(14); inp.focus(); inp.select() })
 
-  const copiar = mkEl('button', 'btn', 'Copiar'); copiar.type = 'button'
+  // COPIA A MENSAGEM INTEIRA, não a senha crua. Uma senha sozinha no WhatsApp
+  // não diz onde usar, e o resto do recado ia digitado à mão toda vez — com o
+  // endereço errado de vez em quando.
+  const copiar = mkEl('button', 'btn', 'Copiar mensagem'); copiar.type = 'button'
   copiar.addEventListener('click', () => {
     if (!inp.value) { adminToast('Gere uma senha primeiro.', false); return }
-    _copiar(inp.value, (ok) => adminToast(
-      ok ? 'Senha copiada.' : 'Não consegui copiar — selecione e copie à mão.', ok))
+    const recado = recadoDeAcesso({ email: p.email, senha: inp.value })
+    _copiar(recado, (ok) => adminToast(
+      ok ? 'Mensagem copiada — é só colar pra pessoa.'
+         : 'Não consegui copiar — selecione e copie à mão.', ok))
   })
 
   const salvar = mkEl('button', 'btn btn-principal', 'Salvar senha'); salvar.type = 'button'
@@ -3031,6 +3040,22 @@ async function adminInviteUser(mode) {
   else {
     msg.textContent = isInvite ? '✓ Convite enviado para ' + email : '✓ Acesso criado para ' + email
     msg.style.color = 'var(--green)'
+
+    // A MENSAGEM DE ACESSO FICA À MÃO, num botão, ANTES de os campos serem
+    // limpos. Até aqui a senha era apagada do campo no instante do sucesso e
+    // não sobrava jeito nenhum de copiá-la: quem criava o acesso tinha que
+    // lembrar de cor o que digitou, ou trocar a senha de novo pela ficha da
+    // pessoa só para conseguir copiar. A senha vive só nesta função — nada
+    // dela vai para a tela nem fica guardado em lugar nenhum.
+    const recado = recadoDeAcesso({ email, senha: isInvite ? '' : password })
+    const btnCopiar = mkEl('button', 'btn', isInvite ? 'Copiar recado' : 'Copiar mensagem de acesso')
+    btnCopiar.type = 'button'
+    btnCopiar.style.marginLeft = '8px'
+    btnCopiar.addEventListener('click', () => _copiar(recado, (ok) => adminToast(
+      ok ? 'Mensagem copiada — é só colar pra pessoa.'
+         : 'Não consegui copiar — troque a senha pela ficha da pessoa e copie de lá.', ok)))
+    msg.appendChild(btnCopiar)
+
     ;['adm-email', 'adm-name', 'adm-pass'].forEach(id => document.getElementById(id).value = '')
 
     // Se foi escolhido "começar com o acesso de…", aplica o perfil na pessoa
