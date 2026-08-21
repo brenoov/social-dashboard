@@ -368,7 +368,7 @@ export function resumoDaCobranca(linhas, hoje) {
  * teria um buraco: o quadro de cobrança JÁ olha a posse, então cobraria de
  * quem pegou emprestado uma ficha que o cartão não deixava preencher.
  */
-export function veiculosParaConferir({ veiculos, euId, ehGestor, fichas, hoje, quemEstaCom }) {
+export function veiculosParaConferir({ veiculos, euId, ehGestor, fichas, hoje, quemEstaCom, emViagem }) {
   const dono = typeof quemEstaCom === 'function' ? quemEstaCom : (v) => v.pessoa_id;
   return (veiculos || [])
     .filter((v) => v && v.situacao === 'ativo')
@@ -382,11 +382,22 @@ export function veiculosParaConferir({ veiculos, euId, ehGestor, fichas, hoje, q
       // nulo) visto por quem não foi achado no cadastro (`euId` nulo) daria
       // `null === null` e abriria sozinho como se fosse o carro da pessoa.
       meu: !!(euId && dono(v) === euId),
+      // Está com a pessoa por VIAGEM aberta — não por posse nem no papel.
+      naMinhaMao: !!(euId && typeof emViagem === 'function' && emViagem(v) === euId),
     }))
     .filter((x) => ehGestor || x.meu)
-    .sort((a, b) => (a.meu === b.meu
-      ? String(a.veiculo.nome || '').localeCompare(String(b.veiculo.nome || ''))
-      : (a.meu ? -1 : 1)));
+    /* A ORDEM: o carro que está na mão da pessoa AGORA vem primeiro, depois o
+     * resto dos dela, depois os dos outros (quando é gestor).
+     *
+     * `naMinhaMao` entrou em 21/08/2026: quem tem carro fixo E pegou um de
+     * rodízio via os dois como "meus", e o desempate era alfabético — abria
+     * sozinho o FIAT TORO enquanto a pessoa estava de pé ao lado da SAVEIRO
+     * que acabou de retirar. O que ela veio conferir é o que está com ela. */
+    .sort((a, b) => {
+      if (a.meu !== b.meu) return a.meu ? -1 : 1;
+      if (a.naMinhaMao !== b.naMinhaMao) return a.naMinhaMao ? -1 : 1;
+      return String(a.veiculo.nome || '').localeCompare(String(b.veiculo.nome || ''));
+    });
 }
 
 /**
