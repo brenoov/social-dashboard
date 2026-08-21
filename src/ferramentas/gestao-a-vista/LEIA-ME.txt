@@ -127,3 +127,56 @@ a partir de 640px os cards viram GRADE, então arcos em linhas de base
 diferentes são fileiras diferentes — compare DENTRO da fileira. E letter-spacing
 soma o espaço do último caractere ao scrollWidth: 1-2px de sobra é da fonte,
 não é texto cortado.
+
+MATÉRIA-PRIMA NO ESTOQUE: O QUE ERA E O QUE PASSOU A SER (20/08/2026)
+----------------------------------------------------------------------
+Estava escrito aqui e na memória que "matéria-prima entra com categoria vazia;
+produto de verdade sempre tem categoria". NOS DADOS ISSO ERA FALSO. Das 1.386
+linhas visíveis do estoque, 213 eram insumo: argola, botão de pressão, botão
+imã, corrente, corda, couro, camurça, espuma, retalho, bobina plástica, caixa,
+aplicador, cursor de zíper, fivela injetada, alça e certificado de garantia.
+Conferidas uma a uma nos três depósitos — nenhuma era produto de venda.
+
+A culpa não era desta tela. Era de classificarItem() em
+coletor/lib/bling-comercial.mjs, que termina num PEGA-TUDO: o nome que a lista
+de palavras não reconhece vira 'Outros acessórios', ou seja, produto vendável.
+
+O que mudou: a mesma função respondia a DUAS perguntas diferentes.
+  · "que categoria é este produto?"  — VENDAS. O pega-tudo está CERTO aqui: se
+    foi vendido, é produto. classificarItem() segue igual, inclusive o pega-tudo.
+  · "isto é um produto vendável?"    — ESTOQUE. O pega-tudo É o defeito aqui.
+    categoriaDeEstoque() é a nova, e só devolve categoria para nome RECONHECIDO.
+
+A regra desta tela NÃO mudou: categoria vazia continua não aparecendo. O que
+mudou é que o coletor passou a gravar vazio no que não reconheceu. Medido sobre
+os 973 nomes reais do banco: 192 somem, 592 continuam, ZERO produto se perdeu e
+ZERO trocou de categoria.
+
+⚠️ O RISCO AGORA É O OPOSTO, e por isso existe a vigia. Uma linha de produto
+nova que a lista não conheça some da tela — e some CALADA, que é pior de
+perceber do que aparecer indevidamente. Duas coisas cuidam disso:
+  · o robô (relatorios-comerciais.mjs) registra no log quantos SKUs caíram em
+    "não reconhecido", com exemplos. Se esse número pular, é produto novo
+    faltando na lista, não insumo;
+  · a contagem da seção mostra "N ocultos (matéria-prima/sem classificação)",
+    para a tela não dar a entender que aquilo é tudo o que existe no depósito.
+
+Se aparecer produto novo sumido: a lista de palavras está em classificarItem().
+
+MENU DE CANAIS AGRUPADO — ATACADO / VAREJO (20/08/2026)
+--------------------------------------------------------
+O dropdown de canal mostra um bloco por GRUPO do canal, com "marcar todos" /
+"desmarcar todos" em cada bloco. O grupo vem de `bling_lojas.grupo` e se
+configura em Config de Admin > Canais de venda — não aqui.
+
+Canal sem grupo NÃO some: cai no bloco "Outros", no fim. E enquanto nenhum canal
+tiver grupo, o menu fica IDÊNTICO ao que sempre foi, sem cabeçalho nenhum — a
+tela não pede configuração para funcionar.
+
+A regra de agrupar e a de marcar/desmarcar todos moram em
+`src/compartilhado/grupo-do-canal.js`, testadas sem navegador, e são as MESMAS
+que a Análise de Vendas usa. Duas cópias da regra é como duas telas decidindo o
+mesmo: mais cedo ou mais tarde discordam.
+
+O menu já tinha `max-height:360px` + rolagem, então os cabeçalhos não escondem
+canal nenhum — o que não cabe rola.

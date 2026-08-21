@@ -90,6 +90,14 @@
                conta e quem organiza times é a mesma pessoa fazendo a mesma
                tarefa de gestão de acesso, então a ordem virou criar → times →
                pessoas, do jeito que o dono aprovou. -->
+          <!-- CANAIS DE VENDA — o grupo (atacado/varejo) mora AQUI, no canal, e
+               não na ficha do time: dos 14 canais do Bling só 3 têm time, e os
+               11 sem time aparecem no seletor das dashboards do mesmo jeito. O
+               time é atacado ou varejo pelo canal a que está amarrado. -->
+          <span class="sg-label">Canais de venda</span>
+          <div class="admin-section-sub">Cada canal do Bling pertence a um grupo — <b>Atacado</b>, <b>Varejo</b>, ou outro que você criar aqui. É esse grupo que vai separar o seletor das dashboards de venda e os times na lista de usuários. Canal sem grupo continua aparecendo, no fim da lista.</div>
+          <div id="admin-canais-body"><div style="color:var(--muted);font-size:max(9px, calc(12px * var(--escala-texto, 1)))">Carregando...</div></div>
+
           <span class="sg-label">Times de venda</span>
           <div class="admin-section-sub">Lojas, canais e setores — e quem trabalha em cada um. É por aqui que uma loja nova entra no sistema. Em <b>Quem trabalha aqui</b> você vê e muda, por pessoa, o que ela enxerga de canal de venda e das outras ferramentas, libera o estoque e troca a senha dela.</div>
           <div id="admin-equipes-body"><div style="color:var(--muted);font-size:max(9px, calc(12px * var(--escala-texto, 1)))">Carregando...</div></div>
@@ -190,6 +198,7 @@ import { degrausDoRecurso, degrauDoConjunto, acoesDoDegrau } from './niveis-de-p
 import { oQueONivelFaz } from './o-que-o-nivel-faz.js'
 import { mexeEmDinheiro, SELO_DINHEIRO, EMOJI_DINHEIRO } from './consequencia-do-recurso.js'
 import { resumoDoAcesso } from './resumo-do-acesso.js'
+import { gruposExistentes, agruparCanais, agruparTimesPorGrupo, timePorCanal, contarSemGrupo, normalizarGrupo } from '../../compartilhado/grupo-do-canal.js'
 // Quais notificações existem e qual o padrão de cada uma. A lista mora junto da
 // Edge que envia (supabase/functions/_shared) pra não haver duas verdades sobre
 // quem recebe o quê — a tela LÊ dela em vez de repetir os nomes.
@@ -784,6 +793,112 @@ function _eqMeuPapel(timeId) {
 // `loadAdminUsers` isto enche `_eqMembros`, e no fim `_eqDesenhar()` roda com
 // as linhas das pessoas já prontas. Sem isso, ou os times desenhavam vazios na
 // primeira passada, ou a mesma consulta seria feita duas vezes.
+/* ── CANAIS DE VENDA E SEUS GRUPOS ──────────────────────────────────────────
+ *
+ * PEDIDO DO DONO (20/08/2026): separar o seletor de canais das dashboards por
+ * atacado e varejo, e separar os times da lista de usuários do mesmo jeito.
+ *
+ * O grupo é a fundação das outras três peças — o seletor agrupado, o alcance da
+ * supervisora e os cards de time — e todas leem DAQUI. Por isso ele se
+ * configura num lugar só, e o time não tem campo de grupo: ele herda do canal.
+ */
+let _canaisComGrupo = []
+
+async function loadAdminCanais() {
+  const body = document.getElementById('admin-canais-body'); if (!body) return
+  try {
+    const [rc, rt] = await Promise.all([
+      sbClient.from('bling_lojas').select('loja_id,nome,grupo').order('nome'),
+      sbClient.from('equipes').select('id,nome,canal_loja_id'),
+    ])
+    // Erro de leitura NÃO vira lista vazia: "nenhum canal" quando a leitura
+    // falhou é a mentira mais cara que uma tela conta.
+    if (rc.error) throw new Error(rc.error.message)
+    _canaisComGrupo = rc.data || []
+    const mapaTimes = timePorCanal(rt.data || [])
+    const grupos = gruposExistentes(_canaisComGrupo)
+    const faltam = contarSemGrupo(_canaisComGrupo)
+
+    let h = '<div class="adm-canais-topo">'
+    h += '<span>' + _canaisComGrupo.length + (_canaisComGrupo.length === 1 ? ' canal' : ' canais') + '</span>'
+    h += faltam
+      ? '<span class="adm-canais-faltam">' + faltam + ' sem grupo</span>'
+      : '<span class="adm-canais-ok">todos com grupo</span>'
+    h += '</div>'
+
+    for (const balde of agruparCanais(_canaisComGrupo)) {
+      h += '<div class="adm-canais-grupo">' + escHtml(balde.grupo || 'Sem grupo') + '</div>'
+      for (const c of balde.canais) {
+        const t = mapaTimes.get(String(c.loja_id))
+        const id = escHtml(String(c.loja_id))
+        h += '<div class="adm-canal-linha">'
+        h += '<span class="adm-canal-nome">' + escHtml(c.nome)
+        h += t
+          ? '<span class="adm-canal-time">time: ' + escHtml(t.nome) + '</span>'
+          : '<span class="adm-canal-time adm-canal-sem">sem time</span>'
+        h += '</span>'
+        h += '<select class="adm-canal-sel" data-canal-sel="' + id + '">'
+        h += '<option value="">— sem grupo —</option>'
+        for (const g of grupos) {
+          h += '<option value="' + escHtml(g) + '"' + (normalizarGrupo(c.grupo) === g ? ' selected' : '') + '>' + escHtml(g) + '</option>'
+        }
+        // SEM esta opção a pessoa TRAVA na hora em que precisa de um grupo novo.
+        h += '<option value="__novo__">+ novo grupo…</option>'
+        h += '</select>'
+        h += '<span class="adm-canal-aviso" data-canal-aviso="' + id + '"></span>'
+        h += '</div>'
+      }
+    }
+    body.innerHTML = h
+    _ligarSelecaoDeGrupo()
+  } catch (e) {
+    // `faixa-de-erro` é componente .vue e não serve dentro de innerHTML: aqui
+    // vai texto, com o token de erro.
+    body.innerHTML = '<div style="color:var(--red);font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));">Não consegui carregar os canais: ' + escHtml(String(e && e.message || e)) + '</div>'
+  }
+}
+
+function _ligarSelecaoDeGrupo() {
+  document.querySelectorAll('[data-canal-sel]').forEach((sel) => {
+    sel.onchange = async () => {
+      const id = sel.getAttribute('data-canal-sel')
+      const aviso = document.querySelector('[data-canal-aviso="' + id + '"]')
+      let valor = sel.value
+      if (valor === '__novo__') {
+        // `window.prompt` e não um modal próprio: é o que ESTA MESMA TELA já usa
+        // para criar perfil de acesso. Inventar um modal só aqui deixaria dois
+        // jeitos de pedir um nome no mesmo arquivo.
+        const digitado = window.prompt('Nome do grupo novo (ex.: Atacado, Varejo)')
+        valor = normalizarGrupo(digitado) || ''
+        if (!valor) { await loadAdminCanais(); return }
+      }
+      const grupo = normalizarGrupo(valor)
+      sel.disabled = true
+      if (aviso) { aviso.textContent = 'Salvando…'; aviso.className = 'adm-canal-aviso' }
+      try {
+        const r = await adFetch('bling_lojas?loja_id=eq.' + encodeURIComponent(id), {
+          method: 'PATCH',
+          headers: { Prefer: 'return=representation' },
+          body: JSON.stringify({ grupo }),
+        })
+        if (!r.ok) throw new Error(await r.text())
+        // A CONFERÊNCIA QUE NÃO PODE FALTAR. Quando o RLS barra, o PostgREST
+        // responde 200 com lista VAZIA — sem erro. Sem olhar a contagem, a tela
+        // diria "salvo" para uma gravação que não aconteceu.
+        const linhas = await r.json()
+        if (!Array.isArray(linhas) || linhas.length === 0) {
+          throw new Error('o banco aceitou o pedido e não gravou nada — você não tem permissão para mudar o grupo do canal')
+        }
+        await loadAdminCanais()
+        adminToast('Grupo do canal salvo.', true)
+      } catch (e) {
+        sel.disabled = false
+        if (aviso) { aviso.textContent = String(e && e.message || e); aviso.className = 'adm-canal-aviso adm-canal-erro' }
+      }
+    }
+  })
+}
+
 async function loadAdminEquipes(opcoes) {
   const desenhar = !(opcoes && opcoes.desenhar === false)
   const body = document.getElementById('admin-equipes-body'); if (!body) return
@@ -847,7 +962,19 @@ function _eqDesenhar() {
       + 'Nenhum time ainda. Crie um para cada loja e cada canal de venda — é o que permite dizer que uma vendedora só enxerga a loja dela.</div>'
   }
 
-  for (const t of ordenarTimes(_eqTimes)) {
+  // ── OS TIMES SOB CABEÇALHO DE GRUPO (Peça 4, 20/08/2026) ──────────────────
+  // O time herda o grupo do canal a que está amarrado — ele não tem grupo
+  // próprio. O cabeçalho só aparece quando existe ao menos um time com grupo:
+  // enquanto ninguém marcar canal na lista "Canais de venda", esta parte da
+  // tela fica idêntica ao que sempre foi.
+  const baldesDeTime = agruparTimesPorGrupo(ordenarTimes(_eqTimes), _canaisComGrupo)
+  const mostrarCabecalhoDeGrupo = baldesDeTime.some(b => b.grupo !== null)
+  for (const balde of baldesDeTime) {
+    if (mostrarCabecalhoDeGrupo) {
+      html += '<div class="adm-times-grupo">' + escHtml(balde.grupo || 'Sem grupo')
+        + '<span class="adm-times-grupo-conta">' + balde.times.length + (balde.times.length === 1 ? ' time' : ' times') + '</span></div>'
+    }
+    for (const t of balde.times) {
     const l = linhaDoTime(t, _eqMembros)
     const meu = _eqMeuPapel(t.id)
     const posso = podeAdministrarTime(eu, meu)
@@ -878,6 +1005,7 @@ function _eqDesenhar() {
     // lista de baixo (é DOM, não texto, então não dá pra concatenar aqui).
     html += '<div data-eq-pessoas="' + escHtml(t.id) + '" style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);"></div>'
     html += '</div>'
+    }
   }
   if (_eqEditando === 'novo') html += '<div style="border:1px solid var(--accent);border-radius:12px;padding:14px 16px;margin-bottom:10px;background:var(--surface);">' + _eqFormulario(null) + '</div>'
 
@@ -905,6 +1033,19 @@ function _eqFormulario(t) {
   h += '<label ' + rot + '>Canal no Bling (é ele que traz o faturamento)</label>'
   h += '<select data-eq-campo="canal_loja_id" ' + campo + '><option value="">— ainda não tem —</option>' + opc(livres, e.canal_loja_id, 'loja_id', 'nome') + '</select>'
   h += '<div style="font-size:max(9px, calc(11px * var(--escala-texto, 1)));color:var(--muted);margin-top:4px;">O nome no Bling quase nunca é o nome da casa: o time <b>Tivoli</b> usa o canal <b>Loja Santa Bárbara d\'Oeste</b>. Sem ligar, o time mostra faturamento zero.</div>'
+  // O TIME NÃO ESCOLHE O GRUPO: ele herda do canal. Mostrar aqui, em leitura, é
+  // o que torna a herança visível sem precisar explicar em texto — e é a prova
+  // na tela de que a Peça 1 funcionou de ponta a ponta.
+  const canalDoTime = _canaisComGrupo.find(c => String(c.loja_id) === String(e.canal_loja_id))
+  const grupoDoTime = canalDoTime ? normalizarGrupo(canalDoTime.grupo) : null
+  h += '<label ' + rot + '>Grupo</label>'
+  h += '<div style="font-size:max(9px, calc(12px * var(--escala-texto, 1)));color:var(--muted);">'
+    + (grupoDoTime
+        ? '<b>' + escHtml(grupoDoTime) + '</b> — vem do canal <b>' + escHtml(canalDoTime.nome) + '</b>. Para mudar, use a lista <b>Canais de venda</b>, acima.'
+        : (canalDoTime
+            ? 'O canal <b>' + escHtml(canalDoTime.nome) + '</b> ainda não tem grupo. Marque na lista <b>Canais de venda</b>, acima.'
+            : 'Sem canal do Bling, o time não tem grupo.'))
+    + '</div>'
   h += '<div data-eq-erro style="margin-top:10px;color:var(--red,#dc2626);font-size:max(9px, calc(12px * var(--escala-texto, 1)));"></div>'
   h += '<div style="display:flex;gap:8px;margin-top:12px;">'
   h += '<button class="btn btn-principal" data-eq-salvar="' + escHtml(e.id || '') + '">Salvar</button>'
@@ -2823,6 +2964,9 @@ async function loadAdminUsers() {
   // card da loja dele, então a lista de baixo não pode ser desenhada antes de
   // saber quem está em time. O desenho dos times acontece no fim desta função,
   // quando as linhas das pessoas já existem.
+  // Os canais vêm ANTES dos times: a ficha do time mostra o grupo que ela herda
+  // do canal, e para isso `_canaisComGrupo` já precisa estar carregado.
+  await loadAdminCanais()
   await loadAdminEquipes({ desenhar: false })
 
   const alvo = document.getElementById('admin-user-list')
@@ -3533,6 +3677,25 @@ Object.assign(window, {
 </script>
 
 <style scoped>
+/* ── CABEÇALHO DE GRUPO NOS TIMES (Peça 4, 20/08/2026) ─────────────────────
+   Só aparece quando algum time tem grupo; sem configuração, a tela fica igual. */
+.tela-admin :deep(.adm-times-grupo){display:flex;align-items:baseline;justify-content:space-between;gap:var(--sp-2);flex-wrap:wrap;margin:var(--sp-4) 0 var(--sp-2);font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);overflow-wrap:anywhere;}
+.tela-admin :deep(.adm-times-grupo-conta){font-weight:600;letter-spacing:.3px;text-transform:none;}
+/* ── CANAIS DE VENDA (20/08/2026) ──────────────────────────────────────────
+   Só token: espaçamento da escala --sp-*, raio --radius-*, cor por token. */
+.tela-admin :deep(.adm-canais-topo){display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap;margin-bottom:var(--sp-2);font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));color:var(--muted);}
+.tela-admin :deep(.adm-canais-faltam){color:var(--red);font-weight:600;}
+.tela-admin :deep(.adm-canais-ok){color:var(--green);font-weight:600;}
+.tela-admin :deep(.adm-canais-grupo){font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin:var(--sp-4) 0 var(--sp-2);}
+.tela-admin :deep(.adm-canal-linha){display:flex;align-items:center;gap:var(--sp-3);flex-wrap:wrap;padding:var(--sp-2) 0;border-bottom:1px solid var(--border);}
+.tela-admin :deep(.adm-canal-nome){flex:1 1 220px;min-width:0;display:flex;flex-direction:column;gap:2px;font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));color:var(--text);overflow-wrap:anywhere;}
+.tela-admin :deep(.adm-canal-time){font-size:max(9px, calc(11px * var(--escala-texto, 1)));color:var(--muted);}
+.tela-admin :deep(.adm-canal-sem){font-style:italic;}
+/* min-height 40px e fonte 16px no select nao sao estetica: e o alvo do dedo e o
+   zoom que o iOS da quando a fonte do campo e menor que 16px. */
+.tela-admin :deep(.adm-canal-sel){flex:0 0 auto;min-height:40px;box-sizing:border-box;font-family:var(--fonte-principal);font-size:max(16px, calc(16px * var(--escala-texto, 1)));border-radius:var(--radius-md);border:1px solid var(--border);background:var(--surface2);color:var(--text);padding:0 var(--sp-2);}
+.tela-admin :deep(.adm-canal-aviso){flex:1 1 100%;font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));color:var(--muted);}
+.tela-admin :deep(.adm-canal-erro){color:var(--red);}
 /* Porte das regras admin- e #admin- (Módulo Admin, legacy/index.html
    L505-554 + L628-647 + L1397-1400) que #admin-screen usa de fato, MOVIDAS
    para cá (removidas do global — CSS PEEL RULE: só o que é literalmente

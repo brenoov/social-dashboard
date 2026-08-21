@@ -52,6 +52,12 @@ export function prepararEstoque(itens, { busca = '', status = 'todos', sort = 'q
   // categorias: array/Set de categorias selecionadas (multi). Vazio/null = todas.
   const cats = categorias == null ? [] : Array.from(categorias).filter((c) => c && c !== 'todas');
   const catSet = cats.length ? new Set(cats.map(String)) : null;
+  // Quantos a tela esconde por não serem produto. Conta ANTES dos filtros da
+  // pessoa, de propósito: o número é sobre o que a tela omite sempre, não sobre
+  // o que a busca deixou de fora. Esconder calado é o defeito gêmeo de mostrar
+  // o que não devia — desde 20/08/2026 aqui cai também o que o coletor não
+  // conseguiu classificar, e uma linha de produto nova pode estar no meio.
+  const semClassificacao = (itens || []).filter(ehMateriaPrima).length;
   let rows = (itens || []).filter((it) => {
     // Regra fixa: matéria-prima/insumo (categoria vazia) nunca aparece no estoque.
     if (ehMateriaPrima(it)) return false;
@@ -68,7 +74,7 @@ export function prepararEstoque(itens, { busca = '', status = 'todos', sort = 'q
   });
   const full = rows.length;
   if (limit !== 'all') rows = rows.slice(0, Number(limit) || full);
-  return { rows, full };
+  return { rows, full, semClassificacao };
 }
 
 // canaisIds: array/Set de loja.id selecionados. Vazio/null -> todos os pedidos.

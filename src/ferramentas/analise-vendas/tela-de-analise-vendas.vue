@@ -95,6 +95,13 @@ import { chamarBling, paginasDoBling, ErroDoBling, textoDoAviso } from '../../co
 // Quando mostrar "Carregando" e quando escrever o recado de erro. Mora fora da
 // tela para poder ser provado sem navegador — ver o comentario do arquivo.
 import { corpoEstaVazio, deveMostrarCarregando, deveEscreverRecado } from './carregamento-da-tela.js'
+import { agruparCanais, estadoDoGrupo, alternarGrupo } from '../../compartilhado/grupo-do-canal.js'
+
+// O grupo de cada canal, lido de bling_lojas junto com o nome (Peça 2).
+let _saGrupoDoCanal={}
+// As linhas cruas de bling_lojas: o escopo da supervisora precisa da LISTA para
+// ampliar para o grupo inteiro. Sem ela a regra não amplia (lado seguro).
+let _saCanaisBrutos=[]
 
 const router = useRouter()
 
@@ -376,7 +383,9 @@ async function loadSalesAnalysisData(period,opcoes){
     const[pedidosBrutos,pedidosPrevBrutos,lojaMapCheio,metasArr,vendedoresArr,pedidos15Brutos,meusTimes]=await Promise.all([
       blingPages('pedidos/vendas',{dataInicial:di,dataFinal:df,'idsSituacoes[]':9}),
       blingPages('pedidos/vendas',{dataInicial:diPrev,dataFinal:dfPrev,'idsSituacoes[]':9}).catch(()=>[]),
-      sbClient.from('bling_lojas').select('loja_id,nome').order('loja_id').then(r=>{const mp={};(r.data||[]).forEach(l=>mp[l.loja_id]=l.nome);return mp;}),
+      // O GRUPO vem junto do nome (Peça 2, 20/08/2026): é ele que separa o
+      // menu de canais em Atacado / Varejo / Outros.
+      sbClient.from('bling_lojas').select('loja_id,nome,grupo').order('loja_id').then(r=>{const mp={};_saGrupoDoCanal={};_saCanaisBrutos=r.data||[];_saCanaisBrutos.forEach(l=>{mp[l.loja_id]=l.nome;_saGrupoDoCanal[l.loja_id]=l.grupo||null;});return mp;}),
       sbClient.from('bling_metas').select('loja_id,meta_valor,daily_goals').eq('year',effY).eq('month',effM).then(r=>r.data||[]),
       sbClient.from('bling_vendedores').select('vendor_id,nome').then(r=>r.data||[]),
       blingPages('pedidos/vendas',{dataInicial:di15,dataFinal:df15,'idsSituacoes[]':9}).catch(()=>[]),
@@ -386,7 +395,8 @@ async function loadSalesAnalysisData(period,opcoes){
       // faturamento da empresa inteira para quem não pode ver.
       Promise.all([
         sbClient.from('equipes').select('id,nome,canal_loja_id').then(r=>r.data||[]),
-        sbClient.from('equipes_membros').select('equipe_id,profile_id').then(r=>r.data||[]),
+        // `papel` entrou em 20/08: sem ele a supervisora vira vendedora.
+        sbClient.from('equipes_membros').select('equipe_id,profile_id,papel').then(r=>r.data||[]),
       ]).then(([t,m])=>({times:t,membros:m})).catch(()=>({times:[],membros:[]}))
     ]);
 
@@ -397,6 +407,9 @@ async function loadSalesAnalysisData(period,opcoes){
       escopoPorEquipe:estado.escopo_por_equipe,
       meuId:estado.userId,
       times:meusTimes.times,membros:meusTimes.membros,
+      // A lista de canais com grupo: é ela que deixa a supervisora ver o grupo
+      // inteiro dos times onde supervisiona (Peça 3).
+      canais:_saCanaisBrutos,
     });
     const lojaMap=filtrarMapaDeCanais(lojaMapCheio,meusCanais);
     // A META TAMBÉM. Sem isto a tela mediria a venda de UMA loja contra a meta
@@ -439,27 +452,61 @@ async function loadSalesAnalysisData(period,opcoes){
       pvArr.forEach(r=>{pvMap[r.pedido_id]=r.vendor_id;pvQtdMap[r.pedido_id]=r.qtd_itens||1;});
     }
 
-    const lojas=Object.entries(lojaMap).map(([id,nome])=>({id:parseInt(id),nome})).sort((a,b)=>a.id-b.id);
+    const lojas=Object.entries(lojaMap).map(([id,nome])=>({id:parseInt(id),nome,grupo:_saGrupoDoCanal[id]||null})).sort((a,b)=>a.id-b.id);
     const lojasComVenda=new Set(pedidos.map(p=>String(p.loja?.id)).filter(Boolean));
     const initialIds=lojas.filter(l=>lojasComVenda.has(String(l.id))).map(l=>String(l.id));
     const canalDrop=document.getElementById('sa-canal-drop');
     const canalTrigger=document.getElementById('sa-canal-trigger');
     if(canalDrop){
       canalDrop.textContent='';
-      lojas.forEach(l=>{
-        const lbl=document.createElement('label');lbl.className='sa-canal-check';
-        const cb=document.createElement('input');cb.type='checkbox';cb.className='sa-canal-chk';cb.value=String(l.id);
-        cb.checked=lojasComVenda.has(String(l.id));
-        cb.addEventListener('change',saSelectCanal);
-        const nm=document.createElement('span');nm.textContent=l.nome;
-        lbl.appendChild(cb);lbl.appendChild(nm);
-        canalDrop.appendChild(lbl);
+      // ── O MENU AGRUPADO (Peça 2) ────────────────────────────────────────
+      // Um bloco por grupo do canal, com marcar/desmarcar todos em cada um.
+      // Canal sem grupo NÃO some: cai no bloco "Outros", no fim. Enquanto
+      // ninguém marcar grupo na Config de Admin, existe só esse bloco — e o
+      // menu fica idêntico ao que sempre foi, sem cabeçalho nenhum.
+      const baldes=agruparCanais(lojas.map(l=>({loja_id:l.id,nome:l.nome,grupo:l.grupo})));
+      const temGrupo=baldes.some(b=>b.grupo!==null);
+      const marcados=()=>new Set([...document.querySelectorAll('.sa-canal-chk')].filter(cb=>cb.checked).map(cb=>cb.value));
+      baldes.forEach(b=>{
+        if(temGrupo){
+          const cab=document.createElement('div');cab.className='sa-canal-grupo';
+          const nome=document.createElement('span');nome.className='sa-canal-grupo-nome';nome.textContent=b.grupo||'Outros';
+          const bt=document.createElement('button');bt.type='button';bt.className='sa-canal-grupo-todos';
+          const pintar=()=>{bt.textContent=estadoDoGrupo(b.canais,marcados())==='todos'?'desmarcar todos':'marcar todos';};
+          bt.addEventListener('click',()=>{
+            const novo=alternarGrupo(b.canais,marcados());
+            const querido=new Set([...novo].map(String));
+            b.canais.forEach(c=>{
+              const cb=document.querySelector('.sa-canal-chk[value="'+String(c.loja_id)+'"]');
+              if(cb)cb.checked=querido.has(String(c.loja_id));
+            });
+            canalDrop.querySelectorAll('.sa-canal-grupo-todos').forEach(o=>o.dispatchEvent(new Event('repintar')));
+            saSelectCanal();
+          });
+          bt.addEventListener('repintar',pintar);
+          cab.appendChild(nome);cab.appendChild(bt);canalDrop.appendChild(cab);
+          // pintado depois que as caixas do bloco existirem
+          setTimeout(pintar,0);
+        }
+        b.canais.forEach(c=>{
+          const l=lojas.find(x=>String(x.id)===String(c.loja_id));
+          const lbl=document.createElement('label');lbl.className='sa-canal-check';
+          const cb=document.createElement('input');cb.type='checkbox';cb.className='sa-canal-chk';cb.value=String(c.loja_id);
+          cb.checked=lojasComVenda.has(String(c.loja_id));
+          cb.addEventListener('change',()=>{
+            canalDrop.querySelectorAll('.sa-canal-grupo-todos').forEach(o=>o.dispatchEvent(new Event('repintar')));
+            saSelectCanal();
+          });
+          const nm=document.createElement('span');nm.textContent=(l&&l.nome)||c.nome;
+          lbl.appendChild(cb);lbl.appendChild(nm);
+          canalDrop.appendChild(lbl);
+        });
       });
       const foot=document.createElement('div');foot.className='sa-canal-drop-foot';
       const btnTodos=document.createElement('button');btnTodos.textContent='Todos';
-      btnTodos.addEventListener('click',()=>{document.querySelectorAll('.sa-canal-chk').forEach(cb=>cb.checked=true);saSelectCanal();});
+      btnTodos.addEventListener('click',()=>{document.querySelectorAll('.sa-canal-chk').forEach(cb=>cb.checked=true);canalDrop.querySelectorAll('.sa-canal-grupo-todos').forEach(o=>o.dispatchEvent(new Event('repintar')));saSelectCanal();});
       const btnNenhum=document.createElement('button');btnNenhum.textContent='Nenhum';
-      btnNenhum.addEventListener('click',()=>{document.querySelectorAll('.sa-canal-chk').forEach(cb=>cb.checked=false);saSelectCanal();});
+      btnNenhum.addEventListener('click',()=>{document.querySelectorAll('.sa-canal-chk').forEach(cb=>cb.checked=false);canalDrop.querySelectorAll('.sa-canal-grupo-todos').forEach(o=>o.dispatchEvent(new Event('repintar')));saSelectCanal();});
       foot.appendChild(btnTodos);foot.appendChild(btnNenhum);
       canalDrop.appendChild(foot);
     }
@@ -1373,7 +1420,18 @@ onUnmounted(() => {
 .tela-analise-vendas :deep(.sa-canal-wrap){position:relative;}
 .tela-analise-vendas :deep(.sa-canal-trigger){background:none;border:1px solid var(--border);color:var(--muted);border-radius:var(--radius-sm);padding:5px 16px;font-size:max(9px, calc(12px * var(--escala-texto, 1)));font-weight:600;letter-spacing:1px;text-transform:uppercase;font-family:var(--fonte-principal);cursor:pointer;white-space:nowrap;transition:background .2s,color .15s,border-color .15s;}
 .tela-analise-vendas :deep(.sa-canal-trigger:hover){border-color:var(--accent);color:var(--accent);}
-.tela-analise-vendas :deep(.sa-canal-drop){position:absolute;top:calc(100% + 6px);right:0;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 6px;min-width:190px;z-index:9999;display:none;flex-direction:column;gap:2px;box-shadow:var(--shadow-lg);}
+.tela-analise-vendas :deep(.sa-canal-drop){position:absolute;top:calc(100% + 6px);right:0;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 6px;min-width:190px;max-height:min(60vh,360px);overflow-y:auto;z-index:9999;display:none;flex-direction:column;gap:2px;box-shadow:var(--shadow-lg);}
+/* ── CABEÇALHO DE GRUPO NO MENU DE CANAIS (Peça 2, 20/08/2026) ──────────────
+   Só aparece quando existe ao menos um canal com grupo. */
+.tela-analise-vendas :deep(.sa-canal-grupo){display:flex;align-items:center;justify-content:space-between;gap:var(--sp-2);padding:var(--sp-2) var(--sp-1) var(--sp-1);margin-top:var(--sp-1);border-top:1px solid var(--border);}
+.tela-analise-vendas :deep(.sa-canal-grupo:first-child){border-top:none;margin-top:0;}
+.tela-analise-vendas :deep(.sa-canal-grupo-nome){font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);overflow-wrap:anywhere;}
+.tela-analise-vendas :deep(.sa-canal-grupo-todos){flex:0 0 auto;font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));font-weight:600;color:var(--accent);background:none;border:1px solid var(--border);border-radius:var(--radius-md);padding:var(--sp-1) var(--sp-2);cursor:pointer;white-space:nowrap;transition:border-color .12s ease;}
+.tela-analise-vendas :deep(.sa-canal-grupo-todos:hover){border-color:var(--accent);}
+@media(max-width:640px){
+  .tela-analise-vendas :deep(.sa-canal-grupo-todos){position:relative;}
+  .tela-analise-vendas :deep(.sa-canal-grupo-todos)::after{content:'';position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);height:40px;}
+}
 .tela-analise-vendas :deep(.sa-canal-drop.open){display:flex;}
 .tela-analise-vendas :deep(.sa-canal-check){display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:5px;cursor:pointer;font-size:max(9px, calc(12px * var(--escala-texto, 1)));color:var(--text);user-select:none;}
 .tela-analise-vendas :deep(.sa-canal-check:hover){background:var(--accent-light);}

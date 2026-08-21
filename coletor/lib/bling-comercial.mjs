@@ -131,24 +131,65 @@ export async function blingSaldoFoco(token, prodMap) {
   return saldoPorDep;
 }
 
-// Classifica o item pela descrição (categoria) ou null se não-vendável.
-export function classificarItem(nome) {
-  const n = (nome || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-  if (/(sacola|tnt|embalagem|caixa|linha|poliamida|poliester|nylon|tinta|materia.?prima|aviamento|ziper|ziper|tecido|forro|cola|verniz|fivela a granel)/.test(n)) return null;
-  if (/carteira/.test(n)) return 'Carteira';
-  if (/transversal|tiracolo|crossbody/.test(n)) return 'Transversal';
-  if (/tote/.test(n)) return 'Tote';
-  if (/mochila/.test(n)) return 'Mochila';
-  if (/clutch|festa|baguete/.test(n)) return 'Festa/Clutch';
-  if (/ombro/.test(n)) return 'Bolsa de ombro';
-  if (/(alca de mao|de mao|handbag)/.test(n)) return 'Bolsa de mão';
-  if (/(porta.?cartao|porta cartao| cartao)/.test(n)) return 'Porta-cartão';
-  if (/(porta.?niquel|niquel|porta.?moeda|moedeir)/.test(n)) return 'Porta-níquel';
-  if (/necessaire|nessaire/.test(n)) return 'Necessaire';
-  if (/oculos/.test(n)) return 'Óculos';
-  if (/cinto/.test(n)) return 'Cinto';
-  if (/chaveiro/.test(n)) return 'Chaveiro';
-  if (/mala/.test(n)) return 'Mala/Viagem';
-  if (/bolsa|bag/.test(n)) return 'Bolsa (outros)';
-  return 'Outros acessórios';
+// DUAS PERGUNTAS DIFERENTES, E ELAS NÃO TÊM A MESMA RESPOSTA.
+//
+//   · "que categoria é este produto?"  — VENDAS. Aqui o pega-tudo está CERTO:
+//     se o item foi vendido, ele é produto; perder a categoria dele estragaria
+//     o relatório. `classificarItem()` responde a esta.
+//   · "isto é um produto vendável?"    — ESTOQUE. Aqui o pega-tudo É o defeito.
+//     `categoriaDeEstoque()` responde a esta.
+//
+// Enquanto as duas foram a MESMA função, todo insumo cujo nome não estava nas
+// palavras de matéria-prima caía no pega-tudo, virava 'Outros acessórios' e
+// aparecia no telão da Gestão à Vista — 213 das 1.386 linhas visíveis em
+// 20/08/2026: argola, botão, corrente, couro, camurça, espuma, retalho, bobina,
+// caixa, aplicador, fivela injetada, alça. Conferidas uma a uma nos três
+// depósitos, nenhuma era produto de venda.
+//
+// ⚠️ A lista abaixo é escrita à MÃO e vai envelhecer — é da natureza dela. O que
+// mudou é para que lado ela erra: no estoque, o que ela não reconhece fica de
+// FORA em vez de entrar como produto. Por isso o `reconhecido` existe e por isso
+// o robô conta quantos caíram no pega-tudo (ver relatorios-comerciais.mjs): uma
+// linha de produto nova que ninguém cadastrou na lista some da tela, e some
+// CALADA se ninguém estiver contando.
+const CATEGORIA_PEGA_TUDO = 'Outros acessórios';
+
+export function classificarItemDetalhado(nome) {
+  const n = (nome || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const reconheci = (categoria) => ({ categoria, reconhecido: true });
+  if (!n.trim()) return { categoria: null, reconhecido: true };
+  // `insumo` entrou em 20/08: "INSUMOS DE PRODUCAO - BOLSAS" escapava por match
+  // POSITIVO em /bolsa|bag/, não pelo pega-tudo. Não há venda com esse nome, então
+  // acrescentá-lo não mexe em nada do lado de vendas (medido antes).
+  if (/(sacola|tnt|embalagem|caixa|linha|poliamida|poliester|nylon|tinta|materia.?prima|insumo|aviamento|ziper|ziper|tecido|forro|cola|verniz|fivela a granel)/.test(n)) return reconheci(null);
+  if (/carteira/.test(n)) return reconheci('Carteira');
+  if (/transversal|tiracolo|crossbody/.test(n)) return reconheci('Transversal');
+  if (/tote/.test(n)) return reconheci('Tote');
+  if (/mochila/.test(n)) return reconheci('Mochila');
+  if (/clutch|festa|baguete/.test(n)) return reconheci('Festa/Clutch');
+  if (/ombro/.test(n)) return reconheci('Bolsa de ombro');
+  if (/(alca de mao|de mao|handbag)/.test(n)) return reconheci('Bolsa de mão');
+  if (/(porta.?cartao|porta cartao| cartao)/.test(n)) return reconheci('Porta-cartão');
+  if (/(porta.?niquel|niquel|porta.?moeda|moedeir)/.test(n)) return reconheci('Porta-níquel');
+  if (/necessaire|nessaire/.test(n)) return reconheci('Necessaire');
+  if (/oculos/.test(n)) return reconheci('Óculos');
+  if (/cinto/.test(n)) return reconheci('Cinto');
+  if (/chaveiro/.test(n)) return reconheci('Chaveiro');
+  if (/mala/.test(n)) return reconheci('Mala/Viagem');
+  if (/bolsa|bag/.test(n)) return reconheci('Bolsa (outros)');
+  return { categoria: CATEGORIA_PEGA_TUDO, reconhecido: false };
 }
+
+// VENDAS — comportamento inalterado, inclusive o pega-tudo.
+export function classificarItem(nome) {
+  return classificarItemDetalhado(nome).categoria;
+}
+
+// ESTOQUE — só entra o que foi reconhecido como produto. O que a lista não
+// conhece fica de fora, e a seção de estoque da Gestão à Vista continua com a
+// regra de sempre: categoria vazia não aparece.
+export function categoriaDeEstoque(nome) {
+  const d = classificarItemDetalhado(nome);
+  return d.reconhecido ? d.categoria : null;
+}
+

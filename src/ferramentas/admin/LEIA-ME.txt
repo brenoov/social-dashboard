@@ -119,3 +119,65 @@ Tráfego e da Redes Sociais):
   componente — mesma técnica já usada nos modais da Gestão de Tráfego.
 
 Para mexer só nesta tela, edite apenas esta pasta.
+
+O GRUPO DO CANAL — ATACADO / VAREJO (20/08/2026)
+-------------------------------------------------
+Cada canal do Bling tem um grupo (`bling_lojas.grupo`): Atacado, Varejo, ou
+outro que o dono criar na tela. É TEXTO, não lista travada no código — grupo
+novo tem de ser digitação, não migration.
+
+O GRUPO É DO CANAL, NÃO DO TIME, e isso foi medido: dos 14 canais do Bling só 3
+têm time, e os 11 sem time aparecem no seletor das dashboards do mesmo jeito.
+O time é atacado ou varejo pelo canal a que está amarrado; a ficha dele mostra
+o grupo em LEITURA e manda configurar na lista "Canais de venda".
+
+⚠️ TRÊS ARMADILHAS QUE ESTA PEÇA ENCONTROU. Quem copiar esta tela copia as três:
+
+1. `bling_lojas` só tinha política de LEITURA. A de escrita nasceu com esta peça
+   (`bling_lojas_grupo_superadmin`). Sem ela a tela salvaria sem salvar: o
+   PostgREST responde 200 com lista VAZIA quando o RLS barra, sem erro. Por isso
+   a gravação aqui CONFERE a contagem de linhas devolvidas antes de dizer
+   "salvo".
+
+2. A política NÃO pode ler `profiles` direto. A expressão de uma policy roda como
+   o próprio usuário, e `profiles` tem RLS: a pessoa não enxerga a própria linha.
+   A primeira versão reprovou com o SUPERADMIN afetando zero linhas. Por isso
+   existe `public.superadmin_pela_ficha()`, security definer.
+
+3. EXISTEM DOIS "SUPERADMIN" NESTE BANCO e eles não são a mesma coisa: a coluna
+   `profiles.is_superadmin` (que é o que a tela usa, via `estado.is_superadmin`)
+   e a função `public.is_superadmin()`, que NÃO lê a coluna — confere o e-mail
+   contra uma lista de três cravada no corpo dela. Hoje concordam (as mesmas 3
+   pessoas, de 22 perfis). Se alguém marcar a coluna para uma quarta, divergem.
+   Como quem abre a tela é a coluna, é a coluna que manda na política.
+
+⚠️ Canal novo no Bling NÃO entra sozinho em `bling_lojas`: a tabela foi semeada
+uma vez em 21/05/2026 e nada no repositório escreve nela. Canal criado no Bling
+hoje não aparece nem aqui nem no seletor das dashboards até alguém inserir a
+linha. É anterior a esta peça e continua depois dela.
+
+Quem lê o grupo: por enquanto, ninguém além desta tela. As Peças 2 (seletor
+agrupado), 3 (alcance da supervisora) e 4 (usuários agrupados) leem daqui — B24
+em docs/pendencias.md.
+
+Prova da trava: docs/provar-grupo-do-canal.sql (roda com a trava armada, dentro
+de um bloco que se desfaz sozinho).
+Spec: docs/superpowers/specs/2026-08-20-grupo-do-canal-design.md
+
+OS TIMES SOB CABEÇALHO DE GRUPO (Peça 4, 20/08/2026)
+-----------------------------------------------------
+Os cards de time da seção de Usuários ficam sob um cabeçalho por grupo, com a
+contagem ao lado. O time NÃO tem grupo próprio: ele herda do canal a que está
+amarrado (`equipes.canal_loja_id` -> `bling_lojas.grupo`).
+
+Time sem canal (loja que ainda vai abrir, como o Iguatemi) e time cujo canal
+está sem grupo caem juntos em "Sem grupo", no fim. Nenhum some — sumir da gestão
+de usuários seria perder o time inteiro de vista.
+
+Cabeçalho SÓ aparece quando existe ao menos um time com grupo. Enquanto ninguém
+marcar canal na lista "Canais de venda", esta parte da tela fica idêntica ao que
+sempre foi. E grupo que só existe em canal SEM time não vira cabeçalho vazio.
+
+A regra é `agruparTimesPorGrupo` em `src/compartilhado/grupo-do-canal.js`, com
+testes. Ela precisa de `_canaisComGrupo` carregado — por isso `loadAdminCanais()`
+roda ANTES de `loadAdminEquipes()` em `loadAdminUsers`.

@@ -12,6 +12,9 @@ import { lerBrutoDoDia, atrasoDoBruto, recadoDeAtraso } from '../_shared/bruto-d
 // As quatro contagens (conversa, cadastro, compra, visita) que já vêm no
 // `actions` do insight de campanha — sem chamada nova à Meta.
 import { contagensDaCampanha } from '../_shared/acoes-de-campanha.js';
+// A janela de datas do recorte de N dias. Estava escrita aqui dentro e cobria
+// N+1 dias, com o dia de HOJE (incompleto) dentro — ver janela-de-ads.js.
+import { janelaDeAds } from '../_shared/janela-de-ads.js';
 
 const GRAPH = 'https://graph.facebook.com/v21.0';
 const APP_ID = Deno.env.get('META_APP_ID') ?? '';
@@ -424,9 +427,14 @@ async function sincronizarConjuntos(sb: any, accountId: string, adAccountId: str
 }
 
 async function coletarAdsPorCampanha(sb: any, adAccountId: string, accountId: string, token: string, dias: number, hoje: string) {
-  const until = hoje;
-  const d = new Date(hoje + 'T12:00:00'); d.setDate(d.getDate() - dias);
-  const since = d.toLocaleDateString('en-CA');
+  // A JANELA SAI DO MÓDULO PURO, com teste ao lado. Ela morava aqui e pedia
+  // `until = hoje`: como o `time_range` da Meta é inclusive nas duas pontas,
+  // "7 dias" virava OITO, com o dia de hoje (incompleto) dentro. O engajamento
+  // logo acima neste mesmo arquivo sempre pediu N dias COMPLETOS — agora os dois
+  // usam a mesma régua, e o alcance volta a fechar com o painel da Meta.
+  const janela = janelaDeAds(hoje, dias);
+  if (!janela) return;                       // recorte que ninguém sabe medir não vira pergunta à Meta
+  const { since, until } = janela;
   try {
     const items = await apiGetAll(`act_${adAccountId}/insights`, {
       fields: 'campaign_id,spend,impressions,clicks,reach,actions',

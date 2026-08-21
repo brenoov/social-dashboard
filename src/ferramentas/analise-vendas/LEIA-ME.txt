@@ -83,3 +83,19 @@ da Gestão de Tráfego):
   tempo (troca por rota).
 
 Para mexer só nesta pasta, edite apenas estes 2 arquivos.
+
+MENU DE CANAIS AGRUPADO — ATACADO / VAREJO (20/08/2026)
+--------------------------------------------------------
+O dropdown de canal mostra um bloco por GRUPO do canal, com "marcar todos" /
+"desmarcar todos" em cada bloco. O grupo vem de `bling_lojas.grupo` e se
+configura em Config de Admin > Canais de venda — não aqui.
+
+Canal sem grupo NÃO some: cai no bloco "Outros", no fim. Enquanto nenhum canal
+tiver grupo, o menu fica IDÊNTICO ao que sempre foi.
+
+A regra mora em `src/compartilhado/grupo-do-canal.js` e é a MESMA da Gestão à
+Vista — duas cópias da mesma regra acabam discordando.
+
+⚠️ O menu ganhou `max-height:min(60vh,360px)` + rolagem, que ele não tinha. Com
+os cabeçalhos novos ele ia a 547px de altura e a lista passava do fim da tela; a
+Gestão à Vista já tinha esse teto desde sempre.

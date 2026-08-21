@@ -8,8 +8,13 @@
 // Lido no código em 17/08/2026, não deduzido:
 //   0            → coletarAdsDia: time_range {since: dia, until: dia}
 //                  (e coletarAdsPorCampanha com dias=0 dá a MESMA janela)
-//   1, 7, 14, 30 → coletarAdsPorCampanha: until = hoje, since = hoje − dias
-//                  (repare: cobre N+1 dias; o backfill COPIA o jeito, não conserta)
+//   1, 7, 14, 30 → coletarAdsPorCampanha. A janela DELE mudou em 20/08/2026:
+//                  até então era `until = hoje, since = hoje − dias`, que cobre
+//                  N+1 dias com o dia de hoje dentro; hoje é `hoje − dias` até
+//                  ONTEM, N dias completos. Ver janela-de-ads.js, onde as duas
+//                  moram lado a lado com teste. O backfill continua COPIANDO o
+//                  jeito de quem gravou a linha — por isso precisa saber a data
+//                  da virada (PRIMEIRO_DIA_COM_A_JANELA_NOVA, logo abaixo).
 //   99           → O COLETOR PYTHON LEGADO, não a Edge Function:
 //                  projetos/central-inteligencia/redes-sociais/coletor/coletar.py
 //                  linha 369  dias_mtd = max(date.today().day - 1, 0)
@@ -26,21 +31,35 @@
 //                  preenchida, e é por isso que ele só se preenche por aqui.
 // PURO: sem rede, sem banco.
 
+// UM MOTOR SÓ para a janela de N dias: a mesma função que o coletor usa para
+// PERGUNTAR é a que o backfill usa para REPETIR a pergunta. Duas cópias desta
+// conta seriam duas verdades esperando para divergir no primeiro conserto.
+import { janelaDeAds, janelaDeAdsAntiga } from '../supabase/functions/_shared/janela-de-ads.js';
+
 const RECORTES_DE_N_DIAS = [1, 7, 14, 30];
 
-// Âncora ao MEIO-DIA de propósito: assim nem horário de verão nem fuso empurram
-// a data para o dia anterior/seguinte na hora de formatar. É a mesma conta do
-// coletor (supabase/functions/coletar-dados/index.ts:420).
-function menosDias(dia, n) {
-  const d = new Date(dia + 'T12:00:00');
-  d.setDate(d.getDate() - n);
-  return d.toLocaleDateString('en-CA');
-}
+// A PARTIR DE QUE `captured_at` AS LINHAS FORAM GRAVADAS COM A JANELA NOVA.
+//
+// NASCE `null` DE PROPÓSITO, e null quer dizer "a Edge ainda não subiu": enquanto
+// estiver assim, o backfill trata TODA linha como linha da janela velha — que é
+// exatamente o que elas são hoje. Chutar uma data aqui antes do deploy faria o
+// backfill perguntar à Meta um período diferente do que gravou o gasto da mesma
+// linha, e aí duas colunas vizinhas passariam a falar de semanas diferentes.
+//
+// COMO PREENCHER, depois de subir a `coletar-dados` pelo MCP: ponha aqui a data
+// da PRIMEIRA coleta feita com o código novo (a data BRT da primeira rodada
+// depois do deploy, no formato 'AAAA-MM-DD'). Nem antes, nem depois.
+export const PRIMEIRO_DIA_COM_A_JANELA_NOVA = null;
 
-export function janelaDoRecorte(capturedAt, periodDays) {
+export function janelaDoRecorte(capturedAt, periodDays, viradaEm = PRIMEIRO_DIA_COM_A_JANELA_NOVA) {
   if (!capturedAt) return null;
   if (periodDays === 0) return { since: capturedAt, until: capturedAt };
-  if (RECORTES_DE_N_DIAS.includes(periodDays)) return { since: menosDias(capturedAt, periodDays), until: capturedAt };
+  if (RECORTES_DE_N_DIAS.includes(periodDays)) {
+    // Comparação por texto: `captured_at` já vem em 'AAAA-MM-DD', e ISO ordena
+    // igual em texto e no calendário.
+    const nova = !!viradaEm && String(capturedAt) >= String(viradaEm);
+    return nova ? janelaDeAds(capturedAt, periodDays) : janelaDeAdsAntiga(capturedAt, periodDays);
+  }
   if (periodDays === 99) return { since: capturedAt.slice(0, 7) + '-01', until: capturedAt };
   return null; // recorte que ninguém grava hoje: não inventa janela
 }
