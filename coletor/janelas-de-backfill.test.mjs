@@ -41,9 +41,15 @@ test('recorte desconhecido devolve null em vez de inventar janela', () => {
 // ele REPETE a pergunta que gravou cada linha. Então a janela que ele usa
 // depende de QUANDO a linha foi coletada.
 
-test('enquanto a Edge nova não subiu, toda linha é linha da janela velha', () => {
-  assert.equal(PRIMEIRO_DIA_COM_A_JANELA_NOVA, null,
-    'preencher esta data ANTES do deploy faria o backfill perguntar o período errado');
+test('a virada é 22/08/2026 — o primeiro dia com os DOIS robôs novos', () => {
+  assert.equal(PRIMEIRO_DIA_COM_A_JANELA_NOVA, '2026-08-22');
+  // 21/08 foi dia misturado (a Edge subiu às 08h13, depois da rodada das 07h):
+  // fica do lado velho de propósito.
+  assert.deepEqual(janelaDoRecorte('2026-08-21', 7), { since: '2026-08-14', until: '2026-08-21' });
+  assert.deepEqual(janelaDoRecorte('2026-08-22', 7), { since: '2026-08-15', until: '2026-08-21' });
+});
+
+test('linha antiga continua sendo lida pela janela velha', () => {
   assert.deepEqual(janelaDoRecorte('2026-08-14', 7), { since: '2026-08-07', until: '2026-08-14' });
 });
 
