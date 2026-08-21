@@ -313,3 +313,44 @@ test('com responsável, o contato não entra na frase', () => {
   const v = { id: 'v1', situacao: 'ativo', pessoa_id: 'p1', pessoa_nome: 'Marcus', contato_nome: 'Outro' }
   assert.equal(resumoDoEstado(estadoDoVeiculo(v, [], [])), 'Com Marcus')
 })
+
+/* ── A reserva que segura o carro, e a exceção de quem reservou ───────────── */
+
+test('reserva aprovada segura o carro — mas não contra QUEM RESERVOU', () => {
+  // O defeito (medido em 20/08/2026): a partir da hora marcada, a reserva
+  // aprovada tirava o carro de "Livres para pegar" pra TODO MUNDO, inclusive
+  // pra quem tinha reservado. E é dentro dessa lista que mora o botão "Peguei
+  // o carro". Quem chegava no horário combinado abria o app e o carro tinha
+  // sumido da tela; só quem abria ANTES da hora conseguia pegar.
+  const deOutraPessoa = estadoDoVeiculo(carro({ reservada: true }), [])
+  assert.equal(deOutraPessoa.disponivel, false)
+  assert.equal(deOutraPessoa.disponivelParaMim, false, 'reserva dos outros me barra')
+
+  const minha = estadoDoVeiculo(carro({ reservada: true, reservada_para_mim: true }), [])
+  assert.equal(minha.disponivel, false,
+    'na Gestão o carro continua reservado: a tela não mente sobre a frota')
+  assert.equal(minha.disponivelParaMim, true,
+    'pra quem reservou, o carro está lá pra ser pego — é o que a reserva comprou')
+})
+
+test('a exceção não ressuscita carro na rua, na oficina, nem com dono fixo', () => {
+  // `reservada_para_mim` abre UMA porta só. Sem isto, uma reserva minha antiga
+  // faria aparecer como "livre pra pegar" um carro que está com outra pessoa.
+  const naRua = estadoDoVeiculo(
+    carro({ reservada: true, reservada_para_mim: true }),
+    [{ veiculo_id: 'v1', pessoa_id: 'p-outro', saida_em: '2026-08-20T07:00Z' }],
+  )
+  assert.equal(naRua.disponivelParaMim, false, 'carro na rua não está livre pra ninguém')
+
+  const oficina = estadoDoVeiculo(carro({ reservada: true, reservada_para_mim: true, situacao: 'em_manutencao' }), [])
+  assert.equal(oficina.disponivelParaMim, false)
+
+  const comDono = estadoDoVeiculo(carro({ reservada: true, reservada_para_mim: true, pessoa_id: 'p-dono' }), [])
+  assert.equal(comDono.disponivelParaMim, false, 'carro fixo de alguém não entra nos livres')
+})
+
+test('sem reserva nenhuma, "livre pra mim" é igual a "livre"', () => {
+  const e = estadoDoVeiculo(carro(), [])
+  assert.equal(e.disponivel, true)
+  assert.equal(e.disponivelParaMim, true)
+})

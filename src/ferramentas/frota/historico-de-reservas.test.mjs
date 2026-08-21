@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  SITUACOES_DO_HISTORICO, rotuloDaSituacao, diaEmBrasilia,
+  SITUACOES_DO_HISTORICO, rotuloDaSituacao, corDaSituacao, diaEmBrasilia,
   acoesDaReserva, porQueNaoDaEmPortugues, provaDaRetirada, copiaNoZoho,
   retiradaDaReserva, linhaDoTempo, filtrar, resumoDoHistorico, FILTROS, fraseDaPosse,
 } from './historico-de-reservas.js'
@@ -585,4 +585,17 @@ test('D4 · a barra de filtros ganha "Arquivadas"', () => {
 test('D4 · arquivada não entra na conta da frase do topo', () => {
   const c = { ...cenarioReal(), usos: [], requisicoes: [encerrada({ arquivada_em: '2026-08-19T12:00:00-03:00' })] }
   assert.match(resumoDoHistorico(linhaDoTempo(c)), /Nenhuma reserva e nenhuma retirada/)
+})
+
+test('a cor do selo é sempre uma que existe no CSS', () => {
+  // `SITUACOES['revogada']` é undefined — ler `.cor` dele na tela derruba o
+  // bloco inteiro. E 'info'/'neutro' (os estados de posse) não têm classe
+  // nenhuma no CSS: chegariam como selo sem cor.
+  assert.equal(corDaSituacao('pendente'), 'espera')
+  assert.equal(corDaSituacao('aprovada'), 'boa')
+  assert.equal(corDaSituacao('recusada'), 'ruim')
+  assert.equal(corDaSituacao('revogada'), 'ruim')
+  assert.equal(corDaSituacao('posse-aberta'), 'neutra', "'info' não existe no CSS")
+  assert.equal(corDaSituacao('coisa-que-nao-existe'), 'neutra')
+  assert.equal(corDaSituacao(null), 'neutra')
 })

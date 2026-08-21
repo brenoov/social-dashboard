@@ -35,8 +35,8 @@ import { passarPara, quemEstaComOCarro, trocarDonoFixo } from '../../../supabase
 // e o robô do aviso PRECISAM responder igual. Ver quem-loga.js.
 import { pessoaDoUsuario } from '../../../supabase/functions/_shared/quem-loga.js'
 import {
-  SITUACOES, problemasDaRequisicao, bloqueios, podeDecidir, motivoEmPortugues,
-  ordenarFila, quando, reservaParaPegar, reservaSegurando,
+  problemasDaRequisicao, bloqueios, podeDecidir, motivoEmPortugues,
+  ordenarFila, quando, reservaParaPegar, reservaSegurando, meusPedidos,
 } from './requisicoes.js'
 import { revisoesDoVeiculo, resumoDeRevisoes, problemasDoItem, avisoAoDesativar, ordenarCarrosPorUrgencia } from './revisoes.js'
 import { linkDoWhatsapp, telefoneLegivel, porQueNaoDaLink } from '../../compartilhado/whatsapp.js'
@@ -85,7 +85,7 @@ import {
 // prova de cada uma e o que o admin pode fazer com ela.
 import {
   linhaDoTempo, filtrar, resumoDoHistorico, FILTROS,
-  rotuloDaSituacao, porQueNaoDaEmPortugues, diaEmBrasilia, fraseDaPosse,
+  rotuloDaSituacao, corDaSituacao, porQueNaoDaEmPortugues, diaEmBrasilia, fraseDaPosse,
 } from './historico-de-reservas.js'
 import {
   agruparPorDia, filtrarFichas, resumoDasFichas, FILTROS_DE_FICHA,
@@ -1174,6 +1174,13 @@ const linhas = computed(() => ordenarEstados(
       local_bonito: localCurto({ arvore: arvoreDeLocais.value, veiculo: v }),
       reservada: !!segurando,
       reservada_por: segurando ? (segurando.pessoa_nome || null) : null,
+      // A MINHA reserva não me tranca fora do carro (20/08/2026). Até aqui,
+      // da hora marcada em diante o carro saía de "Livres para pegar" pra todo
+      // mundo — e o botão "Peguei o carro" mora dentro dessa lista. Quem
+      // chegava no horário combinado não achava mais o carro na tela.
+      // Só o painel de quem dirige muda: a Gestão lê `disponivel`, que
+      // continua dizendo que o carro está reservado.
+      reservada_para_mim: !!segurando && !!euId.value && segurando.pessoa_id === euId.value,
     }
     const quem = quemEstaComOCarro(dono, usos.value, pessoas.value)
     // `revisoes` é a QUARTA fonte de KM (D29): sem ela, 8 dos 10 carros ficam
@@ -1775,10 +1782,15 @@ const avisosDoPedido = ref([])
 const jaAvisado = ref(false)
 
 // As minhas: pendentes e aprovadas ainda não usadas.
-const minhasRequisicoes = computed(() => ordenarFila(
-  requisicoes.value.filter((r) =>
-    ['pendente', 'aprovada'].includes(r.situacao)
-    && (r.pessoa_id === euId.value || r.criada_por === (estado.user && estado.user.id)))))
+// A regra mora em requisicoes.js, testada. Até 20/08/2026 ela era este filtro
+// aqui, com 'pendente' e 'aprovada' só — e a recusa, com o motivo que a tela
+// OBRIGA quem recusa a escrever, não chegava em pessoa nenhuma.
+const minhasRequisicoes = computed(() => meusPedidos({
+  requisicoes: requisicoes.value,
+  minhaPessoaId: euId.value,
+  meuUsuarioId: estado.user && estado.user.id,
+  agoraIso: new Date().toISOString(),
+}))
 
 // A fila de quem aprova: tudo que está pendente, de todo mundo.
 const filaDeAprovacao = computed(() =>
@@ -3131,10 +3143,18 @@ onMounted(async () => {
           <li v-for="r in minhasRequisicoes" :key="r.id" class="fr-pedido">
             <div class="fr-pedido-topo">
               <strong>{{ (veiculos.find((v) => v.id === r.veiculo_id) || {}).nome || 'Veículo' }}</strong>
-              <span class="fr-selo" :class="SITUACOES[r.situacao].cor">{{ SITUACOES[r.situacao].rotulo }}</span>
+              <!-- `SITUACOES[r.situacao]` era leitura direta e quebrava com
+                   'revogada', que não mora naquela tabela: `undefined.cor`
+                   derruba o bloco inteiro. As duas funções nunca devolvem
+                   vazio nem cor que não exista no CSS. -->
+              <span class="fr-selo" :class="corDaSituacao(r.situacao)">{{ rotuloDaSituacao(r.situacao) }}</span>
             </div>
             <div class="fr-pedido-quando">{{ quando(r.retirada_prevista) }}<span v-if="r.destino"> · {{ r.destino }}</span></div>
+            <!-- O MOTIVO, nos dois casos em que existe um. Recusar exige motivo
+                 escrito, e revogar também (o gatilho da 045 recusa vazio) — não
+                 mostrar aqui era jogar fora a única explicação que a pessoa tem. -->
             <div class="fr-pedido-motivo" v-if="r.situacao === 'recusada' && r.motivo_decisao">{{ r.motivo_decisao }}</div>
+            <div class="fr-pedido-motivo" v-else-if="r.situacao === 'revogada' && r.encerrada_motivo">{{ r.encerrada_motivo }}</div>
           </li>
         </ul>
       </template>
@@ -3150,7 +3170,11 @@ onMounted(async () => {
               <span class="fr-card-nome">{{ l.veiculo.nome }}</span>
               <span class="fr-placa">{{ l.veiculo.placa }}</span>
             </div>
-            <span class="fr-selo livre" v-if="l.ondeEsta">Em {{ l.ondeEsta }}</span>
+            <!-- Sem este selo, o carro que a pessoa reservou aparece entre os
+                 livres sem dizer por quê — e ela não tem como saber que aquele
+                 ali é o dela, e não um que sobrou. -->
+            <span class="fr-selo espera" v-if="l.reservadaParaMim">Sua reserva</span>
+            <span class="fr-selo livre" v-else-if="l.ondeEsta">Em {{ l.ondeEsta }}</span>
           </div>
           <div class="fr-dados">
             <div class="fr-dado">
