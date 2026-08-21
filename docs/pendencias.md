@@ -325,6 +325,38 @@ fica menor, **vaza para fora da barra**. Uma régua de botões precisa de
 `min-width: 0` e `overflow-x: auto`. A Análise de Campanhas não tinha e ficou com
 três botões pendurados 17px além da borda; foi corrigida junto.
 
+### B24 · Separação atacado/varejo › faltam três das quatro peças 🟡 *aberto em 20/08*
+
+A **Peça 1 está pronta**: cada canal do Bling tem um grupo (`bling_lojas.grupo`),
+configurável em **Config de Admin › Canais de venda**. Ninguém lê esse grupo ainda
+além da própria tela. Faltam:
+
+- **Peça 2 — o seletor das dashboards agrupado.** O dropdown de canal passa a ter
+  os blocos *Atacado* e *Varejo*, cada um com marcar/desmarcar todos, e um bloco
+  *Outros* para canal sem grupo. Vale para Gestão à Vista e Análise de Vendas, que
+  dividem a mesma regra. Só tela.
+- **Peça 3 — o alcance da supervisora.** Hoje o recorte de canais **ignora o
+  papel**: supervisora vê o mesmo que vendedora. Passa a ser: supervisora vê todos
+  os canais do **grupo** dos times onde ela é supervisora; gerente (`gestor`) e
+  vendedora seguem vendo só a loja delas. ⚠️ **Mexe em trava e precisa entrar em
+  TRÊS lugares**: o módulo `_shared/canais-de-venda-permitidos.js`, a edge
+  `bling-proxy` (que não sobe com push) e a função `pode_ver_canal` no banco. Só
+  na tela não vale — foi esse buraco que se fechou em 13/08. Vai em sessão própria.
+- **Peça 4 — Config de Usuários agrupada.** Os cards de time sob cabeçalhos de
+  grupo, herdando do canal.
+
+**O estoque não entra em nenhuma delas.** `pode_ver_estoque` tem regra própria e
+mais apertada ("estar no time não basta"), escrita de propósito.
+
+⚠️ **Achado de segurança para decidir um dia:** existem **dois "superadmin"** neste
+banco — a coluna `profiles.is_superadmin`, que é o que a tela usa, e a função
+`public.is_superadmin()`, que confere o e-mail contra uma **lista de três cravada
+no código**. Hoje concordam. Se alguém marcar a coluna para uma quarta pessoa,
+divergem, e essa pessoa passa a ver telas onde não consegue salvar. Unificar é
+decisão do dono.
+
+Spec: `docs/superpowers/specs/2026-08-20-grupo-do-canal-design.md`
+
 ---
 
 ## Parte C — Ideias guardadas (ninguém pediu ainda)
