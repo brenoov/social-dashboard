@@ -199,6 +199,35 @@ export function ordenarEstados(estados) {
  * Valida uma devolução ANTES de gravar. Devolve a lista de problemas em
  * português; vazia significa que pode gravar.
  */
+/**
+ * O que impede — ou o que precisa ser dito — antes de o carro SAIR.
+ *
+ * A FICHA DE RETIRADA TEM DOIS BOTÕES DE GRAVAR: o do checklist, dentro dela
+ * ("Assinar e gravar checklist"), e o "Confirmar" da retirada, no pé. Até
+ * 21/08/2026 o segundo não olhava o primeiro. O dono pegou a Bravo
+ * Blackmotion, preencheu o checklist ali dentro, apertou Confirmar — o carro
+ * saiu (viagem às 09h03, 185.359 km) e tudo que ele tinha respondido virou pó,
+ * sem uma palavra na tela. Depois a Gestão dizia "não ficou prova nenhuma
+ * desta retirada", e ele veio perguntar por que o checklist tinha sumido.
+ *
+ * AVISA, NÃO TRANCA. É a mesma escolha do aceite ("sem a assinatura o carro sai
+ * do mesmo jeito") e do item marcado como Problema: travar aqui deixaria
+ * alguém a pé no estacionamento por causa de um botão. O que não se admite é
+ * jogar fora em silêncio o trabalho que a pessoa acabou de fazer.
+ *
+ * O KM continua sendo trava de verdade, nas duas tentativas: é ele que alimenta
+ * o aviso de revisão, e saída sem KM não serve pra nada.
+ */
+export function problemasDaRetirada({ km, faltaChecklist, jaAvisado } = {}) {
+  if (!Number.isInteger(km) || km <= 0) return ['Informe o KM que está no painel agora.'];
+  if (faltaChecklist && !jaAvisado) {
+    return ['O checklist deste carro ainda não foi gravado — o que você respondeu acima '
+      + 'se perde se o carro sair agora. Toque em "Assinar e gravar checklist" primeiro, '
+      + 'ou confirme de novo para tirar o carro sem ele.'];
+  }
+  return [];
+}
+
 export function problemasDaDevolucao({ kmSaida, kmVolta }) {
   const p = [];
   if (!Number.isInteger(kmVolta) || kmVolta <= 0) {
