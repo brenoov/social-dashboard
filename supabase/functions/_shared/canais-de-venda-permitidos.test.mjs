@@ -230,3 +230,123 @@ test('resposta de ERRO do Bling nao e confundida com lista', () => {
   assert.equal(r.negado, false)
   assert.equal(r.corpo, erro)
 })
+
+// ─────────────────────────────────────────────────────────────────────────────
+// O ALCANCE DA SUPERVISORA (Peça 3, 20/08/2026)
+//
+// PEDIDO DO DONO: "função de supervisora (hierarquia na sequência: vendedor(a) >
+// gerente > supervisor(a)) pode ver todos os canais dela (todos atacado), gestora
+// e vendedora vê somente sua loja". Ele confirmou que `gestor` no banco é a
+// "gerente" da fala dele.
+//
+// Até aqui `canaisDoEscopo` IGNORAVA o papel: supervisora via o mesmo que
+// vendedora. Agora supervisora vê o GRUPO inteiro dos times onde ela é
+// supervisora — e o grupo vem do canal (`bling_lojas.grupo`, Peça 1).
+//
+// O sentido do erro importa: quando falta informação para ampliar, NÃO se amplia.
+// Ampliar por omissão é dar acesso a mais, que é o erro caro deste arquivo.
+
+const NUVEM = { id: 't0', nome: 'Atacado Nuvem Shop', canal_loja_id: 205451611 }
+const FABRICA_ATAC = { id: 't4', nome: 'Atacado Fábrica', canal_loja_id: 205395333 }
+const TIMES_P3 = [NUVEM, TIVOLI, DOMPEDRO, IGUATEMI, FABRICA_ATAC]
+const CANAIS_P3 = [
+  { loja_id: 205451611, grupo: 'Atacado' },
+  { loja_id: 205395333, grupo: 'Atacado' },
+  { loja_id: 205834140, grupo: 'Varejo' },
+  { loja_id: 205657609, grupo: 'Varejo' },
+  { loja_id: 205680515, grupo: null },       // Amazon Seller, sem grupo
+]
+const escopo = (membros, canais = CANAIS_P3) => canaisDoEscopo({
+  isSuperadmin: false, escopoPorEquipe: true, meuId: 'u1',
+  times: TIMES_P3, membros, canais,
+})
+
+test('supervisora de um time de Atacado ve TODO o Atacado', () => {
+  const r = escopo([{ profile_id: 'u1', equipe_id: 't0', papel: 'supervisora' }])
+  assert.deepEqual(r.sort(), [205395333, 205451611], 'inclui a Fábrica, de que ela nao e membro')
+})
+
+test('supervisora de uma loja de Varejo ve TODO o Varejo', () => {
+  const r = escopo([{ profile_id: 'u1', equipe_id: 't1', papel: 'supervisora' }])
+  assert.deepEqual(r.sort(), [205657609, 205834140])
+})
+
+test('gestor (a "gerente") ve SO a loja dele — administra o time, nao enxerga mais', () => {
+  const r = escopo([{ profile_id: 'u1', equipe_id: 't1', papel: 'gestor' }])
+  assert.deepEqual(r, [205834140])
+})
+
+test('vendedora ve so a loja dela, como sempre foi', () => {
+  const r = escopo([{ profile_id: 'u1', equipe_id: 't1', papel: 'vendedora' }])
+  assert.deepEqual(r, [205834140])
+})
+
+test('membro SEM papel na consulta e tratado como vendedora, nao como supervisora', () => {
+  // Se o select esquecer a coluna `papel`, o certo é NAO ampliar.
+  const r = escopo([{ profile_id: 'u1', equipe_id: 't1' }])
+  assert.deepEqual(r, [205834140])
+})
+
+test('supervisora em dois grupos ve os DOIS inteiros', () => {
+  const r = escopo([
+    { profile_id: 'u1', equipe_id: 't0', papel: 'supervisora' },
+    { profile_id: 'u1', equipe_id: 't2', papel: 'supervisora' },
+  ])
+  assert.deepEqual(r.sort(), [205395333, 205451611, 205657609, 205834140])
+})
+
+test('supervisora num time e vendedora noutro: amplia SO o grupo onde supervisiona', () => {
+  const r = escopo([
+    { profile_id: 'u1', equipe_id: 't0', papel: 'supervisora' },   // Atacado inteiro
+    { profile_id: 'u1', equipe_id: 't1', papel: 'vendedora' },     // so a loja dela
+  ])
+  assert.deepEqual(r.sort(), [205395333, 205451611, 205834140])
+  assert.ok(!r.includes(205657609), 'o Dom Pedro NAO entra: la ela nao supervisiona')
+})
+
+test('supervisora de time cujo canal esta SEM grupo ve so aquele canal', () => {
+  const semGrupo = CANAIS_P3.map((c) => ({ ...c, grupo: c.loja_id === 205451611 ? null : c.grupo }))
+  const r = escopo([{ profile_id: 'u1', equipe_id: 't0', papel: 'supervisora' }], semGrupo)
+  assert.deepEqual(r, [205451611], 'sem grupo nao ha o que ampliar — e isso NAO pode virar "ve tudo"')
+})
+
+test('supervisora de time SEM canal nao ganha nada, e nao vira "ve tudo"', () => {
+  const r = escopo([{ profile_id: 'u1', equipe_id: 't3', papel: 'supervisora' }])
+  assert.deepEqual(r, [], 'lista vazia e diferente de null')
+  assert.notEqual(r, null)
+})
+
+test('SEM a lista de canais, a regra NAO amplia — falta de dado nunca da acesso', () => {
+  // O sentido do erro é este: quando falta informação, o certo é o de hoje.
+  const r = canaisDoEscopo({
+    isSuperadmin: false, escopoPorEquipe: true, meuId: 'u1',
+    times: TIMES_P3, membros: [{ profile_id: 'u1', equipe_id: 't0', papel: 'supervisora' }],
+  })
+  assert.deepEqual(r, [205451611])
+})
+
+test('grupo casa sem diferenciar maiuscula nem espaco das pontas', () => {
+  const canais = [
+    { loja_id: 205451611, grupo: 'Atacado' },
+    { loja_id: 205395333, grupo: ' atacado ' },
+  ]
+  const r = escopo([{ profile_id: 'u1', equipe_id: 't0', papel: 'supervisora' }], canais)
+  assert.deepEqual(r.sort(), [205395333, 205451611])
+})
+
+test('supervisora continua sem furar o escopo por equipe desligado', () => {
+  const r = canaisDoEscopo({
+    isSuperadmin: false, escopoPorEquipe: false, meuId: 'u1',
+    times: TIMES_P3, membros: [{ profile_id: 'u1', equipe_id: 't0', papel: 'supervisora' }],
+    canais: CANAIS_P3,
+  })
+  assert.equal(r, null, 'quem nao esta sob escopo ja via tudo')
+})
+
+test('papel de OUTRA pessoa nao amplia o meu escopo', () => {
+  const r = escopo([
+    { profile_id: 'u1', equipe_id: 't1', papel: 'vendedora' },
+    { profile_id: 'u9', equipe_id: 't0', papel: 'supervisora' },
+  ])
+  assert.deepEqual(r, [205834140])
+})
