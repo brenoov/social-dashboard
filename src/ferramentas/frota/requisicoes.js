@@ -245,8 +245,13 @@ export const DIAS_MOSTRANDO_A_RECUSA = 7;
  * foi encerrada no meio. Sumir em silêncio manda a pessoa até o estacionamento
  * buscar um carro que não é mais dela.
  *
- * `cancelada` NÃO entra: quase sempre é a própria pessoa desmarcando, e
- * avisar alguém do que ela mesma acabou de fazer é ruído.
+ * `cancelada` entra pelo mesmo motivo — e a primeira versão disto a deixou de
+ * fora por uma suposição ERRADA, que era "quase sempre é a própria pessoa
+ * desmarcando". Não é: `acoesDaReserva` (historico-de-reservas.js) exige
+ * `temPermissaoAprovar` para cancelar, então quem pediu NUNCA cancela o próprio
+ * pedido pela tela. Cancelar é sempre outra pessoa mexendo na sua reserva, com
+ * motivo obrigatório escrito — e some sem chegar em ninguém era exatamente o
+ * defeito que este trecho existe para consertar.
  *
  * `criada_por` conta junto com `pessoa_id`: quem abre o pedido para outra
  * pessoa (a Gestão pedindo pelo motorista de fora) é quem espera a resposta.
@@ -260,7 +265,7 @@ export function meusPedidos({ requisicoes, minhaPessoaId, meuUsuarioId, agoraIso
   return ordenarFila((requisicoes || []).filter((r) => {
     if (!r || !meu(r)) return false;
     if (r.situacao === 'pendente' || r.situacao === 'aprovada') return true;
-    if (r.situacao !== 'recusada' && r.situacao !== 'revogada') return false;
+    if (!['recusada', 'revogada', 'cancelada'].includes(r.situacao)) return false;
     // `decidida_em` é o carimbo da recusa; `encerrada_em`, o da revogação.
     // Vale o mais recente dos dois — uma reserva aprovada na segunda e
     // revogada na quarta tem os dois carimbos, e o que interessa é o segundo.

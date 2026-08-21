@@ -108,11 +108,26 @@ Deno.serve(async (req) => {
       return json({ ok: true, enviados: 0, motivo: 'sem_aparelho_ou_aviso_desligado' });
     }
 
+    // O VAPID VEM DA TABELA `segredos_de_cron`, NÃO de variável de ambiente.
+    // A primeira versão desta função lia `Deno.env` — que é o jeito comum em
+    // outros projetos e está ERRADO neste: as chaves nunca foram gravadas como
+    // secret, então `setVapidDetails` receberia `undefined` e todo envio
+    // morreria com 500. Passou despercebido porque a prova ao vivo parou no
+    // portão de permissão, três linhas antes daqui. É o mesmo padrão do
+    // enviar-push-frota e do enviar-push-vendas; a tabela tem RLS ligada e
+    // zero policies, então só o service role lê.
+    const { data: segr } = await sb.from('segredos_de_cron').select('nome,segredo')
+      .in('nome', ['vapid_public_key', 'vapid_private_key', 'vapid_subject']);
+    const seg = Object.fromEntries((segr || []).map((r: { nome: string; segredo: string }) =>
+      [r.nome, r.segredo]));
+    if (!seg.vapid_public_key || !seg.vapid_private_key) {
+      // Nunca `ok: true` com zero enviados aqui: isso é defeito de
+      // configuração, e a tela precisa mandar avisar a pessoa pessoalmente.
+      return json({ ok: false, erro: 'vapid_nao_configurado' }, 500);
+    }
     webpush.setVapidDetails(
-      'mailto:ti@rbvcompany.com',
-      Deno.env.get('VAPID_PUBLIC_KEY')!,
-      Deno.env.get('VAPID_PRIVATE_KEY')!,
-    );
+      seg.vapid_subject || 'mailto:breno@rbvcompany.com',
+      seg.vapid_public_key, seg.vapid_private_key);
     const carga = JSON.stringify(aviso);
     let enviados = 0, podados = 0;
     for (const s of inscritos) {

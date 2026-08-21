@@ -69,10 +69,22 @@ export function montarAvisoDeReserva({ requisicao, veiculo } = {}) {
       url: '/frota',
     };
   }
-  if (r.situacao === 'revogada') {
+  // REVOGADA e CANCELADA são as duas em que outra pessoa mexeu na reserva
+  // alheia — a tela que faz isso exige motivo escrito ("quem pediu o carro
+  // precisa saber"), e quem pediu NUNCA cancela a própria pela tela: cancelar
+  // exige permissão de aprovar. Deixar qualquer uma das duas de fora era
+  // engolir justamente o motivo que a tela obrigou alguém a escrever.
+  //
+  // As palavras são diferentes porque as situações são: cancelada é a reserva
+  // que ainda não tinha começado; revogada é a que já valia e foi encerrada no
+  // meio — e essa segunda pode pegar alguém a caminho do estacionamento.
+  if (r.situacao === 'revogada' || r.situacao === 'cancelada') {
     const motivo = encurtar(r.encerrada_motivo);
+    const titulo = r.situacao === 'revogada'
+      ? 'A sua reserva foi encerrada'
+      : 'A sua reserva foi cancelada';
     return {
-      titulo: 'Reserva cancelada por quem administra',
+      titulo,
       corpo: motivo ? `${partes.join(' · ')} — ${motivo}`
         : `${partes.join(' · ')} — o carro não está mais reservado para você.`,
       url: '/frota',
