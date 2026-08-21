@@ -41,19 +41,36 @@ test('motivo comprido é cortado aqui, com reticências, e não pelo celular', (
   assert.match(a.corpo, /…$/)
 })
 
-test('revogada avisa que o carro deixou de ser da pessoa', () => {
-  const a = montarAvisoDeReserva({
+test('revogada e cancelada avisam que o carro deixou de ser da pessoa', () => {
+  // As duas são outra pessoa mexendo na reserva alheia, com motivo obrigatório
+  // escrito. A primeira versão deixou 'cancelada' de fora por uma suposição
+  // errada — quem pediu NÃO cancela o próprio pedido pela tela, porque
+  // cancelar exige permissão de aprovar.
+  const rev = montarAvisoDeReserva({
     requisicao: { ...base, situacao: 'revogada', encerrada_motivo: 'O carro entrou na oficina.' },
     veiculo: CARRO,
   })
-  assert.match(a.titulo, /cancelada/i)
-  assert.match(a.corpo, /oficina/)
+  assert.match(rev.titulo, /encerrada/i)
+  assert.match(rev.corpo, /oficina/)
+
+  const can = montarAvisoDeReserva({
+    requisicao: { ...base, situacao: 'cancelada', encerrada_motivo: 'A viagem foi adiada.' },
+    veiculo: CARRO,
+  })
+  assert.match(can.titulo, /cancelada/i)
+  assert.match(can.corpo, /adiada/)
+  assert.notEqual(rev.titulo, can.titulo, 'as duas palavras são diferentes porque as situações são')
+})
+
+test('encerrada sem motivo escrito ainda diz o que mudou', () => {
+  const a = montarAvisoDeReserva({ requisicao: { ...base, situacao: 'cancelada' }, veiculo: CARRO })
+  assert.match(a.corpo, /não está mais reservado/)
 })
 
 test('o que NÃO é decisão não vira aviso nenhum', () => {
   // "Sua reserva continua pendente" no celular é o tipo de aviso que ensina a
   // ignorar aviso.
-  for (const situacao of ['pendente', 'cancelada', 'usada', undefined]) {
+  for (const situacao of ['pendente', 'usada', undefined]) {
     assert.equal(montarAvisoDeReserva({ requisicao: { ...base, situacao }, veiculo: CARRO }), null, String(situacao))
   }
   assert.equal(montarAvisoDeReserva(), null)

@@ -401,3 +401,20 @@ test('sem saber quem eu sou, a lista fica vazia — nunca a de outra pessoa', ()
   });
   assert.deepEqual(lista, []);
 });
+
+test('a reserva CANCELADA por outra pessoa também chega em quem pediu', () => {
+  // Cancelar exige permissão de aprovar (acoesDaReserva), então quem pediu
+  // nunca cancela o próprio pedido pela tela: é sempre outra pessoa mexendo na
+  // reserva alheia, com motivo obrigatório escrito. A primeira versão deixou
+  // esta situação de fora por supor o contrário.
+  const lista = meusPedidos({
+    requisicoes: [{
+      id: 'c', situacao: 'cancelada', pessoa_id: 'p-eu', retirada_prevista: '2026-08-23T11:00Z',
+      encerrada_em: '2026-08-20T10:00Z', encerrada_motivo: 'A viagem foi adiada.',
+    }],
+    minhaPessoaId: 'p-eu',
+    agoraIso: '2026-08-20T12:00Z',
+  });
+  assert.equal(lista.length, 1);
+  assert.equal(lista[0].encerrada_motivo, 'A viagem foi adiada.');
+});

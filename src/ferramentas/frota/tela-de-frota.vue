@@ -1937,6 +1937,9 @@ async function confirmarDecisao() {
  * Silencioso no sucesso: quem aprovou não precisa de um aviso dizendo que um
  * aviso foi mandado. Fala só quando NÃO deu — e aí diz o que fazer. */
 async function avisarQuemPediu(requisicaoId, acao) {
+  // `acao` é só a palavra do recado na tela ('aprovada', 'recusada',
+  // 'cancelada', 'revogada'). O QUE vai no celular da pessoa é montado no
+  // servidor, a partir do que está gravado — nunca do que esta tela mandar.
   try {
     const { data: { session } } = await sbClient.auth.getSession()
     const r = await fetch(`${SUPABASE_URL}/functions/v1/avisar-decisao-de-reserva`, {
@@ -1952,6 +1955,9 @@ async function avisarQuemPediu(requisicaoId, acao) {
       adminToast(`Reserva ${acao}. Não consegui avisar quem pediu — fale com a pessoa.`, false)
       return
     }
+    // Decidir o PRÓPRIO pedido não precisa de aviso nenhum — mandar a pessoa
+    // avisar a si mesma é o tipo de recado que faz parar de ler recado.
+    if (res.motivo === 'decidiu_a_propria') { adminToast(`Reserva ${acao}.`); return }
     // ENVIADOS = 0 NÃO É SUCESSO SILENCIOSO. Sem aparelho registrado, com o
     // aviso desligado ou sem login, a pessoa não vai saber por conta própria —
     // e quem acabou de decidir é a única que pode contar pra ela.
@@ -2171,6 +2177,13 @@ async function confirmarEncerramento() {
     erroDoEncerramento.value = error.message || 'Não consegui gravar. Confira a conexão e tente de novo.'
     return
   }
+  // O MESMO AVISO DA DECISÃO. Esta tela exige o motivo escrito com a frase
+  // "quem pediu o carro precisa saber" / "quem está com a reserva precisa
+  // saber" — e até aqui não havia nada que fizesse esse motivo chegar na
+  // pessoa. Revogar é o caso mais grave dos dois: a reserva já valia, e quem
+  // não for avisado vai até o estacionamento buscar um carro que não é mais
+  // dela.
+  avisarQuemPediu(e.requisicao.id, e.acao)
   fecharEncerramento()
   carregar()
 }
