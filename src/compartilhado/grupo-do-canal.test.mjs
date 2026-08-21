@@ -106,3 +106,47 @@ test('contarSemGrupo conta o que falta configurar', () => {
   assert.equal(contarSemGrupo([]), 0);
   assert.equal(contarSemGrupo(null), 0);
 });
+
+// ── MARCAR / DESMARCAR TODOS DE UM GRUPO (Peça 2) ────────────────────────────
+import { estadoDoGrupo, alternarGrupo } from './grupo-do-canal.js';
+
+const ATACADO = [{ loja_id: 1, nome: 'A' }, { loja_id: 2, nome: 'B' }];
+
+test('estadoDoGrupo diz se o grupo está todo, em parte, ou nada marcado', () => {
+  assert.equal(estadoDoGrupo(ATACADO, new Set([1, 2])), 'todos');
+  assert.equal(estadoDoGrupo(ATACADO, new Set([1])), 'alguns');
+  assert.equal(estadoDoGrupo(ATACADO, new Set()), 'nenhum');
+  assert.equal(estadoDoGrupo(ATACADO, new Set([9])), 'nenhum');
+});
+
+test('estadoDoGrupo casa id como TEXTO — number no banco, string no formulário', () => {
+  assert.equal(estadoDoGrupo(ATACADO, new Set(['1', '2'])), 'todos');
+  assert.equal(estadoDoGrupo([{ loja_id: '1' }], new Set([1])), 'todos');
+});
+
+test('estadoDoGrupo com grupo vazio é "nenhum", não quebra e não vira "todos"', () => {
+  // "Todos de nada" seria verdade vazia, e o botão diria "desmarcar" sem ter o quê.
+  assert.equal(estadoDoGrupo([], new Set([1])), 'nenhum');
+  assert.equal(estadoDoGrupo(null, new Set()), 'nenhum');
+});
+
+test('alternarGrupo marca o grupo inteiro quando falta alguém', () => {
+  assert.deepEqual([...alternarGrupo(ATACADO, new Set())].sort(), [1, 2]);
+  assert.deepEqual([...alternarGrupo(ATACADO, new Set([1]))].sort(), [1, 2]);
+});
+
+test('alternarGrupo desmarca o grupo inteiro quando já está todo marcado', () => {
+  assert.deepEqual([...alternarGrupo(ATACADO, new Set([1, 2]))], []);
+});
+
+test('alternarGrupo não mexe em canal de OUTRO grupo', () => {
+  const sel = new Set([1, 2, 99]);
+  assert.deepEqual([...alternarGrupo(ATACADO, sel)], [99]);
+});
+
+test('alternarGrupo devolve um Set NOVO — não mexe no que recebeu', () => {
+  const sel = new Set([1]);
+  const novo = alternarGrupo(ATACADO, sel);
+  assert.deepEqual([...sel], [1], 'o original ficou intacto');
+  assert.notEqual(novo, sel);
+});

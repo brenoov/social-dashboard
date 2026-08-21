@@ -194,7 +194,7 @@ import { degrausDoRecurso, degrauDoConjunto, acoesDoDegrau } from './niveis-de-p
 import { oQueONivelFaz } from './o-que-o-nivel-faz.js'
 import { mexeEmDinheiro, SELO_DINHEIRO, EMOJI_DINHEIRO } from './consequencia-do-recurso.js'
 import { resumoDoAcesso } from './resumo-do-acesso.js'
-import { gruposExistentes, agruparCanais, timePorCanal, contarSemGrupo, normalizarGrupo } from './grupo-do-canal.js'
+import { gruposExistentes, agruparCanais, timePorCanal, contarSemGrupo, normalizarGrupo } from '../../compartilhado/grupo-do-canal.js'
 // Quais notificações existem e qual o padrão de cada uma. A lista mora junto da
 // Edge que envia (supabase/functions/_shared) pra não haver duas verdades sobre
 // quem recebe o quê — a tela LÊ dela em vez de repetir os nomes.
