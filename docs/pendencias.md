@@ -327,6 +327,33 @@ três botões pendurados 17px além da borda; foi corrigida junto.
 
 ---
 
+### B25 · Frota › o aviso de reserva decidida está escrito e NÃO está no ar 🟡 *aberto em 20/08*
+
+**O que é.** Aprovar ou recusar uma reserva não avisa ninguém — quem pediu só
+descobre abrindo o app. O código do aviso está pronto e commitado, mas **duas
+coisas dependem de você**, e enquanto elas não acontecerem o aviso não sai:
+
+1. **Aplicar a migration** `db/migrations/acessos/052_push_tipo_reserva.sql`
+   (solta o CHECK de `push_preferencias.tipo` pra aceitar `frota_reserva`).
+   Sem ela, ligar o interruptor na tela dá erro de Postgres na cara — foi o que
+   já aconteceu com `conteudo` e com `frota`.
+2. **Publicar a Edge Function** `avisar-decisao-de-reserva` (não sobe com push;
+   vai na mão, com as deps de `_shared`: `notificacoes.js`,
+   `aviso-de-reserva.js`, `quem-loga.js`).
+
+Depois disso, ligar **"Resposta do pedido de carro"** em Administração ›
+Usuários para quem pede carro — ela nasce desligada, como toda chave nova.
+
+**Não há risco em ficar como está.** Provado na tela nos dois desfechos: com a
+função fora do ar, a decisão é gravada do mesmo jeito e quem decidiu lê *"Reserva
+aprovada. Não consegui avisar quem pediu — fale com a pessoa."* Já é melhor que
+hoje, que é silêncio.
+
+**Alcance medido em 20/08:** das 14 pessoas que podem pedir carro, **8 têm
+aparelho registrado** para push. WhatsApp alcançaria 6, e 2 dessas nem ficha de
+colaborador têm — o push é o melhor canal único. As 6 restantes continuam
+dependendo de alguém avisar, e é por isso que a tela diz isso a quem decide.
+
 ## Parte C — Ideias guardadas (ninguém pediu ainda)
 
 ### C2 · Gestor de Tráfego › subir campanha por upload 🟡 *metade já está de pé — conferido em 18/08*

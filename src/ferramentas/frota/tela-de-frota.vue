@@ -1917,8 +1917,52 @@ async function confirmarDecisao() {
       : 'Não consegui gravar a decisão. Tente de novo.'
     return
   }
+  // O AVISO VEM DEPOIS, E NUNCA DESFAZ A DECISÃO. Ela já está gravada aqui; se
+  // o push falhar (aparelho não registrado, aviso desligado, função fora do
+  // ar), quem decidiu fica sabendo por uma frase e a reserva continua decidida.
+  // Amarrar uma coisa na outra faria uma aprovação se perder por causa de um
+  // aviso — o contrário do que este aviso existe pra resolver.
+  avisarQuemPediu(d.requisicao.id, d.acao)
   fecharDecisao()
   carregar()
+}
+
+/* Avisa no celular de quem PEDIU que a reserva foi decidida.
+ *
+ * Por que uma Edge Function e não um insert daqui: mandar push exige as chaves
+ * VAPID, que não podem chegar ao navegador. E o texto do aviso é montado LÁ, a
+ * partir do que está gravado — se viesse daqui, qualquer pessoa logada poderia
+ * mandar o push que quisesse pro celular de qualquer outra.
+ *
+ * Silencioso no sucesso: quem aprovou não precisa de um aviso dizendo que um
+ * aviso foi mandado. Fala só quando NÃO deu — e aí diz o que fazer. */
+async function avisarQuemPediu(requisicaoId, acao) {
+  try {
+    const { data: { session } } = await sbClient.auth.getSession()
+    const r = await fetch(`${SUPABASE_URL}/functions/v1/avisar-decisao-de-reserva`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${session?.access_token || SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ requisicaoId }),
+    })
+    const res = await r.json().catch(() => null)
+    if (!r.ok || !res || res.ok === false) {
+      adminToast(`Reserva ${acao}. Não consegui avisar quem pediu — fale com a pessoa.`, false)
+      return
+    }
+    // ENVIADOS = 0 NÃO É SUCESSO SILENCIOSO. Sem aparelho registrado, com o
+    // aviso desligado ou sem login, a pessoa não vai saber por conta própria —
+    // e quem acabou de decidir é a única que pode contar pra ela.
+    if (!res.enviados) {
+      adminToast(`Reserva ${acao}. Quem pediu não recebe aviso no celular — avise pessoalmente.`, false)
+      return
+    }
+    adminToast(`Reserva ${acao}. Avisei quem pediu.`)
+  } catch (e) {
+    adminToast(`Reserva ${acao}. Não consegui avisar quem pediu — fale com a pessoa.`, false)
+  }
 }
 
 /* ── O HISTÓRICO DE RESERVAS E RETIRADAS (aba Gestão) ────────────────────────
