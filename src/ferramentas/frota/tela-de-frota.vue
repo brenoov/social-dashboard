@@ -1256,6 +1256,16 @@ const aceiteDaRetirada = ref(null)   // os traços do rabisco, ou nulo
  * virarem um toque só. */
 const painelDaRetirada = ref(null)
 
+/* O checklist está aberto DENTRO da ficha de retirada agora? É a mesma
+ * condição do `v-if` do painel — e quem pergunta é o campo do hodômetro, que
+ * some quando ela é verdadeira, e o `confirmar()`, que aí tira o KM do
+ * checklist em vez do formulário. */
+const checklistNaFicha = computed(() => {
+  const f = ficha.value
+  return !!(f && f.modo === 'retirar' && !f.avulsa
+    && precisaDeChecklist({ veiculoId: f.linha.veiculo.id, fichas: fichas.value, hoje: hoje.value }))
+})
+
 /* O nome do botão do pé da ficha. Ele faz coisas diferentes conforme o que
  * está aberto, e precisa dizer qual delas. */
 const rotuloDoBotaoDaFicha = computed(() => {
@@ -1488,7 +1498,9 @@ const inteiro = (v) => { const n = parseInt(String(v).replace(/\D/g, ''), 10); r
 async function confirmar() {
   const f = ficha.value
   if (!f || gravando.value) return
-  const km = inteiro(form.km)
+  // `let` porque, na retirada com checklist embutido, o KM da saída vem do
+  // hodômetro do checklist — o campo do formulário nem existe nesse caso.
+  let km = inteiro(form.km)
   const tanque = form.tanque === '' ? null : inteiro(form.tanque)
 
   if (f.modo === 'devolver') {
@@ -1504,7 +1516,8 @@ async function confirmar() {
     const faltaChecklist = precisaDeChecklist({
       veiculoId: f.linha.veiculo.id, fichas: fichas.value, hoje: hoje.value,
     })
-    if (!Number.isInteger(km) || km <= 0) {
+    // Sem checklist embutido, o KM é do formulário e é trava aqui.
+    if (!checklistNaFicha.value && (!Number.isInteger(km) || km <= 0)) {
       problemas.value = ['Informe o KM que está no painel agora.']
       return
     }
@@ -1534,6 +1547,9 @@ async function confirmar() {
       })
       if (problemas.value.length) return
     } else if (faltaChecklist) {
+      // O KM AINDA NÃO FOI PEDIDO NESTE CAMINHO: ele vem do checklist, logo
+      // abaixo. A trava de "informe o KM" já rodou lá dentro, comparando com o
+      // último hodômetro conhecido — coisa que o campo da ficha nunca fez.
       // NOME PRÓPRIO, e não `painel`: já existe um `painel` no módulo (o do
       // motorista), e um const local com o mesmo nome o sombreia dentro desta
       // função inteira — inclusive ANTES desta linha. A guarda
@@ -1554,6 +1570,9 @@ async function confirmar() {
       // Falhou: `gravarChecklist` já explicou o quê na tela, e nada de viagem —
       // tirar o carro depois de o checklist falhar é o defeito ao contrário.
       if (!gravou) return
+      // UM NÚMERO SÓ para as duas gravações. É isto que impede a ficha e a
+      // viagem de contarem quilometragens diferentes do mesmo instante.
+      km = carga.ficha.hodometro
     }
     problemas.value = []
   }
@@ -5109,7 +5128,15 @@ onMounted(async () => {
               @criar-marca="(p) => criarMarcaRapida(p, 'retirada')" @abrir="limparAvisoDeCriacao" />
           </div>
 
-          <label class="fr-campo" data-tour="ficha-km">
+          <!-- O HODÔMETRO SE PERGUNTA UMA VEZ SÓ. Quando o checklist está aberto
+               aqui dentro, o número dele é o número da saída — este campo
+               sumiu. Medido em 22/08/2026, nas duas primeiras retiradas feitas
+               com o botão único: BMW X1 gravou 58.311 no checklist e 58.313 na
+               viagem (2 segundos de diferença); a Bravo gravou 185.908 e
+               185.900 — o MENOR foi parar na viagem, e é ele que a devolução
+               compara depois. Perguntar duas vezes a mesma coisa produz duas
+               respostas diferentes; é só uma questão de quantas vezes. -->
+          <label class="fr-campo" data-tour="ficha-km" v-if="!checklistNaFicha">
             <span class="fr-lab">
               KM no painel {{ ficha.modo === 'devolver' ? 'agora' : 'ao sair' }}
             </span>
