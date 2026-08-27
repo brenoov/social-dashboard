@@ -78,6 +78,8 @@ import BarraDeTopo from '../../compartilhado/barra-de-topo.vue'
 import { useRouter } from 'vue-router'
 import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { hasPermission, estado } from '../../compartilhado/controle-de-login-e-usuario.js'
+// Quando a recarga de 5 minutos deve acontecer — e quando é só desperdício.
+import { decidirNoTique, decidirAoVoltar } from '../../compartilhado/recarga-automatica.js'
 // QUEM É DE TIME DE VENDA VÊ SÓ A LOJA DELA (pedido do dono, 12/08/2026).
 // A regra mora num módulo só, compartilhado com a Gestão à Vista: duas telas
 // de venda recortando por conta própria divergiriam no primeiro ajuste.
@@ -515,10 +517,16 @@ async function loadSalesAnalysisData(period,opcoes){
     window._saRawData={pedidos,pedidosPrev,lojaMap,lojas,metasArr:metas,vendedoresArr,pvMap,pvQtdMap,pedidos15,period,di,df,diPrev,dfPrev,di15,df15,now:effNow,y:effY,m:effM};
     window._saCurrentPeriod=period;
     window._saLastUpdateTime=new Date(new Date().toLocaleString('en-US',{timeZone:'America/Sao_Paulo'}));
+    // ⚠️ CARIMBO SEPARADO, e ele precisa existir: a linha acima é hora de PAREDE
+    // em Brasília lida como hora local — boa para escrever "ÚLT. 14:32" na tela,
+    // e ERRADA para fazer conta. Em navegador fora do fuso de Brasília o
+    // `.getTime()` dela erra por horas, e "quanto tempo passou desde a última
+    // busca" passaria a responder sempre a mesma coisa.
+    window._saUltimaBuscaMs=Date.now();
     window._saNextRefreshAt=new Date(window._saLastUpdateTime.getTime()+5*60*1000);
 
     clearInterval(window._saRefreshTimer);
-    window._saRefreshTimer=setInterval(()=>loadSalesAnalysisData(window._saCurrentPeriod||'sofar',{automatica:true}),5*60*1000);
+    window._saRefreshTimer=setInterval(()=>_saTiqueDaRecarga(),5*60*1000);
 
     clearInterval(window._saCountdownTimer);
     const _tickStatus=()=>{
@@ -558,7 +566,7 @@ async function loadSalesAnalysisData(period,opcoes){
     }
     // A recarga de 5 min é armada dentro do try: sem isto, falhar na primeira
     // carga deixava a tela sem nunca tentar de novo.
-    if(!window._saRefreshTimer)window._saRefreshTimer=setInterval(()=>loadSalesAnalysisData(window._saCurrentPeriod||'sofar',{automatica:true}),5*60*1000);
+    if(!window._saRefreshTimer)window._saRefreshTimer=setInterval(()=>_saTiqueDaRecarga(),5*60*1000);
   }
 }
 
@@ -1307,6 +1315,24 @@ function renderSAPositivacao({loja,pedidos15,vendedoresArr,pvMap,di15,df15,now})
    garantir que nada fique rodando em segundo plano se o componente for
    destruído por outro caminho que não seja este botão (mesmo padrão de
    _gvStopAllTimers/_gtStopAllTimers). ── */
+// ── A RECARGA DE 5 MINUTOS SÓ COM A ABA VISÍVEL (27/08/2026) ─────────────
+// Mesma regra da Gestão à Vista, e pelo mesmo motivo medido: aba esquecida
+// recarregando a noite inteira comia ~24% da cota do Bling. A decisão tem
+// teste em `recarga-automatica.js`; aqui só se obedece.
+function _saTiqueDaRecarga(){
+  if(decidirNoTique({visivel:!document.hidden})!=='recarregar')return;
+  loadSalesAnalysisData(window._saCurrentPeriod||'sofar',{automatica:true});
+}
+// Voltou para a aba com dado passado dos 5 minutos: busca AGORA. Economizar
+// chamada nunca pode virar dinheiro velho na tela (padrão, item 9).
+function _saAoVoltarParaAAba(){
+  if(document.hidden)return;
+  const ms=window._saUltimaBuscaMs?Date.now()-window._saUltimaBuscaMs:null;
+  if(decidirAoVoltar({msDesdeAUltimaRecarga:ms,intervaloMs:5*60*1000})==='recarregar'){
+    loadSalesAnalysisData(window._saCurrentPeriod||'sofar',{automatica:true});
+  }
+}
+
 function _saStopAllTimers(){
   clearInterval(window._saRefreshTimer);window._saRefreshTimer=null;
   clearInterval(window._saCountdownTimer);window._saCountdownTimer=null;
@@ -1347,6 +1373,7 @@ onMounted(() => {
   window._saCharts = {}
   window._saRawData = null
   document.addEventListener('click', _saDocClick)
+  document.addEventListener('visibilitychange', _saAoVoltarParaAAba)
   _saStartBgAnim()
   startSAClock()
   loadSalesAnalysisData('sofar')
@@ -1357,6 +1384,7 @@ onMounted(() => {
 // usuário sai da tela (o closeSalesAnalysis() cobre o caminho do botão
 // "Voltar"; isto cobre qualquer outra forma de sair da rota).
 onUnmounted(() => {
+  document.removeEventListener('visibilitychange', _saAoVoltarParaAAba)
   _saStopAllTimers()
 })
 </script>

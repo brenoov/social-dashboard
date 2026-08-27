@@ -133,6 +133,8 @@ import { filtrarPedidosPorCanal, depositosVisiveis, prepararEstoque, statusSaldo
 import { montarLinhas, posicionarLinhas, alturaComum } from './velocimetro-gv.js'
 import { agruparCanais, estadoDoGrupo, alternarGrupo } from '../../compartilhado/grupo-do-canal.js'
 import { aplicarDataDaVenda } from '../../compartilhado/data-da-venda.js'
+// Quando a recarga de 5 minutos deve acontecer — e quando é só desperdício.
+import { decidirNoTique, decidirAoVoltar } from '../../compartilhado/recarga-automatica.js'
 // A PORTA DO BLING E O QUE FAZER QUANDO ELE NÃO RESPONDE. Mesmo módulo da
 // Análise de Vendas: em 12/08/2026 a chamada devolvia o corpo sem olhar o status
 // HTTP, e a tela mostrou R$ 0,00 por 17 horas como se não tivesse havido venda.
@@ -736,7 +738,7 @@ async function loadGestaoVistaData(period){
       if(_gvCanaisSel.size>0)_gvAplicaFiltro();
     });
     if(window._gvTimer)clearInterval(window._gvTimer);
-    window._gvTimer=setInterval(()=>loadGestaoVistaData(_gvCurrentPeriod),5*60*1000);
+    window._gvTimer=setInterval(()=>_gvTiqueDaRecarga(),5*60*1000);
     _gvLastLoadTime=new Date();
     updateGvUpdateStatus();
     if(!_gvStatusTimer)_gvStatusTimer=setInterval(updateGvUpdateStatus,60000);
@@ -758,7 +760,30 @@ async function loadGestaoVistaData(period){
     // A recarga de 5 min é armada DENTRO do try (abaixo). Sem esta linha, uma
     // falha na primeira carga deixava o telão sem nunca tentar de novo — era o
     // que aconteceria com quem abrisse a tela durante o apagão de 12/08.
-    if(!window._gvTimer)window._gvTimer=setInterval(()=>loadGestaoVistaData(_gvCurrentPeriod),5*60*1000);
+    if(!window._gvTimer)window._gvTimer=setInterval(()=>_gvTiqueDaRecarga(),5*60*1000);
+  }
+}
+
+// ── A RECARGA DE 5 MINUTOS SÓ COM A ABA VISÍVEL (27/08/2026) ─────────────
+//
+// Medido no registro do gateway: uma conta sozinha fez 92% das 20.268 chamadas
+// ao Bling em 24h, ATIVA NAS 24 HORAS — uma aba esquecida recarregando esta
+// tela a noite inteira, em rajadas de ~266 chamadas de 5 em 5 minutos. Era o
+// que fazia o Bling limitar ~24% de tudo.
+//
+// Quem decide tem teste, em `recarga-automatica.js`. Aqui só se obedece.
+function _gvTiqueDaRecarga(){
+  if(decidirNoTique({visivel:!document.hidden})!=='recarregar')return;
+  loadGestaoVistaData(_gvCurrentPeriod);
+}
+// Voltou para a aba: se o que está na tela já passou dos 5 minutos, busca AGORA.
+// Sem isto, economizar chamada viraria mostrar dinheiro velho — que é o defeito
+// mais caro que uma tela destas conta (padrão, item 9).
+function _gvAoVoltarParaAAba(){
+  if(document.hidden)return;
+  const ms=_gvLastLoadTime?Date.now()-_gvLastLoadTime.getTime():null;
+  if(decidirAoVoltar({msDesdeAUltimaRecarga:ms,intervaloMs:5*60*1000})==='recarregar'){
+    loadGestaoVistaData(_gvCurrentPeriod);
   }
 }
 
@@ -1507,6 +1532,9 @@ onMounted(() => {
   _gvCurrentPeriod = 'sofar'
   loadGestaoVistaData('sofar')
   if (localStorage.getItem('gv-autocycle') !== '0') gvAutoStart() // respeita o desligar do usuário
+  // Registrado aqui e removido no onUnmounted: ouvinte de `document` que
+  // sobrevive à saída da tela é vazamento, e este dispara uma busca inteira.
+  document.addEventListener('visibilitychange', _gvAoVoltarParaAAba)
 })
 
 // CRÍTICO: limpa TODOS os timers/intervals que a Gestão à Vista inicia, para não
@@ -1514,6 +1542,7 @@ onMounted(() => {
 // closeGestaoVista() cobre o caminho do botão "Voltar"; isto cobre qualquer
 // outra forma de sair da rota, ex.: navegação direto pela URL).
 onUnmounted(() => {
+  document.removeEventListener('visibilitychange', _gvAoVoltarParaAAba)
   _gvStopAllTimers()
 })
 </script>
