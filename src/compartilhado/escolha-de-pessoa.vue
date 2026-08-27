@@ -100,8 +100,27 @@
       <p v-if="recado" class="esc-pessoa-recado">{{ recado }}</p>
       <p v-if="recadoDeErro" class="esc-pessoa-recado esc-pessoa-recado-erro">{{ recadoDeErro }}</p>
 
+      <!-- Já existe alguém parecido. Só aparece quando há o que dizer, e nunca
+           tranca: uma das saídas é seguir e criar assim mesmo. -->
+      <div v-if="sugestoes.length" class="esc-pessoa-recado esc-pessoa-recado-erro esc-pessoa-parecido">
+        <p class="esc-pessoa-parecido-frase">{{ fraseDoParecido(sugestoes) }}</p>
+        <div class="esc-pessoa-botoes">
+          <!-- Principal só quando há UM candidato: com dois, nenhum é "a" ação
+               que a tela quer, e duas principais competindo é o mesmo que
+               nenhuma (PADRAO-DA-CENTRAL, item 7). -->
+          <button v-for="s in sugestoes" :key="s.pessoa.id" type="button"
+                  :class="sugestoes.length === 1 ? 'btn btn-principal' : 'btn'"
+                  @click="usarSugestao(s.pessoa)">
+            É {{ s.pessoa.nome }}
+          </button>
+        </div>
+      </div>
+
       <div class="esc-pessoa-botoes">
-        <button type="button" class="btn btn-principal" :disabled="criando" @click="confirmar">
+        <button v-if="sugestoes.length" type="button" class="btn" :disabled="criando" @click="criarMesmoAssim">
+          {{ criando ? 'Criando…' : 'Não, criar mesmo assim' }}
+        </button>
+        <button v-else type="button" class="btn btn-principal" :disabled="criando" @click="confirmar">
           {{ criando ? 'Criando…' : 'Criar e usar' }}
         </button>
         <button type="button" class="btn" @click="cancelar">Cancelar</button>
@@ -135,6 +154,11 @@
 import { ref, reactive, computed, watch, nextTick, getCurrentInstance } from 'vue'
 import { resolverNovaOpcao, normalizarNome } from './nova-opcao.js'
 import { cargosConhecidos, dadosDaPessoaRapida } from './pessoas-para-escolher.js'
+// A desconfiança de nome repetido. O `resolverNovaOpcao` acima já pega o nome
+// IDÊNTICO (apara e minúsculas); este pega o que escapa dele — acento, espaço
+// duplo, ordem trocada e uma letra errada. Foi por uma dessas frestas que o
+// Douglas Pereira ganhou duas fichas.
+import { parecidos, fraseDoParecido } from './ja-existe-alguem-parecido.js'
 
 const props = defineProps({
   modelValue: { type: String, default: '' },
@@ -193,6 +217,15 @@ const recado = ref('')
 const campoNome = ref(null)
 // O nome que foi mandado criar e ainda não voltou nas props.
 const esperando = ref(null)
+
+// Quem se parece com o nome digitado. Vazio = nada a dizer, e aí o aviso não
+// aparece: aviso que aparece sempre vira paisagem.
+const sugestoes = ref([])
+// O nome para o qual quem cadastra JÁ disse "criar mesmo assim". Guardo o nome,
+// e não um booleano, porque trocar o texto do campo tem de fazer a pergunta de
+// novo — com booleano, liberar "Douglas Pereyra" liberaria calado o "Douglas
+// Pereira" digitado logo depois.
+const parecidosLiberadosPara = ref('')
 
 // A escolha que o aviso de fora explica: o id que ESTE componente selecionou
 // sozinho ao topar com um nome já cadastrado. Guardar o ID (e não um "mostre o
@@ -259,7 +292,19 @@ function cancelar() {
   esperando.value = null
   esperandoSub.value = null
   idQueOAvisoExplica.value = ''
+  sugestoes.value = []
+  parecidosLiberadosPara.value = ''
 }
+
+// Mexeu no nome, a pergunta é outra: o aviso antigo sai e a liberação some
+// junto. Sem isto, o aviso ficaria na tela falando de um nome que não está mais
+// escrito — e "criar mesmo assim" valeria para um texto que ninguém aprovou.
+watch(() => novo.nome, () => {
+  if (sugestoes.value.length) sugestoes.value = []
+  if (parecidosLiberadosPara.value && parecidosLiberadosPara.value !== String(novo.nome || '').trim()) {
+    parecidosLiberadosPara.value = ''
+  }
+})
 
 function confirmar() {
   // Mesma trava do botão: o Enter no campo de nome não pode ser um jeito de
@@ -309,11 +354,48 @@ function confirmar() {
     return
   }
 
+  // ── "JÁ EXISTE ALGUÉM PARECIDO?" (27/08/2026) ─────────────────────────────
+  //
+  // O `resolverNovaOpcao` acima já barrou o nome idêntico. O que sobra aqui é o
+  // que ele não vê: acento, espaço duplo, ordem trocada e uma letra errada. O
+  // Douglas Pereira ganhou duas fichas por uma dessas frestas.
+  //
+  // Compara contra `universo` — a lista COMPLETA, a mesma do teste acima — e
+  // não contra o que o campo mostra: quem foi desligada continua sendo uma
+  // ficha que já existe, e criar outra para a mesma pessoa perde o histórico.
+  //
+  // NÃO TRAVA. Homônimo de verdade existe (a base tem duas Clara e dois
+  // Gabriel), e barrar o cadastro deixaria quem cadastra sem saída.
+  const parecidas = parecidos(dados.dados.p_nome, universo)
+  if (parecidas.length && parecidosLiberadosPara.value !== dados.dados.p_nome) {
+    sugestoes.value = parecidas
+    return
+  }
+
   esperando.value = normalizarNome(dados.dados.p_nome)
   emit('criar', {
     nome: dados.dados.p_nome, cargo: dados.dados.p_cargo,
     marcaId: dados.dados.p_marca_id, setorId: dados.dados.p_setor_id,
   })
+}
+
+// "É essa pessoa" — usa a que já existe em vez de criar a segunda. É o clique
+// que faltou em 21/08.
+function usarSugestao(pessoa) {
+  emit('update:modelValue', pessoa.id)
+  // Fecha pelo `cancelar()`, como o caminho do nome idêntico logo acima: ele é
+  // quem limpa a criação de marca/setor que possa estar pendente.
+  cancelar()
+  recado.value = `“${pessoa.nome}” já estava cadastrada — deixei essa selecionada.`
+  idQueOAvisoExplica.value = pessoa.id
+}
+
+// "Não, criar mesmo assim" — libera SÓ o nome que está no campo agora, e
+// refaz o caminho inteiro, para não duplicar aqui as validações do `confirmar`.
+function criarMesmoAssim() {
+  parecidosLiberadosPara.value = String(novo.nome || '').trim()
+  sugestoes.value = []
+  confirmar()
 }
 
 // A caixinha fecha quando a pessoa nova APARECE NAS PROPS — ou seja, quando a
@@ -481,6 +563,15 @@ watch(() => props.modelValue, () => {
   padding:var(--sp-2); border-radius:var(--radius-md); color:var(--text);
   background:color-mix(in srgb, var(--orange) 12%, var(--surface));
   border:1px solid color-mix(in srgb, var(--orange) 38%, var(--surface));
+}
+.esc-pessoa-parecido{
+  display:flex; flex-direction:column; gap:var(--sp-2);
+}
+.esc-pessoa-parecido-frase{
+  /* `anywhere` e não reticências: nome comprido quebra em duas linhas. Cortar
+     "Maria Eduarda C…" tira justamente o que faz distinguir duas pessoas — e
+     distinguir duas pessoas é a única coisa que este aviso faz. */
+  margin:0; overflow-wrap:anywhere;
 }
 .esc-pessoa-nota{
   margin:0; font-size:max(9px, calc(11px * var(--escala-texto, 1))); line-height:1.5;
