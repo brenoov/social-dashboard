@@ -39,6 +39,9 @@ import { adminToast } from '../../compartilhado/avisos.js'
 import { hasPermission, estado } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { hojeLocal } from '../../compartilhado/datas.js'
 import { montarArvoreDePastas } from './montar-arvore-de-pastas.js'
+// Desconfiar de nome repetido antes de gravar. Vale no cadastro novo E na
+// edição: renomear para um nome que já existe faz o mesmo estrago.
+import { parecidos, fraseDoParecido } from '../../compartilhado/ja-existe-alguem-parecido.js'
 import { montarDetalhePastas } from './montar-textos-do-topo.js'
 import { decidirEstadoAcesso, mensagemEstadoVazio, agruparPorEscopo, corDeAvatar, inicialDe } from './acesso-da-pasta.js'
 import { montarEmailsDeSelecao } from './onedrive-escrita.js'
@@ -1581,6 +1584,22 @@ async function _acSaveColaborador(id){
     atualizado_em:new Date().toISOString()
   };
   if(!rec.nome){adminToast('Nome é obrigatório',false);return;}
+  // ── JÁ EXISTE ALGUÉM PARECIDO? (27/08/2026) ──────────────────────────────
+  //
+  // O Douglas Pereira ganhou duas fichas porque nada aqui olhava o nome. Vale
+  // no cadastro NOVO e na edição: renomear alguém para um nome que já existe
+  // cria o mesmo estrago, por outro caminho. `ignorarId` tira a própria ficha,
+  // senão salvar sem mexer no nome acusaria a si mesma.
+  //
+  // Pergunta e obedece — não trava. Homônimo de verdade existe nesta base.
+  const parecidas=parecidos(rec.nome,_acData.pessoas,{ignorarId:id||null});
+  if(parecidas.length){
+    // Uma frase corrida: `_acConfirmar` joga o texto num `<div>` sem
+    // `white-space`, então quebra de linha aqui viraria só um espaço.
+    const seguir=await _acConfirmar(fraseDoParecido(parecidas)+' Se for a mesma pessoa, cancele e abra a ficha dela — duas fichas partem os bens e o histórico ao meio.',
+      {ok:'Não é, salvar assim mesmo'});
+    if(!seguir)return;
+  }
   const isEdit=!!id;
   let err;
   if(id){({error:err}=await sbClient.from('acessos_pessoas').update(rec).eq('id',id));}

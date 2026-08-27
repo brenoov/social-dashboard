@@ -232,6 +232,10 @@ import { agruparPor, DIMENSOES } from './lotacao.js'
 // testado à parte: um casamento errado dá a lotação e o histórico de alguém
 // para outra pessoa, ou para uma caixa de e-mail compartilhada.
 import { estadoDoVinculo } from './vinculo-de-cadastro.js'
+// A desconfiança por NOME. `estadoDoVinculo` decide o vínculo, e decide por
+// e-mail — sinal forte. Este aqui só levanta suspeita, e é sinal fraco: ele
+// nunca liga nada sozinho, só muda o que a tela oferece primeiro.
+import { parecidos, fraseDoParecido } from '../../compartilhado/ja-existe-alguem-parecido.js'
 // As três naturezas dentro da pessoa — o que ela abre, se o celular dela toca e
 // a qual colaborador o login pertence. A ordem e o texto do aviso do elo
 // faltante são puros e testados; a tela só desenha.
@@ -2521,12 +2525,45 @@ function _secaoVinculo(alvo, p, aoMudar) {
       + 'Colaboradores antes de ligar — daqui não dá para saber qual é a pessoa certa.'
     sec.appendChild(txt)
   } else {
-    txt.textContent = 'Esta pessoa ainda não tem cadastro de colaborador. '
-      + 'Sem ele não há onde guardar marca, local e setor.'
-    sec.appendChild(txt)
-    const b = mkEl('button', 'btn btn-principal', 'Criar cadastro'); b.type = 'button'
-    b.addEventListener('click', () => _criarCadastro(b, p, aoMudar))
-    sec.appendChild(b)
+    // ── ANTES DE OFERECER "CRIAR", DESCONFIAR DO NOME (27/08/2026) ──────────
+    //
+    // FOI EXATAMENTE AQUI que o Douglas Pereira ganhou a segunda ficha. A de
+    // 19/08 nasceu pelo `+` rápido da Frota, SEM e-mail; `estadoDoVinculo` casa
+    // só por e-mail, então não tinha o que casar, e esta tela — honestamente,
+    // pelo que sabia — disse "ainda não tem cadastro" e ofereceu criar.
+    //
+    // O nome era IDÊNTICO, e ninguém olhou. O preço: os pertences dele ficaram
+    // partidos entre as duas fichas, e o app mostrava um item de três.
+    //
+    // Só entram candidatos SEM login. Um cadastro já ligado a outro login não
+    // se sugere: seria oferecer um clique que rouba a ficha de outra pessoa —
+    // a mesma regra que `estadoDoVinculo` já aplica para o e-mail.
+    const soltos = (_colaboradores || []).filter((c) => c && !c.profile_id)
+    const parecidas = parecidos(p.nome, soltos)
+
+    if (parecidas.length) {
+      txt.appendChild(document.createTextNode(fraseDoParecido(parecidas)))
+      sec.appendChild(txt)
+      for (const s of parecidas) {
+        // Ligar, e não criar: é o clique que faltou em 21/08.
+        const bSim = mkEl('button', parecidas.length === 1 ? 'btn btn-principal' : 'btn',
+          'É ' + s.pessoa.nome); bSim.type = 'button'
+        bSim.addEventListener('click', () => _ligarCadastro(bSim, s.pessoa.id, p.id, aoMudar))
+        sec.appendChild(bSim)
+      }
+      // Homônimo de verdade existe (a base tem duas Clara e dois Gabriel), então
+      // a saída de criar continua aberta — só deixou de ser a primeira.
+      const bNao = mkEl('button', 'btn', 'Não, criar cadastro novo'); bNao.type = 'button'
+      bNao.addEventListener('click', () => _criarCadastro(bNao, p, aoMudar))
+      sec.appendChild(bNao)
+    } else {
+      txt.textContent = 'Esta pessoa ainda não tem cadastro de colaborador. '
+        + 'Sem ele não há onde guardar marca, local e setor.'
+      sec.appendChild(txt)
+      const b = mkEl('button', 'btn btn-principal', 'Criar cadastro'); b.type = 'button'
+      b.addEventListener('click', () => _criarCadastro(b, p, aoMudar))
+      sec.appendChild(b)
+    }
   }
   alvo.appendChild(sec)
 }
