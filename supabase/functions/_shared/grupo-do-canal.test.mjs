@@ -154,11 +154,19 @@ test('alternarGrupo devolve um Set NOVO — não mexe no que recebeu', () => {
 // ── OS TIMES SOB CABEÇALHO DE GRUPO (Peça 4) ─────────────────────────────────
 import { agruparTimesPorGrupo } from './grupo-do-canal.js';
 
+// ⚠️ MUDOU EM 27/08/2026: o balde agora é chaveado pelo APONTAMENTO
+// (`bling_lojas.grupo_id` -> `canais_grupos`), não pelo texto, e `balde.grupo`
+// devolve a LINHA do grupo, não o nome. O card pai precisa do id para pendurar
+// as supervisoras e os botões dele. O texto continua existindo e de acordo — quem
+// mantém os dois iguais é o gatilho do banco, nos dois sentidos.
+const G_ATACADO = { id: 'g-atacado', nome: 'Atacado' };
+const G_VAREJO = { id: 'g-varejo', nome: 'Varejo' };
+const GRUPOS_P4 = [G_VAREJO, G_ATACADO];
 const CANAIS_P4 = [
-  { loja_id: 205451611, nome: 'Atacado Nuvem Shop', grupo: 'Atacado' },
-  { loja_id: 205657609, nome: 'Loja Dom Pedro', grupo: 'Varejo' },
-  { loja_id: 205834140, nome: "Loja Santa Bárbara d'Oeste", grupo: 'Varejo' },
-  { loja_id: 205395333, nome: 'Atacado Fábrica', grupo: null },
+  { loja_id: 205451611, nome: 'Atacado Nuvem Shop', grupo: 'Atacado', grupo_id: 'g-atacado' },
+  { loja_id: 205657609, nome: 'Loja Dom Pedro', grupo: 'Varejo', grupo_id: 'g-varejo' },
+  { loja_id: 205834140, nome: "Loja Santa Bárbara d'Oeste", grupo: 'Varejo', grupo_id: 'g-varejo' },
+  { loja_id: 205395333, nome: 'Atacado Fábrica', grupo: null, grupo_id: null },
 ];
 const TIMES_P4 = [
   { id: 'a', nome: 'Atacado Nuvem Shop', canal_loja_id: 205451611 },
@@ -168,25 +176,48 @@ const TIMES_P4 = [
 ];
 
 test('agruparTimesPorGrupo: o time herda o grupo do canal dele', () => {
-  const r = agruparTimesPorGrupo(TIMES_P4, CANAIS_P4);
-  assert.deepEqual(r.map((b) => b.grupo), ['Atacado', 'Varejo', null]);
+  const r = agruparTimesPorGrupo(TIMES_P4, CANAIS_P4, GRUPOS_P4);
+  assert.deepEqual(r.map((b) => (b.grupo ? b.grupo.nome : null)), ['Atacado', 'Varejo', null]);
   assert.deepEqual(r[0].times.map((t) => t.nome), ['Atacado Nuvem Shop']);
   assert.deepEqual(r[1].times.map((t) => t.nome), ['Dom Pedro', 'Tivoli']);
+});
+
+test('o balde devolve a LINHA do grupo, com id — é dela que o card pai vive', () => {
+  const r = agruparTimesPorGrupo(TIMES_P4, CANAIS_P4, GRUPOS_P4);
+  assert.equal(r[0].grupo.id, 'g-atacado');
+  assert.equal(r[1].grupo.id, 'g-varejo');
 });
 
 test('time SEM canal não some — cai no balde sem grupo', () => {
   // Iguatemi ainda vai abrir e não tem canal do Bling. Sumir da gestão de
   // usuários seria perder o time inteiro de vista.
-  const r = agruparTimesPorGrupo(TIMES_P4, CANAIS_P4);
+  const r = agruparTimesPorGrupo(TIMES_P4, CANAIS_P4, GRUPOS_P4);
   assert.deepEqual(r[2].times.map((t) => t.nome), ['Iguatemi Campinas']);
 });
 
 test('time cujo canal existe mas está SEM grupo também cai no balde sem grupo', () => {
   const times = [{ id: 'x', nome: 'Fábrica', canal_loja_id: 205395333 }];
-  const r = agruparTimesPorGrupo(times, CANAIS_P4);
+  const r = agruparTimesPorGrupo(times, CANAIS_P4, GRUPOS_P4);
   assert.equal(r.length, 1);
   assert.equal(r[0].grupo, null);
   assert.deepEqual(r[0].times.map((t) => t.nome), ['Fábrica']);
+});
+
+test('canal apontando para grupo que não existe mais cai como sem grupo, e o time NÃO some', () => {
+  const canais = [{ loja_id: 1, nome: 'Órfão', grupo: 'Sumiu', grupo_id: 'g-que-sumiu' }];
+  const times = [{ id: 'z', nome: 'Time do órfão', canal_loja_id: 1 }];
+  const r = agruparTimesPorGrupo(times, canais, GRUPOS_P4);
+  assert.equal(r.length, 1);
+  assert.equal(r[0].grupo, null);
+  assert.deepEqual(r[0].times.map((t) => t.nome), ['Time do órfão']);
+});
+
+test('grupo cadastrado SEM time nenhum não vira cartão vazio', () => {
+  // A lista de CANAIS mostra todos os grupos, inclusive os vazios. Esta é a
+  // lista de TIMES: grupo sem time aqui seria um cartão em branco.
+  const times = [{ id: 'b', nome: 'Dom Pedro', canal_loja_id: 205657609 }];
+  const r = agruparTimesPorGrupo(times, CANAIS_P4, GRUPOS_P4);
+  assert.deepEqual(r.map((b) => b.grupo.nome), ['Varejo']);
 });
 
 test('a ordem dos times DENTRO do balde é a que chegou', () => {
@@ -196,21 +227,21 @@ test('a ordem dos times DENTRO do balde é a que chegou', () => {
     { id: 'c', nome: 'Tivoli', canal_loja_id: 205834140 },
     { id: 'b', nome: 'Dom Pedro', canal_loja_id: 205657609 },
   ];
-  const r = agruparTimesPorGrupo(times, CANAIS_P4);
+  const r = agruparTimesPorGrupo(times, CANAIS_P4, GRUPOS_P4);
   assert.deepEqual(r[0].times.map((t) => t.nome), ['Tivoli', 'Dom Pedro']);
 });
 
 test('nenhum canal com grupo: um balde só, e a tela fica como sempre foi', () => {
-  const semGrupo = CANAIS_P4.map((c) => ({ ...c, grupo: null }));
-  const r = agruparTimesPorGrupo(TIMES_P4, semGrupo);
+  const semGrupo = CANAIS_P4.map((c) => ({ ...c, grupo: null, grupo_id: null }));
+  const r = agruparTimesPorGrupo(TIMES_P4, semGrupo, GRUPOS_P4);
   assert.equal(r.length, 1);
   assert.equal(r[0].grupo, null);
   assert.equal(r[0].times.length, 4);
 });
 
 test('sem time nenhum, devolve lista vazia — não um balde vazio', () => {
-  assert.deepEqual(agruparTimesPorGrupo([], CANAIS_P4), []);
-  assert.deepEqual(agruparTimesPorGrupo(null, null), []);
+  assert.deepEqual(agruparTimesPorGrupo([], CANAIS_P4, GRUPOS_P4), []);
+  assert.deepEqual(agruparTimesPorGrupo(null, null, null), []);
 });
 
 test('grupo que só existe em canal SEM time não vira cabeçalho vazio', () => {
