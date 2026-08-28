@@ -278,12 +278,25 @@ done
 
 Expected: sete linhas com largura e altura reais. Arquivo que o `sips` não lê não é JPEG e o extrator errou.
 
-- [ ] **Step 4: Renomear pelo bloco onde cada uma entra**
+- [ ] **Step 4: Fixar o CONTRATO DE NOMES (decisão do dono, 28/08)**
 
-Abrir cada arquivo, comparar com o PDF e renomear em português, kebab-case, pelo lugar no design:
-`heroi.jpg` · `narrativa-bolsa.jpg` · `vessel-ferragem.jpg` · `colecao-01-marea.jpg` · `colecao-02-lunea.jpg` · `codes-alcas.jpg` · `codes-textura.jpg`
+As fotos extraídas são **provisórias**. O dono entrega até **domingo, 31/08/2026**, uma pasta com as definitivas **já nomeadas com estes mesmos nomes** — a troca é substituir arquivo por arquivo, sem tocar em uma linha de HTML.
 
-Se uma das sete não for foto do design (o objeto de 2000x2000 pode ser logotipo), **apagar** e anotar no `LEIA-ME.txt` da pasta quantas sobraram.
+Por isso o nome é o entregável desta tarefa, não a foto. Os sete, fixos:
+
+| Arquivo | Onde entra | Enquadramento que o design pede |
+|---|---|---|
+| `heroi.jpg` | bloco 1, fundo do herói | vertical/quadrada, mulher, P&B, espaço escuro à esquerda para o título |
+| `narrativa-bolsa.jpg` | bloco 2, canto inferior esquerdo | bolsa em detalhe, na mão |
+| `vessel-ferragem.jpg` | bloco 3, à direita | mãos trabalhando a ferragem — feitura |
+| `colecao-01-marea.jpg` | bloco 4, foto da esquerda | peça VESSEL 01 / MAREA |
+| `colecao-02-lunea.jpg` | bloco 4, foto maior | peça VESSEL 02 / LUNEA |
+| `codes-alcas.jpg` | bloco 5, foto grande | detalhe de alça/estrutura |
+| `codes-textura.jpg` | bloco 5, foto menor | textura do canvas, vertical |
+
+Abrir cada extraída, comparar com o PDF e renomear para o nome da tabela. Se uma das sete não for foto do design (o objeto de 2000x2000 pode ser logotipo), **apagar** e cobrir o buraco com outra do próprio PDF, para não faltar nome.
+
+**Fonte das provisórias: o próprio PDF do design.** Não baixar foto de banco de imagem — são fotos de terceiro, com licença que ninguém conferiu, num site que vai ao ar com a marca da cliente. As do PDF são da própria marca.
 
 - [ ] **Step 5: Escrever `fotos/LEIA-ME.txt`**
 
@@ -846,9 +859,20 @@ cd ~/vessel-brasil && git add index.html && git commit -m "Formulario ligado na 
 - Consumes: a paleta e a fonte das Global Constraints.
 - Produces: as rotas `/termos` e `/privacidade`, apontadas pela Task 5.
 
-- [ ] **Step 1: Pedir os textos ao dono**
+- [ ] **Step 1: Escrever os dois textos (decisão do dono, 28/08)**
 
-**Não escrever texto jurídico.** Pedir os dois textos ao dono, avisando que a Política precisa dizer, no mínimo: quais dados são coletados (nome, e-mail, WhatsApp), para que servem (avisar sobre lançamentos), com quem são compartilhados (**Bling e Zoho — dizer o nome**), quanto tempo ficam guardados, e como pedir remoção. O contato de remoção é `sac@lavessel.com.br`, já conferido na loja.
+O dono pediu que eu escrevesse. **Ressalva registrada uma vez e não repetida:** o texto vai ser honesto, específico e cobrir o que a LGPD exige, mas **não é texto revisado por advogado** — vale mandar alguém olhar antes de a lista crescer.
+
+A Política diz, no mínimo e sem enrolação:
+- **quais dados**: nome, e-mail, WhatsApp, e a data do aceite;
+- **o que NÃO é coletado**: o IP é guardado só como código embaralhado, e não dá pra voltar atrás;
+- **para quê**: avisar sobre lançamentos e convites da marca. Nada mais;
+- **com quem são compartilhados, pelo nome**: **Bling** (sistema de gestão) e **Zoho** (planilha e e-mail). Dizer o nome, não "parceiros";
+- **por quanto tempo**: até a pessoa pedir para sair;
+- **como sair**: escrever para `sac@lavessel.com.br` (conferido em lavessel.com.br/pages/contato) ou responder qualquer mensagem. Saída em até 7 dias;
+- **quem é o responsável**: LAVESSEL INDÚSTRIA E COMÉRCIO DE BOLSAS, CNPJ 53.242.015/0001-22.
+
+Os Termos dizem o que a lista é e o que ela **não** é: entrar não garante compra, não garante preço, não garante peça, e não é pedido.
 
 - [ ] **Step 2: Montar as duas páginas**
 
@@ -973,7 +997,17 @@ git commit -m "Robo que espelha a lista de espera no Bling e na planilha"
 
 ---
 
-### Task 10: Limpar o iamundi, apontar o domínio, entregar
+### Task 10: Apontar o domínio, DEPOIS limpar o iamundi, entregar
+
+> ⚠️ **A ORDEM MUDOU EM 28/08, e o motivo é medido.** O plano original mandava
+> limpar o iamundi primeiro. Não pode: o selo **está em uso**. `vessel_leituras`
+> mostra leituras quase todo dia desde 19/08, de 1 a 3 origens diferentes por
+> dia, e **zero etiquetas gravadas** (`vessel_pecas.gravada_em`) — ou seja,
+> essas pessoas abrem pelo endereço direto em `central.rbvcompany.com/verify/`.
+> Remover antes de o domínio novo funcionar deixaria todas elas sem página.
+>
+> **Sequência correta:** domínio no ar → `vesselbrasil.com.br/verify/<código>`
+> respondendo 200 com foto → **só então** apagar do iamundi.
 
 **Files:**
 - Modify: `iamundi/vercel.json`
@@ -1026,9 +1060,9 @@ vercel domains add www.vesselbrasil.com.br
 
 Anotar o **A** e o **CNAME** que a Vercel devolver.
 
-- [ ] **Step 5: Entregar o apontamento ao dono**
+- [ ] **Step 5: Configurar o DNS JUNTO com o dono (decisão dele, 28/08)**
 
-Escrever exatamente o que colar no Registro.br, com o aviso em cima:
+Não é entrega por escrito para ele fazer sozinho: ele pediu para fazer junto. Sessão a dois, ele com o painel do Registro.br aberto, eu ditando campo a campo e conferindo por `dig` a cada passo. O aviso vale igual, e vai dito em voz alta antes de tocar em qualquer coisa:
 
 > ⚠️ **ADICIONE, NÃO SUBSTITUA.** A zona tem hoje os três MX do Zoho, o SPF (`v=spf1 include:zohomail.com ~all`) e o registro de verificação. **Se algum sumir, o e-mail do domínio para.**
 > ⚠️ **NÃO troque os servidores de DNS para os da Vercel.** Isso descarta tudo o que está acima de uma vez.
