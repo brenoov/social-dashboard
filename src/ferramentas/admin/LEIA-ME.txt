@@ -279,3 +279,34 @@ DECISÕES QUE VALEM A LEITURA:
 A regra é `src/compartilhado/estados-da-pessoa.js` (16 testes). O CARTÃO DA
 PESSOA NÃO FOI TOCADO: ele foi redesenhado em 13/08 a pedido do dono e conferido
 item a item; mexer sem pedido novo desfaria aquela decisão.
+
+A SUPERVISORA MORA NO CARD PAI (27/08/2026)
+--------------------------------------------
+Decisão do dono: "a supervisora fica a nível pai, gestora e vendedora fica a
+nível loja". Ela vê o faturamento de TODAS as lojas do grupo, então mora no
+cartão do grupo e não dentro do cartão de uma loja.
+
+Ela NÃO está em `equipes_membros` — mora em `canais_grupos_membros`, que é outra
+tabela justamente porque o alcance é outro.
+
+⚠️ SÓ SUPERADMIN PÕE E TIRA. Este vínculo abre o faturamento do grupo inteiro; é
+a mesma classe de decisão da chave "só os canais dos times dela". A gestora de
+uma loja não cria a própria chefe.
+
+⚠️ O CARTÃO DA PESSOA É O MESMO da lista de baixo (`_criarLinhaPessoa`), não um
+parecido — foto, Permissões e a troca de senha pela ficha vêm de graça e iguais.
+
+⚠️ "SUPERVISORA" SAIU DO SELETOR DE PAPEL DO TIME (`papeisQuePossoConceder`), mas
+CONTINUA em `PAPEIS`: o nível dela ainda decide `veOEstoque` e
+`podeLiberarEstoque`, e tirá-la da lista faria uma supervisora antiga virar nível
+zero, perdendo acesso em silêncio. Medido em 27/08: zero pessoas com esse papel
+em time, então nada foi tirado de ninguém.
+
+⚠️ TODA GRAVAÇÃO CONFERE AS LINHAS AFETADAS: RLS barrando devolve 200 com lista
+vazia, e a tela diria "pronto" para um vínculo de permissão que não existe.
+
+Tirar supervisora PERGUNTA antes: a ação encolhe o que a pessoa enxerga.
+
+Vínculo apontando para login que não existe mais NÃO some calado — a seção diz
+"tire e ponha de novo". Some sem explicação é como se descobre tarde que alguém
+ficou com acesso.
