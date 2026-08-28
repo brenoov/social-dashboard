@@ -181,3 +181,63 @@ sempre foi. E grupo que só existe em canal SEM time não vira cabeçalho vazio.
 A regra é `agruparTimesPorGrupo` em `src/compartilhado/grupo-do-canal.js`, com
 testes. Ela precisa de `_canaisComGrupo` carregado — por isso `loadAdminCanais()`
 roda ANTES de `loadAdminEquipes()` em `loadAdminUsers`.
+
+O GRUPO SE MONTA PELO LADO DO GRUPO (27/08/2026)
+-------------------------------------------------
+A seção "Canais de venda" NÃO tem mais um seletor por canal. Ela lista os
+GRUPOS; para dizer quais canais são de um grupo, abre-se "Escolher canais" e
+marcam-se os 14 de uma vez. Pedido do dono: "tirar a questão de selecionar o
+canal pai para cada canal".
+
+Um canal mora num grupo só (é a coluna `bling_lojas.grupo_id`, não uma lista).
+Por isso marcar um canal que já é de outro grupo o MOVE — e a caixinha dele diz
+"hoje em Varejo — marcar aqui move" ANTES do clique. Tirar em silêncio seria a
+mesma classe de defeito que a permissão que some sem aviso.
+
+"Renomear" NÃO EXISTIA e agora existe. Antes, corrigir o nome de um grupo era
+reescrever o texto em cada canal, e errar um partia o grupo em dois, calado.
+Hoje é uma linha em `canais_grupos`, e o gatilho `espelhar_rename_do_grupo` leva
+o texto dos canais junto.
+
+"Apagar" fica DENTRO do painel aberto, não solto na lista (o padrão da Central
+manda botão de perigo ficar atrás de um passo a mais), e recusa grupo com canal
+dentro: a chave estrangeira é `on delete set null`, então apagar desligaria os
+canais em silêncio.
+
+⚠️ A TELA GRAVA `grupo_id`, NUNCA O TEXTO. Quem mantém `bling_lojas.grupo` de
+acordo é o gatilho `espelhar_grupo_do_canal`, que desde 27/08 vale nos DOIS
+sentidos (migration 2026-08-27-espelho-do-grupo-nos-dois-sentidos.sql). Antes
+dela o gatilho só copiava id -> texto, e a tela velha escrevia o texto: dava
+para as duas colunas discordarem sem erro nenhum.
+
+⚠️ TODA GRAVAÇÃO CONFERE AS LINHAS AFETADAS. RLS barrando devolve 200 com lista
+VAZIA, sem erro; sem contar, a tela diria "salvo" para o que não gravou.
+
+A regra pura é `src/compartilhado/cadastro-de-grupos.js` (19 testes). Ela é
+SEPARADA de `grupo-do-canal.js` de propósito: aquele está no caminho do alcance
+da supervisora, que a edge bling-proxy lê.
+
+O CARD PAI (27/08/2026)
+------------------------
+Na seção de Usuários, o grupo deixou de ser um TÍTULO solto acima dos cards de
+loja e virou uma MOLDURA com as lojas dentro, com "N lojas · N pessoas" no topo.
+Com título, as lojas do Varejo e as do Atacado ficavam na mesma coluna e nada
+mostrava onde um grupo acabava — a separação existia no texto, não no desenho.
+
+"Sem grupo" tem moldura TRACEJADA e sem fundo: não é um grupo, é a ausência de
+um, e não pode competir de igual para igual com os de verdade. Ele também diz o
+que fazer, em vez de só existir.
+
+`agruparTimesPorGrupo` agora chaveia pelo APONTAMENTO (`grupo_id`) e devolve a
+LINHA do grupo, não o nome — o card pai precisa do id para pendurar as
+supervisoras (fatia ainda por fazer) e os botões dele. Assinatura:
+`agruparTimesPorGrupo(times, canais, grupos)`.
+
+⚠️ CONTINUA VALENDO: `loadAdminCanais()` roda ANTES de `loadAdminEquipes()`,
+porque `_canaisComGrupo` E `_gruposDeCanal` precisam estar carregados.
+
+⚠️ ARMADILHA DE QUEM FOR MEDIR ESTA TELA NUM HARNESS (custou duas medições
+erradas aqui): o `data-v-*` do CSS scoped MUDA A CADA BUILD — fixe o do build
+atual, senão o CSS não casa e tudo aparece sem estilo. E ligar `data-theme=dark`
+por script DEPOIS da página carregada não repinta o fundo do botão principal:
+monte a página já nascendo no tema que você quer medir.

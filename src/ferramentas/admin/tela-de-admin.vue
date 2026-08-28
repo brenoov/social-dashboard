@@ -1174,12 +1174,35 @@ function _eqDesenhar() {
   // próprio. O cabeçalho só aparece quando existe ao menos um time com grupo:
   // enquanto ninguém marcar canal na lista "Canais de venda", esta parte da
   // tela fica idêntica ao que sempre foi.
-  const baldesDeTime = agruparTimesPorGrupo(ordenarTimes(_eqTimes), _canaisComGrupo)
+  // ── O CARD PAI (27/08/2026) ────────────────────────────────────────────────
+  // O grupo deixou de ser um TÍTULO solto acima dos cards e virou um CARTÃO com
+  // as lojas dele dentro. O motivo é de leitura: com um título, as lojas do
+  // Varejo e as do Atacado ficavam na mesma coluna, e nada mostrava onde um
+  // grupo acabava e o outro começava — a separação existia no texto e não no
+  // desenho. Com moldura, a hierarquia é o que se vê primeiro.
+  //
+  // A contagem soma DUAS coisas, e as duas importam: quantas lojas o grupo tem,
+  // e quanta gente trabalha nelas somando todas. "Varejo: 2 lojas · 3 pessoas"
+  // responde de relance a pergunta que hoje exige abrir loja por loja.
+  const baldesDeTime = agruparTimesPorGrupo(ordenarTimes(_eqTimes), _canaisComGrupo, _gruposDeCanal)
   const mostrarCabecalhoDeGrupo = baldesDeTime.some(b => b.grupo !== null)
   for (const balde of baldesDeTime) {
     if (mostrarCabecalhoDeGrupo) {
-      html += '<div class="adm-times-grupo">' + escHtml(balde.grupo || 'Sem grupo')
-        + '<span class="adm-times-grupo-conta">' + balde.times.length + (balde.times.length === 1 ? ' time' : ' times') + '</span></div>'
+      const gente = balde.times.reduce(
+        (n, t) => n + _eqMembros.filter(m => String(m.equipe_id) === String(t.id)).length, 0)
+      html += '<div class="adm-pai' + (balde.grupo ? '' : ' adm-pai-sem') + '">'
+      html += '<div class="adm-pai-topo">'
+      html += '<span class="adm-pai-nome">' + escHtml(balde.grupo ? balde.grupo.nome : 'Sem grupo') + '</span>'
+      html += '<span class="adm-pai-conta">' + balde.times.length + (balde.times.length === 1 ? ' loja' : ' lojas')
+        + ' · ' + gente + (gente === 1 ? ' pessoa' : ' pessoas') + '</span>'
+      html += '</div>'
+      if (!balde.grupo) {
+        // CONTROLE QUE SOME SEM EXPLICAÇÃO VIRA CHAMADO. "Sem grupo" não é um
+        // grupo, é a ausência de um — e a tela diz o que fazer, em vez de só
+        // não ter nada ali.
+        html += '<div class="adm-pai-nota">Estes times não estão em grupo nenhum. '
+          + 'Ligue cada um a um canal de venda que esteja num grupo, na lista <b>Canais de venda</b>, acima.</div>'
+      }
     }
     for (const t of balde.times) {
     const l = linhaDoTime(t, _eqMembros)
@@ -1213,6 +1236,9 @@ function _eqDesenhar() {
     html += '<div data-eq-pessoas="' + escHtml(t.id) + '" style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);"></div>'
     html += '</div>'
     }
+    // Fecha a moldura do grupo. Só existe quando há cabeçalho — sem grupo
+    // nenhum marcado, esta parte da tela continua idêntica ao que sempre foi.
+    if (mostrarCabecalhoDeGrupo) html += '</div>'
   }
   if (_eqEditando === 'novo') html += '<div style="border:1px solid var(--accent);border-radius:12px;padding:14px 16px;margin-bottom:10px;background:var(--surface);">' + _eqFormulario(null) + '</div>'
 
@@ -3919,8 +3945,24 @@ Object.assign(window, {
 <style scoped>
 /* ── CABEÇALHO DE GRUPO NOS TIMES (Peça 4, 20/08/2026) ─────────────────────
    Só aparece quando algum time tem grupo; sem configuração, a tela fica igual. */
-.tela-admin :deep(.adm-times-grupo){display:flex;align-items:baseline;justify-content:space-between;gap:var(--sp-2);flex-wrap:wrap;margin:var(--sp-4) 0 var(--sp-2);font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);overflow-wrap:anywhere;}
-.tela-admin :deep(.adm-times-grupo-conta){font-weight:600;letter-spacing:.3px;text-transform:none;}
+/* O CARD PAI (27/08/2026). O grupo era um TÍTULO solto acima dos cards de loja;
+   virou MOLDURA com as lojas dentro. Com título, as lojas do Varejo e as do
+   Atacado ficavam na mesma coluna e nada mostrava onde um grupo acabava — a
+   separação existia no texto, não no desenho. Só token, como manda o padrão. */
+.tela-admin :deep(.adm-pai){border:1px solid var(--border);border-radius:var(--radius-lg);padding:var(--sp-3);margin:var(--sp-4) 0;background:var(--surface2);}
+/* "Sem grupo" NÃO é um grupo: é a ausência de um. Tracejado e sem fundo para
+   ele não competir de igual para igual com os grupos de verdade. */
+.tela-admin :deep(.adm-pai-sem){background:transparent;border-style:dashed;}
+.tela-admin :deep(.adm-pai-topo){display:flex;align-items:baseline;justify-content:space-between;gap:var(--sp-2);flex-wrap:wrap;margin-bottom:var(--sp-2);}
+.tela-admin :deep(.adm-pai-nome){font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);overflow-wrap:anywhere;}
+.tela-admin :deep(.adm-pai-conta){font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));color:var(--muted);}
+.tela-admin :deep(.adm-pai-nota){font-family:var(--fonte-principal);font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));color:var(--muted);margin-bottom:var(--sp-2);}
+/* CELULAR: o aninhamento não pode empurrar a largura. No desktop o pai recua o
+   filho; a 375px ele encosta na borda — os cards de loja já sabem encolher, e é
+   a moldura NOVA que precisa ceder, não eles. */
+@media (max-width:640px){
+  .tela-admin :deep(.adm-pai){padding:var(--sp-2) 0;border-left:0;border-right:0;border-radius:0;}
+}
 /* ── CANAIS DE VENDA (20/08/2026) ──────────────────────────────────────────
    Só token: espaçamento da escala --sp-*, raio --radius-*, cor por token. */
 .tela-admin :deep(.adm-canais-topo){display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap;margin-bottom:var(--sp-2);font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));color:var(--muted);}

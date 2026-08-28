@@ -131,31 +131,57 @@ export function alternarGrupo(canaisDoGrupo, selecionados) {
 //
 // Cabeçalho de grupo que não tem time embaixo NÃO é criado: um canal marcado
 // como "Marketplace" sem time nenhum viraria um título vazio na tela.
-export function agruparTimesPorGrupo(times, canais) {
+export function agruparTimesPorGrupo(times, canais, grupos) {
   const lista = times || [];
   if (!lista.length) return [];
-  const grupoDoCanal = new Map();
+
+  // De-para canal -> id do grupo. O id, e não o texto: desde 27/08 o grupo é uma
+  // linha cadastrada (`canais_grupos`), e é ela que o card pai precisa ter na
+  // mão — um cartão de grupo sem o id do grupo não teria onde pendurar as
+  // supervisoras nem os botões dele.
+  const grupoIdDoCanal = new Map();
   for (const c of canais || []) {
     if (c == null || c.loja_id === undefined || c.loja_id === null) continue;
-    grupoDoCanal.set(String(c.loja_id), normalizarGrupo(c.grupo));
+    const gid = c.grupo_id;
+    grupoIdDoCanal.set(String(c.loja_id), gid === undefined || gid === null || gid === '' ? null : String(gid));
   }
+
+  const porId = new Map();
+  for (const g of grupos || []) if (g && g.id !== undefined && g.id !== null) porId.set(String(g.id), g);
+
+  // O grupo do time, ou nulo. Nulo vale para três casos que a tela trata igual:
+  // time sem canal (loja que ainda vai abrir), canal sem grupo, e canal
+  // apontando para um grupo que não existe mais.
   const doTime = (t) => {
     const id = t && t.canal_loja_id;
     if (id === null || id === undefined || id === '') return null;
-    return grupoDoCanal.get(String(id)) || null;
+    const gid = grupoIdDoCanal.get(String(id));
+    if (!gid) return null;
+    return porId.get(gid) || null;
   };
-  const nomes = [];
+
+  // Só entra grupo QUE TEM TIME. Um grupo com canais e nenhum time viraria um
+  // cartão vazio no meio da gestão de usuários — a lista de canais é que mostra
+  // todos os grupos, inclusive os vazios; esta aqui é a lista de TIMES.
+  const usados = [];
   const vistos = new Set();
   for (const t of lista) {
     const g = doTime(t);
-    if (g === null) continue;
-    const chave = g.toLocaleLowerCase('pt-BR');
-    if (vistos.has(chave)) continue;
-    vistos.add(chave);
-    nomes.push(g);
+    if (!g) continue;
+    const k = String(g.id);
+    if (vistos.has(k)) continue;
+    vistos.add(k);
+    usados.push(g);
   }
-  nomes.sort((a, b) => a.localeCompare(b, 'pt-BR'));
-  const baldes = nomes.map((g) => ({ grupo: g, times: lista.filter((t) => mesmoGrupo(doTime(t), g)) }));
+  usados.sort((a, b) => String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR'));
+
+  const baldes = usados.map((g) => ({
+    grupo: g,
+    times: lista.filter((t) => { const x = doTime(t); return x && String(x.id) === String(g.id); }),
+  }));
+
+  // Os sem grupo vão por último e NÃO somem: perder um time de vista na gestão
+  // de usuários é perder o time inteiro.
   const orfaos = lista.filter((t) => doTime(t) === null);
   if (orfaos.length) baldes.push({ grupo: null, times: orfaos });
   return baldes;
