@@ -763,6 +763,9 @@ function _gtConfirmAdmin(titulo, texto) {
  */
 let _eqTimes = []
 let _eqMembros = []
+// As supervisoras do GRUPO (`canais_grupos_membros`). Ficam à parte de
+// `_eqMembros` porque não são membros de time nenhum: o alcance delas é o grupo.
+let _eqSupervisoras = []
 let _eqPessoas = []
 let _eqCanais = []
 // O que a supervisora liberou para alguém do time (`equipes_permissoes`; hoje
@@ -1123,11 +1126,14 @@ async function loadAdminEquipes(opcoes) {
     // chegasse nele sem `permissions`/`allowed_accounts`/`perfil_id`, salvar
     // apagaria o acesso inteiro dela em silêncio — o editor não teria como
     // saber que o que faltava era o select, não o acesso.
-    const [times, membros, canais, liberacoes, rp] = await Promise.all([
+    const [times, membros, canais, liberacoes, supervisoras, rp] = await Promise.all([
       sb('equipes?select=*'),
       sb('equipes_membros?select=*'),
       sb('bling_lojas?select=loja_id,nome&order=nome'),
       sb('equipes_permissoes?select=equipe_id,profile_id,chave'),
+      // As supervisoras do GRUPO. Elas não estão em `equipes_membros`: o alcance
+      // delas é o grupo inteiro, e é por isso que moram noutra tabela.
+      sb('canais_grupos_membros?select=id,grupo_id,profile_id,papel'),
       sbClient.from('profiles').select(
         'id,name,email,disabled,escopo_por_equipe,'
         + 'permissions,permissions_excecao,allowed_accounts,is_superadmin,perfil_id,role').order('name'),
@@ -1146,6 +1152,10 @@ async function loadAdminEquipes(opcoes) {
     // times inteira por causa dela seria trocar um defeito pequeno por um
     // grande.
     _eqLiberacoes = liberacoes && !liberacoes.erro ? liberacoes : []
+    // Mesma escolha da liberação de estoque: falhar aqui não derruba a lista de
+    // times inteira. Sem elas o card pai diz "nenhuma supervisora", que é o lado
+    // seguro do erro — o outro seria a tela sumir por causa de uma seção.
+    _eqSupervisoras = supervisoras && !supervisoras.erro ? supervisoras : []
     if (desenhar) _eqDesenhar()
   } catch (e) {
     // O MOTIVO VAI PRA TELA. `catch` mudo aqui já custou meia hora de caça
@@ -1203,6 +1213,20 @@ function _eqDesenhar() {
         // não ter nada ali.
         html += '<div class="adm-pai-nota">Estes times não estão em grupo nenhum. '
           + 'Ligue cada um a um canal de venda que esteja num grupo, na lista <b>Canais de venda</b>, acima.</div>'
+      } else {
+        // ── AS SUPERVISORAS DO GRUPO (27/08/2026) ────────────────────────────
+        // Decisão do dono: "a supervisora fica a nível pai, gestora e vendedora
+        // fica a nível loja". Ela vê o faturamento de TODAS as lojas do grupo,
+        // e por isso mora aqui em cima e não dentro do card de uma loja.
+        const gid = escHtml(String(balde.grupo.id))
+        html += '<div class="adm-pai-rotulo">Supervisoras do ' + escHtml(balde.grupo.nome) + '</div>'
+        html += '<div class="adm-pai-gente" data-pai-gente="' + gid + '"></div>'
+        // ⚠️ SÓ SUPERADMIN PÕE E TIRA. Este vínculo abre o faturamento do grupo
+        // inteiro — é a mesma classe de decisão da chave "só os canais dos times
+        // dela", que também é só do super-admin. A gestora de uma loja não cria
+        // a própria chefe.
+        if (eu.is_superadmin) html += '<div class="adm-pai-por" data-pai-por="' + gid + '"></div>'
+        html += '<div class="adm-pai-aviso" data-pai-aviso="' + gid + '"></div>'
       }
     }
     for (const t of balde.times) {
@@ -1445,9 +1469,133 @@ function _eqDesenharPessoas(cx, t) {
   if (podeDar.length) cx.appendChild(_eqColocarNoTime(t, meus, podeDar))
 }
 
+// AS SUPERVISORAS DO GRUPO, dentro do card pai.
+//
+// ⚠️ O CARTÃO É O MESMO da lista de baixo (`_criarLinhaPessoa`), e não um
+// parecido. Assim a foto, o botão Permissões e a troca de senha pela ficha vêm
+// de graça e iguais aos de lá. Escrever um cartão "quase igual" aqui é como a
+// caixinha de estoque ficou dois meses morta: controle novo que ninguém liga.
+function _ligarSupervisorasDoGrupo(body) {
+  const eu = { is_superadmin: estado.is_superadmin }
+
+  for (const cx of body.querySelectorAll('[data-pai-gente]')) {
+    const gid = cx.getAttribute('data-pai-gente')
+    const minhas = _eqSupervisoras.filter((m) => String(m.grupo_id) === String(gid) && m.papel === 'supervisora')
+    if (!minhas.length) {
+      cx.innerHTML = '<div class="adm-pai-vazio">Nenhuma supervisora neste grupo ainda.</div>'
+      continue
+    }
+    cx.innerHTML = ''
+    for (const m of minhas) {
+      const p = (_eqLinhasPessoa || []).find((x) => String(x.id) === String(m.profile_id))
+      // Vínculo apontando para login que não existe mais NÃO some calado: some
+      // sem explicação é como se descobre tarde que alguém ficou com acesso.
+      if (!p) {
+        const orfa = mkEl('div', 'adm-pai-vazio',
+          'Um vínculo aponta para um login que não existe mais. Tire e ponha de novo.')
+        cx.appendChild(orfa)
+        continue
+      }
+      const linha = mkEl('div', 'adm-pai-linha')
+      linha.appendChild(_criarLinhaPessoa(p, _eqGaveta, _eqMeuEmail))
+      if (eu.is_superadmin) {
+        const tirar = mkEl('button', 'btn btn-perigo adm-pai-tirar', 'Tirar do grupo')
+        tirar.type = 'button'
+        tirar.addEventListener('click', () => _tirarSupervisora(tirar, m, gid))
+        linha.appendChild(tirar)
+      }
+      cx.appendChild(linha)
+    }
+  }
+
+  for (const cx of body.querySelectorAll('[data-pai-por]')) {
+    const gid = cx.getAttribute('data-pai-por')
+    const jaSao = new Set(_eqSupervisoras
+      .filter((m) => String(m.grupo_id) === String(gid))
+      .map((m) => String(m.profile_id)))
+    // Quem OFERECER: quem ainda não é supervisora deste grupo e não está
+    // desativada. Oferecer quem já é faria um clique que não muda nada.
+    const candidatas = (_eqLinhasPessoa || [])
+      .filter((p) => !jaSao.has(String(p.id)) && !(p.bruto && p.bruto.disabled))
+    cx.innerHTML = ''
+    if (!candidatas.length) continue
+    const sel = mkEl('select', 'admin-form-input adm-pai-sel')
+    const vazio = document.createElement('option')
+    vazio.value = ''; vazio.textContent = '— escolher quem supervisiona —'
+    sel.appendChild(vazio)
+    for (const p of candidatas) {
+      const o = document.createElement('option')
+      o.value = p.id; o.textContent = p.nome + (p.email ? ' · ' + p.email : '')
+      sel.appendChild(o)
+    }
+    const b = mkEl('button', 'btn', 'Pôr como supervisora'); b.type = 'button'
+    b.addEventListener('click', () => _porSupervisora(b, sel, gid))
+    cx.appendChild(sel); cx.appendChild(b)
+  }
+}
+
+const _avisoDoPai = (gid, texto, ruim) => {
+  const el = document.querySelector('[data-pai-aviso="' + gid + '"]')
+  if (!el) { adminToast(texto, !ruim); return }
+  el.textContent = texto
+  el.className = 'adm-pai-aviso' + (ruim ? ' adm-pai-erro' : '')
+}
+
+async function _porSupervisora(botao, sel, gid) {
+  if (!sel.value) { _avisoDoPai(gid, 'Escolha uma pessoa antes.', true); return }
+  botao.disabled = true; _avisoDoPai(gid, 'Pondo no grupo…', false)
+  try {
+    const r = await adFetch('canais_grupos_membros', {
+      method: 'POST',
+      headers: { Prefer: 'return=representation' },
+      body: JSON.stringify({ grupo_id: gid, profile_id: sel.value, papel: 'supervisora' }),
+    })
+    if (!r.ok) throw new Error(await r.text())
+    // A CONFERÊNCIA QUE NÃO PODE FALTAR: quando o RLS barra, o PostgREST
+    // responde 200 com lista VAZIA. Sem contar, a tela diria "pronto" para um
+    // vínculo de permissão que não existe — e ninguém descobriria até a pessoa
+    // reclamar que não vê as lojas.
+    const linhas = await r.json().catch(() => [])
+    if (!Array.isArray(linhas) || !linhas.length) {
+      throw new Error('o banco aceitou o pedido e não gravou nada — só o super-admin põe supervisora.')
+    }
+    await loadAdminEquipes()
+    adminToast('Supervisora do grupo definida.')
+  } catch (e) {
+    botao.disabled = false
+    _avisoDoPai(gid, String(e && e.message || e), true)
+  }
+}
+
+async function _tirarSupervisora(botao, membro, gid) {
+  const p = (_eqLinhasPessoa || []).find((x) => String(x.id) === String(membro.profile_id))
+  const nome = p ? p.nome : 'esta pessoa'
+  // TIRAR SUPERVISORA ENCOLHE O QUE ELA VÊ, e isso merece a pergunta — é o mesmo
+  // cuidado que a tela já tem para excluir usuário.
+  if (!window.confirm('Tirar ' + nome + ' da supervisão deste grupo? '
+    + 'Ela deixa de ver o faturamento das lojas do grupo que não são do time dela.')) return
+  botao.disabled = true; _avisoDoPai(gid, 'Tirando…', false)
+  try {
+    const r = await adFetch('canais_grupos_membros?id=eq.' + encodeURIComponent(membro.id), {
+      method: 'DELETE', headers: { Prefer: 'return=representation' },
+    })
+    if (!r.ok) throw new Error(await r.text())
+    const linhas = await r.json().catch(() => [])
+    if (!Array.isArray(linhas) || !linhas.length) {
+      throw new Error('o banco aceitou o pedido e não apagou nada — só o super-admin tira supervisora.')
+    }
+    await loadAdminEquipes()
+    adminToast('Tirada da supervisão do grupo.')
+  } catch (e) {
+    botao.disabled = false
+    _avisoDoPai(gid, String(e && e.message || e), true)
+  }
+}
+
 function _eqLigar(body) {
   const q = (sel) => Array.from(body.querySelectorAll(sel))
   const um = (sel) => body.querySelector(sel)
+  _ligarSupervisorasDoGrupo(body)
   const puxar = um('[data-vd-puxar]'); if (puxar) puxar.onclick = () => _vdPuxar()
   const fechar = um('[data-vd-fechar]'); if (fechar) fechar.onclick = () => { _vdLista = []; _vdSenhas = []; _vdMotivoVazio = ''; _vdPerfilId = ''; _eqDesenhar() }
   const criarTudo = um('[data-vd-criar-tudo]'); if (criarTudo) criarTudo.onclick = () => _vdCriarContas(criarTudo)
@@ -4042,6 +4190,20 @@ Object.assign(window, {
 .tela-admin :deep(.adm-pai-nome){font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);overflow-wrap:anywhere;}
 .tela-admin :deep(.adm-pai-conta){font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));color:var(--muted);}
 .tela-admin :deep(.adm-pai-nota){font-family:var(--fonte-principal);font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));color:var(--muted);margin-bottom:var(--sp-2);}
+/* A SUPERVISORA DENTRO DO CARD PAI (27/08/2026). O cartão dela é o MESMO da
+   lista de baixo; o que existe aqui é só a moldura em volta e o botão de tirar. */
+.tela-admin :deep(.adm-pai-rotulo){font-family:var(--fonte-principal);font-size:max(9px, calc(10.5px * var(--escala-texto, 1)));font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:var(--sp-2) 0 var(--sp-1);}
+.tela-admin :deep(.adm-pai-vazio){font-family:var(--fonte-principal);font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));color:var(--muted);padding:var(--sp-1) 0;}
+.tela-admin :deep(.adm-pai-linha){display:flex;align-items:flex-start;gap:var(--sp-2);flex-wrap:wrap;}
+/* O cartão da pessoa cresce e o botão fica do tamanho dele: a 375px o botão cai
+   para a linha de baixo em vez de espremer o nome até cortar. */
+.tela-admin :deep(.adm-pai-linha > :first-child){flex:1 1 240px;min-width:0;}
+.tela-admin :deep(.adm-pai-tirar){flex:0 0 auto;}
+.tela-admin :deep(.adm-pai-por){display:flex;gap:var(--sp-2);flex-wrap:wrap;align-items:center;margin-top:var(--sp-2);}
+.tela-admin :deep(.adm-pai-sel){flex:1 1 240px;min-width:0;min-height:40px;box-sizing:border-box;font-family:var(--fonte-principal);font-size:max(16px, calc(16px * var(--escala-texto, 1)));border-radius:var(--radius-md);border:1px solid var(--border);background:var(--surface2);color:var(--text);padding:0 var(--sp-2);}
+.tela-admin :deep(.adm-pai-aviso){font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));color:var(--muted);margin-top:var(--sp-1);}
+.tela-admin :deep(.adm-pai-aviso:empty){display:none;}
+.tela-admin :deep(.adm-pai-erro){color:var(--red);}
 /* CELULAR: o aninhamento não pode empurrar a largura. No desktop o pai recua o
    filho; a 375px ele encosta na borda — os cards de loja já sabem encolher, e é
    a moldura NOVA que precisa ceder, não eles. */
