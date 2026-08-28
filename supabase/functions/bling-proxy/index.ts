@@ -165,9 +165,13 @@ Deno.serve(async (req: Request) => {
       // mesmo jeito que `public.pode_ver_canal` faz no banco.
       const { data: c } = await sb.from('bling_lojas').select('loja_id, grupo, grupo_id');
       canaisDoBling = c || [];
-      // A supervisora que mora no GRUPO (e não num time). A leitura passa pelo
-      // RLS com o token DA PESSOA: a política `cgm_leitura` já deixa cada uma
-      // enxergar as próprias linhas, então isto não precisa de chave mestra.
+      // A supervisora que mora no GRUPO (e não num time).
+      //
+      // ⚠️ `sb` AQUI É SERVICE ROLE — ele IGNORA o RLS. Quem limita a leitura às
+      // linhas desta pessoa é o `.eq('profile_id', user.id)` abaixo, e mais nada.
+      // Tirar esse filtro não daria erro: traria o vínculo de TODO MUNDO, e a
+      // regra passaria a ampliar o acesso de quem não devia. Mesmo cuidado da
+      // leitura de `equipes_membros` logo acima, pelo mesmo motivo.
       const { data: gm } = await sb.from('canais_grupos_membros')
         .select('grupo_id, profile_id, papel').eq('profile_id', user.id);
       membrosDeGrupo = gm || [];
