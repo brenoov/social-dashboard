@@ -146,7 +146,8 @@ Deno.serve(async (req: Request) => {
     // jeito quando `escopo_por_equipe` não é `true`.
     let times: { id: string; canal_loja_id: number | null }[] = [];
     let membros: { equipe_id: string; profile_id: string; papel?: string }[] = [];
-    let canaisDoBling: { loja_id: number; grupo: string | null }[] = [];
+    let canaisDoBling: { loja_id: number; grupo: string | null; grupo_id?: string | null }[] = [];
+    let membrosDeGrupo: { grupo_id: string; profile_id: string; papel?: string }[] = [];
     if (prof.escopo_por_equipe === true) {
       // `papel` (20/08/2026): sem ele a supervisora é tratada como vendedora, e
       // a edge devolveria MENOS do que a tela mostra — as duas contando
@@ -160,8 +161,16 @@ Deno.serve(async (req: Request) => {
       }
       // TODOS os canais com o grupo deles, e não só os dos meus times: é isto
       // que permite à supervisora enxergar o grupo inteiro. São 14 linhas.
-      const { data: c } = await sb.from('bling_lojas').select('loja_id, grupo');
+      // `grupo_id` entrou em 27/08: é por ele que casa o vínculo de GRUPO, do
+      // mesmo jeito que `public.pode_ver_canal` faz no banco.
+      const { data: c } = await sb.from('bling_lojas').select('loja_id, grupo, grupo_id');
       canaisDoBling = c || [];
+      // A supervisora que mora no GRUPO (e não num time). A leitura passa pelo
+      // RLS com o token DA PESSOA: a política `cgm_leitura` já deixa cada uma
+      // enxergar as próprias linhas, então isto não precisa de chave mestra.
+      const { data: gm } = await sb.from('canais_grupos_membros')
+        .select('grupo_id, profile_id, papel').eq('profile_id', user.id);
+      membrosDeGrupo = gm || [];
     }
     // `null` = vê todos os canais (quase todo mundo, e a conta de serviço dos
     // robôs). `[]` = não vê canal nenhum, que é DIFERENTE de `null`.
@@ -172,6 +181,7 @@ Deno.serve(async (req: Request) => {
       times,
       membros,
       canais: canaisDoBling,
+      membrosDeGrupo,
     });
 
     const { endpoint, params } = await req.json();
