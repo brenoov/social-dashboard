@@ -235,6 +235,7 @@ import {
 // Separar as pessoas por marca, local ou setor: a gaveta escolhida e o "sem
 // ___" que fecha a lista moram aqui, puro e testado — a tela só desenha.
 import { agruparPor, DIMENSOES } from './lotacao.js'
+import { ESTADOS, contarEstados, aplicarEstados } from '../../compartilhado/estados-da-pessoa.js'
 // Decide se um login e um cadastro de colaborador são a mesma pessoa. Puro e
 // testado à parte: um casamento errado dá a lotação e o histórico de alguém
 // para outra pessoa, ou para uma caixa de e-mail compartilhada.
@@ -3203,10 +3204,76 @@ function _construirAcoes(p, u, { isSelf, canEdit }) {
   return acoes
 }
 
+// A FILEIRA DE FILTROS DE ESTADO.
+//
+// ⚠️ FILTRO ZERADO NÃO APARECE. Hoje ninguém está desativado; um botão
+// "Desativado (0)" que só sabe esvaziar a lista é controle morto, e controle
+// morto ensina a não confiar nos outros. Ele volta sozinho no dia em que
+// alguém for desativado.
+//
+// Se NENHUM estado tem gente, a fileira inteira não nasce — a tela fica
+// idêntica ao que sempre foi.
+function _desenharFiltrosDeEstado(alvo, contagem, lerEscolhidos, aoMudar) {
+  const comGente = ESTADOS.filter((e) => (contagem[e.chave] || 0) > 0)
+  if (!comGente.length) return
+  const escolhidos = lerEscolhidos() || []
+
+  const fila = mkEl('div', 'usr-filtros')
+  fila.setAttribute('role', 'group')
+  fila.setAttribute('aria-label', 'Filtrar por situação')
+
+  for (const e of comGente) {
+    const ligado = escolhidos.includes(e.chave)
+    const b = mkEl('button', 'usr-filtro' + (ligado ? ' usr-filtro-on' : ''))
+    b.type = 'button'
+    b.title = e.ajuda
+    // `aria-pressed` e não `aria-checked`: é um botão que fica apertado, e quem
+    // usa leitor de tela precisa ouvir que ele TEM estado — sem isso o filtro
+    // ligado e o desligado se anunciam igual.
+    b.setAttribute('aria-pressed', ligado ? 'true' : 'false')
+    b.appendChild(mkEl('span', null, e.rotulo))
+    b.appendChild(mkEl('span', 'usr-filtro-conta', String(contagem[e.chave])))
+    b.addEventListener('click', () => {
+      const atual = lerEscolhidos() || []
+      aoMudar(atual.includes(e.chave) ? atual.filter((c) => c !== e.chave) : [...atual, e.chave])
+    })
+    fila.appendChild(b)
+  }
+
+  if (escolhidos.length) {
+    const limpar = mkEl('button', 'usr-filtro usr-filtro-limpar', 'Limpar')
+    limpar.type = 'button'
+    limpar.addEventListener('click', () => aoMudar([]))
+    fila.appendChild(limpar)
+  }
+  alvo.appendChild(fila)
+}
+
+// "MOSTRANDO 4 DE 19". Só aparece quando algo está filtrando.
+//
+// ⚠️ ISTO NÃO É ENFEITE. Esta lista já escondeu gente por outro motivo — quem
+// está num time saiu daqui e virou cartão dentro da loja — e uma lista que
+// encolhe sem dizer por quê é lida como "sumiu do sistema". Com filtro ligado,
+// o número tem de estar escrito.
+function _desenharContagem(alvo, mostrando, total, filtrando) {
+  if (!filtrando) return
+  const el = mkEl('div', 'usr-contagem')
+  el.setAttribute('role', 'status')
+  el.setAttribute('aria-live', 'polite')
+  el.textContent = mostrando === total
+    ? `${total} ${total === 1 ? 'pessoa' : 'pessoas'}`
+    : `Mostrando ${mostrando} de ${total} ${total === 1 ? 'pessoa' : 'pessoas'}`
+  alvo.appendChild(el)
+}
+
 function _desenharGrupos(alvo, linhas, gaveta, currentEmail) {
   const grupos = agruparPor(linhas, gaveta)
   if (!grupos.length) {
-    alvo.insertAdjacentHTML('beforeend', '<div class="usr-vazio">Ninguém encontrado com esse nome.</div>')
+    // A frase dizia "com esse nome" — e desde que existem filtros de situação,
+    // a lista também pode esvaziar sem ninguém ter digitado nada. Mandar
+    // procurar o nome errado é pior que não explicar.
+    alvo.insertAdjacentHTML('beforeend',
+      '<div class="usr-vazio">Ninguém aqui com essa busca ou esse filtro.</div>')
     return
   }
   for (const g of grupos) {
@@ -3372,9 +3439,22 @@ async function loadAdminUsers() {
   const emTime = new Set(_eqMembros.map((m) => String(m.profile_id)))
   const linhasSemTime = linhas.filter((l) => !emTime.has(String(l.id)))
 
+  // OS FILTROS DE ESTADO (27/08/2026). A lista já sabia responder "onde está
+  // fulano" — a busca por nome/e-mail e a gaveta por Marca. O que faltava era a
+  // pergunta do outro lado: "quem está em tal situação?". Os avisos existiam,
+  // mas um por cartão: descobrir que 4 pessoas estão sem cadastro de colaborador
+  // exigia varrer os 19 com o olho.
+  let estadosEscolhidos = []
+
   function _redesenharGrupos() {
     grupos.innerHTML = ''
-    _desenharGrupos(grupos, _filtrar(linhasSemTime, termo), gaveta, currentEmail)
+    // A ORDEM IMPORTA: filtra por estado, depois por texto, e só então agrupa.
+    // Agrupar antes faria os cabeçalhos mostrarem contagem de gente que a lista
+    // não está mostrando — a mesma razão pela qual a busca já filtrava antes.
+    const visiveis = _filtrar(aplicarEstados(linhasSemTime, estadosEscolhidos), termo)
+    _desenharContagem(grupos, visiveis.length, linhasSemTime.length,
+      estadosEscolhidos.length > 0 || !!_crua(termo))
+    _desenharGrupos(grupos, visiveis, gaveta, currentEmail)
   }
 
   function _redesenharTudo() {
@@ -3386,6 +3466,11 @@ async function loadAdminUsers() {
     busca.value = termo
     busca.addEventListener('input', () => { termo = busca.value; _redesenharGrupos() })
     alvo.appendChild(busca)
+    // A contagem dos filtros olha a lista INTEIRA, não a filtrada: um filtro cujo
+    // número mudasse conforme os outros filtros faria a pessoa perseguir o
+    // próprio clique.
+    _desenharFiltrosDeEstado(alvo, contarEstados(linhasSemTime), () => estadosEscolhidos,
+      (novos) => { estadosEscolhidos = novos; _redesenharTudo() })
     alvo.appendChild(grupos)
     _redesenharGrupos()
   }
@@ -4310,6 +4395,19 @@ Object.assign(window, {
 .tela-admin :deep(.usr-gavetas-rot){font-size:max(9px, calc(11px * var(--escala-texto, 1)));color:var(--muted);}
 .tela-admin :deep(.usr-preencher){font-size:max(9px, calc(11px * var(--escala-texto, 1)));color:color-mix(in srgb,var(--orange) 75%,var(--text));cursor:pointer;}
 .tela-admin :deep(.usr-vazio){color:var(--muted);font-size:max(9px, calc(12px * var(--escala-texto, 1)));padding:14px 2px;}
+/* OS FILTROS DE SITUAÇÃO (27/08/2026). Mesma linguagem visual do `.ptab` que a
+   Central já usa para alternar — borda com fundo transparente quando desligado,
+   cor de destaque quando ligado —, mas com os 40px de alvo que o padrão exige e
+   que o `.ptab` (feito para tabinha de período) não tem. Só token. */
+.tela-admin :deep(.usr-filtros){display:flex;gap:var(--sp-2);flex-wrap:wrap;margin:var(--sp-2) 0;}
+.tela-admin :deep(.usr-filtro){display:inline-flex;align-items:center;gap:var(--sp-2);min-height:40px;padding:0 var(--sp-3);border-radius:var(--radius-md);border:1px solid var(--border);background:none;color:var(--text);cursor:pointer;font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));font-weight:600;}
+.tela-admin :deep(.usr-filtro:hover){background:var(--surface2);}
+.tela-admin :deep(.usr-filtro-on){background:var(--accent);border-color:var(--accent);color:var(--sobre-cor);}
+/* A contagem herda a cor do botão de propósito: pintada de `--muted`, ela
+   sumiria contra o fundo de destaque quando o filtro está ligado. */
+.tela-admin :deep(.usr-filtro-conta){font-weight:700;opacity:.75;}
+.tela-admin :deep(.usr-filtro-limpar){font-weight:500;color:var(--muted);}
+.tela-admin :deep(.usr-contagem){font-family:var(--fonte-principal);font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));color:var(--muted);margin:var(--sp-1) 0 var(--sp-2);}
 
 /* A ficha da pessoa (etapa 2). Uma coluna, cabe no celular, e as cores saem do
    tema — nada de cor fixa, que foi o que deixou a seção branca no escuro. */

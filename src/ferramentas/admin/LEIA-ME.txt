@@ -241,3 +241,41 @@ erradas aqui): o `data-v-*` do CSS scoped MUDA A CADA BUILD — fixe o do build
 atual, senão o CSS não casa e tudo aparece sem estilo. E ligar `data-theme=dark`
 por script DEPOIS da página carregada não repinta o fundo do botão principal:
 monte a página já nascendo no tema que você quer medir.
+
+FILTROS DE SITUAÇÃO NA LISTA "SEM TIME DE VENDA" (27/08/2026)
+--------------------------------------------------------------
+A lista já sabia responder "onde está fulano": a busca por nome/e-mail e a
+gaveta por Marca/Local/Setor existiam. O que faltava era a pergunta do outro
+lado — "quem está em tal situação?". Os avisos existiam, mas um por cartão:
+descobrir que 4 pessoas estão sem cadastro de colaborador exigia varrer os 19
+com o olho.
+
+Agora há uma fileira de filtros acima da lista. Medido em 27/08 nas 19 pessoas
+da lista: 4 sem cadastro · 9 admin (3 deles super) · 1 precisa trocar senha ·
+0 desativado.
+
+DECISÕES QUE VALEM A LEITURA:
+* FILTRO ZERADO NÃO APARECE. Ninguém está desativado hoje, e um botão
+  "Desativado (0)" que só sabe esvaziar a lista é controle morto — e controle
+  morto ensina a não confiar nos outros. Ele volta sozinho quando houver.
+  Se NENHUM estado tiver gente, a fileira inteira não nasce.
+* DOIS FILTROS SOMAM (ou), não interceptam (e). "Sem cadastro" E "admin" ao
+  mesmo tempo daria zero quase sempre nesta base, e filtro que zera a lista
+  ensina a pessoa a não usar filtro.
+* SUPER-ADMIN CONTA COMO ADMIN. Ele é admin com mais poder, não uma categoria à
+  parte: filtrar "admin" e não achar os três super-admins seria a lista mentindo
+  sobre quem manda no sistema.
+* A CONTAGEM DOS FILTROS OLHA A LISTA INTEIRA, não a filtrada. Um número que
+  mudasse conforme os outros filtros faria a pessoa perseguir o próprio clique.
+* "MOSTRANDO 4 DE 19" só aparece quando algo está filtrando, e NÃO é enfeite:
+  esta lista já esconde gente por outro motivo (quem está num time virou cartão
+  dentro da loja), e lista que encolhe sem dizer por quê é lida como "sumiu do
+  sistema".
+* A ORDEM É: filtra por estado, depois por texto, e só então agrupa. Agrupar
+  antes faria o cabeçalho contar gente que a lista não está mostrando.
+* A frase de lista vazia deixou de ser "Ninguém encontrado com esse nome" —
+  agora a lista também pode esvaziar sem ninguém ter digitado nada.
+
+A regra é `src/compartilhado/estados-da-pessoa.js` (16 testes). O CARTÃO DA
+PESSOA NÃO FOI TOCADO: ele foi redesenhado em 13/08 a pedido do dono e conferido
+item a item; mexer sem pedido novo desfaria aquela decisão.
