@@ -95,7 +95,7 @@
                11 sem time aparecem no seletor das dashboards do mesmo jeito. O
                time é atacado ou varejo pelo canal a que está amarrado. -->
           <span class="sg-label">Canais de venda</span>
-          <div class="admin-section-sub">Cada canal do Bling pertence a um grupo — <b>Atacado</b>, <b>Varejo</b>, ou outro que você criar aqui. É esse grupo que vai separar o seletor das dashboards de venda e os times na lista de usuários. Canal sem grupo continua aparecendo, no fim da lista.</div>
+          <div class="admin-section-sub">Cada grupo — <b>Atacado</b>, <b>Varejo</b>, ou outro que você criar — reúne os canais do Bling que são dele. Abra o grupo em <b>Escolher canais</b> e marque quais são; um canal só pode estar em um grupo. É esse grupo que separa o seletor das dashboards de venda e os times na lista de usuários. Canal que não está em grupo nenhum continua aparecendo, no fim.</div>
           <div id="admin-canais-body"><div style="color:var(--muted);font-size:max(9px, calc(12px * var(--escala-texto, 1)))">Carregando...</div></div>
 
           <span class="sg-label">Times de venda</span>
@@ -198,7 +198,14 @@ import { degrausDoRecurso, degrauDoConjunto, acoesDoDegrau } from './niveis-de-p
 import { oQueONivelFaz } from './o-que-o-nivel-faz.js'
 import { mexeEmDinheiro, SELO_DINHEIRO, EMOJI_DINHEIRO } from './consequencia-do-recurso.js'
 import { resumoDoAcesso } from './resumo-do-acesso.js'
-import { gruposExistentes, agruparCanais, agruparTimesPorGrupo, timePorCanal, contarSemGrupo, normalizarGrupo } from '../../compartilhado/grupo-do-canal.js'
+// `agruparTimesPorGrupo` e `normalizarGrupo` continuam vindo daqui: os cards de
+// TIME ainda agrupam pelo texto. Trocá-los para `grupo_id` é a fatia seguinte, e
+// tem prova própria a fazer — o texto e o apontamento estão de acordo desde que
+// o gatilho passou a espelhar nos dois sentidos (27/08).
+// `gruposExistentes`, `agruparCanais` e `contarSemGrupo` saíram: a seção Canais
+// de venda deixou de deduzir o grupo do texto e passou a ler o cadastro.
+import { agruparTimesPorGrupo, timePorCanal, normalizarGrupo } from '../../compartilhado/grupo-do-canal.js'
+import { agruparCanaisPorCadastro, podeApagarGrupo, nomeDeGrupoAceito } from '../../compartilhado/cadastro-de-grupos.js'
 // Quais notificações existem e qual o padrão de cada uma. A lista mora junto da
 // Edge que envia (supabase/functions/_shared) pra não haver duas verdades sobre
 // quem recebe o quê — a tela LÊ dela em vez de repetir os nomes.
@@ -807,54 +814,133 @@ function _eqMeuPapel(timeId) {
  * configura num lugar só, e o time não tem campo de grupo: ele herda do canal.
  */
 let _canaisComGrupo = []
+// Os grupos CADASTRADOS (`canais_grupos`). Antes de 27/08 o grupo era deduzido
+// do texto dos canais; agora ele é linha com identidade própria, e um grupo
+// recém-criado precisa existir na tela ANTES de ter canal nenhum dentro.
+let _gruposDeCanal = []
+// Qual grupo está com o painel de escolher canais aberto. Um por vez: dois
+// painéis abertos mostrando a mesma lista de 14 canais, com marcações
+// diferentes, é convite para clicar no errado.
+let _grupoAberto = null
 
 async function loadAdminCanais() {
   const body = document.getElementById('admin-canais-body'); if (!body) return
   try {
-    const [rc, rt] = await Promise.all([
-      sbClient.from('bling_lojas').select('loja_id,nome,grupo').order('nome'),
+    const [rc, rt, rg] = await Promise.all([
+      sbClient.from('bling_lojas').select('loja_id,nome,grupo,grupo_id').order('nome'),
       sbClient.from('equipes').select('id,nome,canal_loja_id'),
+      sbClient.from('canais_grupos').select('id,nome').order('nome'),
     ])
     // Erro de leitura NÃO vira lista vazia: "nenhum canal" quando a leitura
     // falhou é a mentira mais cara que uma tela conta.
     if (rc.error) throw new Error(rc.error.message)
+    if (rg.error) throw new Error(rg.error.message)
     _canaisComGrupo = rc.data || []
+    _gruposDeCanal = rg.data || []
     const mapaTimes = timePorCanal(rt.data || [])
-    const grupos = gruposExistentes(_canaisComGrupo)
-    const faltam = contarSemGrupo(_canaisComGrupo)
+    const baldes = agruparCanaisPorCadastro(_canaisComGrupo, _gruposDeCanal)
+    const soltos = baldes.find((b) => b.grupo === null)
+    const faltam = soltos ? soltos.canais.length : 0
 
+    // A LINHA DE CIMA responde as três perguntas do relance: quantos canais
+    // existem, em quantos grupos, e quantos ainda estão de fora.
     let h = '<div class="adm-canais-topo">'
     h += '<span>' + _canaisComGrupo.length + (_canaisComGrupo.length === 1 ? ' canal' : ' canais') + '</span>'
+    h += '<span>' + _gruposDeCanal.length + (_gruposDeCanal.length === 1 ? ' grupo' : ' grupos') + '</span>'
     h += faltam
-      ? '<span class="adm-canais-faltam">' + faltam + ' sem grupo</span>'
-      : '<span class="adm-canais-ok">todos com grupo</span>'
+      ? '<span class="adm-canais-faltam">' + faltam + (faltam === 1 ? ' fora de grupo' : ' fora de grupo')  + '</span>'
+      : '<span class="adm-canais-ok">todos em um grupo</span>'
+    h += '<button type="button" class="btn btn-principal" data-grupo-criar="1">+ Criar grupo</button>'
     h += '</div>'
 
-    for (const balde of agruparCanais(_canaisComGrupo)) {
-      h += '<div class="adm-canais-grupo">' + escHtml(balde.grupo || 'Sem grupo') + '</div>'
-      for (const c of balde.canais) {
+    for (const balde of baldes) {
+      if (balde.grupo === null) continue // o balde dos soltos vai no fim, com outro desenho
+      const g = balde.grupo
+      const gid = escHtml(String(g.id))
+      const aberto = String(_grupoAberto) === String(g.id)
+      h += '<div class="adm-grupo-card">'
+      h += '<div class="adm-grupo-topo">'
+      h += '<span class="adm-grupo-nome">' + escHtml(g.nome) + '</span>'
+      h += '<span class="adm-grupo-conta">' + balde.canais.length
+        + (balde.canais.length === 1 ? ' canal' : ' canais') + '</span>'
+      h += '<span class="adm-grupo-acoes">'
+      h += '<button type="button" class="btn" data-grupo-abrir="' + gid + '">'
+        + (aberto ? 'Fechar' : 'Escolher canais') + '</button>'
+      h += '<button type="button" class="btn" data-grupo-renomear="' + gid + '">Renomear</button>'
+      // "Apagar" NÃO fica aqui. O padrão da Central diz que botão de perigo não
+      // fica solto na lista — ele mora atrás de um passo a mais. Aqui esse passo
+      // é abrir "Escolher canais": quem vai apagar um grupo já está olhando
+      // quais canais tem dentro, que é justamente o que decide se pode.
+      h += '</span>'
+      h += '</div>'
+      h += '<div class="adm-grupo-aviso" data-grupo-aviso="' + gid + '"></div>'
+
+      // COM O PAINEL ABERTO, a lista de baixo não aparece: as caixinhas já dizem
+      // quem é do grupo, e mostrar os mesmos nomes duas vezes na mesma tela faz
+      // a pessoa procurar a diferença entre as duas listas — não há nenhuma.
+      if (!aberto && !balde.canais.length) {
+        // GRUPO VAZIO DIZ O QUE FAZER. Um card em branco parece defeito da tela.
+        h += '<div class="adm-grupo-vazio">Nenhum canal neste grupo ainda. Use <b>Escolher canais</b>.</div>'
+      }
+      for (const c of (aberto ? [] : balde.canais)) {
         const t = mapaTimes.get(String(c.loja_id))
-        const id = escHtml(String(c.loja_id))
         h += '<div class="adm-canal-linha">'
         h += '<span class="adm-canal-nome">' + escHtml(c.nome)
         h += t
           ? '<span class="adm-canal-time">time: ' + escHtml(t.nome) + '</span>'
           : '<span class="adm-canal-time adm-canal-sem">sem time</span>'
         h += '</span>'
-        h += '<select class="adm-canal-sel" data-canal-sel="' + id + '">'
-        h += '<option value="">— sem grupo —</option>'
-        for (const g of grupos) {
-          h += '<option value="' + escHtml(g) + '"' + (normalizarGrupo(c.grupo) === g ? ' selected' : '') + '>' + escHtml(g) + '</option>'
+        h += '</div>'
+      }
+
+      // O PAINEL: os 14 canais, marcados os deste grupo. É aqui que a escolha
+      // deixou de ser "um seletor por canal" e virou "um lugar por grupo".
+      if (aberto) {
+        h += '<div class="adm-grupo-painel">'
+        h += '<div class="adm-grupo-painel-tit">Marque os canais que são do ' + escHtml(g.nome) + '</div>'
+        for (const c of _canaisComGrupo) {
+          const meu = String(c.grupo_id || '') === String(g.id)
+          // De quem é hoje: sem isto, marcar um canal do Varejo dentro do
+          // Atacado seria um roubo silencioso — a pessoa não veria de onde ele
+          // saiu. Um canal mora num grupo só (é uma coluna, não uma lista), então
+          // marcar aqui MOVE, e a tela diz isso antes do clique.
+          const outro = !meu && c.grupo_id
+            ? (_gruposDeCanal.find((x) => String(x.id) === String(c.grupo_id)) || null)
+            : null
+          h += '<label class="adm-grupo-opcao">'
+          h += '<input type="checkbox" data-grupo-canal="' + gid + '" value="' + escHtml(String(c.loja_id)) + '"'
+            + (meu ? ' checked' : '') + '>'
+          h += '<span>' + escHtml(c.nome)
+          if (outro) h += '<em class="adm-grupo-hoje">hoje em ' + escHtml(outro.nome) + ' — marcar aqui move</em>'
+          h += '</span></label>'
         }
-        // SEM esta opção a pessoa TRAVA na hora em que precisa de um grupo novo.
-        h += '<option value="__novo__">+ novo grupo…</option>'
-        h += '</select>'
-        h += '<span class="adm-canal-aviso" data-canal-aviso="' + id + '"></span>'
+        // O passo a mais que o padrão pede para a ação de perigo.
+        h += '<div class="adm-grupo-perigo">'
+        h += '<button type="button" class="btn btn-perigo" data-grupo-apagar="' + gid + '">Apagar o grupo ' + escHtml(g.nome) + '</button>'
+        h += '</div>'
+        h += '</div>'
+      }
+      h += '</div>'
+    }
+
+    if (soltos) {
+      h += '<div class="adm-canais-grupo">Fora de todo grupo</div>'
+      h += '<div class="adm-grupo-vazio">Estes canais não entram em nenhum recorte de atacado/varejo. '
+        + 'Para pôr um deles num grupo, abra o grupo acima e use <b>Escolher canais</b>.</div>'
+      for (const c of soltos.canais) {
+        const t = mapaTimes.get(String(c.loja_id))
+        h += '<div class="adm-canal-linha">'
+        h += '<span class="adm-canal-nome">' + escHtml(c.nome)
+        h += t
+          ? '<span class="adm-canal-time">time: ' + escHtml(t.nome) + '</span>'
+          : '<span class="adm-canal-time adm-canal-sem">sem time</span>'
+        h += '</span>'
         h += '</div>'
       }
     }
+
     body.innerHTML = h
-    _ligarSelecaoDeGrupo()
+    _ligarCadastroDeGrupos()
   } catch (e) {
     // `faixa-de-erro` é componente .vue e não serve dentro de innerHTML: aqui
     // vai texto, com o token de erro.
@@ -862,42 +948,159 @@ async function loadAdminCanais() {
   }
 }
 
-function _ligarSelecaoDeGrupo() {
-  document.querySelectorAll('[data-canal-sel]').forEach((sel) => {
-    sel.onchange = async () => {
-      const id = sel.getAttribute('data-canal-sel')
-      const aviso = document.querySelector('[data-canal-aviso="' + id + '"]')
-      let valor = sel.value
-      if (valor === '__novo__') {
-        // `window.prompt` e não um modal próprio: é o que ESTA MESMA TELA já usa
-        // para criar perfil de acesso. Inventar um modal só aqui deixaria dois
-        // jeitos de pedir um nome no mesmo arquivo.
-        const digitado = window.prompt('Nome do grupo novo (ex.: Atacado, Varejo)')
-        valor = normalizarGrupo(digitado) || ''
-        if (!valor) { await loadAdminCanais(); return }
-      }
-      const grupo = normalizarGrupo(valor)
-      sel.disabled = true
-      if (aviso) { aviso.textContent = 'Salvando…'; aviso.className = 'adm-canal-aviso' }
+// AS QUATRO AÇÕES DO CADASTRO DE GRUPOS, e a regra que todas obedecem:
+// NENHUMA gravação passa por sucesso sem conferir que linha foi mesmo afetada.
+//
+// Quando o RLS barra, o PostgREST responde 200 com lista VAZIA — sem erro. Este
+// projeto já pagou por isso: a tela diria "salvo" para uma gravação que não
+// aconteceu, e a pessoa só descobriria quando a dashboard de alguém mudasse
+// sozinha. Por isso todo pedido leva `Prefer: return=representation` e a
+// resposta é contada antes de qualquer "pronto".
+//
+// Quem pode escrever aqui é só o super-admin (políticas `canais_grupos_escrever`
+// e `bling_lojas_grupo_superadmin`, as duas por `superadmin_pela_ficha()`).
+function _ligarCadastroDeGrupos() {
+  const avisoDe = (gid) => document.querySelector('[data-grupo-aviso="' + gid + '"]')
+  const dizer = (gid, texto, ruim) => {
+    const el = avisoDe(gid)
+    if (!el) { if (ruim) adminToast(texto, false); return }
+    el.textContent = texto
+    el.className = 'adm-grupo-aviso' + (ruim ? ' adm-grupo-erro' : '')
+  }
+
+  // Uma escrita, com a conferência de linhas embutida. Devolve as linhas.
+  const gravar = async (caminho, opts, oQueEra) => {
+    const r = await adFetch(caminho, {
+      ...opts,
+      headers: { Prefer: 'return=representation', ...(opts.headers || {}) },
+    })
+    if (!r.ok) throw new Error(await r.text())
+    const linhas = await r.json().catch(() => [])
+    if (!Array.isArray(linhas) || linhas.length === 0) {
+      throw new Error('o banco aceitou o pedido e não gravou nada — você não tem permissão para '
+        + oQueEra + '. Só o super-admin muda os grupos de canal.')
+    }
+    return linhas
+  }
+
+  // ── Criar ──────────────────────────────────────────────────────────────────
+  const bCriar = document.querySelector('[data-grupo-criar]')
+  if (bCriar) bCriar.onclick = async () => {
+    // `window.prompt` e não um modal próprio: é o que ESTA MESMA TELA já usa
+    // para pedir um nome (perfil de acesso, e o grupo novo do seletor antigo).
+    // Inventar um modal só aqui deixaria dois jeitos de pedir a mesma coisa no
+    // mesmo arquivo.
+    const digitado = window.prompt('Nome do grupo novo (ex.: Atacado, Varejo)')
+    if (digitado === null) return
+    const veredito = nomeDeGrupoAceito(digitado, _gruposDeCanal)
+    if (!veredito.ok) { adminToast(veredito.mensagem, false); return }
+    bCriar.disabled = true
+    try {
+      const linhas = await gravar('canais_grupos', {
+        method: 'POST', body: JSON.stringify({ nome: veredito.nome }),
+      }, 'criar grupo')
+      // Já abre o grupo novo: quem acabou de criar quer pôr canal dentro, e o
+      // card vazio sem o painel aberto obriga um clique que não informa nada.
+      _grupoAberto = linhas[0] && linhas[0].id
+      await loadAdminCanais()
+      adminToast('Grupo "' + veredito.nome + '" criado.', true)
+    } catch (e) {
+      bCriar.disabled = false
+      adminToast(String(e && e.message || e), false)
+    }
+  }
+
+  // ── Abrir e fechar o painel ────────────────────────────────────────────────
+  document.querySelectorAll('[data-grupo-abrir]').forEach((b) => {
+    b.onclick = async () => {
+      const gid = b.getAttribute('data-grupo-abrir')
+      _grupoAberto = String(_grupoAberto) === String(gid) ? null : gid
+      await loadAdminCanais()
+    }
+  })
+
+  // ── Renomear ───────────────────────────────────────────────────────────────
+  document.querySelectorAll('[data-grupo-renomear]').forEach((b) => {
+    b.onclick = async () => {
+      const gid = b.getAttribute('data-grupo-renomear')
+      const g = _gruposDeCanal.find((x) => String(x.id) === String(gid))
+      if (!g) return
+      const digitado = window.prompt('Novo nome para o grupo "' + g.nome + '"', g.nome)
+      if (digitado === null) return
+      // O `gid` no terceiro argumento é o que faz corrigir a grafia funcionar:
+      // sem ele, trocar "varejo" por "Varejo" seria recusado por já existir —
+      // contra o próprio grupo que se está renomeando.
+      const veredito = nomeDeGrupoAceito(digitado, _gruposDeCanal, gid)
+      if (!veredito.ok) { dizer(gid, veredito.mensagem, true); return }
+      if (veredito.nome === g.nome) return
+      b.disabled = true
+      dizer(gid, 'Renomeando…', false)
       try {
-        const r = await adFetch('bling_lojas?loja_id=eq.' + encodeURIComponent(id), {
-          method: 'PATCH',
-          headers: { Prefer: 'return=representation' },
-          body: JSON.stringify({ grupo }),
-        })
-        if (!r.ok) throw new Error(await r.text())
-        // A CONFERÊNCIA QUE NÃO PODE FALTAR. Quando o RLS barra, o PostgREST
-        // responde 200 com lista VAZIA — sem erro. Sem olhar a contagem, a tela
-        // diria "salvo" para uma gravação que não aconteceu.
-        const linhas = await r.json()
-        if (!Array.isArray(linhas) || linhas.length === 0) {
-          throw new Error('o banco aceitou o pedido e não gravou nada — você não tem permissão para mudar o grupo do canal')
-        }
+        // O texto de `bling_lojas.grupo` acompanha sozinho: quem faz isso é o
+        // gatilho `espelhar_rename_do_grupo`, no banco. Renomear aqui NÃO parte
+        // o grupo em dois, que é o defeito do nome digitado em cada canal.
+        await gravar('canais_grupos?id=eq.' + encodeURIComponent(gid), {
+          method: 'PATCH', body: JSON.stringify({ nome: veredito.nome }),
+        }, 'renomear grupo')
         await loadAdminCanais()
-        adminToast('Grupo do canal salvo.', true)
+        adminToast('Grupo renomeado para "' + veredito.nome + '".', true)
       } catch (e) {
-        sel.disabled = false
-        if (aviso) { aviso.textContent = String(e && e.message || e); aviso.className = 'adm-canal-aviso adm-canal-erro' }
+        b.disabled = false
+        dizer(gid, String(e && e.message || e), true)
+      }
+    }
+  })
+
+  // ── Apagar ─────────────────────────────────────────────────────────────────
+  document.querySelectorAll('[data-grupo-apagar]').forEach((b) => {
+    b.onclick = async () => {
+      const gid = b.getAttribute('data-grupo-apagar')
+      const g = _gruposDeCanal.find((x) => String(x.id) === String(gid))
+      if (!g) return
+      // A CHAVE ESTRANGEIRA É `on delete set null`: apagar um grupo com canais
+      // dentro os desligaria EM SILÊNCIO, e o recorte das dashboards mudaria
+      // sem ninguém saber por quê. A regra pura responde antes de perguntar.
+      const veredito = podeApagarGrupo(gid, _canaisComGrupo)
+      if (!veredito.ok) { dizer(gid, veredito.mensagem, true); return }
+      // O confirm() é o mesmo que esta tela já usa para excluir usuário — o
+      // único jeito de perguntar "tem certeza?" que existe neste arquivo.
+      if (!window.confirm('Apagar o grupo "' + g.nome + '"? Ele não tem canal nenhum dentro.')) return
+      b.disabled = true
+      try {
+        await gravar('canais_grupos?id=eq.' + encodeURIComponent(gid), { method: 'DELETE' }, 'apagar grupo')
+        _grupoAberto = null
+        await loadAdminCanais()
+        adminToast('Grupo "' + g.nome + '" apagado.', true)
+      } catch (e) {
+        b.disabled = false
+        dizer(gid, String(e && e.message || e), true)
+      }
+    }
+  })
+
+  // ── Pôr / tirar canal do grupo ─────────────────────────────────────────────
+  document.querySelectorAll('[data-grupo-canal]').forEach((cx) => {
+    cx.onchange = async () => {
+      const gid = cx.getAttribute('data-grupo-canal')
+      const loja = cx.value
+      const entrando = cx.checked
+      cx.disabled = true
+      dizer(gid, entrando ? 'Pondo no grupo…' : 'Tirando do grupo…', false)
+      try {
+        // GRAVA `grupo_id`, NÃO O TEXTO. O texto acompanha pelo gatilho
+        // `espelhar_grupo_do_canal` — é o caminho que o banco espelha, e é por
+        // isso que a fatia do espelho veio antes desta.
+        await gravar('bling_lojas?loja_id=eq.' + encodeURIComponent(loja), {
+          method: 'PATCH', body: JSON.stringify({ grupo_id: entrando ? gid : null }),
+        }, 'mudar o grupo do canal')
+        await loadAdminCanais()
+      } catch (e) {
+        // Volta a caixinha ao que era: caixinha que PARECE marcada e não gravou
+        // é o defeito mais caro de perceber — ninguém desconfia do que já leu
+        // como certo.
+        cx.checked = !entrando
+        cx.disabled = false
+        dizer(gid, String(e && e.message || e), true)
       }
     }
   })
@@ -3730,9 +3933,29 @@ Object.assign(window, {
 .tela-admin :deep(.adm-canal-sem){font-style:italic;}
 /* min-height 40px e fonte 16px no select nao sao estetica: e o alvo do dedo e o
    zoom que o iOS da quando a fonte do campo e menor que 16px. */
-.tela-admin :deep(.adm-canal-sel){flex:0 0 auto;min-height:40px;box-sizing:border-box;font-family:var(--fonte-principal);font-size:max(16px, calc(16px * var(--escala-texto, 1)));border-radius:var(--radius-md);border:1px solid var(--border);background:var(--surface2);color:var(--text);padding:0 var(--sp-2);}
-.tela-admin :deep(.adm-canal-aviso){flex:1 1 100%;font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));color:var(--muted);}
-.tela-admin :deep(.adm-canal-erro){color:var(--red);}
+/* O GRUPO COMO CARTÃO (27/08/2026). O seletor por canal (`.adm-canal-sel`) saiu
+   junto com a ideia de escolher o grupo catorze vezes; o que sobrou aqui é o
+   cartão do grupo e o painel de marcar canais dentro dele. Só token — nenhuma
+   cor, espaço ou raio literal, como manda o padrão da Central. */
+.tela-admin :deep(.adm-grupo-card){border:1px solid var(--border);border-radius:var(--radius-lg);padding:var(--sp-3);margin:var(--sp-3) 0;background:var(--surface2);}
+.tela-admin :deep(.adm-grupo-topo){display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap;}
+.tela-admin :deep(.adm-grupo-nome){flex:1 1 auto;min-width:0;font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);overflow-wrap:anywhere;}
+.tela-admin :deep(.adm-grupo-conta){font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));color:var(--muted);}
+/* No celular os botões passam a ocupar a linha inteira: a 375px, três botões
+   lado a lado com o nome do grupo espremiam o nome até cortar. */
+.tela-admin :deep(.adm-grupo-acoes){display:flex;gap:var(--sp-2);flex-wrap:wrap;}
+.tela-admin :deep(.adm-grupo-aviso){font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));color:var(--muted);}
+.tela-admin :deep(.adm-grupo-aviso:empty){display:none;}
+.tela-admin :deep(.adm-grupo-erro){color:var(--red);}
+.tela-admin :deep(.adm-grupo-vazio){font-family:var(--fonte-principal);font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));color:var(--muted);padding:var(--sp-2) 0;}
+.tela-admin :deep(.adm-grupo-painel){margin-top:var(--sp-2);padding-top:var(--sp-2);border-top:1px solid var(--border);}
+.tela-admin :deep(.adm-grupo-painel-tit){font-family:var(--fonte-principal);font-size:max(9px, calc(10.5px * var(--escala-texto, 1)));font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:var(--sp-2);}
+/* Alvo de 40px na linha inteira: a caixinha sozinha tem 16px e o dedo erra. */
+.tela-admin :deep(.adm-grupo-opcao){display:flex;align-items:center;gap:var(--sp-2);min-height:40px;cursor:pointer;font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));color:var(--text);}
+.tela-admin :deep(.adm-grupo-opcao input){width:18px;height:18px;flex:0 0 auto;accent-color:var(--accent);}
+.tela-admin :deep(.adm-grupo-opcao span){min-width:0;display:flex;flex-direction:column;gap:2px;overflow-wrap:anywhere;}
+.tela-admin :deep(.adm-grupo-hoje){font-style:italic;font-size:max(9px, calc(11px * var(--escala-texto, 1)));color:var(--muted);}
+.tela-admin :deep(.adm-grupo-perigo){margin-top:var(--sp-3);padding-top:var(--sp-2);border-top:1px solid var(--border);}
 /* Porte das regras admin- e #admin- (Módulo Admin, legacy/index.html
    L505-554 + L628-647 + L1397-1400) que #admin-screen usa de fato, MOVIDAS
    para cá (removidas do global — CSS PEEL RULE: só o que é literalmente
