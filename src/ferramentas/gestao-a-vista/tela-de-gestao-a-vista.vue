@@ -656,17 +656,22 @@ async function loadGestaoVistaData(period){
     let pedidosPrev=ajustePrev.pedidos;
 
     // Supabase: pode rodar em paralelo (API diferente)
-    const[canaisCheio,metasRows,eqTimes,eqMembros]=await Promise.all([
+    const[canaisCheio,metasRows,eqTimes,eqMembros,eqMembrosDeGrupo]=await Promise.all([
       // O GRUPO vem na mesma leitura do nome (Peça 2, 20/08/2026): é ele que
       // separa o menu de canais em Atacado / Varejo / Outros.
-      sbClient.from('bling_lojas').select('loja_id,nome,grupo').then(r=>{const mp={};_gvGrupoDoCanal={};_gvCanaisBrutos=r.data||[];_gvCanaisBrutos.forEach(l=>{mp[l.loja_id]=l.nome;_gvGrupoDoCanal[l.loja_id]=l.grupo||null;});return mp;}).catch(()=>({})),
+      sbClient.from('bling_lojas').select('loja_id,nome,grupo,grupo_id').then(r=>{const mp={};_gvGrupoDoCanal={};_gvCanaisBrutos=r.data||[];_gvCanaisBrutos.forEach(l=>{mp[l.loja_id]=l.nome;_gvGrupoDoCanal[l.loja_id]=l.grupo||null;});return mp;}).catch(()=>({})),
       sbClient.from('bling_metas').select('loja_id,meta_valor,daily_goals').eq('year',metaY).eq('month',metaM).then(r=>r.data||[]).catch(()=>[]),
       // Os times e quem está neles. Falhar devolve lista vazia — e com ela quem
       // é de time fica com `[]` (tela vazia com o motivo escrito), não com a
       // empresa inteira. É o lado seguro do erro.
       sbClient.from('equipes').select('id,nome,canal_loja_id').then(r=>r.data||[]).catch(()=>[]),
       // `papel` entrou em 20/08: sem ele a supervisora é tratada como vendedora.
-      sbClient.from('equipes_membros').select('equipe_id,profile_id,papel').then(r=>r.data||[]).catch(()=>[])
+      sbClient.from('equipes_membros').select('equipe_id,profile_id,papel').then(r=>r.data||[]).catch(()=>[]),
+      // A supervisora que mora no GRUPO (27/08/2026). O banco já reconhece este
+      // vínculo desde 21/08 (`meus_vinculos`); sem ler aqui, o banco liberaria e
+      // esta tela mostraria zero, sem erro. Falhar devolve lista vazia — o lado
+      // seguro do erro, igual aos vizinhos.
+      sbClient.from('canais_grupos_membros').select('grupo_id,profile_id,papel').then(r=>r.data||[]).catch(()=>[])
     ]);
 
     // O RECORTE POR TIME. `null` = vê tudo, o caminho de 15 dos 17 perfis de
@@ -680,6 +685,7 @@ async function loadGestaoVistaData(period){
       // A lista de canais com grupo: é ela que deixa a supervisora ver o grupo
       // inteiro dos times onde supervisiona (Peça 3).
       canais:_gvCanaisBrutos,
+      membrosDeGrupo:eqMembrosDeGrupo,
     });
     const canais=filtrarMapaDeCanais(canaisCheio,meusCanais);
     if(estaLimitada(meusCanais)){

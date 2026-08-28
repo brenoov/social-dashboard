@@ -43,7 +43,7 @@ import { normalizarGrupo } from './grupo-do-canal.js';
 // `[]`   = não vê canal nenhum — e isso é diferente de `null`, com todas as
 //          letras: confundir os dois é o defeito que faz uma vendedora sem time
 //          enxergar a empresa inteira.
-export function canaisDoEscopo({ isSuperadmin, escopoPorEquipe, meuId, times, membros, canais }) {
+export function canaisDoEscopo({ isSuperadmin, escopoPorEquipe, meuId, times, membros, canais, membrosDeGrupo }) {
   if (isSuperadmin) return null;
   // `!== true` e não `=== false`: coluna ausente na consulta não pode virar
   // "vê tudo" por omissão. O default do banco é o fechado, e o da tela também.
@@ -94,6 +94,44 @@ export function canaisDoEscopo({ isSuperadmin, escopoPorEquipe, meuId, times, me
       if (g && gruposQueSupervisiono.has(g)) ids.push(Number(c.loja_id));
     }
   }
+
+  // ── A SUPERVISORA QUE MORA NO GRUPO (27/08/2026) ─────────────────────────
+  //
+  // O SEGUNDO caminho para o mesmo direito, e ele existe porque o banco JÁ o
+  // reconhece. Desde 21/08 a função `public.meus_vinculos()` soma o vínculo
+  // direto com o do grupo, e `public.pode_ver_canal` confere
+  // `canais_grupos_membros` com as mesmas palavras que estão aqui embaixo.
+  //
+  // ⚠️ SEM ISTO AS DUAS PONTAS DISCORDARIAM: o banco liberaria a supervisora de
+  // grupo e estas telas mostrariam zero, sem erro nenhum. É a mesma classe de
+  // defeito que esta base já pagou caro — e é por isso que este pedaço vai ao ar
+  // ANTES da tela que cadastra supervisora, e não depois.
+  //
+  // ⚠️ POR QUE ESTE CAMINHO CASA POR `grupo_id` E O DE CIMA POR TEXTO:
+  // cada um espelha a SUA fonte. O de cima é o vínculo pelo TIME (20/08), que
+  // lê `bling_lojas.grupo`; este espelha `pode_ver_canal`, que lê `grupo_id`.
+  // Os dois concordam porque o gatilho `espelhar_grupo_do_canal` mantém texto e
+  // apontamento iguais nos dois sentidos desde 27/08 — provado com a trava
+  // armada em `docs/provar-espelho-do-grupo.sql`. Trocar o de cima para `id`
+  // seria mexer num caminho de permissão que já está no ar para não ganhar nada.
+  const meusGrupos = new Set();
+  for (const gm of membrosDeGrupo || []) {
+    if (!gm || String(gm.profile_id) !== String(meuId)) continue;
+    // Só 'supervisora' amplia. Papel ausente NÃO amplia — falta de dado nunca
+    // pode dar acesso a mais, a mesma regra do membro de time aqui em cima.
+    if (String(gm.papel || '') !== 'supervisora') continue;
+    if (gm.grupo_id === null || gm.grupo_id === undefined || gm.grupo_id === '') continue;
+    meusGrupos.add(String(gm.grupo_id));
+  }
+  if (meusGrupos.size) {
+    for (const c of canais || []) {
+      if (c == null || c.loja_id === undefined || c.loja_id === null) continue;
+      const gid = c.grupo_id;
+      if (gid === null || gid === undefined || gid === '') continue;
+      if (meusGrupos.has(String(gid))) ids.push(Number(c.loja_id));
+    }
+  }
+
   return [...new Set(ids)];
 }
 

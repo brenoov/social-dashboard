@@ -350,3 +350,109 @@ test('papel de OUTRA pessoa nao amplia o meu escopo', () => {
   ])
   assert.deepEqual(r, [205834140])
 })
+
+// ─────────────────────────────────────────────────────────────────────────────
+// A SUPERVISORA QUE MORA NO GRUPO (27/08/2026)
+//
+// O SEGUNDO caminho para o mesmo direito. O banco já o reconhece desde 21/08
+// (`meus_vinculos` soma os dois vínculos, `pode_ver_canal` confere
+// `canais_grupos_membros`); estes testes são a outra ponta dizendo o mesmo.
+//
+// Medido em 27/08 antes de escrever: ZERO supervisoras de grupo e ZERO
+// supervisoras de time — os 5 membros são todas vendedoras. Então nada disto
+// muda o acesso de ninguém hoje, e é isso que o último teste fixa.
+
+const CANAIS_ID = [
+  { loja_id: 205451611, grupo: 'Atacado', grupo_id: 'g-atacado' },
+  { loja_id: 205395333, grupo: 'Atacado', grupo_id: 'g-atacado' },
+  { loja_id: 205834140, grupo: 'Varejo', grupo_id: 'g-varejo' },
+  { loja_id: 205657609, grupo: 'Varejo', grupo_id: 'g-varejo' },
+  { loja_id: 205680515, grupo: null, grupo_id: null },
+]
+const escopoG = (membrosDeGrupo, membros = [], canais = CANAIS_ID) => canaisDoEscopo({
+  isSuperadmin: false, escopoPorEquipe: true, meuId: 'u1',
+  times: TIMES_P3, membros, canais, membrosDeGrupo,
+})
+
+test('grupo: supervisora do Varejo ve os canais do Varejo, sem estar em time nenhum', () => {
+  const r = escopoG([{ profile_id: 'u1', grupo_id: 'g-varejo', papel: 'supervisora' }])
+  assert.deepEqual(r.sort(), [205657609, 205834140])
+})
+
+test('grupo: NAO amplia para fora do grupo dela', () => {
+  const r = escopoG([{ profile_id: 'u1', grupo_id: 'g-varejo', papel: 'supervisora' }])
+  assert.ok(!r.includes(205451611), 'o Atacado nao entra')
+  assert.ok(!r.includes(205680515), 'canal sem grupo nao entra')
+})
+
+test('grupo: papel que nao e supervisora NAO amplia', () => {
+  // A tabela aceita outros papeis um dia. Enquanto so 'supervisora' concede,
+  // qualquer outro tem de ser tratado como quem nao concede nada.
+  assert.deepEqual(escopoG([{ profile_id: 'u1', grupo_id: 'g-varejo', papel: 'observadora' }]), [])
+  assert.deepEqual(escopoG([{ profile_id: 'u1', grupo_id: 'g-varejo' }]), [], 'papel ausente nao amplia')
+})
+
+test('grupo: o vinculo de OUTRA pessoa nao me da nada', () => {
+  assert.deepEqual(escopoG([{ profile_id: 'u2', grupo_id: 'g-varejo', papel: 'supervisora' }]), [])
+})
+
+test('grupo: soma com o vinculo de time, sem repetir canal', () => {
+  const r = escopoG(
+    [{ profile_id: 'u1', grupo_id: 'g-varejo', papel: 'supervisora' }],
+    [{ profile_id: 'u1', equipe_id: 't0', papel: 'vendedora' }],   // Atacado Nuvem Shop
+  )
+  assert.deepEqual(r.sort(), [205451611, 205657609, 205834140])
+  assert.equal(new Set(r).size, r.length, 'sem canal repetido')
+})
+
+test('grupo: supervisora de DOIS grupos ve os dois inteiros', () => {
+  const r = escopoG([
+    { profile_id: 'u1', grupo_id: 'g-varejo', papel: 'supervisora' },
+    { profile_id: 'u1', grupo_id: 'g-atacado', papel: 'supervisora' },
+  ])
+  assert.deepEqual(r.sort(), [205395333, 205451611, 205657609, 205834140])
+})
+
+test('grupo: canal SEM apontamento nao entra, mesmo com o texto batendo', () => {
+  // O caminho do grupo casa por `grupo_id`, igual ao `pode_ver_canal` do banco.
+  // Canal com o texto "Varejo" e sem apontamento e dado torto, e dado torto NAO
+  // pode dar acesso a mais.
+  const canais = [{ loja_id: 1, grupo: 'Varejo', grupo_id: null }]
+  assert.deepEqual(escopoG([{ profile_id: 'u1', grupo_id: 'g-varejo', papel: 'supervisora' }], [], canais), [])
+})
+
+test('grupo: id casa como TEXTO — o banco manda uuid e a tela pode mandar string', () => {
+  const canais = [{ loja_id: 7, grupo: 'X', grupo_id: 42 }]
+  assert.deepEqual(escopoG([{ profile_id: 'u1', grupo_id: '42', papel: 'supervisora' }], [], canais), [7])
+})
+
+test('grupo: NAO fura o escopo por equipe desligado', () => {
+  const r = canaisDoEscopo({
+    isSuperadmin: false, escopoPorEquipe: false, meuId: 'u1',
+    times: TIMES_P3, membros: [], canais: CANAIS_ID,
+    membrosDeGrupo: [{ profile_id: 'u1', grupo_id: 'g-varejo', papel: 'supervisora' }],
+  })
+  assert.equal(r, null, 'quem nao esta sob escopo ja via tudo')
+})
+
+test('grupo: superadmin continua vendo tudo', () => {
+  const r = canaisDoEscopo({
+    isSuperadmin: true, escopoPorEquipe: true, meuId: 'u1',
+    times: TIMES_P3, membros: [], canais: CANAIS_ID,
+    membrosDeGrupo: [{ profile_id: 'u1', grupo_id: 'g-varejo', papel: 'supervisora' }],
+  })
+  assert.equal(r, null)
+})
+
+test('COM A TABELA VAZIA, NADA MUDA — o estado de hoje, fixado', () => {
+  // Medido em 27/08/2026: canais_grupos_membros tem ZERO linhas. Este teste e o
+  // que garante que subir isto no ar nao mexe no acesso de ninguem.
+  const soTime = [{ profile_id: 'u1', equipe_id: 't1', papel: 'vendedora' }]
+  const semGrupo = canaisDoEscopo({
+    isSuperadmin: false, escopoPorEquipe: true, meuId: 'u1',
+    times: TIMES_P3, membros: soTime, canais: CANAIS_ID,
+  })
+  const comListaVazia = escopoG([], soTime)
+  assert.deepEqual(comListaVazia, semGrupo, 'lista vazia e ausencia dao o MESMO resultado')
+  assert.deepEqual(comListaVazia, [205834140], 'e continua sendo so a loja dela')
+})

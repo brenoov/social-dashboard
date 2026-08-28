@@ -387,7 +387,7 @@ async function loadSalesAnalysisData(period,opcoes){
       blingPages('pedidos/vendas',{dataInicial:diPrev,dataFinal:dfPrev,'idsSituacoes[]':9}).catch(()=>[]),
       // O GRUPO vem junto do nome (Peça 2, 20/08/2026): é ele que separa o
       // menu de canais em Atacado / Varejo / Outros.
-      sbClient.from('bling_lojas').select('loja_id,nome,grupo').order('loja_id').then(r=>{const mp={};_saGrupoDoCanal={};_saCanaisBrutos=r.data||[];_saCanaisBrutos.forEach(l=>{mp[l.loja_id]=l.nome;_saGrupoDoCanal[l.loja_id]=l.grupo||null;});return mp;}),
+      sbClient.from('bling_lojas').select('loja_id,nome,grupo,grupo_id').order('loja_id').then(r=>{const mp={};_saGrupoDoCanal={};_saCanaisBrutos=r.data||[];_saCanaisBrutos.forEach(l=>{mp[l.loja_id]=l.nome;_saGrupoDoCanal[l.loja_id]=l.grupo||null;});return mp;}),
       sbClient.from('bling_metas').select('loja_id,meta_valor,daily_goals').eq('year',effY).eq('month',effM).then(r=>r.data||[]),
       sbClient.from('bling_vendedores').select('vendor_id,nome').then(r=>r.data||[]),
       blingPages('pedidos/vendas',{dataInicial:di15,dataFinal:df15,'idsSituacoes[]':9}).catch(()=>[]),
@@ -399,7 +399,12 @@ async function loadSalesAnalysisData(period,opcoes){
         sbClient.from('equipes').select('id,nome,canal_loja_id').then(r=>r.data||[]),
         // `papel` entrou em 20/08: sem ele a supervisora vira vendedora.
         sbClient.from('equipes_membros').select('equipe_id,profile_id,papel').then(r=>r.data||[]),
-      ]).then(([t,m])=>({times:t,membros:m})).catch(()=>({times:[],membros:[]}))
+        // A supervisora que mora no GRUPO (27/08/2026). O banco já reconhece
+        // este vínculo desde 21/08; sem ler aqui, o banco liberaria e esta tela
+        // mostraria zero, sem erro nenhum.
+        sbClient.from('canais_grupos_membros').select('grupo_id,profile_id,papel').then(r=>r.data||[]),
+      ]).then(([t,m,g])=>({times:t,membros:m,membrosDeGrupo:g}))
+        .catch(()=>({times:[],membros:[],membrosDeGrupo:[]}))
     ]);
 
     // O RECORTE POR TIME. `null` = vê tudo, e é o caminho de 15 dos 17 perfis
@@ -412,6 +417,7 @@ async function loadSalesAnalysisData(period,opcoes){
       // A lista de canais com grupo: é ela que deixa a supervisora ver o grupo
       // inteiro dos times onde supervisiona (Peça 3).
       canais:_saCanaisBrutos,
+      membrosDeGrupo:meusTimes.membrosDeGrupo,
     });
     const lojaMap=filtrarMapaDeCanais(lojaMapCheio,meusCanais);
     // A META TAMBÉM. Sem isto a tela mediria a venda de UMA loja contra a meta
