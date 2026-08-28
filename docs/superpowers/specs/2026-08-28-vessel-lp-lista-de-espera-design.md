@@ -133,7 +133,7 @@ lista de e-mails e telefones. A prova acima mostra que o desenho funciona.
 
 `email` é único: quem se cadastrar duas vezes não vira duas linhas.
 
-### Função `vessel_entrar_na_lista(nome, email, whatsapp, aceite_versao)`
+### Função `vessel_entrar_na_lista(nome, email, whatsapp, aceite_versao, armadilha)`
 
 `security definer`, é o único caminho de escrita, exatamente como `vessel_registrar` já
 faz na página do selo. Dentro dela:
