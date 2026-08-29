@@ -2,7 +2,7 @@
 //
 // O ROBÔ DO ESPELHO: pega quem entrou na lista de espera da VESSEL BRASIL e
 // leva o cadastro para onde o dono trabalha — a planilha (CSV no Zoho
-// WorkDrive) e, quando houver permissão, o Bling.
+// WorkDrive) e o Bling.
 //
 // A REGRA QUE MANDA AQUI: **o cadastro nunca esperou por isto.** Quando este
 // robô roda, a pessoa já está gravada em `vessel_lista_espera` e já viu a tela
@@ -16,18 +16,41 @@
 // continua SÓ LEITURA, o cadastro não se perde se um terceiro cair, e a página
 // responde na hora sem esperar dois sistemas de fora.
 //
-// ── O QUE FOI MEDIDO CONTRA AS APIS DE VERDADE (28/08/2026) ──────────────────
-// Está tudo em docs/sonda-bling-contatos-zoho-sheet.md. Resumo do que importa
-// para quem for mexer aqui:
+// ── O QUE FOI MEDIDO CONTRA AS APIS DE VERDADE ──────────────────────────────
+// A sondagem de 28/08 está em docs/sonda-bling-contatos-zoho-sheet.md. O que
+// mudou depois, e importa para quem mexer aqui:
 //
-// 1. O BLING NÃO TEM PERMISSÃO DE CONTATOS. `GET /contatos` devolve 403
-//    `insufficient_scope` enquanto `GET /produtos` devolve 200 com o MESMO
-//    token, no mesmo instante. Não é token vencido: o app nunca foi autorizado
-//    para contatos. Este robô já sabe disso e escreve a frase certa em vez de
-//    tentar às cegas. No dia em que o dono reautorizar, ele passa a funcionar
-//    SEM alterar uma linha aqui.
+// 1. A PERMISSÃO DE CONTATOS FOI CONCEDIDA em 29/08/2026. `GET /contatos`
+//    responde 200. O robô saiu do modo "avisa e espera".
 //
-// 2. NENHUMA CREDENCIAL DO ZOHO ESCREVE EM PLANILHA. Nem a de `coletor/.env`
+// 2. E AÍ APARECERAM TRÊS DEFEITOS que a falta de permissão vinha escondendo.
+//    Medidos contra a API de verdade, mandando cadastros PROPOSITALMENTE
+//    inválidos — o Bling valida o corpo antes de gravar, então nada entrou na
+//    base do dono:
+//
+//    a) `tipo` e `situacao` são OBRIGATÓRIOS e o robô não mandava nenhum dos
+//       dois. TODO cadastro teria voltado 400 ("O tipo da pessoa é um campo
+//       obrigatório"). Como não havia inscrito ainda, isso só apareceria na
+//       primeira pessoa que se cadastrasse.
+//    b) O WhatsApp ia em `telefone`. Nos contatos de verdade da conta o
+//       `telefone` está VAZIO e o número vive em `celular` — mandar no campo
+//       errado deixaria o número invisível onde a equipe procura.
+//    c) `observacoes` NÃO É CAMPO DE CONTATO. Li um contato de verdade: são 24
+//       campos e `observacoes` não está entre eles. O Bling aceita o campo no
+//       envio sem reclamar e simplesmente descarta — ou seja, a marca de
+//       origem que o dono pediu sumiria em silêncio, do pior jeito possível.
+//
+// 3. ONDE A MARCA DE ORIGEM CABE DE VERDADE. Procurei campo livre em
+//    `financeiro`, `endereco`, `dadosAdicionais` e `pessoasContato`: não existe
+//    nenhum de texto livre. O que existe é `codigo`, que está VAZIO em todos os
+//    contatos da conta — então dá para usar sem atropelar nada. Vai
+//    `LP-<data>-<id curto>`, único por pessoa, visível na lista do Bling.
+//    A etiqueta de verdade do Bling é `tiposContato`, e os 12 tipos que existem
+//    hoje (Cliente, Fornecedor, Vendedor…) não têm nenhum de lista de espera.
+//    Criar um tipo novo é escrita em dado real e é decisão do dono — quando ele
+//    criar, é só somar o id em TIPOS_DO_CADASTRO aqui embaixo.
+//
+// 4. NENHUMA CREDENCIAL DO ZOHO ESCREVE EM PLANILHA. Nem a de `coletor/.env`
 //    (WorkDrive.files.ALL, WorkDrive.team.READ) nem a de `acessos_conexoes`
 //    (ZohoMail.*, WorkDrive.teamfolders.ALL, files.ALL, sharing.ALL). Zoho
 //    Sheet é outro produto, com escopo próprio. **Armadilha:** a API de
@@ -37,7 +60,7 @@
 //    Por isso o espelho da planilha é um CSV, com a permissão de ARQUIVO que
 //    já existe e já está provada em produção pelo robô de PDF do checklist.
 //
-// 3. `override-name-exist=false` NÃO guarda versão nova: cria um arquivo com
+// 5. `override-name-exist=false` NÃO guarda versão nova: cria um arquivo com
 //    data e hora no nome ("lista-de-espera-vessel 28-08-2026 20:39:19:335.csv").
 //    Rodando 4x por dia isso viraria ~120 arquivos por mês. Medido. Aqui vai
 //    `true`, que atualiza o MESMO arquivo — id e link não mudam.
@@ -57,6 +80,10 @@ const BLING = 'https://api.bling.com.br/Api/v3';
 const RAIZ = 'wbp6sefe483fe7da14c6ebe53225105f1f389'; // espaço "01. RBV and Company"
 const CAMINHO = ['04. Vessel Brasil', '17. Marketing', 'Lista de espera (LP)'];
 const ARQUIVO = 'lista-de-espera-vessel.csv';
+
+// As etiquetas que o contato recebe no Bling. Hoje só "Cliente", que é o que
+// existe. Quando o dono criar um tipo "Lista de espera (LP)", some o id aqui.
+const TIPOS_DO_CADASTRO = [{ id: 14580785954 }]; // Cliente
 
 const json = (corpo: unknown, status = 200) =>
   new Response(JSON.stringify(corpo), { status, headers: { 'Content-Type': 'application/json' } });
@@ -152,7 +179,7 @@ async function subirCsv(t: string, pastaId: string, texto: string): Promise<void
   const fd = new FormData();
   // BOM no início: sem ele o Excel abre "Ana" como "AnÃ¡". O arquivo vai ser
   // aberto também fora do Zoho.
-  fd.append('content', new Blob(['﻿' + texto], { type: 'text/csv' }), ARQUIVO);
+  fd.append('content', new Blob(['\uFEFF' + texto], { type: 'text/csv' }), ARQUIVO);
   const url = `${WD}/upload?filename=${encodeURIComponent(ARQUIVO)}`
     + `&parent_id=${encodeURIComponent(pastaId)}&override-name-exist=true`;
   const r = await fetch(url, {
@@ -221,26 +248,41 @@ const FALTA_PERMISSAO_BLING =
   + 'a permissão for concedida, eles sobem sozinhos. Atenção: reautorizar o Bling derruba o acesso '
   + 'atual até o novo ser gravado, então faça com alguém acompanhando.';
 
-/** Devolve `null` se deu certo, ou a frase em português do que impediu. */
+/** A MARCA DE ORIGEM, no único campo livre que um contato do Bling tem. */
+function codigoDeOrigem(linha: any): string {
+  const dia = new Date(linha.criado_em).toISOString().slice(0, 10).replace(/-/g, '');
+  // Um pedaço do id da linha entra para o código ser único por pessoa: se dois
+  // contatos disputassem o mesmo `codigo`, o Bling poderia recusar o segundo.
+  const curto = String(linha.id).replace(/[^A-Za-z0-9]/g, '').slice(-6).toUpperCase();
+  return `LP-${dia}-${curto}`;
+}
+
+/** Devolve `{id}` se deu certo, ou `{erro}` com a frase em português. */
 async function mandarPraBling(t: string, linha: any): Promise<{ id: string } | { erro: string }> {
   const r = await fetch(`${BLING}/contatos`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify({
       nome: linha.nome,
+      // OBRIGATÓRIOS, e a falta dos dois derrubava TODO cadastro com 400.
+      // "F" é pessoa física; "A" é ativo. Medido contra a API.
+      tipo: 'F',
+      situacao: 'A',
       email: linha.email,
-      telefone: linha.whatsapp,
-      // A MARCA DE ORIGEM que o dono pediu. O campo exato ainda não pôde ser
-      // conferido (o 403 impede até ler um contato), então vai na observação,
-      // que é o lugar que a pessoa abre. Quando a permissão existir, a PRIMEIRA
-      // coisa a fazer é ler um contato de verdade e confirmar se é aqui mesmo.
-      observacoes: `Origem: lista de espera da LP vesselbrasil.com.br em `
-        + `${new Date(linha.criado_em).toLocaleDateString('pt-BR')}`,
+      // WhatsApp vai em CELULAR, não em telefone: nos contatos de verdade da
+      // conta o `telefone` está vazio e o número vive aqui. No campo errado ele
+      // ficaria invisível justamente onde a equipe procura.
+      celular: linha.whatsapp,
+      // A MARCA DE ORIGEM que o dono pediu. NÃO vai em `observacoes`: esse
+      // campo não existe no contato do Bling (li um de verdade, são 24 campos e
+      // ele não está lá) — o Bling aceita no envio e descarta calado.
+      codigo: codigoDeOrigem(linha),
+      tiposContato: TIPOS_DO_CADASTRO,
     }),
   });
   if (r.status === 403) return { erro: FALTA_PERMISSAO_BLING };
   if (!r.ok) {
-    const txt = (await r.text()).slice(0, 200);
+    const txt = (await r.text()).slice(0, 300);
     return { erro: `O Bling recusou o cadastro (código ${r.status}). A próxima rodada tenta de novo. `
       + `Resposta: ${txt}` };
   }
