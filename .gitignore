@@ -93,3 +93,12 @@ public/*.session.json
 # Quem precisar refazer: o LEIA-ME da pasta tem os três comandos, e as fotos se
 # regeram sozinhas a partir do app rodando local — nada ali é insubstituível.
 docs/tutorial-motorista/
+
+# A CASA PÚBLICA DA VESSEL mora aqui dentro por organização (pedido do dono:
+# "são do mesmo grupo de ferramentas"), mas é um REPOSITÓRIO PRÓPRIO e um
+# projeto Vercel PRÓPRIO.
+#
+# ELA NÃO PODE ENTRAR NO QUE A CENTRAL PUBLICA. Se entrar, a blindagem cai e
+# volta o vesselbrasil.com.br/frota abrindo o painel interno — que foi o
+# defeito que o dono pediu para eliminar. Por isso ela é ignorada aqui.
+/vessel-brasil/
