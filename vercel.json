@@ -1,15 +1,6 @@
 {
-  "redirects": [
-    {
-      "source": "/",
-      "has": [{ "type": "host", "value": "vesselbrasil.com.br" }],
-      "destination": "https://lavessel.com.br",
-      "permanent": false
-    }
-  ],
   "rewrites": [
-    { "source": "/verify/:codigo", "destination": "/verify/index.html" },
-    { "source": "/((?!escritorio-3d|verify).*)", "destination": "/index.html" }
+    { "source": "/((?!escritorio-3d).*)", "destination": "/index.html" }
   ],
   "headers": [
     {
