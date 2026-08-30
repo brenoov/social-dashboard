@@ -102,9 +102,9 @@
             <div class="au-endereco">{{ enderecoDaTag(proxima.codigo) }}</div>
             <div class="au-acoes">
               <button class="au-botao secundario" type="button" @click="copiar">{{ textoCopiar }}</button>
-              <!-- `marcarGravada()` com os parênteses: sem eles o @click passaria o evento
-                       do clique no lugar do código da peça -->
-                  <button class="au-botao" type="button" v-if="podeEditar" @click="marcarGravada()">✓ Gravei essa</button>
+              <!-- `marcarGravada()` com os parênteses: sem eles o @click passaria o
+                   evento do clique no lugar do código da peça -->
+              <button class="au-botao" type="button" v-if="podeEditar" @click="marcarGravada()">✓ Gravei essa</button>
               <button v-if="temSuporte()" class="au-botao secundario" type="button" @click="gravaPorNfc = true">
                 Gravar encostando o celular
               </button>
@@ -113,7 +113,15 @@
 
           <!-- GRAVADOR DE MESA -->
           <details class="au-mesa">
-            <summary>Gravador de mesa</summary>
+            <!-- A seta é desenhada aqui porque `display:flex` no <summary> apaga o
+                 triângulo que o Chrome desenha sozinho — e o triângulo era a única
+                 pista de que esta gaveta abre. Em SVG, nunca emoji. -->
+            <summary>
+              <svg class="au-seta" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"
+                   fill="none" stroke="currentColor" stroke-width="2.4"
+                   stroke-linecap="round" stroke-linejoin="round"><polyline points="9 5 16 12 9 19" /></svg>
+              <span>Gravador de mesa</span>
+            </summary>
             <button class="au-botao secundario" type="button" @click="baixarListaDoGravador">
               Baixar a lista das que faltam
             </button>
@@ -255,7 +263,7 @@
  * porque a garantia de "nenhum código repetido" é da chave primária. Ver
  * db/migrations/2026-08-05-vessel-painel.sql.
  */
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import BarraDeTopo from '../../compartilhado/barra-de-topo.vue'
 import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
@@ -324,6 +332,18 @@ function dataCurta(valor) {
     timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric',
   }).format(d)
 }
+
+// TROCAR DE LOTE APAGA OS RECADOS DO LOTE ANTERIOR.
+// Os dois falam de uma peça específica: o `recadoNfc` (inclusive o "PARE: esta
+// etiqueta já tem OUTRA peça gravada") e a pergunta do gravador de mesa, que já
+// carrega a lista de códigos contada. Deixados na tela sob um lote novo, viram
+// aviso do lote errado — e aviso do lote errado é pior que aviso nenhum.
+// O seletor fica travado enquanto `gravando`, então isto nunca apaga o recado
+// de uma gravação em curso.
+watch(loteEscolhido, () => {
+  recadoNfc.value = ''
+  confirmacaoDoGravador.value = null
+})
 
 function voltar() { router.push({ name: 'gestao-interna' }) }
 
@@ -623,7 +643,15 @@ onMounted(carregar)
 .au-confirma{margin-top:10px;padding:12px 14px;border-radius:var(--radius-md);background:color-mix(in srgb, var(--orange) 10%, var(--surface));border:1px solid color-mix(in srgb, var(--orange) 38%, var(--surface));}
 .au-confirma-texto{font-family:var(--fonte-principal);font-size:max(9px, calc(14px * var(--escala-texto, 1)));line-height:1.5;color:var(--text);overflow-wrap:anywhere;}
 .au-confirma .au-acoes{padding:12px 0 0;}
-.au-mesa summary{display:flex;align-items:center;min-height:40px;cursor:pointer;font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));font-weight:600;color:var(--text);}
+/* `display:flex` no <summary> APAGA o triângulo que o Chrome desenha sozinho, e
+   sem ele nada dizia que a gaveta abre. O marcador nativo sai de cena nos dois
+   motores (`list-style` no padrão, `::-webkit-details-marker` no WebKit velho) e
+   a seta vira o SVG do template, que gira ao abrir e existe igual em todo
+   navegador. */
+.au-mesa summary{display:flex;align-items:center;gap:8px;min-height:40px;cursor:pointer;font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));font-weight:600;color:var(--text);list-style:none;}
+.au-mesa summary::-webkit-details-marker{display:none;}
+.au-seta{flex-shrink:0;color:var(--accent);transition:transform .15s;}
+.au-mesa[open] > summary .au-seta{transform:rotate(90deg);}
 /* 16px no campo não é estética: abaixo disso o iOS dá zoom ao focar e a tela
    salta na cara de quem está digitando. */
 .au-colar{display:block;width:100%;min-height:90px;margin:10px 0;box-sizing:border-box;font-family:var(--fonte-principal);font-size:max(16px, calc(16px * var(--escala-texto, 1)));line-height:1.5;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface);color:var(--text);}
