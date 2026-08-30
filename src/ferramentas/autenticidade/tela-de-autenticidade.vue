@@ -63,17 +63,58 @@
           </p>
 
           <p class="au-instrucao">
-            Copie o endereço abaixo e grave na etiqueta pelo aplicativo do celular.
-            Depois toque em “Gravei essa” — é isso que impede de perder a conta no meio
-            de {{ loteAtual?.quantidade }} etiquetas iguais.
+            A etiqueta vai costurada no forro interno, longe de fecho, rebite e corrente:
+            NFC não funciona encostado em metal.
           </p>
 
-          <div class="au-endereco">{{ enderecoDaTag(proxima.codigo) }}</div>
+          <!-- MODO NFC: só existe onde o navegador grava (Chrome no Android) -->
+          <template v-if="gravaPorNfc">
+            <div class="au-endereco">{{ enderecoDaTag(proxima.codigo) }}</div>
+            <p v-if="recadoNfc" class="au-recado-nfc">{{ recadoNfc }}</p>
+            <div class="au-acoes">
+              <button class="au-botao" type="button" :disabled="gravando || !podeEditar"
+                      @click="gravarNaEtiqueta">
+                {{ gravando ? 'Encoste a etiqueta…' : 'Gravar nesta etiqueta' }}
+              </button>
+              <button class="au-botao secundario" type="button" @click="gravaPorNfc = false">
+                Gravar pelo aplicativo
+              </button>
+            </div>
+            <label class="au-trava">
+              <input type="checkbox" v-model="travarDepois">
+              <span>Travar a etiqueta depois de gravar — <strong>não tem volta</strong></span>
+            </label>
+          </template>
 
-          <div class="au-acoes">
-            <button class="au-botao secundario" type="button" @click="copiar">{{ textoCopiar }}</button>
-            <button class="au-botao" type="button" v-if="podeEditar" @click="marcarGravada">✓ Gravei essa</button>
-          </div>
+          <!-- MODO DE HOJE: iPhone, computador, ou quem preferir o aplicativo -->
+          <template v-else>
+            <p class="au-instrucao">
+              Copie o endereço abaixo e grave na etiqueta pelo aplicativo do celular.
+              Depois toque em “Gravei essa” — é isso que impede de perder a conta no meio
+              de {{ loteAtual?.quantidade }} etiquetas iguais.
+            </p>
+            <div class="au-endereco">{{ enderecoDaTag(proxima.codigo) }}</div>
+            <div class="au-acoes">
+              <button class="au-botao secundario" type="button" @click="copiar">{{ textoCopiar }}</button>
+              <button class="au-botao" type="button" v-if="podeEditar" @click="marcarGravada">✓ Gravei essa</button>
+              <button v-if="temSuporte()" class="au-botao secundario" type="button" @click="gravaPorNfc = true">
+                Gravar encostando o celular
+              </button>
+            </div>
+          </template>
+
+          <!-- GRAVADOR DE MESA -->
+          <details class="au-mesa">
+            <summary>Gravador de mesa</summary>
+            <button class="au-botao secundario" type="button" @click="baixarListaDoGravador">
+              Baixar a lista das que faltam
+            </button>
+            <textarea v-model="textoDoGravador" class="au-colar"
+                      placeholder="Cole aqui o que o gravador devolveu"></textarea>
+            <button class="au-botao" type="button" v-if="podeEditar" @click="marcarPeloGravador">
+              Marcar as gravadas
+            </button>
+          </details>
         </div>
       </template>
     </template>
@@ -198,6 +239,8 @@ import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { hasPermission } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { adminToast } from '../../compartilhado/avisos.js'
 import { enderecoDaTag, progressoDoLote, proximaPorGravar, linhasDoCsv, resumoDeAlertas } from './lotes.js'
+import { conferirLeitura, listaParaGravadorDeMesa, codigosNoTextoDoGravador } from './nfc-fila.js'
+import { temSuporte, traduzirFalha, criarGravador } from './gravador-nfc.js'
 
 const ABAS = [
   { chave: 'lotes', rotulo: 'Lotes' },
@@ -222,6 +265,14 @@ const formulario = ref(false)
 const salvando = ref(false)
 const erroForm = ref('')
 const textoCopiar = ref('Copiar endereço')
+
+// Chrome no Android grava NFC pelo navegador; iPhone e computador não. Quem
+// não grava cai no modo de hoje, que continua inteiro logo abaixo.
+const gravaPorNfc = ref(temSuporte())
+const travarDepois = ref(false)            // ⚠️ PERMANENTE — nasce desligado
+const gravando = ref(false)
+const recadoNfc = ref('')
+const textoDoGravador = ref('')
 
 const novo = reactive({ modelo: '', cor: '', sku: '', quantidade: 20, fabricado_em: '' })
 
@@ -346,6 +397,99 @@ async function marcarGravada() {
   }
 }
 
+// A REGRA INTEIRA ESTÁ AQUI: lê antes, grava, lê depois, e só então marca.
+// Marcar porque o `write` não deu erro é marcar no escuro — e no escuro a peça
+// entra como pronta com a etiqueta em branco costurada dentro da bolsa.
+async function gravarNaEtiqueta() {
+  const peca = proxima.value
+  if (!peca || gravando.value) return
+  const gravador = criarGravador()
+  if (!gravador) { gravaPorNfc.value = false; return }
+
+  gravando.value = true
+  recadoNfc.value = 'Encoste a etiqueta no celular e segure parado…'
+  try {
+    // 1. LER ANTES: etiqueta com outra peça não pode ser sobrescrita
+    const antes = await gravador.lerUmaVez()
+    const situacao = conferirLeitura(antes, peca.codigo)
+    if (situacao === 'outra-peca') {
+      recadoNfc.value = 'PARE: esta etiqueta já tem OUTRA peça gravada. '
+        + 'Separe ela e pegue uma etiqueta em branco.'
+      return
+    }
+    if (situacao === 'confere') {
+      // já estava gravada com esta peça: marca sem regravar
+      await marcarGravada()
+      recadoNfc.value = 'Esta etiqueta já estava certa. Marquei e passei para a próxima.'
+      return
+    }
+
+    // 2. GRAVAR
+    recadoNfc.value = 'Gravando… não tire o celular.'
+    await gravador.gravar(enderecoDaTag(peca.codigo))
+
+    // 3. LER DEPOIS: a prova de que gravou é a etiqueta devolver
+    const depois = await gravador.lerUmaVez()
+    if (conferirLeitura(depois, peca.codigo) !== 'confere') {
+      recadoNfc.value = 'Gravei, mas a etiqueta não devolveu o endereço certo. '
+        + 'Não marquei a peça. Encoste de novo.'
+      return
+    }
+
+    if (travarDepois.value) await gravador.travar()
+    await marcarGravada()
+    recadoNfc.value = `Peça ${peca.numero_na_serie} pronta. Pegue a próxima etiqueta.`
+  } catch (erro) {
+    recadoNfc.value = traduzirFalha(erro)
+  } finally {
+    gravando.value = false
+  }
+}
+
+// ── O GRAVADOR DE MESA: a mesma fila, de ida e de volta ────────────────────
+
+function baixarListaDoGravador() {
+  const lista = listaParaGravadorDeMesa(pecasDoLote(loteEscolhido.value))
+  if (!lista) { adminToast('Não falta nenhuma etiqueta neste lote', false); return }
+  const url = URL.createObjectURL(new Blob([lista], { type: 'text/plain;charset=utf-8' }))
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `etiquetas-${loteAtual.value?.modelo || 'lote'}.txt`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+async function marcarPeloGravador() {
+  const { reconhecidos, ignorados } = codigosNoTextoDoGravador(
+    textoDoGravador.value, pecasDoLote(loteEscolhido.value))
+  if (!reconhecidos.length) {
+    adminToast('Não achei nenhum código deste lote no texto colado', false)
+    return
+  }
+  // `sbClient.rpc` NÃO estoura: devolve `{ data, error }`. Sem contar o que deu
+  // certo, um bloco inteiro barrado pela permissão sairia com o aviso de
+  // "marcadas" — e a tela nunca mente (PADRAO-DA-CENTRAL, item 9).
+  let feitas = 0
+  for (const codigo of reconhecidos) {
+    const { data, error } = await sbClient.rpc('vessel_marcar_gravada', { p_codigo: codigo })
+    if (!error && data?.ok) feitas += 1
+  }
+  // Aqui recarregar É certo: veio um bloco inteiro de uma vez. No caminho de
+  // uma etiqueta por vez, `marcarGravada` atualiza SÓ a peça de propósito —
+  // recarga inteira a cada etiqueta trava o ritmo de quem está gravando em
+  // sequência.
+  await carregar()
+  textoDoGravador.value = ''
+  if (feitas < reconhecidos.length) {
+    adminToast(`Marquei ${feitas} de ${reconhecidos.length}. As outras não deram certo `
+      + '— confira sua permissão e tente de novo.', false)
+    return
+  }
+  adminToast(ignorados.length
+    ? `${reconhecidos.length} marcadas. ${ignorados.length} código(s) de OUTRO lote foram ignorados — confira se o arquivo é deste lote.`
+    : `${reconhecidos.length} etiqueta(s) marcadas como gravadas.`)
+}
+
 function baixarPlanilha() {
   const csv = linhasDoCsv(registrosFiltrados.value)
   // BOM na frente: sem ele o Excel abre "Mônaco" como "MÃ´naco"
@@ -393,6 +537,10 @@ onMounted(carregar)
 .au-campo{display:block;padding:16px 24px 0;max-width:520px;}
 .au-rot{display:block;font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
 .au-campo input,.au-campo select{width:100%;font-family:var(--fonte-principal);font-size:max(9px, calc(14px * var(--escala-texto, 1)));padding:9px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);}
+/* Medido a 375px: o seletor de lote saía com 39,5px de altura e 14px de fonte
+   — abaixo dos 40px de alvo de dedo e dos 16px abaixo dos quais o iOS dá zoom
+   ao focar. É o único `select` desta tela. */
+.au-campo select{min-height:40px;box-sizing:border-box;font-size:max(16px, calc(16px * var(--escala-texto, 1)));}
 
 .au-gravacao{padding:8px 24px 0;max-width:620px;}
 .au-passo{font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);padding-top:18px;}
@@ -401,6 +549,26 @@ onMounted(carregar)
 .au-endereco{font-family:var(--fonte-dados);font-size:max(16px, calc(17px * var(--escala-texto, 1)));line-height:1.6;color:var(--text);background:var(--surface);border:1px solid var(--accent);border-radius:8px;padding:16px;margin-top:14px;word-break:break-all;user-select:all;}
 .au-acoes{display:flex;gap:10px;padding:16px 24px 0;flex-wrap:wrap;}
 .au-gravacao .au-acoes{padding-left:0;padding-right:0;}
+/* Mesmo motivo do `.au-acoes` logo acima: dentro do bloco de gravação o
+   recuo já vem do `.au-gravacao`. Sem isto o texto de instrução ficava 24px
+   mais para dentro que o endereço, e a coluna saía torta. */
+.au-gravacao .au-instrucao{padding-left:0;padding-right:0;}
+/* Medido a 375px: sem isto os botões da gaveta do gravador de mesa saíam com
+   35,5px de altura — dedo não acerta menos que 40. */
+.au-gravacao .au-botao{min-height:40px;box-sizing:border-box;}
+
+/* O recado da gravação é o que a pessoa lê de pé, com o celular numa mão e a
+   etiqueta na outra: corpo grande e contraste alto nos DOIS temas.
+   Os tokens são --surface2 e --text (src/estilos/estilos-globais.css). */
+.au-recado-nfc{margin:12px 0 0;padding:10px 12px;border-radius:var(--radius-md);background:var(--surface2);color:var(--text);font-family:var(--fonte-principal);font-size:max(9px, calc(15px * var(--escala-texto, 1)));line-height:1.45;overflow-wrap:anywhere;}
+/* O alvo do dedo é a linha inteira, não o quadradinho: min-height 40px. */
+.au-trava{display:flex;gap:8px;align-items:center;min-height:40px;margin-top:14px;font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));line-height:1.5;color:var(--text);cursor:pointer;}
+.au-trava input{width:20px;height:20px;flex-shrink:0;}
+.au-mesa{margin-top:22px;}
+.au-mesa summary{display:flex;align-items:center;min-height:40px;cursor:pointer;font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));font-weight:600;color:var(--text);}
+/* 16px no campo não é estética: abaixo disso o iOS dá zoom ao focar e a tela
+   salta na cara de quem está digitando. */
+.au-colar{display:block;width:100%;min-height:90px;margin:10px 0;box-sizing:border-box;font-family:var(--fonte-principal);font-size:max(16px, calc(16px * var(--escala-texto, 1)));line-height:1.5;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface);color:var(--text);}
 
 .au-fundo{position:fixed;inset:0;background:rgba(15,15,15,.55);display:flex;align-items:center;justify-content:center;padding:20px;z-index:50;}
 .au-folha{background:var(--surface);border:1px solid var(--border);border-radius:10px;max-width:520px;width:100%;max-height:90dvh;overflow-y:auto;padding:22px 0;}
