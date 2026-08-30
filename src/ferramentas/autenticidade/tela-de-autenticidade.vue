@@ -45,7 +45,9 @@
       <template v-else>
         <label class="au-campo">
           <span class="au-rot">Lote</span>
-          <select v-model="loteEscolhido">
+          <!-- travado durante a gravação: trocar de lote no meio dos 8 segundos
+               era o caminho que gravava uma peça e marcava outra -->
+          <select v-model="loteEscolhido" :disabled="gravando">
             <option v-for="l in lotes" :key="l.id" :value="l.id">
               {{ l.modelo }}<span v-if="l.cor"> · {{ l.cor }}</span> — {{ progressoDoLote(pecasDoLote(l.id)).texto }}
             </option>
@@ -76,7 +78,11 @@
                       @click="gravarNaEtiqueta">
                 {{ gravando ? 'Encoste a etiqueta…' : 'Gravar nesta etiqueta' }}
               </button>
-              <button class="au-botao secundario" type="button" @click="gravaPorNfc = false">
+              <!-- travado durante a gravação: o recado (inclusive o "PARE: esta
+                   etiqueta já tem OUTRA peça") só existe dentro deste v-if, e
+                   trocar de modo no meio o faria sumir -->
+              <button class="au-botao secundario" type="button" :disabled="gravando"
+                      @click="gravaPorNfc = false">
                 Gravar pelo aplicativo
               </button>
             </div>
@@ -96,7 +102,9 @@
             <div class="au-endereco">{{ enderecoDaTag(proxima.codigo) }}</div>
             <div class="au-acoes">
               <button class="au-botao secundario" type="button" @click="copiar">{{ textoCopiar }}</button>
-              <button class="au-botao" type="button" v-if="podeEditar" @click="marcarGravada">✓ Gravei essa</button>
+              <!-- `marcarGravada()` com os parênteses: sem eles o @click passaria o evento
+                       do clique no lugar do código da peça -->
+                  <button class="au-botao" type="button" v-if="podeEditar" @click="marcarGravada()">✓ Gravei essa</button>
               <button v-if="temSuporte()" class="au-botao secundario" type="button" @click="gravaPorNfc = true">
                 Gravar encostando o celular
               </button>
@@ -111,9 +119,24 @@
             </button>
             <textarea v-model="textoDoGravador" class="au-colar"
                       placeholder="Cole aqui o que o gravador devolveu"></textarea>
-            <button class="au-botao" type="button" v-if="podeEditar" @click="marcarPeloGravador">
+            <button v-if="podeEditar && !confirmacaoDoGravador" class="au-botao" type="button"
+                    @click="pedirParaMarcarPeloGravador">
               Marcar as gravadas
             </button>
+            <div v-if="podeEditar && confirmacaoDoGravador" class="au-confirma">
+              <p class="au-confirma-texto">
+                Marcar {{ confirmacaoDoGravador.reconhecidos.length }} peça(s) como gravadas?
+                Isso não confere etiqueta nenhuma — só use depois de gravar de verdade
+                no gravador de mesa.
+              </p>
+              <div class="au-acoes">
+                <button class="au-botao secundario" type="button"
+                        @click="confirmacaoDoGravador = null">Cancelar</button>
+                <button class="au-botao" type="button" @click="marcarPeloGravador">
+                  Sim, marcar
+                </button>
+              </div>
+            </div>
           </details>
         </div>
       </template>
@@ -273,6 +296,7 @@ const travarDepois = ref(false)            // ⚠️ PERMANENTE — nasce deslig
 const gravando = ref(false)
 const recadoNfc = ref('')
 const textoDoGravador = ref('')
+const confirmacaoDoGravador = ref(null)  // { reconhecidos, ignorados } enquanto a pergunta está na tela
 
 const novo = reactive({ modelo: '', cor: '', sku: '', quantidade: 20, fabricado_em: '' })
 
@@ -380,20 +404,31 @@ async function copiar() {
   }
 }
 
-async function marcarGravada() {
-  const codigo = proxima.value?.codigo
-  if (!codigo) return
+// O CÓDIGO ENTRA POR ARGUMENTO, e isto não é preferência de estilo.
+// `gravarNaEtiqueta` escolhe a peça no começo e leva até 8 segundos com o
+// "Encoste a etiqueta…" na tela. Relendo `proxima.value` aqui no fim, quem
+// trocasse de lote no meio gravava a etiqueta do lote A e marcava como pronta a
+// peça do lote B — e a bolsa B saía da fábrica marcada como pronta com a
+// etiqueta em branco costurada dentro. A leitura de volta não protegia nada
+// nesse caminho: conferia A e marcava B.
+//
+// Devolve `true` só quando o banco confirmou. Quem chama decide o que dizer —
+// recado de "pronta" sem marcação é a mesma mentira que a tela não conta.
+async function marcarGravada(codigo = proxima.value?.codigo) {
+  if (!codigo) return false
   try {
     const { data, error } = await sbClient.rpc('vessel_marcar_gravada', { p_codigo: codigo })
     if (error) throw error
-    if (!data?.ok) { adminToast('Sem permissão para marcar', false); return }
+    if (!data?.ok) { adminToast('Sem permissão para marcar', false); return false }
     // atualiza só a peça, sem recarregar tudo: a equipe está gravando em
     // sequência e uma recarga inteira a cada etiqueta trava o ritmo
     const alvo = pecas.value.find((p) => p.codigo === codigo)
     if (alvo) alvo.gravada_em = new Date().toISOString()
     textoCopiar.value = 'Copiar endereço'
+    return true
   } catch (e) {
     adminToast('Não consegui marcar agora', false)
+    return false
   }
 }
 
@@ -419,8 +454,9 @@ async function gravarNaEtiqueta() {
     }
     if (situacao === 'confere') {
       // já estava gravada com esta peça: marca sem regravar
-      await marcarGravada()
-      recadoNfc.value = 'Esta etiqueta já estava certa. Marquei e passei para a próxima.'
+      recadoNfc.value = await marcarGravada(peca.codigo)
+        ? 'Esta etiqueta já estava certa. Marquei e passei para a próxima.'
+        : 'Esta etiqueta já estava certa, mas não consegui marcar a peça. Encoste de novo.'
       return
     }
 
@@ -437,8 +473,10 @@ async function gravarNaEtiqueta() {
     }
 
     if (travarDepois.value) await gravador.travar()
-    await marcarGravada()
-    recadoNfc.value = `Peça ${peca.numero_na_serie} pronta. Pegue a próxima etiqueta.`
+    recadoNfc.value = await marcarGravada(peca.codigo)
+      ? `Peça ${peca.numero_na_serie} pronta. Pegue a próxima etiqueta.`
+      : `Gravei a etiqueta da peça ${peca.numero_na_serie}, mas não consegui marcá-la `
+        + 'como pronta. NÃO pegue outra etiqueta: encoste esta de novo.'
   } catch (erro) {
     recadoNfc.value = traduzirFalha(erro)
   } finally {
@@ -459,13 +497,28 @@ function baixarListaDoGravador() {
   URL.revokeObjectURL(url)
 }
 
-async function marcarPeloGravador() {
+// ESTE É O ÚNICO CAMINHO QUE MARCA PEÇA SEM CONFERIR ETIQUETA NENHUMA.
+// `codigosNoTextoDoGravador` aceita qualquer texto que contenha os códigos —
+// colar de volta o próprio arquivo que acabou de ser baixado marcaria o lote
+// inteiro num clique, sem nenhuma etiqueta ter sido tocada. Por isso passa por
+// uma pergunta que diz o número e diz o que NÃO foi conferido.
+function pedirParaMarcarPeloGravador() {
   const { reconhecidos, ignorados } = codigosNoTextoDoGravador(
     textoDoGravador.value, pecasDoLote(loteEscolhido.value))
   if (!reconhecidos.length) {
     adminToast('Não achei nenhum código deste lote no texto colado', false)
     return
   }
+  // guarda o que foi contado: é exatamente isso que a pergunta promete marcar,
+  // mesmo que alguém mexa na caixa de colar antes de responder
+  confirmacaoDoGravador.value = { reconhecidos, ignorados }
+}
+
+async function marcarPeloGravador() {
+  const pedido = confirmacaoDoGravador.value
+  if (!pedido) return
+  const { reconhecidos, ignorados } = pedido
+  confirmacaoDoGravador.value = null
   // `sbClient.rpc` NÃO estoura: devolve `{ data, error }`. Sem contar o que deu
   // certo, um bloco inteiro barrado pela permissão sairia com o aviso de
   // "marcadas" — e a tela nunca mente (PADRAO-DA-CENTRAL, item 9).
@@ -565,6 +618,11 @@ onMounted(carregar)
 .au-trava{display:flex;gap:8px;align-items:center;min-height:40px;margin-top:14px;font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));line-height:1.5;color:var(--text);cursor:pointer;}
 .au-trava input{width:20px;height:20px;flex-shrink:0;}
 .au-mesa{margin-top:22px;}
+/* Bloco de aviso pelo desenho do PADRAO-DA-CENTRAL: a cor é o sinal, o texto é
+   para ler — por isso o `--text` e não o `--orange` na letra. */
+.au-confirma{margin-top:10px;padding:12px 14px;border-radius:var(--radius-md);background:color-mix(in srgb, var(--orange) 10%, var(--surface));border:1px solid color-mix(in srgb, var(--orange) 38%, var(--surface));}
+.au-confirma-texto{font-family:var(--fonte-principal);font-size:max(9px, calc(14px * var(--escala-texto, 1)));line-height:1.5;color:var(--text);overflow-wrap:anywhere;}
+.au-confirma .au-acoes{padding:12px 0 0;}
 .au-mesa summary{display:flex;align-items:center;min-height:40px;cursor:pointer;font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));font-weight:600;color:var(--text);}
 /* 16px no campo não é estética: abaixo disso o iOS dá zoom ao focar e a tela
    salta na cara de quem está digitando. */

@@ -1,0 +1,123 @@
+/* A PEÇA QUE SE GRAVA E A PEÇA QUE SE MARCA TÊM DE SER A MESMA.
+ *
+ * `gravarNaEtiqueta` escolhe a peça no começo (`const peca = proxima.value`) e
+ * fica até 8 segundos com "Encoste a etiqueta…" na tela. Enquanto `marcarGravada`
+ * relia `proxima.value` por conta própria, quem trocasse de lote no meio gravava
+ * a etiqueta do lote A e marcava como pronta a peça do lote B — e a bolsa B saía
+ * da fábrica marcada como pronta com a etiqueta EM BRANCO costurada dentro. A
+ * leitura de volta não protegia nada nesse caminho: conferia A e marcava B.
+ *
+ * Isto se verifica no código-fonte porque `node --test` não compila `.vue`: teste
+ * verde não é tela que abre, mas fonte é o que dá para ler daqui.
+ */
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+
+const TELA = new URL('./tela-de-autenticidade.vue', import.meta.url).pathname;
+const fonte = readFileSync(TELA, 'utf8');
+const script = fonte.slice(fonte.indexOf('<script setup>'), fonte.indexOf('</script>'));
+// até o <script setup>, e NÃO até o primeiro '</template>': a tela tem
+// <template v-else-if> aninhados, e o primeiro fechamento é de um deles —
+// cortar ali deixava a aba Gravar inteira fora da vistoria.
+const template = fonte.slice(0, fonte.indexOf('<script setup>'));
+
+/** O corpo de uma função do `<script setup>`, por contagem de chaves. */
+function corpoDaFuncao(nome) {
+  const abre = script.indexOf(`function ${nome}(`);
+  assert.notEqual(abre, -1, `função ${nome} sumiu da tela`);
+  let i = script.indexOf('{', abre);
+  let nivel = 0;
+  for (let j = i; j < script.length; j += 1) {
+    if (script[j] === '{') nivel += 1;
+    else if (script[j] === '}') { nivel -= 1; if (nivel === 0) return script.slice(i, j + 1); }
+  }
+  throw new Error(`não achei o fim de ${nome}`);
+}
+
+test('marcarGravada recebe o código da peça, e não relê a escolha da tela', () => {
+  assert.match(
+    script,
+    /async function marcarGravada\(codigo = proxima\.value\?\.codigo\)/,
+    'sem o parâmetro, marcarGravada volta a reler proxima.value e pode marcar outra peça',
+  );
+});
+
+test('gravarNaEtiqueta marca SEMPRE a peça que ela mesma escolheu', () => {
+  const corpo = corpoDaFuncao('gravarNaEtiqueta');
+  const chamadas = [...corpo.matchAll(/marcarGravada\(([^)]*)\)/g)].map((m) => m[1].trim());
+  assert.equal(chamadas.length, 2, 'gravarNaEtiqueta marca em dois pontos: já conferia, e depois de gravar');
+  assert.deepEqual(
+    chamadas, ['peca.codigo', 'peca.codigo'],
+    'marcarGravada() sem argumento aqui relê proxima.value e marca a peça errada',
+  );
+});
+
+test('o recado grande só diz "pronta" quando o banco confirmou', () => {
+  const corpo = corpoDaFuncao('gravarNaEtiqueta');
+  const semEspaco = corpo.replace(/\s+/g, ' ');
+  assert.equal(
+    (semEspaco.match(/recadoNfc\.value = await marcarGravada\(peca\.codigo\) \?/g) || []).length, 2,
+    'os dois pontos que marcam têm de escolher o recado pelo resultado da marcação',
+  );
+  assert.doesNotMatch(
+    semEspaco, /await marcarGravada\([^)]*\) recadoNfc\.value =/,
+    'marcar e depois anunciar sem olhar o resultado é prometer o que não aconteceu',
+  );
+});
+
+test('marcarGravada devolve sim ou não em todos os caminhos', () => {
+  const corpo = corpoDaFuncao('marcarGravada');
+  const retornos = [...corpo.matchAll(/\breturn\b([^\n]*)/g)].map((m) => m[1].trim().replace(/[;}].*$/, '').trim());
+  assert.ok(retornos.length >= 4, `esperava ao menos 4 saídas, achei ${retornos.length}`);
+  for (const r of retornos) {
+    assert.ok(['true', 'false'].includes(r), `saída "${r || '(vazia)'}" não diz se marcou`);
+  }
+});
+
+test('no template, marcarGravada vai com parênteses', () => {
+  // sem os parênteses o @click passa o MouseEvent no lugar do código da peça
+  assert.doesNotMatch(
+    template, /@click="marcarGravada"/,
+    '@click="marcarGravada" entrega o evento do clique como código da peça',
+  );
+  assert.match(template, /@click="marcarGravada\(\)"/);
+});
+
+test('o seletor de lote trava enquanto grava', () => {
+  assert.match(
+    template, /<select v-model="loteEscolhido" :disabled="gravando">/,
+    'sem travar, trocar de lote no meio da gravação escolhe outra peça',
+  );
+});
+
+test('trocar para o modo do aplicativo trava enquanto grava', () => {
+  // o recado (inclusive o "PARE: esta etiqueta já tem OUTRA peça") só é
+  // desenhado dentro do v-if="gravaPorNfc": sair do modo no meio o apaga
+  const bloco = template.slice(template.indexOf('Gravar pelo aplicativo') - 400,
+    template.indexOf('Gravar pelo aplicativo'));
+  assert.match(bloco, /:disabled="gravando"/);
+});
+
+test('o gravador de mesa não marca sem uma pergunta que diz o número', () => {
+  assert.doesNotMatch(
+    template, /@click="marcarPeloGravador"[^]{0,80}Marcar as gravadas/,
+    'o botão tem de abrir a pergunta, nunca marcar direto',
+  );
+  assert.match(template, /@click="pedirParaMarcarPeloGravador"/);
+  assert.match(
+    template,
+    /Marcar \{\{ confirmacaoDoGravador\.reconhecidos\.length \}\} peça\(s\) como gravadas\?/,
+    'a pergunta precisa dizer QUANTAS peças serão marcadas',
+  );
+  assert.match(
+    template, /Isso não confere etiqueta nenhuma/,
+    'este é o único caminho que marca sem conferir etiqueta, e tem de dizer isso',
+  );
+  // e o marcar de verdade só roda a partir da resposta
+  assert.match(corpoDaFuncao('marcarPeloGravador'), /const pedido = confirmacaoDoGravador\.value\s*\n\s*if \(!pedido\) return/);
+});
+
+test('nada de confirm() nativo — uiConfirm não existe neste projeto', () => {
+  assert.doesNotMatch(fonte, /\bwindow\.confirm\(|[^.\w]confirm\(/);
+});
