@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { codigoDoEndereco, conferirLeitura } from './nfc-fila.js'
+import { codigoDoEndereco, conferirLeitura, listaParaGravadorDeMesa, codigosNoTextoDoGravador } from './nfc-fila.js'
 
 test('codigoDoEndereco: tira o codigo de um endereco do selo', () => {
   assert.equal(
@@ -55,4 +55,51 @@ test('conferirLeitura: etiqueta com OUTRA peca — e o caso que salva duas bolsa
 
 test('conferirLeitura: etiqueta com coisa que nao e do selo', () => {
   assert.equal(conferirLeitura('https://google.com', 'K7M4X9QP2R'), 'nao-e-vessel')
+})
+
+test('listaParaGravadorDeMesa: uma URL por linha, so as que faltam, em ordem', () => {
+  const pecas = [
+    { codigo: 'CCC111', numero_na_serie: 3, gravada_em: null },
+    { codigo: 'AAA111', numero_na_serie: 1, gravada_em: '2026-08-05T10:00:00Z' },
+    { codigo: 'BBB111', numero_na_serie: 2, gravada_em: null },
+  ]
+  assert.equal(
+    listaParaGravadorDeMesa(pecas),
+    'https://vesselbrasil.com.br/verify/BBB111\nhttps://vesselbrasil.com.br/verify/CCC111',
+  )
+})
+
+test('listaParaGravadorDeMesa: lote todo gravado devolve vazio', () => {
+  assert.equal(listaParaGravadorDeMesa([{ codigo: 'A', gravada_em: 'x' }]), '')
+})
+
+test('codigosNoTextoDoGravador: acha os codigos em QUALQUER formato', () => {
+  // o gravador de mesa ainda nao foi comprado; o retorno dele pode vir em
+  // CSV com virgula, com ponto-e-virgula, ou num log solto. Por isso o
+  // reconhecimento e por padrao, nao por formato.
+  const pecas = [{ codigo: 'AAA111' }, { codigo: 'BBB111' }, { codigo: 'CCC111' }]
+  const texto = `linha;status
+https://vesselbrasil.com.br/verify/AAA111;ok
+BBB111,gravada
+"algum log solto" CCC111 -> OK`
+  const r = codigosNoTextoDoGravador(texto, pecas)
+  assert.deepEqual(r.reconhecidos.sort(), ['AAA111', 'BBB111', 'CCC111'])
+  assert.deepEqual(r.ignorados, [])
+})
+
+test('codigosNoTextoDoGravador: codigo do selo que NAO e deste lote vira aviso', () => {
+  const r = codigosNoTextoDoGravador(
+    'https://vesselbrasil.com.br/verify/ZZZ999', [{ codigo: 'AAA111' }])
+  assert.deepEqual(r.reconhecidos, [])
+  assert.deepEqual(r.ignorados, ['ZZZ999'])
+})
+
+test('codigosNoTextoDoGravador: texto sem nada devolve as duas listas vazias', () => {
+  const r = codigosNoTextoDoGravador('nada aqui', [{ codigo: 'AAA111' }])
+  assert.deepEqual(r, { reconhecidos: [], ignorados: [] })
+})
+
+test('codigosNoTextoDoGravador: nao repete codigo que aparece duas vezes', () => {
+  const r = codigosNoTextoDoGravador('AAA111 e de novo AAA111', [{ codigo: 'AAA111' }])
+  assert.deepEqual(r.reconhecidos, ['AAA111'])
 })

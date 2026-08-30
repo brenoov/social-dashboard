@@ -31,3 +31,43 @@ export function conferirLeitura(lidoDaTag, codigoEsperado) {
     ? 'confere'
     : 'outra-peca'
 }
+
+// ── O GRAVADOR DE MESA ─────────────────────────────────────────────────────
+// Celular e gravador de mesa gravam a MESMA fila. O que impede gravar duas
+// vezes a mesma peça é os dois beberem daqui.
+
+// UMA URL POR LINHA, coluna única, sem separador. O gravador ainda não foi
+// comprado — apostar num formato de CSV agora é apostar às cegas. Lista simples
+// qualquer programa lê.
+export function listaParaGravadorDeMesa(pecas) {
+  return (Array.isArray(pecas) ? pecas : [])
+    .filter((p) => !p.gravada_em)
+    .sort((a, b) => (a.numero_na_serie || 0) - (b.numero_na_serie || 0))
+    .map((p) => enderecoDaTag(p.codigo))
+    .join('\n')
+}
+
+// O RETORNO DO GRAVADOR VEM EM QUALQUER FORMATO, pela mesma razão: pode ser CSV
+// com vírgula, com ponto-e-vírgula, ou um log solto. Então não se lê o formato:
+// procura-se por padrão e confere-se contra o lote. Só entra o que É do lote,
+// então lixo no texto não vira marcação errada.
+export function codigosNoTextoDoGravador(texto, pecasDoLote) {
+  const bruto = String(texto ?? '')
+  const doLote = new Set(
+    (Array.isArray(pecasDoLote) ? pecasDoLote : [])
+      .map((p) => String(p.codigo ?? '').trim().toUpperCase())
+      .filter(Boolean),
+  )
+  const reconhecidos = new Set()
+  for (const achado of bruto.toUpperCase().matchAll(/[A-Z0-9]{6,32}/g)) {
+    if (doLote.has(achado[0])) reconhecidos.add(achado[0])
+  }
+  // Código com cara de selo que NÃO é deste lote merece aviso: normalmente é o
+  // arquivo do lote errado, e marcar em silêncio esconderia isso.
+  const ignorados = new Set()
+  for (const achado of bruto.matchAll(/\/verify\/([A-Za-z0-9]{6,32})/g)) {
+    const codigo = achado[1].toUpperCase()
+    if (!doLote.has(codigo)) ignorados.add(codigo)
+  }
+  return { reconhecidos: [...reconhecidos], ignorados: [...ignorados] }
+}
