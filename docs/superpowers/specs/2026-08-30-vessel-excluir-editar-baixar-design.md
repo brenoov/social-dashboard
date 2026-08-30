@@ -76,8 +76,23 @@ desfeita_por uuid
 
 **"Está baixada?" é ter linha com `desfeita_em` nula.** Uma fonte de verdade só.
 
-RLS ligada e **zero política**, como as outras tabelas do selo: tudo passa pelas
-funções.
+**RLS ligada e UMA política de SELECT**, igual às outras quatro tabelas do selo —
+medido em 30/08/2026, e não é o que a memória do projeto dizia:
+
+```sql
+create policy vessel_baixas_read on public.vessel_baixas
+  for select to authenticated using (public.is_vessel_admin());
+```
+
+⚠️ **Não é "zero política".** Eu tinha escrito isso aqui, copiando o que a
+memória do projeto afirmava. Conferi no banco: `vessel_pecas`, `vessel_lotes`,
+`vessel_leituras` e `vessel_registros` têm cada uma **uma** política, de SELECT,
+para `authenticated`, com `is_vessel_admin()`. É assim que o painel consegue ler
+`vessel_pecas` direto. Com zero política, a tabela nova nasceria ilegível para a
+tela e o defeito só apareceria na hora de mostrar a baixa.
+
+O que NÃO existe é política de escrita: inserir, alterar e apagar passam só pelas
+funções `security definer`. É esse o desenho, e a tabela nova segue ele.
 
 **Cinco funções**, todas no padrão da casa:
 
