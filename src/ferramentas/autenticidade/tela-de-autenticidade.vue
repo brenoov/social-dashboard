@@ -773,6 +773,10 @@ onMounted(() => {
   position:fixed; inset:0; z-index:60;
   display:flex; align-items:center; justify-content:center;
   padding:var(--sp-3); background:rgba(0,0,0,.55);
+  /* Sem isto o dedo arrasta a tela para os lados POR DENTRO do modal. A trava
+     do projeto (padrao-da-central.test.mjs) exige nos dois, e pegou este aqui
+     no primeiro `npm test`. */
+  touch-action:none; overscroll-behavior:contain;
 }
 .au-guia{
   width:100%; max-width:420px; padding:var(--sp-4);
