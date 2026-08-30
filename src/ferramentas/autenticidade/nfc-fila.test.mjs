@@ -103,3 +103,13 @@ test('codigosNoTextoDoGravador: nao repete codigo que aparece duas vezes', () =>
   const r = codigosNoTextoDoGravador('AAA111 e de novo AAA111', [{ codigo: 'AAA111' }])
   assert.deepEqual(r.reconhecidos, ['AAA111'])
 })
+
+test('codigosNoTextoDoGravador: o aviso de outro lote sobrevive a MAIUSCULA', () => {
+  // Leitor de NFC de terceiros devolve o endereco em caixa variada — a Tarefa 1
+  // ja documentou isso. Um aviso que some por causa de maiuscula e pior que
+  // nenhum aviso: da a impressao de que esta tudo certo.
+  const r = codigosNoTextoDoGravador(
+    'HTTPS://VESSELBRASIL.COM.BR/VERIFY/ZZZ999', [{ codigo: 'AAA111' }])
+  assert.deepEqual(r.reconhecidos, [])
+  assert.deepEqual(r.ignorados, ['ZZZ999'])
+})

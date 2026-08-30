@@ -63,9 +63,11 @@ export function codigosNoTextoDoGravador(texto, pecasDoLote) {
     if (doLote.has(achado[0])) reconhecidos.add(achado[0])
   }
   // Código com cara de selo que NÃO é deste lote merece aviso: normalmente é o
-  // arquivo do lote errado, e marcar em silêncio esconderia isso.
+  // arquivo do lote errado, e marcar em silêncio esconderia isso. A flag `i`
+  // está aqui porque sem ela um endereço em MAIÚSCULAS fazia o aviso sumir, e
+  // aviso que some é pior que aviso que não existe.
   const ignorados = new Set()
-  for (const achado of bruto.matchAll(/\/verify\/([A-Za-z0-9]{6,32})/g)) {
+  for (const achado of bruto.matchAll(/\/verify\/([A-Za-z0-9]{6,32})/gi)) {
     const codigo = achado[1].toUpperCase()
     if (!doLote.has(codigo)) ignorados.add(codigo)
   }
