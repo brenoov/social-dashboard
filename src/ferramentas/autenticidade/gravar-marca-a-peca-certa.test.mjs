@@ -53,6 +53,61 @@ test('gravarNaEtiqueta marca SEMPRE a peça que ela mesma escolheu', () => {
   );
 });
 
+/* O TESTE QUE IMPORTA: nenhum caminho chama `vessel_marcar_gravada` sem uma
+ * leitura de volta que confere. É a regra inteira num teste só — e ela não
+ * existia. O revisor apagou o bloco do LER DEPOIS de `gravarNaEtiqueta` inteiro
+ * e os 3756 testes seguiram verdes: peça marcada como pronta com a etiqueta em
+ * branco costurada dentro da bolsa, e a suíte sem piscar.
+ *
+ * Provado ao contrário antes de entrar: apagando o bloco do LER DEPOIS, este
+ * teste fica vermelho. */
+test('LER DEPOIS: entre gravar e marcar tem de haver leitura de volta que confere', () => {
+  const corpo = corpoDaFuncao('gravarNaEtiqueta');
+  const daGravacao = corpo.slice(corpo.indexOf('await gravador.gravar('));
+  assert.notEqual(daGravacao, '', 'gravarNaEtiqueta parou de gravar a etiqueta');
+
+  const ateMarcar = daGravacao.slice(0, daGravacao.indexOf('marcarGravada('));
+  assert.notEqual(ateMarcar.length, 0, 'depois de gravar, nada marca a peça — a fila não anda');
+
+  const leitura = ateMarcar.match(/const (\w+) = await gravador\.lerUmaVez\(/);
+  assert.ok(
+    leitura,
+    'entre gravar e marcar não há segunda leitura da etiqueta: marcar porque o '
+    + 'write não deu erro é marcar no escuro',
+  );
+
+  const semEspaco = ateMarcar.replace(/\s+/g, ' ');
+  assert.match(
+    semEspaco,
+    new RegExp(`if \\(conferirLeitura\\(${leitura[1]}, peca\\.codigo\\) !== 'confere'\\) \\{[^}]*\\breturn\\b`),
+    'a leitura de volta tem de ser COMPARADA com a peça e SAIR da função quando '
+    + 'não confere; ler e seguir em frente não protege nada',
+  );
+});
+
+/* A trava do NFC é PERMANENTE: etiqueta travada nunca mais se regrava. Trocar
+ * este `false` por `true` queimaria etiqueta atrás de etiqueta, para sempre, e a
+ * suíte inteira seguiria verde. Por isso o valor de nascimento é teste. */
+test('a trava permanente da etiqueta nasce DESLIGADA', () => {
+  assert.match(
+    script,
+    /const travarDepois = ref\(false\)/,
+    'travarDepois = ref(true) trava toda etiqueta gravada, e trava não tem volta',
+  );
+});
+
+/* Trocar de lote troca a peça da vez. O recado antigo — inclusive o "PARE: esta
+ * etiqueta já tem OUTRA peça" — passaria a ser lido como se fosse do lote novo,
+ * e a pergunta do gravador de mesa já carrega a lista de códigos contada do lote
+ * anterior. */
+test('trocar de lote apaga o recado e a pergunta do lote anterior', () => {
+  const trecho = script.slice(script.indexOf('watch(loteEscolhido'));
+  assert.notEqual(trecho, '', 'sem watch em loteEscolhido, o aviso do lote A fica sob o lote B');
+  const ate = trecho.slice(0, trecho.indexOf('})') + 2).replace(/\s+/g, ' ');
+  assert.match(ate, /recadoNfc\.value = ''/, 'o recado do lote anterior tem de sumir');
+  assert.match(ate, /confirmacaoDoGravador\.value = null/, 'a pergunta contada no lote anterior tem de sumir');
+});
+
 test('o recado grande só diz "pronta" quando o banco confirmou', () => {
   const corpo = corpoDaFuncao('gravarNaEtiqueta');
   const semEspaco = corpo.replace(/\s+/g, ' ');
