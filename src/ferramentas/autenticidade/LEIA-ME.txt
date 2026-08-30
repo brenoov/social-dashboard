@@ -58,3 +58,46 @@ lotes.js                   as continhas soltas (endereco da etiqueta, progresso
                            do lote, proxima a gravar, planilha, resumo de
                            alertas). Ficam separadas porque sao testadas em
                            lotes.test.mjs
+
+GRAVAR ENCOSTANDO O CELULAR
+===========================
+
+A aba Gravar tem dois modos. Onde o navegador grava NFC (Chrome no Android),
+voce encosta a etiqueta e ela grava sozinha. Onde nao grava (iPhone,
+computador), ela continua como sempre foi: endereco grande, copiar, "Gravei
+essa". A fabrica nao pode ficar refem do aparelho.
+
+A REGRA: LER ANTES E LER DEPOIS.
+Antes, porque etiqueta que ja tem OUTRA peca nao pode ser sobrescrita - isso
+mandaria duas bolsas para o lixo de uma vez.
+Depois, porque a prova de que gravou nao e o navegador nao reclamar: e a
+etiqueta devolver o que se pos nela. Sem essa leitura, uma peca entraria como
+pronta com a etiqueta EM BRANCO ja costurada dentro da bolsa.
+
+A TRAVA e permanente e nasce DESLIGADA. Quando for ligar, o primeiro teste tem
+de ser numa etiqueta descartavel - etiqueta travada nunca mais se regrava.
+
+A ETIQUETA vai costurada no forro interno, longe de fecho, rebite e corrente:
+NFC nao funciona encostado em metal.
+
+QUANDO ESTA PASTA MUDAR DE REPOSITORIO
+======================================
+
+Ela foi escrita para sair daqui e ir para o repositorio que tiver o modulo de
+producao. Sao DUAS amarras com o iamundi, e as duas moram so no .vue:
+
+  1. o login e a permissao 'autenticidade'
+  2. o cliente `supabase` e o `adminToast`
+
+nfc-fila.js, gravador-nfc.js e lotes.js nao importam NADA do projeto - sao
+contas puras mais uma porta para o navegador. Mudar de casa e copiar a pasta e
+trocar essas duas amarras.
+
+O QUE NAO PODE MUDAR NUNCA
+==========================
+
+O endereco gravado na etiqueta: https://vesselbrasil.com.br/verify/<CODIGO>.
+Etiqueta costurada dentro de bolsa vendida nao se regrava. A partir da primeira
+etiqueta gravada, renovar vesselbrasil.com.br deixa de ser opcional - e o
+caminho /verify/ e o formato do codigo congelam junto.
+O dominio sai de enderecoDaTag() em lotes.js e de nenhum outro lugar.

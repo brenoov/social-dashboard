@@ -45,7 +45,9 @@
       <template v-else>
         <label class="au-campo">
           <span class="au-rot">Lote</span>
-          <select v-model="loteEscolhido">
+          <!-- travado durante a gravação: trocar de lote no meio dos 8 segundos
+               era o caminho que gravava uma peça e marcava outra -->
+          <select v-model="loteEscolhido" :disabled="gravando">
             <option v-for="l in lotes" :key="l.id" :value="l.id">
               {{ l.modelo }}<span v-if="l.cor"> · {{ l.cor }}</span> — {{ progressoDoLote(pecasDoLote(l.id)).texto }}
             </option>
@@ -63,17 +65,87 @@
           </p>
 
           <p class="au-instrucao">
-            Copie o endereço abaixo e grave na etiqueta pelo aplicativo do celular.
-            Depois toque em “Gravei essa” — é isso que impede de perder a conta no meio
-            de {{ loteAtual?.quantidade }} etiquetas iguais.
+            A etiqueta vai costurada no forro interno, longe de fecho, rebite e corrente:
+            NFC não funciona encostado em metal.
           </p>
 
-          <div class="au-endereco">{{ enderecoDaTag(proxima.codigo) }}</div>
+          <!-- MODO NFC: só existe onde o navegador grava (Chrome no Android) -->
+          <template v-if="gravaPorNfc">
+            <div class="au-endereco">{{ enderecoDaTag(proxima.codigo) }}</div>
+            <p v-if="recadoNfc" class="au-recado-nfc">{{ recadoNfc }}</p>
+            <div class="au-acoes">
+              <button class="au-botao" type="button" :disabled="gravando || !podeEditar"
+                      @click="gravarNaEtiqueta">
+                {{ gravando ? 'Encoste a etiqueta…' : 'Gravar nesta etiqueta' }}
+              </button>
+              <!-- travado durante a gravação: o recado (inclusive o "PARE: esta
+                   etiqueta já tem OUTRA peça") só existe dentro deste v-if, e
+                   trocar de modo no meio o faria sumir -->
+              <button class="au-botao secundario" type="button" :disabled="gravando"
+                      @click="gravaPorNfc = false">
+                Gravar pelo aplicativo
+              </button>
+            </div>
+            <label class="au-trava">
+              <input type="checkbox" v-model="travarDepois">
+              <span>Travar a etiqueta depois de gravar — <strong>não tem volta</strong></span>
+            </label>
+          </template>
 
-          <div class="au-acoes">
-            <button class="au-botao secundario" type="button" @click="copiar">{{ textoCopiar }}</button>
-            <button class="au-botao" type="button" v-if="podeEditar" @click="marcarGravada">✓ Gravei essa</button>
-          </div>
+          <!-- MODO DE HOJE: iPhone, computador, ou quem preferir o aplicativo -->
+          <template v-else>
+            <p class="au-instrucao">
+              Copie o endereço abaixo e grave na etiqueta pelo aplicativo do celular.
+              Depois toque em “Gravei essa” — é isso que impede de perder a conta no meio
+              de {{ loteAtual?.quantidade }} etiquetas iguais.
+            </p>
+            <div class="au-endereco">{{ enderecoDaTag(proxima.codigo) }}</div>
+            <div class="au-acoes">
+              <button class="au-botao secundario" type="button" @click="copiar">{{ textoCopiar }}</button>
+              <!-- `marcarGravada()` com os parênteses: sem eles o @click passaria o
+                   evento do clique no lugar do código da peça -->
+              <button class="au-botao" type="button" v-if="podeEditar" @click="marcarGravada()">✓ Gravei essa</button>
+              <button v-if="temSuporte()" class="au-botao secundario" type="button" @click="gravaPorNfc = true">
+                Gravar encostando o celular
+              </button>
+            </div>
+          </template>
+
+          <!-- GRAVADOR DE MESA -->
+          <details class="au-mesa">
+            <!-- A seta é desenhada aqui porque `display:flex` no <summary> apaga o
+                 triângulo que o Chrome desenha sozinho — e o triângulo era a única
+                 pista de que esta gaveta abre. Em SVG, nunca emoji. -->
+            <summary>
+              <svg class="au-seta" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"
+                   fill="none" stroke="currentColor" stroke-width="2.4"
+                   stroke-linecap="round" stroke-linejoin="round"><polyline points="9 5 16 12 9 19" /></svg>
+              <span>Gravador de mesa</span>
+            </summary>
+            <button class="au-botao secundario" type="button" @click="baixarListaDoGravador">
+              Baixar a lista das que faltam
+            </button>
+            <textarea v-model="textoDoGravador" class="au-colar"
+                      placeholder="Cole aqui o que o gravador devolveu"></textarea>
+            <button v-if="podeEditar && !confirmacaoDoGravador" class="au-botao" type="button"
+                    @click="pedirParaMarcarPeloGravador">
+              Marcar as gravadas
+            </button>
+            <div v-if="podeEditar && confirmacaoDoGravador" class="au-confirma">
+              <p class="au-confirma-texto">
+                Marcar {{ confirmacaoDoGravador.reconhecidos.length }} peça(s) como gravadas?
+                Isso não confere etiqueta nenhuma — só use depois de gravar de verdade
+                no gravador de mesa.
+              </p>
+              <div class="au-acoes">
+                <button class="au-botao secundario" type="button"
+                        @click="confirmacaoDoGravador = null">Cancelar</button>
+                <button class="au-botao" type="button" @click="marcarPeloGravador">
+                  Sim, marcar
+                </button>
+              </div>
+            </div>
+          </details>
         </div>
       </template>
     </template>
@@ -191,13 +263,15 @@
  * porque a garantia de "nenhum código repetido" é da chave primária. Ver
  * db/migrations/2026-08-05-vessel-painel.sql.
  */
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import BarraDeTopo from '../../compartilhado/barra-de-topo.vue'
 import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { hasPermission } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { adminToast } from '../../compartilhado/avisos.js'
 import { enderecoDaTag, progressoDoLote, proximaPorGravar, linhasDoCsv, resumoDeAlertas } from './lotes.js'
+import { conferirLeitura, listaParaGravadorDeMesa, codigosNoTextoDoGravador } from './nfc-fila.js'
+import { temSuporte, traduzirFalha, criarGravador } from './gravador-nfc.js'
 
 const ABAS = [
   { chave: 'lotes', rotulo: 'Lotes' },
@@ -222,6 +296,15 @@ const formulario = ref(false)
 const salvando = ref(false)
 const erroForm = ref('')
 const textoCopiar = ref('Copiar endereço')
+
+// Chrome no Android grava NFC pelo navegador; iPhone e computador não. Quem
+// não grava cai no modo de hoje, que continua inteiro logo abaixo.
+const gravaPorNfc = ref(temSuporte())
+const travarDepois = ref(false)            // ⚠️ PERMANENTE — nasce desligado
+const gravando = ref(false)
+const recadoNfc = ref('')
+const textoDoGravador = ref('')
+const confirmacaoDoGravador = ref(null)  // { reconhecidos, ignorados } enquanto a pergunta está na tela
 
 const novo = reactive({ modelo: '', cor: '', sku: '', quantidade: 20, fabricado_em: '' })
 
@@ -249,6 +332,18 @@ function dataCurta(valor) {
     timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric',
   }).format(d)
 }
+
+// TROCAR DE LOTE APAGA OS RECADOS DO LOTE ANTERIOR.
+// Os dois falam de uma peça específica: o `recadoNfc` (inclusive o "PARE: esta
+// etiqueta já tem OUTRA peça gravada") e a pergunta do gravador de mesa, que já
+// carrega a lista de códigos contada. Deixados na tela sob um lote novo, viram
+// aviso do lote errado — e aviso do lote errado é pior que aviso nenhum.
+// O seletor fica travado enquanto `gravando`, então isto nunca apaga o recado
+// de uma gravação em curso.
+watch(loteEscolhido, () => {
+  recadoNfc.value = ''
+  confirmacaoDoGravador.value = null
+})
 
 function voltar() { router.push({ name: 'gestao-interna' }) }
 
@@ -329,21 +424,143 @@ async function copiar() {
   }
 }
 
-async function marcarGravada() {
-  const codigo = proxima.value?.codigo
-  if (!codigo) return
+// O CÓDIGO ENTRA POR ARGUMENTO, e isto não é preferência de estilo.
+// `gravarNaEtiqueta` escolhe a peça no começo e leva até 8 segundos com o
+// "Encoste a etiqueta…" na tela. Relendo `proxima.value` aqui no fim, quem
+// trocasse de lote no meio gravava a etiqueta do lote A e marcava como pronta a
+// peça do lote B — e a bolsa B saía da fábrica marcada como pronta com a
+// etiqueta em branco costurada dentro. A leitura de volta não protegia nada
+// nesse caminho: conferia A e marcava B.
+//
+// Devolve `true` só quando o banco confirmou. Quem chama decide o que dizer —
+// recado de "pronta" sem marcação é a mesma mentira que a tela não conta.
+async function marcarGravada(codigo = proxima.value?.codigo) {
+  if (!codigo) return false
   try {
     const { data, error } = await sbClient.rpc('vessel_marcar_gravada', { p_codigo: codigo })
     if (error) throw error
-    if (!data?.ok) { adminToast('Sem permissão para marcar', false); return }
+    if (!data?.ok) { adminToast('Sem permissão para marcar', false); return false }
     // atualiza só a peça, sem recarregar tudo: a equipe está gravando em
     // sequência e uma recarga inteira a cada etiqueta trava o ritmo
     const alvo = pecas.value.find((p) => p.codigo === codigo)
     if (alvo) alvo.gravada_em = new Date().toISOString()
     textoCopiar.value = 'Copiar endereço'
+    return true
   } catch (e) {
     adminToast('Não consegui marcar agora', false)
+    return false
   }
+}
+
+// A REGRA INTEIRA ESTÁ AQUI: lê antes, grava, lê depois, e só então marca.
+// Marcar porque o `write` não deu erro é marcar no escuro — e no escuro a peça
+// entra como pronta com a etiqueta em branco costurada dentro da bolsa.
+async function gravarNaEtiqueta() {
+  const peca = proxima.value
+  if (!peca || gravando.value) return
+  const gravador = criarGravador()
+  if (!gravador) { gravaPorNfc.value = false; return }
+
+  gravando.value = true
+  recadoNfc.value = 'Encoste a etiqueta no celular e segure parado…'
+  try {
+    // 1. LER ANTES: etiqueta com outra peça não pode ser sobrescrita
+    const antes = await gravador.lerUmaVez()
+    const situacao = conferirLeitura(antes, peca.codigo)
+    if (situacao === 'outra-peca') {
+      recadoNfc.value = 'PARE: esta etiqueta já tem OUTRA peça gravada. '
+        + 'Separe ela e pegue uma etiqueta em branco.'
+      return
+    }
+    if (situacao === 'confere') {
+      // já estava gravada com esta peça: marca sem regravar
+      recadoNfc.value = await marcarGravada(peca.codigo)
+        ? 'Esta etiqueta já estava certa. Marquei e passei para a próxima.'
+        : 'Esta etiqueta já estava certa, mas não consegui marcar a peça. Encoste de novo.'
+      return
+    }
+
+    // 2. GRAVAR
+    recadoNfc.value = 'Gravando… não tire o celular.'
+    await gravador.gravar(enderecoDaTag(peca.codigo))
+
+    // 3. LER DEPOIS: a prova de que gravou é a etiqueta devolver
+    const depois = await gravador.lerUmaVez()
+    if (conferirLeitura(depois, peca.codigo) !== 'confere') {
+      recadoNfc.value = 'Gravei, mas a etiqueta não devolveu o endereço certo. '
+        + 'Não marquei a peça. Encoste de novo.'
+      return
+    }
+
+    if (travarDepois.value) await gravador.travar()
+    recadoNfc.value = await marcarGravada(peca.codigo)
+      ? `Peça ${peca.numero_na_serie} pronta. Pegue a próxima etiqueta.`
+      : `Gravei a etiqueta da peça ${peca.numero_na_serie}, mas não consegui marcá-la `
+        + 'como pronta. NÃO pegue outra etiqueta: encoste esta de novo.'
+  } catch (erro) {
+    recadoNfc.value = traduzirFalha(erro)
+  } finally {
+    gravando.value = false
+  }
+}
+
+// ── O GRAVADOR DE MESA: a mesma fila, de ida e de volta ────────────────────
+
+function baixarListaDoGravador() {
+  const lista = listaParaGravadorDeMesa(pecasDoLote(loteEscolhido.value))
+  if (!lista) { adminToast('Não falta nenhuma etiqueta neste lote', false); return }
+  const url = URL.createObjectURL(new Blob([lista], { type: 'text/plain;charset=utf-8' }))
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `etiquetas-${loteAtual.value?.modelo || 'lote'}.txt`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+// ESTE É O ÚNICO CAMINHO QUE MARCA PEÇA SEM CONFERIR ETIQUETA NENHUMA.
+// `codigosNoTextoDoGravador` aceita qualquer texto que contenha os códigos —
+// colar de volta o próprio arquivo que acabou de ser baixado marcaria o lote
+// inteiro num clique, sem nenhuma etiqueta ter sido tocada. Por isso passa por
+// uma pergunta que diz o número e diz o que NÃO foi conferido.
+function pedirParaMarcarPeloGravador() {
+  const { reconhecidos, ignorados } = codigosNoTextoDoGravador(
+    textoDoGravador.value, pecasDoLote(loteEscolhido.value))
+  if (!reconhecidos.length) {
+    adminToast('Não achei nenhum código deste lote no texto colado', false)
+    return
+  }
+  // guarda o que foi contado: é exatamente isso que a pergunta promete marcar,
+  // mesmo que alguém mexa na caixa de colar antes de responder
+  confirmacaoDoGravador.value = { reconhecidos, ignorados }
+}
+
+async function marcarPeloGravador() {
+  const pedido = confirmacaoDoGravador.value
+  if (!pedido) return
+  const { reconhecidos, ignorados } = pedido
+  confirmacaoDoGravador.value = null
+  // `sbClient.rpc` NÃO estoura: devolve `{ data, error }`. Sem contar o que deu
+  // certo, um bloco inteiro barrado pela permissão sairia com o aviso de
+  // "marcadas" — e a tela nunca mente (PADRAO-DA-CENTRAL, item 9).
+  let feitas = 0
+  for (const codigo of reconhecidos) {
+    const { data, error } = await sbClient.rpc('vessel_marcar_gravada', { p_codigo: codigo })
+    if (!error && data?.ok) feitas += 1
+  }
+  // Aqui recarregar É certo: veio um bloco inteiro de uma vez. No caminho de
+  // uma etiqueta por vez, `marcarGravada` atualiza SÓ a peça de propósito —
+  // recarga inteira a cada etiqueta trava o ritmo de quem está gravando em
+  // sequência.
+  await carregar()
+  textoDoGravador.value = ''
+  if (feitas < reconhecidos.length) {
+    adminToast(`Marquei ${feitas} de ${reconhecidos.length}. As outras não deram certo `
+      + '— confira sua permissão e tente de novo.', false)
+    return
+  }
+  adminToast(ignorados.length
+    ? `${reconhecidos.length} marcadas. ${ignorados.length} código(s) de OUTRO lote foram ignorados — confira se o arquivo é deste lote.`
+    : `${reconhecidos.length} etiqueta(s) marcadas como gravadas.`)
 }
 
 function baixarPlanilha() {
@@ -393,6 +610,10 @@ onMounted(carregar)
 .au-campo{display:block;padding:16px 24px 0;max-width:520px;}
 .au-rot{display:block;font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
 .au-campo input,.au-campo select{width:100%;font-family:var(--fonte-principal);font-size:max(9px, calc(14px * var(--escala-texto, 1)));padding:9px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);}
+/* Medido a 375px: o seletor de lote saía com 39,5px de altura e 14px de fonte
+   — abaixo dos 40px de alvo de dedo e dos 16px abaixo dos quais o iOS dá zoom
+   ao focar. É o único `select` desta tela. */
+.au-campo select{min-height:40px;box-sizing:border-box;font-size:max(16px, calc(16px * var(--escala-texto, 1)));}
 
 .au-gravacao{padding:8px 24px 0;max-width:620px;}
 .au-passo{font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);padding-top:18px;}
@@ -401,6 +622,39 @@ onMounted(carregar)
 .au-endereco{font-family:var(--fonte-dados);font-size:max(16px, calc(17px * var(--escala-texto, 1)));line-height:1.6;color:var(--text);background:var(--surface);border:1px solid var(--accent);border-radius:8px;padding:16px;margin-top:14px;word-break:break-all;user-select:all;}
 .au-acoes{display:flex;gap:10px;padding:16px 24px 0;flex-wrap:wrap;}
 .au-gravacao .au-acoes{padding-left:0;padding-right:0;}
+/* Mesmo motivo do `.au-acoes` logo acima: dentro do bloco de gravação o
+   recuo já vem do `.au-gravacao`. Sem isto o texto de instrução ficava 24px
+   mais para dentro que o endereço, e a coluna saía torta. */
+.au-gravacao .au-instrucao{padding-left:0;padding-right:0;}
+/* Medido a 375px: sem isto os botões da gaveta do gravador de mesa saíam com
+   35,5px de altura — dedo não acerta menos que 40. */
+.au-gravacao .au-botao{min-height:40px;box-sizing:border-box;}
+
+/* O recado da gravação é o que a pessoa lê de pé, com o celular numa mão e a
+   etiqueta na outra: corpo grande e contraste alto nos DOIS temas.
+   Os tokens são --surface2 e --text (src/estilos/estilos-globais.css). */
+.au-recado-nfc{margin:12px 0 0;padding:10px 12px;border-radius:var(--radius-md);background:var(--surface2);color:var(--text);font-family:var(--fonte-principal);font-size:max(9px, calc(15px * var(--escala-texto, 1)));line-height:1.45;overflow-wrap:anywhere;}
+/* O alvo do dedo é a linha inteira, não o quadradinho: min-height 40px. */
+.au-trava{display:flex;gap:8px;align-items:center;min-height:40px;margin-top:14px;font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));line-height:1.5;color:var(--text);cursor:pointer;}
+.au-trava input{width:20px;height:20px;flex-shrink:0;}
+.au-mesa{margin-top:22px;}
+/* Bloco de aviso pelo desenho do PADRAO-DA-CENTRAL: a cor é o sinal, o texto é
+   para ler — por isso o `--text` e não o `--orange` na letra. */
+.au-confirma{margin-top:10px;padding:12px 14px;border-radius:var(--radius-md);background:color-mix(in srgb, var(--orange) 10%, var(--surface));border:1px solid color-mix(in srgb, var(--orange) 38%, var(--surface));}
+.au-confirma-texto{font-family:var(--fonte-principal);font-size:max(9px, calc(14px * var(--escala-texto, 1)));line-height:1.5;color:var(--text);overflow-wrap:anywhere;}
+.au-confirma .au-acoes{padding:12px 0 0;}
+/* `display:flex` no <summary> APAGA o triângulo que o Chrome desenha sozinho, e
+   sem ele nada dizia que a gaveta abre. O marcador nativo sai de cena nos dois
+   motores (`list-style` no padrão, `::-webkit-details-marker` no WebKit velho) e
+   a seta vira o SVG do template, que gira ao abrir e existe igual em todo
+   navegador. */
+.au-mesa summary{display:flex;align-items:center;gap:8px;min-height:40px;cursor:pointer;font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));font-weight:600;color:var(--text);list-style:none;}
+.au-mesa summary::-webkit-details-marker{display:none;}
+.au-seta{flex-shrink:0;color:var(--accent);transition:transform .15s;}
+.au-mesa[open] > summary .au-seta{transform:rotate(90deg);}
+/* 16px no campo não é estética: abaixo disso o iOS dá zoom ao focar e a tela
+   salta na cara de quem está digitando. */
+.au-colar{display:block;width:100%;min-height:90px;margin:10px 0;box-sizing:border-box;font-family:var(--fonte-principal);font-size:max(16px, calc(16px * var(--escala-texto, 1)));line-height:1.5;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface);color:var(--text);}
 
 .au-fundo{position:fixed;inset:0;background:rgba(15,15,15,.55);display:flex;align-items:center;justify-content:center;padding:20px;z-index:50;}
 .au-folha{background:var(--surface);border:1px solid var(--border);border-radius:10px;max-width:520px;width:100%;max-height:90dvh;overflow-y:auto;padding:22px 0;}
