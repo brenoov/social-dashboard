@@ -40,7 +40,28 @@
 
     <!-- ── GRAVAR ───────────────────────────────────────────────────────── -->
     <template v-else-if="aba === 'gravar'">
-      <p v-if="!lotes.length" class="au-vazio">Crie um lote antes de gravar etiquetas.</p>
+      <!-- O PASSO A PASSO. Ele existe porque o dono abriu a tela pronta e disse
+           "ficou muito mal explicado": ela dizia "Crie um lote", "Gravei essa" e
+           mais nada. Aqui a etapa de agora fica aberta e as outras recolhidas —
+           quem já sabe o caminho passa direto, quem não sabe é conduzido. -->
+      <ol class="au-passos">
+        <li v-for="p in PASSOS" :key="p.n"
+            :class="['au-passo-item', { agora: p.n === passo, feito: p.n < passo }]">
+          <span class="au-passo-n" aria-hidden="true">{{ p.n }}</span>
+          <div class="au-passo-txt">
+            <strong>{{ p.titulo }}</strong>
+            <span v-if="p.n === passo" class="au-passo-resumo">{{ p.resumo }}</span>
+          </div>
+        </li>
+      </ol>
+      <p class="au-rever">
+        <button class="au-link" type="button" @click="abrirGuia">Rever o passo a passo completo</button>
+      </p>
+
+      <p v-if="!lotes.length" class="au-vazio">
+        Ainda não existe lote. Um lote é uma fornada de bolsas do mesmo modelo, e cada
+        bolsa dele ganha um código diferente. Abra a aba <strong>Lotes</strong> para criar o primeiro.
+      </p>
 
       <template v-else>
         <label class="au-campo">
@@ -149,6 +170,24 @@
         </div>
       </template>
     </template>
+
+    <!-- ── O GUIA DA PRIMEIRA VEZ ──────────────────────────────────────────
+         Abre sozinho na primeira visita e some depois. O "pular" fica sempre
+         visível: guia que prende a pessoa vira estorvo, não ajuda. -->
+    <div v-if="guiaAberto" class="au-guia-fundo" role="dialog" aria-modal="true"
+         aria-label="Como gravar as etiquetas">
+      <div class="au-guia">
+        <p class="au-guia-conta">{{ telaDoGuia + 1 }} de {{ TELAS_DO_GUIA.length }}</p>
+        <h3 class="au-guia-titulo">{{ TELAS_DO_GUIA[telaDoGuia].titulo }}</h3>
+        <p class="au-guia-texto">{{ TELAS_DO_GUIA[telaDoGuia].texto }}</p>
+        <div class="au-guia-acoes">
+          <button class="au-botao secundario" type="button" @click="fecharGuia">Pular</button>
+          <button class="au-botao" type="button" @click="avancarGuia">
+            {{ telaDoGuia + 1 === TELAS_DO_GUIA.length ? 'Entendi, começar' : 'Continuar' }}
+          </button>
+        </div>
+      </div>
+    </div>
 
     <!-- ── REGISTROS ────────────────────────────────────────────────────── -->
     <template v-else-if="aba === 'registros'">
@@ -271,6 +310,7 @@ import { hasPermission } from '../../compartilhado/controle-de-login-e-usuario.j
 import { adminToast } from '../../compartilhado/avisos.js'
 import { enderecoDaTag, progressoDoLote, proximaPorGravar, linhasDoCsv, resumoDeAlertas } from './lotes.js'
 import { conferirLeitura, listaParaGravadorDeMesa, codigosNoTextoDoGravador } from './nfc-fila.js'
+import { PASSOS, TELAS_DO_GUIA, passoAtual, guiaJaVisto, marcarGuiaVisto, proximaTelaDoGuia } from './tutorial.js'
 import { temSuporte, traduzirFalha, criarGravador } from './gravador-nfc.js'
 
 const ABAS = [
@@ -301,6 +341,25 @@ const textoCopiar = ref('Copiar endereço')
 // não grava cai no modo de hoje, que continua inteiro logo abaixo.
 const gravaPorNfc = ref(temSuporte())
 const travarDepois = ref(false)            // ⚠️ PERMANENTE — nasce desligado
+
+// ── O TUTORIAL ────────────────────────────────────────────────────────────
+// O passo a passo fica sempre na tela; o guia abre uma vez só. O "já vi" mora
+// no aparelho e não no banco: é conveniência de quem está usando, não dado da
+// empresa. Quem trocar de celular vê de novo, e tudo bem.
+const passo = computed(() => passoAtual({
+  temLote: Boolean(loteEscolhido.value),
+  pecas: pecasDoLote(loteEscolhido.value),
+}))
+const guiaAberto = ref(false)
+const telaDoGuia = ref(0)
+
+function abrirGuia() { telaDoGuia.value = 0; guiaAberto.value = true }
+function fecharGuia() { guiaAberto.value = false; marcarGuiaVisto() }
+function avancarGuia() {
+  const proxima = proximaTelaDoGuia(telaDoGuia.value)
+  if (proxima === null) fecharGuia()
+  else telaDoGuia.value = proxima
+}
 const gravando = ref(false)
 const recadoNfc = ref('')
 const textoDoGravador = ref('')
@@ -575,7 +634,13 @@ function baixarPlanilha() {
   URL.revokeObjectURL(url)
 }
 
-onMounted(carregar)
+onMounted(() => {
+  carregar()
+  // só na primeira visita de quem grava — e nunca se o depósito estiver
+  // bloqueado, porque aí `guiaJaVisto` devolve falso para sempre e o guia
+  // voltaria a cada abertura, virando estorvo.
+  if (podeEditar.value && !guiaJaVisto()) guiaAberto.value = true
+})
 </script>
 
 <style scoped>
@@ -667,4 +732,58 @@ onMounted(carregar)
   .au-gravacao .au-acoes{padding-left:0;padding-right:0;}
   .au-botao{flex:1;}
 }
+
+/* ── O PASSO A PASSO ──────────────────────────────────────────────────────
+   Cor sai de token, nunca escrita a mao (PADRAO-DA-CENTRAL). A etapa de agora
+   e a unica que mostra o resumo: passo a passo que explica tudo ao mesmo tempo
+   nao explica nada. */
+.au-passos{
+  list-style:none; margin:0 0 var(--sp-3); padding:0;
+  display:flex; flex-direction:column; gap:var(--sp-1);
+}
+.au-passo-item{
+  display:flex; gap:var(--sp-2); align-items:flex-start;
+  padding:var(--sp-2); border-radius:var(--radius-md);
+  color:var(--muted); background:transparent;
+}
+.au-passo-item.agora{background:var(--surface2); color:var(--text)}
+.au-passo-n{
+  flex:none; width:22px; height:22px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:12px; font-weight:600;
+  border:1px solid var(--border); background:var(--surface);
+}
+.au-passo-item.agora .au-passo-n{background:var(--accent); border-color:var(--accent); color:var(--bg)}
+.au-passo-item.feito .au-passo-n{opacity:.55}
+.au-passo-txt{display:flex; flex-direction:column; gap:2px; min-width:0}
+.au-passo-txt strong{font-size:14px; font-weight:600}
+.au-passo-resumo{font-size:13px; line-height:1.45; color:var(--muted)}
+.au-rever{margin:0 0 var(--sp-2)}
+/* O link de rever media 13px de altura — medido a 375px. Alvo de toque abaixo
+   de 40px e defeito (PADRAO item 3), e este e usado com o celular na mao. Ganha
+   area de toque sem virar botao: o texto continua link. */
+.au-rever .au-link{
+  display:inline-flex; align-items:center; min-height:40px; padding:0 2px;
+}
+
+/* ── O GUIA DA PRIMEIRA VEZ ───────────────────────────────────────────────
+   `position:fixed` com inset zero, e nao `absolute`: dentro de um pai que
+   rola, o absolute acompanha a rolagem e o guia sai da tela. */
+.au-guia-fundo{
+  position:fixed; inset:0; z-index:60;
+  display:flex; align-items:center; justify-content:center;
+  padding:var(--sp-3); background:rgba(0,0,0,.55);
+}
+.au-guia{
+  width:100%; max-width:420px; padding:var(--sp-4);
+  border-radius:var(--radius-lg); border:1px solid var(--border);
+  background:var(--surface); color:var(--text);
+}
+.au-guia-conta{margin:0 0 var(--sp-1); font-size:12px; color:var(--muted); letter-spacing:.06em}
+.au-guia-titulo{margin:0 0 var(--sp-2); font-size:19px; line-height:1.25}
+.au-guia-texto{margin:0 0 var(--sp-4); font-size:15px; line-height:1.55}
+/* os botoes embaixo e lado a lado; a 375px eles empilham em vez de encolher,
+   porque alvo de toque abaixo de 40px e defeito */
+.au-guia-acoes{display:flex; gap:var(--sp-2); flex-wrap:wrap}
+.au-guia-acoes .au-botao{flex:1 1 140px; min-height:40px}
 </style>
