@@ -87,7 +87,7 @@ Ela foi escrita para sair daqui e ir para o repositorio que tiver o modulo de
 producao. Sao DUAS amarras com o iamundi, e as duas moram so no .vue:
 
   1. o login e a permissao 'autenticidade'
-  2. o cliente `supabase` e o `adminToast`
+  2. o cliente do banco `sbClient` e o `adminToast`
 
 nfc-fila.js, gravador-nfc.js e lotes.js nao importam NADA do projeto - sao
 contas puras mais uma porta para o navegador. Mudar de casa e copiar a pasta e
