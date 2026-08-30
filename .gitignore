@@ -93,3 +93,9 @@ public/*.session.json
 # Quem precisar refazer: o LEIA-ME da pasta tem os três comandos, e as fotos se
 # regeram sozinhas a partir do app rodando local — nada ali é insubstituível.
 docs/tutorial-motorista/
+
+# AS WORKTREES. Elas moravam so no .git/info/exclude, que e LOCAL — cada clone
+# precisava configurar de novo, e quem NAO le esse arquivo tropeca: a CLI da
+# Vercel le o .gitignore, entao um `vercel --prod` daqui tentava subir 140 MB
+# de worktrees e abortava o upload. Aqui vale para todo mundo.
+/arvores/
