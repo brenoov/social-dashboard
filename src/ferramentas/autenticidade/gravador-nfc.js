@@ -28,6 +28,10 @@ const FRASES = {
   NetworkError: 'A etiqueta saiu de perto no meio. Encoste de novo e segure parado.',
   AbortError: 'Passou do tempo. Encoste de novo e segure parado.',
   NotAllowedError: 'O navegador não deu permissão de NFC. Recarregue a página e aceite quando ele perguntar.',
+  // Sai quando um `scan()` anterior ficou pendurado no mesmo leitor. A frase
+  // NÃO pode mandar trocar a etiqueta: a etiqueta está boa, quem está ocupado é
+  // o leitor — e operador que troca etiqueta boa joga bolsa fora.
+  InvalidStateError: 'O leitor de NFC ficou ocupado de uma leitura anterior. A etiqueta está boa — recarregue a página e grave esta MESMA etiqueta de novo.',
 }
 
 export function traduzirFalha(erro) {
@@ -43,25 +47,49 @@ export function criarGravador({ janela = globalThis } = {}) {
   return {
     // Lê UMA etiqueta e para. O tempo existe porque, sem ele, a tela ficaria
     // esperando para sempre alguém que já foi embora.
+    //
+    // O AbortController NÃO é enfeite. A tela lê duas vezes no MESMO leitor —
+    // antes de gravar e depois de gravar — e a especificação manda o navegador
+    // recusar o segundo `scan()`: "If reader is already in the activated reader
+    // objects, then reject p with an InvalidStateError". Sem isto, o passo do
+    // LER DEPOIS recusava na hora, a tela mandava trocar a etiqueta, e o
+    // operador jogava fora etiqueta boa. Abortando o próprio sinal ao terminar
+    // — no sucesso E na falha — o leitor sai da lista de ativos e a leitura
+    // seguinte é aceita. O mesmo abort tira do ar os ouvintes desta leitura,
+    // que antes ficavam empilhados no leitor.
     async lerUmaVez({ milissegundos = 8000 } = {}) {
-      return new Promise((resolver, recusar) => {
-        const relogio = setTimeout(() => {
-          recusar(Object.assign(new Error('sem etiqueta'), { name: 'AbortError' }))
-        }, milissegundos)
-        leitor.addEventListener('reading', (evento) => {
-          clearTimeout(relogio)
-          resolver(urlDaMensagem(evento?.message))
+      const parada = new AbortController()
+      const { signal } = parada
+      try {
+        return await new Promise((resolver, recusar) => {
+          const relogio = setTimeout(() => {
+            recusar(Object.assign(new Error('sem etiqueta'), { name: 'AbortError' }))
+          }, milissegundos)
+          leitor.addEventListener('reading', (evento) => {
+            clearTimeout(relogio)
+            resolver(urlDaMensagem(evento?.message))
+          }, { signal })
+          leitor.addEventListener('readingerror', () => {
+            clearTimeout(relogio)
+            recusar(Object.assign(new Error('leitura falhou'), { name: 'NotReadableError' }))
+          }, { signal })
+          Promise.resolve(leitor.scan({ signal })).catch((e) => { clearTimeout(relogio); recusar(e) })
         })
-        leitor.addEventListener('readingerror', () => {
-          clearTimeout(relogio)
-          recusar(Object.assign(new Error('leitura falhou'), { name: 'NotReadableError' }))
-        })
-        Promise.resolve(leitor.scan()).catch((e) => { clearTimeout(relogio); recusar(e) })
-      })
+      } finally {
+        parada.abort()
+      }
     },
 
+    // GRAVA UM REGISTRO DE ENDEREÇO, nunca a string crua.
+    // `write('https://…')` com uma string vira, pela especificação do Web NFC,
+    // um registro `recordType: 'text'`. E aí duas coisas quebram de uma vez:
+    //  1. `urlDaMensagem` (aqui em cima) só lê `url` e `absolute-url` — a
+    //     leitura de volta devolveria SEMPRE '', `conferirLeitura` diria
+    //     'vazia', nunca 'confere', e a peça nunca seria marcada;
+    //  2. e uma etiqueta com registro de texto não abre NADA quando a cliente
+    //     encosta o celular no forro da bolsa — ela conclui que a bolsa é falsa.
     async gravar(endereco) {
-      await leitor.write(endereco)
+      await leitor.write({ records: [{ recordType: 'url', data: endereco }] })
     },
 
     // ⚠️ PERMANENTE. Etiqueta travada nunca mais se regrava. A tela só chama
