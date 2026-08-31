@@ -87,6 +87,51 @@ begin
   insert into resultado values (16, 'e as pecas dele sumiram junto',
     (select count(*) from public.vessel_pecas
       where lote_id = '22222222-2222-2222-2222-222222222222') = 0);
+
+  -- 17. criar lote continua funcionando depois de trocar o miolo pelo ajudante
+  insert into resultado values (17, 'gerar lote ainda funciona',
+    (public.vessel_gerar_lote('PROVA EDIT', 'Cor', 'SKU1', 3, current_date, null) ->> 'ok')::boolean);
+
+  -- 18. e os 3 codigos sao DIFERENTES entre si e tem 10 caracteres
+  insert into resultado values (18, 'os codigos sao distintos e com 10 letras',
+    (select count(distinct codigo) = 3 and bool_and(length(codigo) = 10)
+       from public.vessel_pecas p
+       join public.vessel_lotes l on l.id = p.lote_id
+      where l.modelo = 'PROVA EDIT'));
+
+  -- 19. editar nome e data e seguro
+  insert into public.vessel_lotes (id, modelo, quantidade, fabricado_em)
+  values ('33333333-3333-3333-3333-333333333333', 'ANTES', 2, '2020-01-01');
+  insert into public.vessel_pecas (codigo, lote_id, numero_na_serie, gravada_em) values
+    ('PROVAED0001', '33333333-3333-3333-3333-333333333333', 1, now()),
+    ('PROVAED0002', '33333333-3333-3333-3333-333333333333', 2, null);
+  insert into resultado values (19, 'editar nome e data funciona',
+    (public.vessel_editar_lote('33333333-3333-3333-3333-333333333333',
+     'DEPOIS', 'Nova', 'SKU9', '2026-03-01', 2) ->> 'ok')::boolean);
+  insert into resultado values (20, 'a data mudou mesmo',
+    (select fabricado_em = '2026-03-01' and modelo = 'DEPOIS'
+       from public.vessel_lotes where id = '33333333-3333-3333-3333-333333333333'));
+
+  -- 21. AUMENTAR cria codigos novos continuando a serie
+  insert into resultado values (21, 'aumentar cria pecas',
+    (public.vessel_editar_lote('33333333-3333-3333-3333-333333333333',
+     'DEPOIS', 'Nova', 'SKU9', '2026-03-01', 4) ->> 'quantidade')::int = 4);
+  insert into resultado values (22, 'a serie continua, nao repete numero',
+    (select count(distinct numero_na_serie) = 4 and max(numero_na_serie) = 4
+       from public.vessel_pecas where lote_id = '33333333-3333-3333-3333-333333333333'));
+
+  -- 23. DIMINUIR tira as nao gravadas, e a gravada FICA
+  insert into resultado values (23, 'diminuir tira as livres',
+    (public.vessel_editar_lote('33333333-3333-3333-3333-333333333333',
+     'DEPOIS', 'Nova', 'SKU9', '2026-03-01', 1) ->> 'quantidade')::int = 1);
+  insert into resultado values (24, 'a peca gravada sobreviveu',
+    (select count(*) = 1 from public.vessel_pecas
+      where lote_id = '33333333-3333-3333-3333-333333333333' and codigo = 'PROVAED0001'));
+
+  -- 25. diminuir ABAIXO do gravado recusa, dizendo quantas estao presas
+  insert into resultado values (25, 'diminuir abaixo do gravado recusa',
+    (public.vessel_editar_lote('33333333-3333-3333-3333-333333333333',
+     'DEPOIS', 'Nova', 'SKU9', '2026-03-01', 0) ->> 'motivo') in ('dados_invalidos','abaixo_do_gravado'));
 end $$;
 
 -- TODAS as linhas têm de vir passou = true. Qualquer false ou nulo é defeito.
