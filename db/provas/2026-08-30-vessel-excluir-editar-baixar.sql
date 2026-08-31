@@ -149,6 +149,60 @@ begin
     (select count(*) = 2 from public.vessel_pecas
       where lote_id = '44444444-4444-4444-4444-444444444444'));
 
+  -- ── A GARANTIA DA CLIENTE PRENDE A PEÇA TANTO QUANTO A GRAVAÇÃO ────────
+  -- `gravada_em` não era a única prova de que a peça está no mundo.
+  -- `vessel_registrar` NÃO exige gravação: a cliente registra a garantia pelo
+  -- CÓDIGO, e o código existe desde que o lote nasceu — conferido no banco, já
+  -- havia registro de garantia em peça não gravada. E
+  -- `vessel_registros.codigo` referencia `vessel_pecas` com `on delete
+  -- cascade`: apagar a peça levava a garantia da cliente junto, calada.
+  -- `comprado_em` e `garantia_ate` são obrigatórios na tabela.
+  insert into public.vessel_lotes (id, modelo, quantidade, fabricado_em)
+  values ('55555555-5555-5555-5555-555555555555', 'SO GARANTIA', 2, current_date);
+  insert into public.vessel_pecas (codigo, lote_id, numero_na_serie, gravada_em) values
+    ('PROVAGAR001', '55555555-5555-5555-5555-555555555555', 1, null),
+    ('PROVAGAR002', '55555555-5555-5555-5555-555555555555', 2, null);
+  insert into public.vessel_registros (codigo, nome, whatsapp, comprado_em, garantia_ate)
+  values ('PROVAGAR001', 'Cliente da Prova', '11999999999',
+          current_date, current_date + 365);
+
+  insert into resultado values (28, 'excluir lote com garantia recusa (nenhuma gravada)',
+    (public.vessel_excluir_lote('55555555-5555-5555-5555-555555555555') ->> 'motivo') = 'tem_garantia');
+  insert into resultado values (29, 'e diz quantas garantias estao penduradas',
+    (public.vessel_excluir_lote('55555555-5555-5555-5555-555555555555') ->> 'garantias')::int = 1);
+  insert into resultado values (30, 'excluir a PECA com garantia recusa',
+    (public.vessel_excluir_peca('PROVAGAR001') ->> 'motivo') = 'tem_garantia');
+  insert into resultado values (31, 'e a garantia da cliente continua no banco',
+    (select count(*) = 1 from public.vessel_registros where codigo = 'PROVAGAR001'));
+
+  -- DIMINUIR tem de tirar a SEM garantia, nunca a com. Cada passo num insert
+  -- proprio: `a and b` nao garante ordem de avaliacao, e a segunda metade
+  -- depende da primeira ter rodado.
+  insert into resultado values (32, 'diminuir de 2 para 1 funciona',
+    (public.vessel_editar_lote('55555555-5555-5555-5555-555555555555',
+     'SO GARANTIA','x','y',current_date,1) ->> 'ok')::boolean);
+  insert into resultado values (33, 'e quem saiu foi a SEM garantia',
+    (select count(*) = 1 and count(*) filter (where codigo = 'PROVAGAR001') = 1
+       from public.vessel_pecas where lote_id = '55555555-5555-5555-5555-555555555555'));
+
+  -- ── SALVAR SEM MUDAR A QUANTIDADE TAMBEM RENUMERA ──────────────────────
+  -- A renumeracao vivia dentro do `if`/`elsif` da quantidade: salvar um lote
+  -- com buraco na serie SEM mexer no numero nao consertava nada. E buraco na
+  -- serie nao e hipotese — o lote real do Monaco tinha quantidade 20 com pecas
+  -- numeradas de 7 a 11, e a cliente lia "peca 7 de 20" numa fornada de 5.
+  insert into public.vessel_lotes (id, modelo, quantidade, fabricado_em)
+  values ('66666666-6666-6666-6666-666666666666', 'BURACO NA SERIE', 3, current_date);
+  insert into public.vessel_pecas (codigo, lote_id, numero_na_serie) values
+    ('PROVABUR001', '66666666-6666-6666-6666-666666666666', 7),
+    ('PROVABUR002', '66666666-6666-6666-6666-666666666666', 9),
+    ('PROVABUR003', '66666666-6666-6666-6666-666666666666', 11);
+  insert into resultado values (34, 'salvar SEM mudar a quantidade funciona',
+    (public.vessel_editar_lote('66666666-6666-6666-6666-666666666666',
+     'BURACO NA SERIE','x','y',current_date,3) ->> 'ok')::boolean);
+  insert into resultado values (35, 'e a serie fechou em 1,2,3 sem a quantidade ter mudado',
+    (select array_agg(numero_na_serie order by numero_na_serie) = array[1,2,3]
+       from public.vessel_pecas where lote_id = '66666666-6666-6666-6666-666666666666'));
+
   -- ── QUEM PODE CHAMAR, e nao so o que a funcao FAZ ───────────────────────
   -- As asserçoes acima medem COMPORTAMENTO. Nenhuma delas pegaria o furo que
   -- foi para producao em 30/08: `vessel_criar_pecas` ficou executavel por
