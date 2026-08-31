@@ -431,6 +431,45 @@
           etiqueta por etiqueta.
         </p>
 
+        <!-- ── ESCOLHER O PRODUTO NO BLING ───────────────────────────────
+             Os três campos abaixo eram digitados à mão, e o que se digita aqui
+             é o que a CLIENTE lê na página do selo — um erro de digitação vira
+             uma bolsa original mostrando o nome errado, e ninguém descobre até
+             alguém encostar o celular.
+             Os campos continuam editáveis depois de escolher: o Bling preenche,
+             a pessoa confere. -->
+        <div class="au-escolha-produto">
+          <label class="au-campo"><span class="au-rot">Produto no Bling</span>
+            <!-- Enter num campo de busca é o gesto mais natural que existe, e este
+                 campo mora dentro do `<form @submit.prevent="gerarLote">`: sem esta
+                 linha, apertar Enter GRAVAVA o lote inteiro no banco, com a
+                 quantidade padrão, sem ninguém ter pedido. -->
+            <input v-model="buscaProduto" type="search" :disabled="carregandoProdutos"
+                   @keydown.enter.prevent
+                   :placeholder="carregandoProdutos ? 'Carregando os produtos…' : 'Busque por nome ou referência'"></label>
+
+          <p v-if="erroProdutos" class="au-aviso-menor">
+            {{ erroProdutos.titulo }}
+            <template v-if="erroProdutos.detalhe">{{ erroProdutos.detalhe }}</template>
+            Você ainda pode escrever à mão nos campos abaixo.
+          </p>
+
+          <ul v-else-if="produtosAchados.length" class="au-produtos">
+            <li v-for="p in produtosAchados" :key="p.codigo">
+              <button class="au-produto" type="button" @click="usarProduto(p)">
+                <strong>{{ p.nome }}</strong>
+                <span class="au-aviso-menor">{{ p.codigo }}</span>
+              </button>
+            </li>
+          </ul>
+          <p v-else-if="!carregandoProdutos && buscaProduto" class="au-aviso-menor">
+            Nenhum produto da linha nova com esse nome ou referência.
+          </p>
+          <p v-else-if="!carregandoProdutos" class="au-aviso-menor">
+            {{ produtos.length }} produto(s) da linha nova. Busque, ou escreva à mão abaixo.
+          </p>
+        </div>
+
         <label class="au-campo"><span class="au-rot">Modelo</span>
           <input v-model="novo.modelo" type="text" maxlength="80" required placeholder="Mônaco"></label>
         <label class="au-campo"><span class="au-rot">Cor</span>
@@ -475,6 +514,8 @@ import {
 } from './lotes.js'
 import { conferirLeitura, listaParaGravadorDeMesa, codigosNoTextoDoGravador } from './nfc-fila.js'
 import { PASSOS, TELAS_DO_GUIA, passoAtual, guiaJaVisto, marcarGuiaVisto, proximaTelaDoGuia } from './tutorial.js'
+import { produtosParaEscolher, procurarProduto } from './produtos-do-bling.js'
+import { paginasDoBling, avisoDoErro } from '../../compartilhado/chamada-do-bling.js'
 import { temSuporte, traduzirFalha, criarGravador } from './gravador-nfc.js'
 
 const ABAS = [
@@ -628,9 +669,67 @@ function irGravar(id) {
   aba.value = 'gravar'
 }
 
+// ── OS PRODUTOS DO BLING ──────────────────────────────────────────────────
+// Carregam UMA vez, quando o formulário abre pela primeira vez. Não no boot da
+// tela: quem só vem gravar etiqueta não precisa esperar o Bling.
+const produtos = ref([])
+const buscaProduto = ref('')
+const carregandoProdutos = ref(false)
+const erroProdutos = ref(null)
+
+const produtosAchados = computed(() =>
+  buscaProduto.value.trim() ? procurarProduto(produtos.value, buscaProduto.value).slice(0, 12) : [])
+
+async function carregarProdutos() {
+  if (produtos.value.length || carregandoProdutos.value) return
+  carregandoProdutos.value = true
+  erroProdutos.value = null
+  try {
+    // `paginasDoBling` sobe a falha em vez de devolver lista vazia. Isso importa
+    // aqui: "o Bling caiu" e "não há produto novo" ficariam iguais na tela, e a
+    // pessoa criaria o lote à mão achando que a linha nova está vazia.
+    // `criterio: 2` é "Ativos" na listagem de produtos da API v3 do Bling
+    // (1 últimos incluídos · 2 ativos · 3 inativos · 4 excluídos · 5 todos).
+    // Produto inativo é produto que saiu de linha: etiqueta de autenticidade
+    // não se costura em bolsa que não se fabrica mais.
+    const itens = await paginasDoBling(sbClient, 'produtos', { criterio: 2 })
+    produtos.value = produtosParaEscolher(itens)
+    if (!produtos.value.length) {
+      erroProdutos.value = { titulo: 'Não encontrei nenhum produto da linha nova no Bling.', detalhe: '' }
+    }
+  } catch (e) {
+    // A FÁBRICA NÃO PODE FICAR REFÉM DO BLING: a busca some, os campos à mão
+    // ficam. Mesma regra do modo de queda da gravação.
+    //
+    // Quem traduz o erro em duas frases é o `avisoDoErro`, e não este `catch`:
+    // aqui já se passou `e.message` (que é o texto TÉCNICO, nunca a causa) e já
+    // se jogou o objeto do aviso inteiro na tela, onde a pessoa lia
+    // `[object Object]`. Ver `src/compartilhado/chamada-do-bling.js`.
+    //
+    // O `ehAdmin` SEGUE QUEM ABRE O FORMULÁRIO, que é `podeCriar`. Com
+    // `podeEditar` aqui, quem tem `criar` sem `editar` caía no ramo não-admin do
+    // `textoDoAviso` e lia "Não foi possível buscar as vendas agora." — numa
+    // tela de etiqueta, que não tem venda nenhuma.
+    erroProdutos.value = avisoDoErro(e, { ehAdmin: podeCriar.value })
+  } finally {
+    carregandoProdutos.value = false
+  }
+}
+
+// O Bling PREENCHE, a pessoa CONFERE. Os campos continuam editáveis de
+// propósito: a cor sai vazia quando o código e o nome do produto não
+// concordam, e é melhor a pessoa completar do que a tela chutar.
+function usarProduto(p) {
+  novo.modelo = p.modelo || p.nome
+  novo.cor = p.cor
+  novo.sku = p.codigo
+  buscaProduto.value = ''
+}
+
 function abrirFormulario() {
   erroForm.value = ''
   formulario.value = true
+  carregarProdutos()
 }
 
 async function carregar() {
@@ -1230,4 +1329,37 @@ onMounted(() => {
 /* Mesma historia do `.au-baixar`: o "Desfazer" precisa de 40px de area de dedo,
    e o `margin-top` do `.au-link` desalinharia ele da linha. */
 .au-baixadas .au-link{min-height:40px; display:inline-flex; align-items:center; margin-top:0; flex:none}
+
+/* ── A BUSCA DE PRODUTO NO BLING ──────────────────────────────────────────
+   Cor sai de token. Alvo de toque de 40px: quem cria lote pode estar no
+   celular, e o resultado da busca e uma lista de alvos pequenos por natureza. */
+.au-escolha-produto{
+  margin-bottom:var(--sp-4); padding-bottom:var(--sp-3);
+  border-bottom:1px solid var(--border);
+}
+/* O RECUO LATERAL DE CADA FILHO É POR CONTA DELE: a `.au-folha` tem
+   `padding:22px 0`, e quem não pede recuo encosta na borda da caixa. Os campos
+   pedem 24px (16px abaixo de 520px, no `@media` lá em cima) — a lista de
+   resultados e os avisos deste bloco acompanham o mesmo, senão eles ficam
+   colados na borda enquanto o resto do formulário está recuado.
+   Na lista o recuo é 16px: os 8px de `padding` do botão completam os 24px, e o
+   realce de foco/hover ainda sobra para fora do texto. */
+.au-escolha-produto > .au-aviso-menor{padding-left:24px; padding-right:24px}
+.au-produtos{list-style:none; margin:var(--sp-2) 0 0; padding:0 16px; max-height:240px; overflow-y:auto}
+.au-produtos li + li{border-top:1px solid var(--border)}
+.au-produto{
+  display:flex; flex-direction:column; gap:2px; width:100%;
+  min-height:44px; padding:var(--sp-2); text-align:left;
+  background:none; border:0; cursor:pointer; color:var(--text); font:inherit;
+}
+.au-produto:hover, .au-produto:focus-visible{background:var(--surface2)}
+.au-produto strong{font-size:14px; font-weight:600; line-height:1.3}
+/* O `@media` do celular deste bloco fica AQUI, e não no de cima junto com os
+   outros: as regras-base acima têm a mesma especificidade e vêm depois no
+   arquivo, então lá em cima elas seriam simplesmente ignoradas a 375px.
+   Medido no CSS do build antes de escrever esta linha. */
+@media (max-width:520px){
+  .au-escolha-produto > .au-aviso-menor{padding-left:16px;padding-right:16px;}
+  .au-produtos{padding-left:8px;padding-right:8px;}
+}
 </style>
