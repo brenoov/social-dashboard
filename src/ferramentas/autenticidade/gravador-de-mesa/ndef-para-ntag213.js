@@ -149,3 +149,55 @@ export function planoDeGravacao(endereco, memoriaAtual) {
   }
   return escritas
 }
+
+// ── O CONTRÁRIO: O QUE ESTÁ NA ETIQUETA ────────────────────────────────────
+// Conferir é metade do trabalho. É por aqui que se prova que a gravação deu
+// certo, e é por aqui que se descobre que a etiqueta JÁ TEM outra peça antes de
+// escrever por cima — gravar em cima apagaria a etiqueta de outra bolsa, que
+// não tem como ser reaberta para trocar.
+
+// Lê UM registro NDEF e devolve o endereço dele. Devolve '' para tudo que não
+// for um registro de URL: registro de texto, de tipo estranho, cortado no meio.
+// Vazio quer dizer "não achei endereço aqui" — nunca um endereço adivinhado.
+function enderecoDoRegistro(bytes) {
+  let i = 0
+  const cabecalho = bytes[i++]
+  if (typeof cabecalho !== 'number') return ''
+  const tipoDeNome = cabecalho & 0x07 // TNF: 1 = tipo conhecido do NFC Forum
+  const forma_curta = (cabecalho & 0x10) !== 0
+  const temId = (cabecalho & 0x08) !== 0
+  // A forma longa gasta 4 bytes de tamanho e só existe acima de 255 bytes de
+  // conteúdo — não cabe numa etiqueta de 144. Se aparecer, é lixo.
+  if (tipoDeNome !== 0x01 || !forma_curta) return ''
+
+  const tamanhoDoNome = bytes[i++]
+  const tamanhoDoConteudo = bytes[i++]
+  const tamanhoDoId = temId ? bytes[i++] : 0
+  const nome = bytes.slice(i, i + tamanhoDoNome)
+  i += tamanhoDoNome + tamanhoDoId
+  if (tamanhoDoNome !== 1 || nome[0] !== 0x55) return '' // 55 = 'U', de URI
+
+  const conteudo = bytes.slice(i, i + tamanhoDoConteudo)
+  if (conteudo.length !== tamanhoDoConteudo || conteudo.length === 0) return ''
+  const prefixo = PREFIXOS.find(([codigo]) => codigo === conteudo[0])
+  if (!prefixo) return '' // `tel:`, `mailto:` e companhia não são endereço de peça
+  return prefixo[1] + new TextDecoder().decode(Uint8Array.from(conteudo.slice(1)))
+}
+
+// Recebe os bytes lidos da etiqueta (a partir da página 4) e devolve o endereço
+// que está lá — ou '' se não houver mensagem NDEF de URL.
+export function enderecoNaEtiqueta(memoriaAtual) {
+  const memoria = bytesLidos(memoriaAtual)
+  let i = 0
+  while (i < memoria.length) {
+    const tipo = memoria[i]
+    if (tipo === TLV_FIM) return '' // terminador: daqui para a frente não há nada
+    if (tipo === TLV_ENCHIMENTO) { i += 1; continue } // enchimento gasta 1 byte só
+    const tamanho = memoria[i + 1]
+    if (typeof tamanho !== 'number' || tamanho === 0xff) return ''
+    if (tipo === TLV_MENSAGEM) return enderecoDoRegistro(memoria.slice(i + 2, i + 2 + tamanho))
+    // qualquer outro embrulho (Lock Control, memória reservada) se pula inteiro
+    i += 2 + tamanho
+  }
+  return ''
+}

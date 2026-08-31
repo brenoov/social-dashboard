@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { enderecoDaTag } from '../lotes.js'
-import { planoDeGravacao } from './ndef-para-ntag213.js'
+import { planoDeGravacao, enderecoNaEtiqueta } from './ndef-para-ntag213.js'
 
 // O codigo de peca de verdade: 10 letras do alfabeto sem O, 0, I e 1 — as
 // quatro que a pessoa confunde lendo em cima do couro.
@@ -189,4 +189,75 @@ test('endereco vazio ou nulo da erro: etiqueta em branco dentro da bolsa nao ser
   for (const nada of ['', '   ', null, undefined]) {
     assert.throws(() => planoDeGravacao(nada, DE_FABRICA), /endereço|endereco/i)
   }
+})
+
+// ── LER DE VOLTA: O QUE ESTA NA ETIQUETA ───────────────────────────────────
+// Conferir e metade do trabalho. E assim que se prova que a gravacao deu certo,
+// e e assim que se descobre que a etiqueta JA TEM outra peca antes de escrever
+// por cima.
+const texto = (t) => [...t].map((c) => c.charCodeAt(0))
+
+test('ida e volta: grava e le o mesmo endereco, com Lock Control', () => {
+  const memoria = memoriaDepois(planoDeGravacao(ENDERECO, DE_FABRICA), DE_FABRICA)
+  assert.equal(enderecoNaEtiqueta(memoria), ENDERECO)
+})
+
+test('ida e volta: grava e le o mesmo endereco, em etiqueta sem Lock Control', () => {
+  const memoria = memoriaDepois(planoDeGravacao(ENDERECO, []), [])
+  assert.equal(enderecoNaEtiqueta(memoria), ENDERECO)
+})
+
+test('ida e volta: vale para um endereco no limite do que cabe', () => {
+  const noLimite = enderecoDaTag('A'.repeat(131 - 'vesselbrasil.com.br/verify/'.length))
+  const memoria = memoriaDepois(planoDeGravacao(noLimite, DE_FABRICA), DE_FABRICA)
+  assert.equal(enderecoNaEtiqueta(memoria), noLimite)
+})
+
+test('etiqueta de fabrica nao tem endereco nenhum', () => {
+  // `03 00` e uma mensagem NDEF de tamanho ZERO, seguida do terminador
+  assert.equal(enderecoNaEtiqueta(DE_FABRICA), '')
+})
+
+test('memoria vazia, nula ou que nao e byte nenhum devolve vazio', () => {
+  for (const nada of [[], null, undefined, 'nao e byte nenhum', 0, { }]) {
+    assert.equal(enderecoNaEtiqueta(nada), '', `${String(nada)} deveria devolver vazio`)
+  }
+})
+
+test('descobre que a etiqueta JA TEM outra peca gravada', () => {
+  const outraPeca = enderecoDaTag('BXQ7T3MHKD')
+  const memoria = memoriaDepois(planoDeGravacao(outraPeca, DE_FABRICA), DE_FABRICA)
+  const lido = enderecoNaEtiqueta(memoria)
+  assert.equal(lido, outraPeca)
+  assert.notEqual(lido, ENDERECO, 'gravar por cima apagaria a etiqueta de outra bolsa')
+})
+
+test('pula o enchimento 00 antes da mensagem', () => {
+  const memoria = [0x00, 0x00, 0x03, 0x0a, 0xd1, 0x01, 0x06, 0x55, 0x04, ...texto('x.com'), 0xfe]
+  assert.equal(enderecoNaEtiqueta(memoria), 'https://x.com')
+})
+
+test('o prefixo 00 quer dizer que a URL inteira veio como texto', () => {
+  const url = 'ftp://x.com/a'
+  const memoria = [0x03, 5 + url.length, 0xd1, 0x01, 1 + url.length, 0x55, 0x00, ...texto(url), 0xfe]
+  assert.equal(enderecoNaEtiqueta(memoria), url)
+})
+
+test('registro que nao e de URL devolve vazio', () => {
+  // um registro de TEXTO (tipo 54, 'T'): nao abre nada quando a cliente encosta
+  // o celular, e nao e endereco de peca nenhuma
+  const memoria = [0x03, 0x08, 0xd1, 0x01, 0x04, 0x54, 0x02, ...texto('enA'), 0xfe]
+  assert.equal(enderecoNaEtiqueta(memoria), '')
+})
+
+test('prefixo que nao e endereco da web devolve vazio', () => {
+  // 05 e `tel:` na tabela oficial. Nao e endereco de peca, e este arquivo nao
+  // carrega a tabela inteira de cabeca so para adivinhar.
+  const memoria = [0x03, 0x0f, 0xd1, 0x01, 0x0b, 0x55, 0x05, ...texto('1130001234'), 0xfe]
+  assert.equal(enderecoNaEtiqueta(memoria), '')
+})
+
+test('memoria cortada no meio da mensagem devolve vazio, nao lixo', () => {
+  assert.equal(enderecoNaEtiqueta([0x03, 0x2a, 0xd1, 0x01]), '')
+  assert.equal(enderecoNaEtiqueta([0x03]), '')
 })
