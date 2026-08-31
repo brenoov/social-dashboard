@@ -175,6 +175,31 @@
             </div>
           </template>
 
+          <!-- DAR BAIXA NESTA PEÇA: o caminho de quem não pode excluir. Peça
+               gravada pode estar dentro de uma bolsa, e excluir faria a página da
+               cliente dizer "não consta". A pergunta mora na própria tela: a
+               caixinha nativa do navegador é proibida neste projeto, e há um
+               teste que reprova até a palavra escrita. -->
+          <button v-if="podeEditar && !gravando && !baixando" class="au-link au-baixar"
+                  type="button" @click="baixando = true">Dar baixa nesta peça</button>
+
+          <div v-if="baixando" class="au-confirma">
+            <p class="au-confirma-texto">Dar baixa na peça {{ proxima.numero_na_serie }}?</p>
+            <label class="au-campo"><span class="au-rot">Motivo</span>
+              <select v-model="motivoDaBaixa">
+                <option v-for="m in MOTIVOS_DE_BAIXA" :key="m.chave" :value="m.chave">{{ m.rotulo }}</option>
+              </select>
+            </label>
+            <p class="au-aviso-menor">
+              A peça sai da fila de gravação e continua respondendo normalmente para a cliente.
+              Dá para desfazer depois.
+            </p>
+            <div class="au-acoes">
+              <button class="au-botao secundario" type="button" @click="baixando = false">Cancelar</button>
+              <button class="au-botao" type="button" @click="baixarPeca(proxima.codigo)">Dar baixa</button>
+            </div>
+          </div>
+
           <!-- GRAVADOR DE MESA -->
           <details class="au-mesa">
             <!-- A seta é desenhada aqui porque `display:flex` no <summary> apaga o
@@ -209,6 +234,31 @@
                 </button>
               </div>
             </div>
+          </details>
+        </div>
+
+        <!-- A LISTA DAS BAIXADAS FICA FORA DO BLOCO DE GRAVAÇÃO de propósito:
+             quando a última peça da fila é gravada aquele bloco inteiro some, e
+             junto com ele sumiria o único caminho para desfazer uma baixa feita
+             por engano. -->
+        <div v-if="baixadasDoLote.length" class="au-baixadas-lote">
+          <details class="au-mesa">
+            <!-- a seta é desenhada aqui pelo mesmo motivo da gaveta do gravador
+                 de mesa: `display:flex` no <summary> apaga o triângulo que o
+                 navegador desenha sozinho. Em SVG, nunca emoji. -->
+            <summary>
+              <svg class="au-seta" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"
+                   fill="none" stroke="currentColor" stroke-width="2.4"
+                   stroke-linecap="round" stroke-linejoin="round"><polyline points="9 5 16 12 9 19" /></svg>
+              <span>{{ baixadasDoLote.length }} peça(s) baixada(s) neste lote</span>
+            </summary>
+            <ul class="au-baixadas">
+              <li v-for="pc in baixadasDoLote" :key="pc.codigo">
+                <span>Peça {{ pc.numero_na_serie }} — {{ rotuloDoMotivo(pc.baixa_motivo) }}</span>
+                <button v-if="podeEditar" class="au-link" type="button"
+                        @click="desfazerBaixa(pc.codigo)">Desfazer</button>
+              </li>
+            </ul>
           </details>
         </div>
       </template>
@@ -283,6 +333,31 @@
             <div class="au-card-linha"><span>última em {{ dataCurta(a.ultima) }}</span></div>
           </div>
         </div>
+
+        <!-- O ALERTA MAIS IMPORTANTE DESTA TELA. A página da cliente não avisa
+             nada sobre baixa (decisão do dono) — então quem avisa é o painel,
+             usando as leituras que a página já registra. Assim o dono fica
+             sabendo que a bolsa extraviada apareceu, sem incomodar quem está
+             com ela. -->
+        <template v-if="resumo.baixadasLidas">
+          <h2 class="au-secao">Peças baixadas que foram lidas</h2>
+          <p class="au-instrucao">
+            Estas peças estão baixadas e alguém encostou o celular nelas depois disso.
+            Vale conferir onde a bolsa apareceu.
+          </p>
+          <div class="au-lista">
+            <div v-for="b in (alertas?.baixadas_lidas || [])" :key="b.codigo" class="au-card alerta">
+              <div class="au-card-topo">
+                <span class="au-modelo">{{ b.codigo }}</span>
+                <span class="au-progresso">{{ b.leituras }} leitura(s)</span>
+              </div>
+              <div class="au-card-linha">
+                <span>{{ rotuloDoMotivo(b.motivo) }}</span>
+                <span>última em {{ dataCurta(b.ultima) }}</span>
+              </div>
+            </div>
+          </div>
+        </template>
       </template>
     </template>
 
@@ -359,7 +434,10 @@ import BarraDeTopo from '../../compartilhado/barra-de-topo.vue'
 import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { hasPermission } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { adminToast } from '../../compartilhado/avisos.js'
-import { enderecoDaTag, progressoDoLote, proximaPorGravar, linhasDoCsv, resumoDeAlertas, fraseDaRecusa } from './lotes.js'
+import {
+  enderecoDaTag, progressoDoLote, proximaPorGravar, linhasDoCsv, resumoDeAlertas,
+  MOTIVOS_DE_BAIXA, fraseDaRecusa,
+} from './lotes.js'
 import { conferirLeitura, listaParaGravadorDeMesa, codigosNoTextoDoGravador } from './nfc-fila.js'
 import { PASSOS, TELAS_DO_GUIA, passoAtual, guiaJaVisto, marcarGuiaVisto, proximaTelaDoGuia } from './tutorial.js'
 import { temSuporte, traduzirFalha, criarGravador } from './gravador-nfc.js'
@@ -425,6 +503,12 @@ const editando = ref(null)    // o lote com o formulário de editar aberto, ou n
 const excluindo = ref(null)   // o lote com a pergunta de excluir na tela, ou null
 const edicao = reactive({ modelo: '', cor: '', sku: '', fabricado_em: '', quantidade: 1 })
 
+// A PERGUNTA DE DAR BAIXA, na aba Gravar. Ela é da peça da vez, então basta um
+// sim/não: só existe uma peça da vez. O motivo nasce em "Extraviada" porque é o
+// que o dono mais vai usar, e a lista inteira fica à vista para trocar.
+const baixando = ref(false)
+const motivoDaBaixa = ref('extraviada')
+
 const podeCriar = computed(() => hasPermission('autenticidade', 'criar'))
 const podeEditar = computed(() => hasPermission('autenticidade', 'editar'))
 
@@ -432,6 +516,16 @@ const pecasDoLote = (id) => pecas.value.filter((p) => p.lote_id === id)
 const loteAtual = computed(() => lotes.value.find((l) => l.id === loteEscolhido.value) || null)
 const proxima = computed(() => proximaPorGravar(pecasDoLote(loteEscolhido.value)))
 const resumo = computed(() => resumoDeAlertas(alertas.value))
+
+// As baixadas saem da fila de gravação, então precisam de um lugar PRÓPRIO para
+// aparecer: sem esta lista, dar baixa por engano não teria como ser desfeito.
+const baixadasDoLote = computed(() => pecasDoLote(loteEscolhido.value)
+  .filter((p) => p.baixada)
+  .sort((a, b) => (a.numero_na_serie || 0) - (b.numero_na_serie || 0)))
+
+function rotuloDoMotivo(chave) {
+  return (MOTIVOS_DE_BAIXA.find((m) => m.chave === chave) || {}).rotulo || chave || '—'
+}
 
 const registrosFiltrados = computed(() => {
   const termo = busca.value.trim().toLowerCase()
@@ -460,6 +554,7 @@ function dataCurta(valor) {
 watch(loteEscolhido, () => {
   recadoNfc.value = ''
   confirmacaoDoGravador.value = null
+  baixando.value = false
 })
 
 function voltar() { router.push({ name: 'gestao-interna' }) }
@@ -478,17 +573,37 @@ async function carregar() {
   carregando.value = true
   falha.value = ''
   try {
-    const [l, p, r, a] = await Promise.all([
+    const [l, p, r, a, baixas] = await Promise.all([
       sbClient.from('vessel_lotes').select('*').order('criado_em', { ascending: false }),
       sbClient.from('vessel_pecas').select('codigo,lote_id,numero_na_serie,gravada_em'),
       sbClient.from('vessel_registros').select('*').order('registrado_em', { ascending: false }),
       sbClient.rpc('vessel_alertas'),
+      // baixa ATIVA é a linha com `desfeita_em` nula. `vessel_baixas` tem a
+      // mesma política de SELECT de `vessel_pecas`, então se lê do mesmo jeito.
+      sbClient.from('vessel_baixas').select('codigo,motivo,baixada_em').is('desfeita_em', null),
     ])
     if (l.error) throw l.error
+    // ESTA LEITURA NÃO PODE FALHAR EM SILÊNCIO. Sem a lista de baixas nenhuma
+    // peça sai marcada, e peça baixada volta para a fila de gravação como se
+    // nada tivesse acontecido — alguém gravaria a etiqueta de uma peça dada
+    // como refugo. Falhar à vista é melhor que a fila errada (PADRAO-DA-CENTRAL
+    // item 9: a tela nunca mente).
+    if (baixas.error) throw baixas.error
     lotes.value = l.data || []
     pecas.value = p.data || []
     registros.value = r.data || []
     alertas.value = a.data || null
+    // A PEÇA CARREGA A BAIXA JUNTO: é o campo `baixada` — este nome exato, e
+    // booleano — que `naFila` usa em lotes.js para tirar a peça da fila de
+    // gravação. Trocar o nome aqui não quebra teste nenhum: a fila simplesmente
+    // pararia de filtrar, em silêncio.
+    const porCodigo = new Map((baixas.data || []).map((b) => [b.codigo, b]))
+    pecas.value.forEach((p2) => {
+      const b = porCodigo.get(p2.codigo)
+      p2.baixada = Boolean(b)
+      p2.baixa_motivo = b?.motivo || null
+      p2.baixada_em = b?.baixada_em || null
+    })
     if (!loteEscolhido.value && lotes.value.length) loteEscolhido.value = lotes.value[0].id
   } catch (e) {
     falha.value = 'Não consegui carregar. Confira sua conexão e tente de novo.'
@@ -576,6 +691,33 @@ async function excluirLote(id) {
   excluindo.value = null
   await carregar()
   adminToast(`Lote excluído, com ${data.excluidas} etiqueta(s).`)
+}
+
+// DAR BAIXA É O CAMINHO DE QUEM NÃO PODE EXCLUIR. Peça gravada pode estar
+// dentro de uma bolsa: excluir faria a página da cliente dizer "não consta" e
+// uma bolsa original pareceria falsa. A baixa tira a peça da fila, guarda o
+// motivo, e a página da cliente continua respondendo igual.
+//
+// `sbClient.rpc` NÃO ESTOURA: devolve `{ data, error }`. `error` é rede ou
+// permissão; `data.ok === false` é a regra do banco recusando. Os dois aparecem,
+// com frases diferentes.
+async function baixarPeca(codigo) {
+  const { data, error } = await sbClient.rpc('vessel_baixar_peca',
+    { p_codigo: codigo, p_motivo: motivoDaBaixa.value })
+  if (error) { adminToast('Não consegui dar baixa agora', false); return }
+  if (!data?.ok) { adminToast(fraseDaRecusa(data?.motivo, data), false); return }
+  baixando.value = false
+  await carregar()
+  const rotulo = rotuloDoMotivo(motivoDaBaixa.value)
+  adminToast(`Peça baixada como ${rotulo}. Ela sai da fila e continua respondendo para a cliente.`)
+}
+
+async function desfazerBaixa(codigo) {
+  const { data, error } = await sbClient.rpc('vessel_desfazer_baixa', { p_codigo: codigo })
+  if (error) { adminToast('Não consegui desfazer agora', false); return }
+  if (!data?.ok) { adminToast(fraseDaRecusa(data?.motivo, data), false); return }
+  await carregar()
+  adminToast('Baixa desfeita. A peça voltou para a fila.')
 }
 
 async function copiar() {
@@ -833,7 +975,7 @@ onMounted(() => {
 .au-folha .au-erro{padding:12px 24px 0;}
 
 @media (max-width:520px){
-  .abas,.au-topo-acao,.au-lista,.au-campo,.au-gravacao,.au-acoes{padding-left:16px;padding-right:16px;}
+  .abas,.au-topo-acao,.au-lista,.au-campo,.au-gravacao,.au-acoes,.au-baixadas-lote{padding-left:16px;padding-right:16px;}
   .au-vazio,.au-erro,.au-instrucao,.au-secao{padding-left:16px;padding-right:16px;}
   .au-gravacao .au-acoes{padding-left:0;padding-right:0;}
   .au-botao{flex:1;}
@@ -926,4 +1068,30 @@ onMounted(() => {
   font-size:max(9px, calc(13px * var(--escala-texto, 1)));
   line-height:1.45; color:var(--muted); overflow-wrap:anywhere;
 }
+/* ── DAR BAIXA E DESFAZER ─────────────────────────────────────────────────
+   Cor sai de token, nunca escrita a mao (PADRAO-DA-CENTRAL, item 2). A pergunta
+   de dar baixa REAPROVEITA `.au-confirma`, o bloco de aviso que esta tela ja
+   tem — repintar aquela regra mexeria na gaveta do gravador de mesa e na
+   pergunta de excluir lote, que nao sao desta tarefa. */
+/* O link nasce com 13px de altura. Alvo de dedo abaixo de 40px e defeito
+   (PADRAO item 6), e este e apertado com o celular na mao. */
+.au-baixar{display:inline-flex; align-items:center; min-height:40px}
+/* O recuo lateral ja vem do bloco: sem isto o seletor de motivo sai 24px mais
+   para dentro que o resto da caixa — mesmo motivo do `.au-edicao .au-campo`. */
+.au-confirma .au-campo{padding:var(--sp-2) 0 0; max-width:none}
+/* A lista das baixadas vive FORA do `.au-gravacao`, entao carrega o proprio
+   recuo. O `@media` la em cima passa este bloco para 16px junto com os outros. */
+.au-baixadas-lote{padding:0 24px; max-width:620px}
+.au-baixadas{list-style:none; margin:var(--sp-2) 0 0; padding:0}
+.au-baixadas li{
+  display:flex; justify-content:space-between; align-items:center;
+  gap:var(--sp-2); padding:var(--sp-1) 0;
+  font-family:var(--fonte-principal); color:var(--text);
+  font-size:max(9px, calc(14px * var(--escala-texto, 1)));
+  overflow-wrap:anywhere;
+  border-bottom:1px solid var(--border);
+}
+/* Mesma historia do `.au-baixar`: o "Desfazer" precisa de 40px de area de dedo,
+   e o `margin-top` do `.au-link` desalinharia ele da linha. */
+.au-baixadas .au-link{min-height:40px; display:inline-flex; align-items:center; margin-top:0; flex:none}
 </style>

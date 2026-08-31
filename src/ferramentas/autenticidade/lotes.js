@@ -98,5 +98,15 @@ export function linhasDoCsv(registros) {
 export function resumoDeAlertas(alertas) {
   const repetidas = alertas?.repetidas?.length || 0
   const invalidas = alertas?.invalidas?.length || 0
-  return { repetidas, invalidas, limpo: repetidas === 0 && invalidas === 0 }
+  // A PEÇA BAIXADA QUE FOI LIDA É O ALERTA MAIS IMPORTANTE DESTE PROJETO: a
+  // bolsa foi dada como extraviada e alguém encostou o celular nela depois
+  // disso. Sem contar aqui, a aba dizia "nada suspeito" com uma bolsa
+  // extraviada reaparecendo no mundo — e a tela nunca mente.
+  const baixadasLidas = alertas?.baixadas_lidas?.length || 0
+  return {
+    repetidas,
+    invalidas,
+    baixadasLidas,
+    limpo: repetidas === 0 && invalidas === 0 && baixadasLidas === 0,
+  }
 }

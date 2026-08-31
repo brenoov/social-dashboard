@@ -125,3 +125,27 @@ test('fraseDaRecusa: motivo desconhecido nao vira frase vazia', () => {
   const f = fraseDaRecusa('coisa_estranha', {})
   assert.ok(f.length > 15, 'sempre tem de sobrar alguma coisa legivel na tela')
 })
+
+test('resumoDeAlertas: peca baixada que foi LIDA nao deixa o selo dizer "limpo"', () => {
+  // o alerta mais importante do projeto: a bolsa foi dada como extraviada e
+  // alguem encostou o celular nela depois disso. Se nao contasse aqui, a aba
+  // diria "nada suspeito" com uma bolsa extraviada reaparecendo no mundo.
+  const r = resumoDeAlertas({
+    repetidas: [], invalidas: [],
+    baixadas_lidas: [{ codigo: 'A', motivo: 'extraviada', leituras: 3, ultima: '2026-08-29T10:00:00Z' }],
+  })
+  assert.equal(r.limpo, false)
+  assert.equal(r.baixadasLidas, 1)
+})
+
+test('resumoDeAlertas: sem baixada lida, a conta e zero e o selo continua limpo', () => {
+  const r = resumoDeAlertas({ repetidas: [], invalidas: [], baixadas_lidas: [] })
+  assert.equal(r.baixadasLidas, 0)
+  assert.equal(r.limpo, true)
+})
+
+test('resumoDeAlertas: banco velho, sem baixadas_lidas, nao quebra a tela', () => {
+  // o campo chega da RPC: enquanto ela nao for atualizada, a chave nem existe
+  assert.equal(resumoDeAlertas({ repetidas: [], invalidas: [] }).baixadasLidas, 0)
+  assert.equal(resumoDeAlertas(null).baixadasLidas, 0)
+})

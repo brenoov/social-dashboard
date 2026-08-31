@@ -177,6 +177,37 @@ test('nada de confirm() nativo — uiConfirm não existe neste projeto', () => {
   assert.doesNotMatch(fonte, /\bwindow\.confirm\(|[^.\w]confirm\(/);
 });
 
+/* O CAMPO QUE TIRA A PEÇA BAIXADA DA FILA É UMA STRING COMBINADA ENTRE DOIS
+ * ARQUIVOS. `lotes.js` filtra a fila com `!p.baixada`, e quem preenche esse
+ * campo é esta tela, ao carregar. Escrever `baixada_em`, `esta_baixada` ou
+ * `baixa` do lado da tela não quebra build nem teste nenhum: a fila apenas
+ * PARA DE FILTRAR, em silêncio, e a tela manda gravar a etiqueta de uma peça
+ * dada como refugo — que iria costurada dentro de uma bolsa que não deveria
+ * existir. Este teste amarra os dois lados no mesmo nome. */
+test('a tela preenche EXATAMENTE o campo que tira a peça baixada da fila', () => {
+  const regras = readFileSync(new URL('./lotes.js', import.meta.url).pathname, 'utf8');
+  const filtro = regras.match(/const naFila = \(p\) => !p\.(\w+)/);
+  assert.ok(filtro, 'naFila sumiu de lotes.js: sem ele a peça baixada volta para a fila');
+  const campo = filtro[1];
+  assert.equal(campo, 'baixada', 'o nome combinado é `baixada`, e é booleano');
+  assert.match(
+    corpoDaFuncao('carregar'),
+    new RegExp(`\\.${campo} = Boolean\\(`),
+    `carregar() tem de marcar a peça com \`${campo}\` booleano; outro nome não filtra nada`,
+  );
+});
+
+/* Baixa DESFEITA é baixa que não vale mais. Lendo a tabela inteira, a peça cuja
+ * baixa foi desfeita continuaria fora da fila para sempre — e o "Desfazer" da
+ * tela pareceria não fazer efeito nenhum. */
+test('a tela lê só as baixas ATIVAS', () => {
+  assert.match(
+    corpoDaFuncao('carregar'),
+    /from\('vessel_baixas'\)[^\n]*\.is\('desfeita_em', null\)/,
+    'sem o filtro de `desfeita_em` nula, desfazer a baixa não devolve a peça para a fila',
+  );
+});
+
 /* UM `v-if` NO MEIO DE UM `v-if`/`v-else-if` PARTE A CORRENTE EM DUAS, e o Vue
  * não reclama de nada. O guia da primeira visita estava plantado entre a aba
  * Gravar e a aba Registros: a segunda metade recomeçava do zero e o `v-else`
