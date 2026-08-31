@@ -128,10 +128,26 @@ begin
     (select count(*) = 1 from public.vessel_pecas
       where lote_id = '33333333-3333-3333-3333-333333333333' and codigo = 'PROVAED0001'));
 
-  -- 25. diminuir ABAIXO do gravado recusa, dizendo quantas estao presas
-  insert into resultado values (25, 'diminuir abaixo do gravado recusa',
-    (public.vessel_editar_lote('33333333-3333-3333-3333-333333333333',
-     'DEPOIS', 'Nova', 'SKU9', '2026-03-01', 0) ->> 'motivo') in ('dados_invalidos','abaixo_do_gravado'));
+  -- 25 a 27. Diminuir ABAIXO do gravado. Um lote NOVO, com DUAS gravadas.
+  --
+  -- A primeira versao desta prova pedia quantidade ZERO e aceitava
+  -- 'dados_invalidos' OU 'abaixo_do_gravado'. Zero cai sempre no primeiro
+  -- (a funcao exige de 1 a 500), entao a recusa que mais importa do plano
+  -- NUNCA era testada — a asserçao passava sem provar nada.
+  insert into public.vessel_lotes (id, modelo, quantidade, fabricado_em)
+  values ('44444444-4444-4444-4444-444444444444', 'DUAS GRAVADAS', 2, current_date);
+  insert into public.vessel_pecas (codigo, lote_id, numero_na_serie, gravada_em) values
+    ('PROVAED0003', '44444444-4444-4444-4444-444444444444', 1, now()),
+    ('PROVAED0004', '44444444-4444-4444-4444-444444444444', 2, now());
+  insert into resultado values (25, 'diminuir ABAIXO do gravado recusa',
+    (public.vessel_editar_lote('44444444-4444-4444-4444-444444444444',
+     'DUAS','x','y',current_date,1) ->> 'motivo') = 'abaixo_do_gravado');
+  insert into resultado values (26, 'e diz quantas estao presas',
+    (public.vessel_editar_lote('44444444-4444-4444-4444-444444444444',
+     'DUAS','x','y',current_date,1) ->> 'gravadas')::int = 2);
+  insert into resultado values (27, 'e NAO apagou nenhuma delas',
+    (select count(*) = 2 from public.vessel_pecas
+      where lote_id = '44444444-4444-4444-4444-444444444444'));
 end $$;
 
 -- TODAS as linhas têm de vir passou = true. Qualquer false ou nulo é defeito.
