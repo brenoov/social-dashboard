@@ -132,3 +132,61 @@ test('o tradutor nao escreve o dominio: ele recebe o endereco pronto', () => {
   assert.doesNotMatch(fonte, /vesselbrasil/i,
     'o dominio mora em lotes.js (enderecoDaTag) e em lugar nenhum mais')
 })
+
+// ── REGRA 5: NAO COUBE, ENTAO DA ERRO ──────────────────────────────────────
+test('regra 5: endereco longo demais da erro, em portugues', () => {
+  const gigante = enderecoDaTag('A'.repeat(200))
+  assert.throws(
+    () => planoDeGravacao(gigante, DE_FABRICA),
+    (erro) => {
+      assert.ok(erro instanceof Error)
+      assert.match(erro.message, /longo demais/i,
+        'a frase tem de dizer que o endereco e longo demais para a etiqueta')
+      assert.match(erro.message, /etiqueta/i)
+      return true
+    },
+  )
+})
+
+test('regra 5: nao couber, NAO devolve pagina fora da faixa nem corta em silencio', () => {
+  // Cortar o endereco no meio grava uma etiqueta que abre um endereco que nao
+  // existe — a cliente encosta o celular e conclui que a bolsa e falsa. Passar
+  // da pagina 39 escreve nas travas dinamicas e na senha, e estraga a etiqueta.
+  const gigante = enderecoDaTag('A'.repeat(200))
+  for (const antes of [[], DE_FABRICA]) {
+    let escritas = null
+    try { escritas = planoDeGravacao(gigante, antes) } catch { /* era pra dar erro */ }
+    assert.equal(escritas, null, 'devolveu um plano em vez de recusar')
+  }
+})
+
+test('regra 5: o que cabe exatamente ate a pagina 39 ainda e gravado', () => {
+  // Sem Lock Control sobram os 144 bytes: 3 do TLV (03, tamanho, FE) + 4 do
+  // cabecalho do registro + 1 do prefixo = 8; sobram 136 bytes de texto.
+  const noLimite = enderecoDaTag('A'.repeat(136 - 'vesselbrasil.com.br/verify/'.length))
+  const escritas = planoDeGravacao(noLimite, [])
+  assert.equal(escritas[escritas.length - 1].pagina, 39)
+  // um caractere a mais nao cabe
+  assert.throws(() => planoDeGravacao(`${noLimite}A`, []), /longo demais/i)
+})
+
+test('regra 5: com Lock Control cabe menos, porque ele come 5 bytes', () => {
+  const noLimite = enderecoDaTag('A'.repeat(131 - 'vesselbrasil.com.br/verify/'.length))
+  assert.equal(planoDeGravacao(noLimite, DE_FABRICA).pop().pagina, 39)
+  assert.throws(() => planoDeGravacao(`${noLimite}A`, DE_FABRICA), /longo demais/i)
+})
+
+// ── AS OUTRAS RECUSAS ──────────────────────────────────────────────────────
+test('leitura que parou no meio do Lock Control da erro em vez de apagar a trava', () => {
+  // Quem leu so a pagina 4 tem `01 03 A0 0C` e nao viu o quinto byte (`34`).
+  // Gravar assim poria zero no lugar dele.
+  assert.throws(() => planoDeGravacao(ENDERECO, [0x01, 0x03, 0xa0, 0x0c]),
+    /pagina inteira|página inteira/i)
+  assert.throws(() => planoDeGravacao(ENDERECO, [0x01]), /Lock Control/i)
+})
+
+test('endereco vazio ou nulo da erro: etiqueta em branco dentro da bolsa nao serve', () => {
+  for (const nada of ['', '   ', null, undefined]) {
+    assert.throws(() => planoDeGravacao(nada, DE_FABRICA), /endereço|endereco/i)
+  }
+})

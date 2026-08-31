@@ -28,8 +28,8 @@ const TLV_FIM = 0xfe // terminador
 // O campo de tamanho do TLV tem 1 byte quando o conteúdo tem menos de 255
 // bytes. Numa etiqueta de 144 bytes isso nunca acontece, então a forma de 3
 // bytes é código morto e NÃO está implementada aqui de propósito: código que
-// nunca roda é código que ninguém conferiu.
-const MAIOR_TAMANHO_DE_UM_BYTE = 254
+// nunca roda é código que ninguém conferiu. Quem garante isso é a conferência
+// de espaço lá embaixo, que recusa muito antes de 255 bytes.
 
 // ── O PREFIXO ABREVIADO DA URL (NFC Forum RTD-URI) ─────────────────────────
 // O primeiro byte do conteúdo do registro não é texto: é um número que vale por
@@ -106,6 +106,17 @@ export function planoDeGravacao(endereco, memoriaAtual) {
   const mensagem = registroDeUrl(endereco)
   const conteudo = [TLV_MENSAGEM, mensagem.length, ...mensagem, TLV_FIM]
   const fim = inicio + conteudo.length // primeiro byte DEPOIS do conteúdo
+
+  // NÃO COUBE, ENTÃO NÃO GRAVA. Cortar o endereço no meio em silêncio grava uma
+  // etiqueta que abre um endereço que não existe — a cliente encosta o celular
+  // e conclui que a bolsa é falsa. E passar da página 39 escreve nas travas
+  // dinâmicas e na senha da etiqueta, que é estragar a etiqueta de vez.
+  if (fim > BYTES_DE_USUARIO) {
+    throw new Error(
+      `Este endereço é longo demais para a etiqueta: precisa de ${fim} bytes e `
+      + `cabem ${BYTES_DE_USUARIO}. Encurte o endereço ou use uma etiqueta maior.`,
+    )
+  }
 
   const primeira = Math.floor(inicio / BYTES_POR_PAGINA)
   const ultima = Math.floor((fim - 1) / BYTES_POR_PAGINA)
