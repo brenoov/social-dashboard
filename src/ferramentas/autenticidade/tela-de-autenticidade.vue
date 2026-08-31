@@ -617,8 +617,19 @@ async function carregar() {
     //                projeto;
     //  · `r`       — sem os registros, a tela diz "Nenhuma cliente registrou a
     //                garantia ainda" para uma lista que existe.
+    //
+    // E `error` NÃO É A ÚNICA FORMA DE FALHAR. As funções do banco deste painel
+    // respondem 200 com `{ ok:false, motivo:'sem_permissao' }` quando o portão
+    // recusa — não é erro de rede, é a função dizendo não. `resumoDeAlertas`
+    // desse objeto não acha NENHUMA das três chaves e devolve `limpo: true`: a
+    // aba anunciava "Nada suspeito nos últimos 30 dias" para quem simplesmente
+    // não podia ver os alertas. O caminho é real e tem nome: quem tem a chave
+    // `autenticidade` no front e NÃO no `features[]` do banco — são dois
+    // lugares, e o LEIA-ME desta pasta avisa disso.
     for (const leitura of [l, p, r, a, baixas]) {
       if (leitura.error) throw leitura.error
+      if (leitura.data && leitura.data.ok === false) throw Object.assign(
+        new Error(leitura.data.motivo), { recusa: leitura.data.motivo })
     }
     lotes.value = l.data || []
     pecas.value = p.data || []
@@ -637,7 +648,12 @@ async function carregar() {
     })
     if (!loteEscolhido.value && lotes.value.length) loteEscolhido.value = lotes.value[0].id
   } catch (e) {
-    falha.value = 'Não consegui carregar. Confira sua conexão e tente de novo.'
+    // `e.recusa` só existe quando quem disse não foi a rede, e sim o BANCO.
+    // Mandar "confira sua conexão" para quem está sem a chave `autenticidade`
+    // é apontar o defeito errado, e a pessoa mexe na internet a manhã inteira.
+    falha.value = e?.recusa
+      ? fraseDaRecusa(e.recusa)
+      : 'Não consegui carregar. Confira sua conexão e tente de novo.'
   } finally {
     carregando.value = false
   }

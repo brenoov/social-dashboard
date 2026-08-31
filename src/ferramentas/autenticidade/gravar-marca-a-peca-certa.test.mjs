@@ -256,6 +256,25 @@ test('carregar() não deixa NENHUMA leitura falhar em silêncio', () => {
       umPorUm.test(semEspaco) || emLote.test(semEspaco),
       `a leitura \`${n}\` pode falhar sem ninguém ver: lista vazia vira "não há nada"`,
     );
+
+    /* E A OUTRA METADE DA MESMA PROMESSA. `leitura.error` só pega falha de rede
+     * e de protocolo. As funções do banco deste painel respondem 200 com
+     * `{ ok:false, motivo:'sem_permissao' }` quando o portão recusa: `error` vem
+     * nulo, `data` vem cheio, e o `for` acima deixa passar.
+     * `resumoDeAlertas({ok:false,motivo:'sem_permissao'})` não acha nenhuma das
+     * três chaves e devolve `limpo: true` — a aba anunciava "Nada suspeito nos
+     * últimos 30 dias" para quem simplesmente não podia ver os alertas.
+     * Caminho real: quem tem a chave `autenticidade` no front e não no
+     * `features[]` do banco. São dois lugares. */
+    const recusaUmPorUm = new RegExp(`if \\(${n}\\.data && ${n}\\.data\\.ok === false\\) throw`);
+    const recusaEmLote = new RegExp(
+      `for \\(const \\w+ of \\[[^\\]]*\\b${n}\\b[^\\]]*\\]\\)[^]*?\\.data\\.ok === false\\) throw`,
+    );
+    assert.ok(
+      recusaUmPorUm.test(semEspaco) || recusaEmLote.test(semEspaco),
+      `a leitura \`${n}\` pode voltar com ok:false e ninguém ver: recusa do `
+      + 'banco virando "está tudo bem" é o defeito mais caro deste projeto',
+    );
   }
 });
 
