@@ -21,6 +21,14 @@ test('carregarProdutos traduz a falha pelo caminho de sempre, nao a mao', () => 
     'o catch tem de passar o ERRO para o avisoDoErro')
   assert.doesNotMatch(TELA, /textoDoAviso\(e\.message/,
     '`e.message` é o texto TÉCNICO: nenhuma causa casa com ele, e todo erro virava "O Bling não respondeu"')
+
+  // O AVISO TEM DE USAR O MESMO PODER QUE ABRE O FORMULÁRIO. Quem entra aqui
+  // entrou por `podeCriar`; passando `podeEditar`, quem tem `criar` sem
+  // `editar` caía no ramo não-admin do `textoDoAviso` e lia "Não foi possível
+  // buscar as VENDAS agora." — numa tela de etiqueta, que não tem venda
+  // nenhuma. Ver `src/compartilhado/chamada-do-bling.js`.
+  assert.match(TELA, /avisoDoErro\(e, \{ ehAdmin: podeCriar\.value \}\)/,
+    'o aviso segue quem PODE CRIAR, que é quem abre o formulário')
 })
 
 test('o aviso de falha mostra as DUAS frases, nunca o objeto inteiro', () => {

@@ -705,7 +705,12 @@ async function carregarProdutos() {
     // aqui já se passou `e.message` (que é o texto TÉCNICO, nunca a causa) e já
     // se jogou o objeto do aviso inteiro na tela, onde a pessoa lia
     // `[object Object]`. Ver `src/compartilhado/chamada-do-bling.js`.
-    erroProdutos.value = avisoDoErro(e, { ehAdmin: podeEditar.value })
+    //
+    // O `ehAdmin` SEGUE QUEM ABRE O FORMULÁRIO, que é `podeCriar`. Com
+    // `podeEditar` aqui, quem tem `criar` sem `editar` caía no ramo não-admin do
+    // `textoDoAviso` e lia "Não foi possível buscar as vendas agora." — numa
+    // tela de etiqueta, que não tem venda nenhuma.
+    erroProdutos.value = avisoDoErro(e, { ehAdmin: podeCriar.value })
   } finally {
     carregandoProdutos.value = false
   }
