@@ -175,13 +175,47 @@
             </div>
           </template>
 
-          <!-- DAR BAIXA NESTA PEÇA: o caminho de quem não pode excluir. Peça
-               gravada pode estar dentro de uma bolsa, e excluir faria a página da
-               cliente dizer "não consta". A pergunta mora na própria tela: a
-               caixinha nativa do navegador é proibida neste projeto, e há um
-               teste que reprova até a palavra escrita. -->
-          <button v-if="podeEditar && !gravando && !baixando" class="au-link au-baixar"
-                  type="button" @click="baixando = true">Dar baixa nesta peça</button>
+          <!-- OS DOIS CAMINHOS DA PEÇA DA VEZ, lado a lado.
+               DAR BAIXA é o caminho de quem NÃO pode excluir: peça gravada pode
+               estar dentro de uma bolsa, e excluir faria a página da cliente
+               dizer "não consta".
+               EXCLUIR é o caminho certo para a peça que ainda NÃO foi gravada —
+               nada dela existe no mundo, e um lote com peça sobrando é para
+               diminuir, não para encher de baixa. Sem este botão,
+               `vessel_excluir_peca` estava no ar, concedida e provada, sem
+               nenhum chamador.
+               As duas perguntas moram na própria tela: a caixinha nativa do
+               navegador é proibida neste projeto, e há um teste que reprova até
+               a palavra escrita. -->
+          <div v-if="podeEditar && !gravando && !baixando && !excluindoPeca" class="au-peca-acoes">
+            <button class="au-link au-baixar" type="button"
+                    @click="baixando = true">Dar baixa nesta peça</button>
+            <!-- `proxima` é a primeira SEM gravação, então esta guarda é
+                 redundante hoje — e está escrita assim de propósito: o dia em
+                 que a fila mudar de regra, o botão de excluir some sozinho em
+                 vez de aparecer sobre uma peça que já está dentro de uma bolsa. -->
+            <button v-if="!proxima.gravada_em" class="au-link au-baixar" type="button"
+                    @click="excluindoPeca = true">Excluir esta peça</button>
+          </div>
+
+          <div v-if="excluindoPeca" class="au-confirma">
+            <p class="au-confirma-texto">
+              Excluir a peça {{ proxima.numero_na_serie }}, de código
+              <strong>{{ proxima.codigo }}</strong>?
+            </p>
+            <p class="au-aviso-menor">
+              O código deixa de existir, e a página da cliente passa a dizer que ele não
+              consta. Quem recusa é o banco: peça já gravada, ou com garantia registrada
+              por uma cliente, não sai — nesses casos o caminho é dar baixa. As peças
+              seguintes do lote são renumeradas.
+            </p>
+            <div class="au-acoes">
+              <button class="au-botao secundario" type="button"
+                      @click="excluindoPeca = false">Cancelar</button>
+              <button class="au-botao" type="button" :disabled="exclusaoEmVoo"
+                      @click="excluirPeca(proxima.codigo)">Sim, excluir</button>
+            </div>
+          </div>
 
           <div v-if="baixando" class="au-confirma">
             <p class="au-confirma-texto">Dar baixa na peça {{ proxima.numero_na_serie }}?</p>
@@ -515,6 +549,14 @@ const motivoDaBaixa = ref('extraviada')
 // contradizendo o que ela acabou de fazer.
 const baixaEmVoo = ref(false)
 
+// EXCLUIR A PEÇA DA VEZ. Mesma forma da pergunta de baixa, e as duas nunca
+// aparecem juntas: duas perguntas na tela ao mesmo tempo é o mesmo que nenhuma
+// ser a principal. A trava de "em voo" existe pelo mesmo motivo da baixa —
+// dois toques rápidos disparam duas chamadas, e a segunda volta com
+// "não encontrei esse registro" logo depois de a peça ter saído.
+const excluindoPeca = ref(false)
+const exclusaoEmVoo = ref(false)
+
 const podeCriar = computed(() => hasPermission('autenticidade', 'criar'))
 const podeEditar = computed(() => hasPermission('autenticidade', 'editar'))
 
@@ -561,6 +603,7 @@ watch(loteEscolhido, () => {
   recadoNfc.value = ''
   confirmacaoDoGravador.value = null
   baixando.value = false
+  excluindoPeca.value = false
 })
 
 // TROCAR A PEÇA DA VEZ FECHA A PERGUNTA DE BAIXA, pelo mesmo cuidado do watch
@@ -573,7 +616,10 @@ watch(loteEscolhido, () => {
 // restaurar. O outro é a pergunta trocar de peça calada por baixo da mão.
 // O watch é pelo CÓDIGO, não pelo objeto: `carregar()` refaz `pecas.value`
 // inteiro, e pelo objeto isto dispararia a cada recarga sem a peça ter mudado.
-watch(() => proxima.value?.codigo, () => { baixando.value = false })
+watch(() => proxima.value?.codigo, () => {
+  baixando.value = false
+  excluindoPeca.value = false
+})
 
 function voltar() { router.push({ name: 'gestao-interna' }) }
 
@@ -762,6 +808,28 @@ async function baixarPeca(codigo) {
     adminToast(`Peça baixada como ${rotulo}. Ela sai da fila e continua respondendo para a cliente.`)
   } finally {
     baixaEmVoo.value = false
+  }
+}
+
+// EXCLUIR UMA PEÇA. Vale para a que ainda NÃO foi gravada: nada dela existe no
+// mundo. Quem recusa continua sendo o banco — peça gravada volta 'esta_gravada'
+// e peça com garantia registrada volta 'tem_garantia' —, e a tela só traduz.
+// Esta é a razão de a frase `esta_gravada` existir: até aqui ela era
+// inalcançável, porque `vessel_excluir_peca` não tinha nenhum chamador.
+async function excluirPeca(codigo) {
+  if (exclusaoEmVoo.value) return
+  exclusaoEmVoo.value = true
+  try {
+    const { data, error } = await sbClient.rpc('vessel_excluir_peca', { p_codigo: codigo })
+    if (error) { adminToast('Não consegui excluir agora', false); return }
+    // a pergunta fecha ANTES do recado da recusa: deixá-la aberta convida a
+    // apertar de novo, e a resposta seria a mesma
+    excluindoPeca.value = false
+    if (!data?.ok) { adminToast(fraseDaRecusa(data?.motivo, data), false); return }
+    await carregar()
+    adminToast('Peça excluída. As seguintes do lote foram renumeradas.')
+  } finally {
+    exclusaoEmVoo.value = false
   }
 }
 
@@ -967,6 +1035,12 @@ onMounted(() => {
 
 .au-botao{font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--sobre-cor);background:var(--accent);border:1px solid var(--accent);border-radius:6px;padding:10px 16px;cursor:pointer;}
 .au-botao[disabled]{opacity:.6;cursor:default;}
+/* O LINK DESABILITADO PRECISA PARECER DESABILITADO. `.au-link[disabled]` não
+   existia: o "Desfazer" das baixadas fica `:disabled` durante a chamada e
+   continuava com a MESMA cara de clicável, sem efeito nenhum. É a doutrina que
+   esta própria tela escreve nas frases de recusa — botão desabilitado calado faz
+   a pessoa achar que a ferramenta está quebrada. */
+.au-link[disabled]{opacity:.6;cursor:default;}
 .au-botao.secundario{color:var(--accent);background:transparent;}
 
 .au-lista{display:flex;flex-direction:column;gap:10px;padding:16px 24px 0;max-width:720px;}
@@ -1135,6 +1209,9 @@ onMounted(() => {
 /* O link nasce com 13px de altura. Alvo de dedo abaixo de 40px e defeito
    (PADRAO item 6), e este e apertado com o celular na mao. */
 .au-baixar{display:inline-flex; align-items:center; min-height:40px}
+/* "Dar baixa" e "Excluir esta peça" ficam lado a lado, e empilham a 375px em
+   vez de encolher: alvo de dedo abaixo de 40px e defeito (PADRAO item 6). */
+.au-peca-acoes{display:flex; gap:var(--sp-3); flex-wrap:wrap}
 /* O recuo lateral ja vem do bloco: sem isto o seletor de motivo sai 24px mais
    para dentro que o resto da caixa — mesmo motivo do `.au-edicao .au-campo`. */
 .au-confirma .au-campo{padding:var(--sp-2) 0 0; max-width:none}

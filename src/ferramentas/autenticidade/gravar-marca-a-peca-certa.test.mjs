@@ -307,3 +307,52 @@ test('a pergunta de baixa não sobrevive à troca da peça da vez', () => {
   const ate = trecho.slice(0, trecho.indexOf('})') + 2).replace(/\s+/g, ' ');
   assert.match(ate, /baixando\.value = false/, 'trocar a peça da vez tem de fechar a pergunta');
 });
+
+/* A TELA TEM DE OFERECER EXCLUIR A PEÇA.
+ *
+ * `vessel_excluir_peca` foi para o ar concedida e provada, e ficou sem NENHUM
+ * chamador: a tela só oferecia dar baixa. Duas consequências — o dono não tinha
+ * como tirar uma peça sobrando de um lote, e a frase de recusa
+ * `fraseDaRecusa('esta_gravada')` era inalcançável, ou seja, ninguém nunca ia
+ * ler o conselho "dê baixa em vez de excluir". */
+test('a aba Gravar oferece excluir a peça, ao lado de dar baixa', () => {
+  assert.match(template, /Excluir esta peça/,
+    'sem o botão, vessel_excluir_peca continua no ar sem nenhum chamador');
+  assert.match(script, /rpc\('vessel_excluir_peca'/,
+    'o botão precisa chamar a função do banco');
+  // e a peça GRAVADA não pode aparecer com esse botão: ela pode estar dentro
+  // de uma bolsa, e o caminho dela é a baixa
+  assert.match(
+    template,
+    /v-if="!proxima\.gravada_em" class="au-link au-baixar" type="button"\s*\n?\s*@click="excluindoPeca = true"/,
+    'o excluir da peça tem de sumir quando a peça já foi gravada',
+  );
+});
+
+test('excluir a peça pergunta na tela antes, e a resposta é que exclui', () => {
+  // a caixinha nativa do navegador é proibida neste projeto — o teste
+  // "nada de confirm() nativo" já reprova a palavra escrita, inclusive em
+  // comentário. Aqui se cobra a pergunta que a substitui.
+  assert.match(template, /v-if="excluindoPeca" class="au-confirma"/,
+    'sem a pergunta, o link excluiria a peça em um clique só');
+  assert.match(template, /@click="excluirPeca\(proxima\.codigo\)"/,
+    'só a resposta da pergunta chama a exclusão, e com o código da peça');
+});
+
+test('excluir a peça não dispara duas vezes com dois toques', () => {
+  const corpo = corpoDaFuncao('excluirPeca').replace(/\s+/g, ' ');
+  assert.match(corpo, /if \(exclusaoEmVoo\.value\) return exclusaoEmVoo\.value = true/,
+    'excluirPeca aceita o segundo toque antes de o primeiro voltar');
+  assert.match(corpo, /finally \{ exclusaoEmVoo\.value = false \}/,
+    'sem o finally, uma recusa deixa a trava presa para sempre');
+});
+
+/* Botão desabilitado calado faz a pessoa achar que a ferramenta está quebrada —
+ * é a doutrina que esta própria tela escreve nas frases de recusa. O "Desfazer"
+ * das baixadas fica `:disabled` durante a chamada, e sem esta regra ele
+ * continuava com a MESMA cara de clicável e sem efeito nenhum. */
+test('link desabilitado parece desabilitado', () => {
+  const estilo = fonte.slice(fonte.indexOf('<style scoped>'));
+  assert.match(estilo, /\.au-link\[disabled\]\{/,
+    'existe `:disabled` em .au-link no template e nenhuma regra de CSS para ele');
+});

@@ -56,8 +56,10 @@ OS ARQUIVOS
 tela-de-autenticidade.vue  a tela inteira, com as quatro abas
 lotes.js                   as continhas soltas (endereco da etiqueta, progresso
                            do lote, proxima a gravar, planilha, resumo de
-                           alertas). Ficam separadas porque sao testadas em
-                           lotes.test.mjs
+                           alertas, frases de recusa). Ficam separadas porque
+                           sao testadas em lotes.test.mjs. `naFila` — a regra de
+                           que peca baixada sai da fila — mora AQUI e so aqui:
+                           nfc-fila.js importa em vez de reescrever.
 
 GRAVAR ENCOSTANDO O CELULAR
 ===========================
@@ -124,7 +126,20 @@ novo depois de desfazer apagaria a baixa anterior.
 
 A RECUSA MORA NO BANCO, nao na tela. A tela impedir nao basta: quem chama a
 funcao direto passaria por cima. As funcoes de excluir se negam sozinhas quando
-ha peca gravada, e dizem QUANTAS estao presas.
+ha peca PRESA, e dizem QUANTAS estao presas.
+
+PECA PRESA = GRAVADA **OU** COM GARANTIA REGISTRADA. `gravada_em` nao e a unica
+prova de que a peca esta no mundo: a cliente registra a garantia pelo CODIGO, e
+o codigo existe desde que o lote nasceu — ha registro de garantia em peca que
+nunca foi gravada. E `vessel_registros` cai por `on delete cascade` junto com a
+peca: apagar uma peca "nao gravada" com garantia apagava A GARANTIA DA CLIENTE,
+calado. Motivo da recusa: `tem_garantia`. Aqui nao ha conselho a dar — diferente
+do `esta_gravada`, nao existe "de baixa em vez disso".
+
+A ABA GRAVAR OFERECE OS DOIS CAMINHOS para a peca da vez: "Dar baixa nesta peca"
+e "Excluir esta peca". O excluir so aparece para peca nao gravada — para a nao
+gravada o certo quase sempre e excluir, e encher o lote de baixa no lugar disso
+suja o historico do que nunca existiu.
 
 O ALERTA DE PECA BAIXADA LIDA existe porque a pagina nao avisa nada. Como ela
 ja registra toda leitura, o painel avisa quando alguem encosta o celular numa
@@ -133,13 +148,34 @@ incomodar quem esta com ela.
 
 EDITAR: modelo, cor, SKU e data de fabricacao sao seguros a qualquer momento,
 porque nao tocam em codigo nenhum. Aumentar a quantidade cria codigos novos
-continuando a serie. Diminuir tira as NAO GRAVADAS de maior numero; abaixo do
-que ja foi gravado, recusa.
+continuando a serie. Diminuir tira as que NAO estao presas, de maior numero;
+abaixo do que ja esta preso, recusa.
 
-A SERIE E RENUMERADA QUANDO O LOTE DIMINUI. A pagina da cliente mostra
+A SERIE E RENUMERADA A CADA SALVAMENTO, e nao so quando a quantidade muda. A
+renumeracao vivia dentro do if/elsif da quantidade, entao salvar um lote com
+buraco na serie sem mexer no numero nao consertava nada — e buraco nao e
+hipotese: o lote real do Monaco tinha quantidade 20 com pecas numeradas de 7 a
+11, e a cliente lia "peca 7 de 20" numa fornada de 5.
+
+O PORQUE DE RENUMERAR. A pagina da cliente mostra
 "peca N de TOTAL". Sem renumerar, diminuir um lote de 10 para 5 deixaria quem
 tem a peca 10 lendo "peca 10 de 5". O CODIGO da etiqueta NAO muda - e ele que
 identifica a peca, e e ele que esta costurado dentro da bolsa - mas o NUMERO
 pode mudar: quem viu "peca 10 de 10" pode ver "peca 5 de 5" depois. Numero
 coerente vale mais que numero imutavel: incoerencia a cliente percebe, mudanca
 silenciosa quase nunca.
+
+AS MIGRATIONS DE 30/08, E A ORDEM DELAS
+=======================================
+
+O runner (coletor/run-migrations.mjs) aplica os .sql em ORDEM ALFABETICA. Cinco
+arquivos do mesmo dia mexem nas MESMAS funcoes, e por isso um deles se chama
+`2026-08-30-vessel-zz-fecha-o-portao-e-garantias.sql`: o `zz` existe para ele ser
+SEMPRE O ULTIMO. Ele e a palavra final sobre vessel_criar_pecas,
+vessel_baixar_peca, vessel_excluir_lote, vessel_excluir_peca e
+vessel_editar_lote.
+
+NAO RENOMEIE AQUELE ARQUIVO. Sem o `zz` ele roda antes de
+`2026-08-30-vessel-editar-lote.sql`, que recria vessel_criar_pecas SEM o portao
+por dentro — e o buraco de seguranca que ele existe para fechar volta inteiro em
+banco novo, com a producao certa e a suite verde.
