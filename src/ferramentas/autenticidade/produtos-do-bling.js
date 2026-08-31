@@ -31,12 +31,33 @@ const semAcento = (s) => String(s ?? '')
 // ele TERMINA o nome do produto — as duas fontes concordando. Quando não
 // concordam, a cor volta vazia e quem cria o lote preenche. Campo vazio a
 // pessoa vê; campo errado ela não.
+//
+// TERMINAR O NOME É TERMINAR NUMA PALAVRA INTEIRA. Com `endsWith` puro a
+// comparação era de LETRAS, não de palavras, e o estrago saía nos dois campos
+// de uma vez:
+//   "SS1234-Ouro" + "Bolsa Tote Grande Paris Couro" → cor "Ouro",
+//                                     modelo "Tote Grande Paris C"
+// Um pedaço de UMA letra (o tamanho P/M/G que alguns SKUs carregam) casava por
+// acaso com quase um nome em dez.
+function terminaEmPalavra(nome, alvo) {
+  return nome === alvo || nome.endsWith(' ' + alvo)
+}
+
+// A COR COMPOSTA CHEGA PARTIDA: o hífen que separa os pedaços do SKU é o mesmo
+// que existe DENTRO do nome da cor — "SS1500-Off-White" chega como dois
+// pedaços. Testando só os pedaços soltos, "White" terminava o nome, a cor saía
+// pela metade e o "Off" ficava grudado no modelo. Por isso as JUNÇÕES de
+// pedaços vizinhos vêm antes, da mais longa para a mais curta: entre "Azul
+// Marinho" e "Marinho", os dois terminando o nome, quem ganha é a mais longa.
 export function corDoProduto(codigo, nome) {
   const n = semAcento(nome)
   const pedacos = String(codigo ?? '').split('-').slice(1).map((p) => p.trim()).filter(Boolean)
-  for (const p of pedacos) {
-    const alvo = semAcento(p)
-    if (alvo && n.endsWith(alvo)) return p
+  for (let tamanho = pedacos.length; tamanho >= 1; tamanho -= 1) {
+    for (let i = 0; i + tamanho <= pedacos.length; i += 1) {
+      const junto = pedacos.slice(i, i + tamanho).join(' ')
+      const alvo = semAcento(junto)
+      if (alvo && terminaEmPalavra(n, alvo)) return junto
+    }
   }
   return ''
 }
@@ -45,11 +66,14 @@ export function corDoProduto(codigo, nome) {
 // O nome do Bling sem o "Bolsa " da frente e sem a cor do fim. O que sobra é o
 // que a cliente lê como modelo. Continua editável na tela: o Bling preenche,
 // a pessoa confere.
+//
+// O corte usa a MESMA fronteira de palavra do `corDoProduto`: cortar por letras
+// transformava "Bolsa Tote Grande Paris Couro" em "Tote Grande Paris C".
 export function modeloDoProduto(nome, cor) {
   let texto = String(nome ?? '').trim().replace(/^bolsa\s+/i, '').trim()
   if (cor) {
     const semCor = texto.slice(0, texto.length - String(cor).length).trim()
-    if (semAcento(texto).endsWith(semAcento(cor)) && semCor) texto = semCor
+    if (terminaEmPalavra(semAcento(texto), semAcento(cor)) && semCor) texto = semCor
   }
   return texto
 }
