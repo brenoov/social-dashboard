@@ -13,13 +13,17 @@ begin
     return json_build_object('ok', false, 'motivo', 'sem_permissao');
   end if;
 
-  select count(*) filter (where gravada_em is not null), count(*)
-    into v_gravadas, v_total
-    from public.vessel_pecas where lote_id = p_lote;
-
+  -- A existencia vem ANTES da contagem: contar peca de lote inexistente nao
+  -- quebra (da zero), mas a funcao devolveria 'lote_nao_existe' depois de ter
+  -- feito uma conta que nao significa nada. Conferir primeiro faz o motivo
+  -- devolvido bater com o que realmente aconteceu.
   if not exists (select 1 from public.vessel_lotes where id = p_lote) then
     return json_build_object('ok', false, 'motivo', 'lote_nao_existe');
   end if;
+
+  select count(*) filter (where gravada_em is not null), count(*)
+    into v_gravadas, v_total
+    from public.vessel_pecas where lote_id = p_lote;
 
   -- BASTA UMA gravada para o lote inteiro ficar preso: as outras peças até
   -- poderiam sumir, mas o lote é o que dá modelo, cor e data para a página da
