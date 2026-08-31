@@ -59,6 +59,34 @@ begin
     (public.vessel_baixar_peca('NAOEXISTE1','defeito') ->> 'motivo') = 'peca_nao_existe');
   insert into resultado values (9, 'vessel_alertas ainda responde',
     (public.vessel_alertas() ->> 'ok')::boolean);
+
+  -- 10. excluir lote com peça gravada tem de RECUSAR, dizendo quantas
+  insert into resultado values (10, 'excluir lote com gravada recusa',
+    (public.vessel_excluir_lote(v_lote) ->> 'motivo') = 'tem_gravada');
+  insert into resultado values (11, 'e diz quantas estao gravadas',
+    (public.vessel_excluir_lote(v_lote) ->> 'gravadas')::int = 1);
+
+  -- 12. excluir peça gravada tem de RECUSAR
+  insert into resultado values (12, 'excluir peca gravada recusa',
+    (public.vessel_excluir_peca('PROVAGRAV01') ->> 'motivo') = 'esta_gravada');
+
+  -- 13. excluir peça NÃO gravada funciona, e a quantidade do lote acompanha
+  insert into resultado values (13, 'excluir peca livre funciona',
+    (public.vessel_excluir_peca('PROVALIVRE1') ->> 'ok')::boolean);
+  insert into resultado values (14, 'quantidade do lote acompanha',
+    (select quantidade from public.vessel_lotes where id = v_lote) = 1);
+
+  -- 15. sem peça gravada, o lote inteiro sai
+  insert into public.vessel_lotes (id, modelo, quantidade, fabricado_em)
+  values ('22222222-2222-2222-2222-222222222222', 'PROVA LIVRE', 2, current_date);
+  insert into public.vessel_pecas (codigo, lote_id, numero_na_serie) values
+    ('PROVALIVRE2', '22222222-2222-2222-2222-222222222222', 1),
+    ('PROVALIVRE3', '22222222-2222-2222-2222-222222222222', 2);
+  insert into resultado values (15, 'excluir lote livre funciona',
+    (public.vessel_excluir_lote('22222222-2222-2222-2222-222222222222') ->> 'ok')::boolean);
+  insert into resultado values (16, 'e as pecas dele sumiram junto',
+    (select count(*) from public.vessel_pecas
+      where lote_id = '22222222-2222-2222-2222-222222222222') = 0);
 end $$;
 
 -- TODAS as linhas têm de vir passou = true. Qualquer false ou nulo é defeito.
