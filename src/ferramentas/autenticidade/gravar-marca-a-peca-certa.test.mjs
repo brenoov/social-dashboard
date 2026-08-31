@@ -176,3 +176,31 @@ test('o gravador de mesa não marca sem uma pergunta que diz o número', () => {
 test('nada de confirm() nativo — uiConfirm não existe neste projeto', () => {
   assert.doesNotMatch(fonte, /\bwindow\.confirm\(|[^.\w]confirm\(/);
 });
+
+/* UM `v-if` NO MEIO DE UM `v-if`/`v-else-if` PARTE A CORRENTE EM DUAS, e o Vue
+ * não reclama de nada. O guia da primeira visita estava plantado entre a aba
+ * Gravar e a aba Registros: a segunda metade recomeçava do zero e o `v-else`
+ * dela — a aba ALERTAS inteira — era desenhada embaixo das abas Lotes e Gravar,
+ * e embaixo do "Carregando…" também. Medido no navegador a 375px em 30/08, com
+ * a aba Lotes escolhida e os três títulos de Alertas na tela ao mesmo tempo.
+ *
+ * Provado ao contrário: devolvendo o guia para o meio, os dois testes abaixo
+ * ficam vermelhos. */
+test('a corrente das abas não tem nada plantado no meio', () => {
+  const inicio = template.indexOf("aba === 'lotes'");
+  const fim = template.indexOf('── ALERTAS ──');
+  assert.ok(inicio !== -1 && fim > inicio, 'a corrente das abas mudou de forma');
+  const intrusos = template.slice(inicio, fim).split('\n')
+    .filter((l) => /^ {4}<\w[^>]*\sv-if=/.test(l))
+    .map((l) => l.trim());
+  assert.deepEqual(intrusos, [], 'isto parte a corrente e desenha a aba errada junto');
+});
+
+test('o guia da primeira visita vem DEPOIS da corrente inteira', () => {
+  const guia = template.indexOf('v-if="guiaAberto"');
+  assert.notEqual(guia, -1, 'o guia da primeira visita sumiu da tela');
+  for (const marca of ["aba === 'lotes'", "aba === 'gravar'", "aba === 'registros'", '── ALERTAS ──']) {
+    assert.ok(template.indexOf(marca) < guia,
+      `o bloco "${marca}" precisa vir antes do guia, senão a corrente das abas parte ali`);
+  }
+});

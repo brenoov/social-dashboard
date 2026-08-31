@@ -214,24 +214,6 @@
       </template>
     </template>
 
-    <!-- ── O GUIA DA PRIMEIRA VEZ ──────────────────────────────────────────
-         Abre sozinho na primeira visita e some depois. O "pular" fica sempre
-         visível: guia que prende a pessoa vira estorvo, não ajuda. -->
-    <div v-if="guiaAberto" class="au-guia-fundo" role="dialog" aria-modal="true"
-         aria-label="Como gravar as etiquetas">
-      <div class="au-guia">
-        <p class="au-guia-conta">{{ telaDoGuia + 1 }} de {{ TELAS_DO_GUIA.length }}</p>
-        <h3 class="au-guia-titulo">{{ TELAS_DO_GUIA[telaDoGuia].titulo }}</h3>
-        <p class="au-guia-texto">{{ TELAS_DO_GUIA[telaDoGuia].texto }}</p>
-        <div class="au-guia-acoes">
-          <button class="au-botao secundario" type="button" @click="fecharGuia">Pular</button>
-          <button class="au-botao" type="button" @click="avancarGuia">
-            {{ telaDoGuia + 1 === TELAS_DO_GUIA.length ? 'Entendi, começar' : 'Continuar' }}
-          </button>
-        </div>
-      </div>
-    </div>
-
     <!-- ── REGISTROS ────────────────────────────────────────────────────── -->
     <template v-else-if="aba === 'registros'">
       <div class="au-topo-acao">
@@ -304,6 +286,32 @@
       </template>
     </template>
 
+    <!-- ── O GUIA DA PRIMEIRA VEZ ──────────────────────────────────────────
+         Abre sozinho na primeira visita e some depois. O "pular" fica sempre
+         visível: guia que prende a pessoa vira estorvo, não ajuda. -->
+    <div v-if="guiaAberto" class="au-guia-fundo" role="dialog" aria-modal="true"
+         aria-label="Como gravar as etiquetas">
+      <div class="au-guia">
+        <p class="au-guia-conta">{{ telaDoGuia + 1 }} de {{ TELAS_DO_GUIA.length }}</p>
+        <h3 class="au-guia-titulo">{{ TELAS_DO_GUIA[telaDoGuia].titulo }}</h3>
+        <p class="au-guia-texto">{{ TELAS_DO_GUIA[telaDoGuia].texto }}</p>
+        <div class="au-guia-acoes">
+          <button class="au-botao secundario" type="button" @click="fecharGuia">Pular</button>
+          <button class="au-botao" type="button" @click="avancarGuia">
+            {{ telaDoGuia + 1 === TELAS_DO_GUIA.length ? 'Entendi, começar' : 'Continuar' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- O GUIA FICA FORA DA CORRENTE DAS ABAS. Ele estava ENTRE a aba Gravar e
+         a aba Registros, e um `v-if` no meio de um `v-if`/`v-else-if` PARTE a
+         corrente em duas: a segunda metade recomeçava do zero e o `v-else` dela
+         — a aba Alertas inteira — vinha desenhado embaixo das abas Lotes e
+         Gravar, e também embaixo do "Carregando…". Medido no navegador, a
+         375px, em 30/08.
+         Ele é sobreposição de tela cheia: onde mora no HTML não muda o desenho,
+         muda só a corrente. -->
     <!-- ── FORMULÁRIO DE LOTE ───────────────────────────────────────────── -->
     <div v-if="formulario" class="au-fundo" @click.self="formulario = false">
       <form class="au-folha" @submit.prevent="gerarLote">
