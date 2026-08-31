@@ -45,6 +45,23 @@ gravada não se exclui: vira BAIXA reversível, numa tabela de histórico própr
 
 ### ⚠️ Como as tarefas de banco funcionam neste plano
 
+⚠️ **DUAS ARMADILHAS JÁ MEDIDAS na Tarefa 1 — as tarefas 2 e 3 herdam as duas:**
+
+1. **O service role NÃO contorna `is_vessel_admin()`.** A primeira prova rodou
+   numa conexão administrativa e as oito asserções voltaram FALSAS de uma vez —
+   `auth.uid()` é nulo ali, então toda função devolve `sem_permissao` e a prova
+   mede o PORTÃO, não a regra. A saída não é desarmar a trava: é dar a chave à
+   conta de robô `claudecode@rbvcompany.com`
+   (`5efc08ed-ca8a-437b-9e43-31542029cea9`) **dentro da transação** e fazer a
+   sessão ser ela com `set local request.jwt.claims`. O `rollback` devolve.
+2. **`union all` não garante ordem de avaliação.** A asserção do histórico ficou
+   vermelha sozinha porque a contagem rodou antes das baixas existirem. Os passos
+   vivem num bloco `do $$`, um por vez, gravando numa tabela temporária.
+
+O arquivo `db/provas/2026-08-30-vessel-excluir-editar-baixar.sql` já está assim.
+**Acrescente as suas asserções DENTRO do bloco `do $$` existente**, antes do
+`end $$;` — não crie um bloco novo e não use `union all`.
+
 As tarefas 1 a 3 mexem no banco de **PRODUÇÃO**. Quem implementa **escreve o
 arquivo `.sql` e o script de prova**, e **NÃO aplica nada**: quem coordena
 aplica pelo MCP do Supabase e roda a prova, devolvendo a saída. Escrita em
@@ -264,8 +281,6 @@ das baixas** por enquanto (as tarefas 2 e 3 acrescentam a delas):
 ```sql
 -- PROVA POR ROLLBACK. Cria o próprio lote e desfaz tudo no fim — o lote real do
 -- dono (Mônaco Quartz LV1021) nunca é tocado.
--- Roda como service role, então `is_vessel_admin()` é contornado de propósito
--- aqui: o que esta prova mede é a REGRA DE NEGÓCIO, não o portão de permissão.
 begin;
 
 -- um lote de mentira, com uma peça gravada e uma não gravada
