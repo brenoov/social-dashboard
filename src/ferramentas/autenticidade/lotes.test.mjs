@@ -121,6 +121,29 @@ test('fraseDaRecusa: abaixo do gravado diz qual e o minimo', () => {
   assert.match(fraseDaRecusa('abaixo_do_gravado', { gravadas: 7 }), /7/)
 })
 
+test('fraseDaRecusa: a garantia da cliente tem frase propria, e nao manda dar baixa', () => {
+  // `gravada_em` nao era a unica prova de que a peca esta no mundo: a cliente
+  // registra a garantia pelo CODIGO, sem a peca precisar estar gravada, e
+  // `vessel_registros` cai por `on delete cascade` junto com a peca. Sem esta
+  // frase, a recusa `tem_garantia` do banco caia no `default` e a pessoa lia
+  // "Nao consegui fazer isso agora. Recarregue a tela" — que e mentira: a tela
+  // recusou de proposito, para nao apagar a garantia de uma cliente.
+  const f = fraseDaRecusa('tem_garantia', { garantias: 3, total: 20 })
+  assert.match(f, /3/, 'tem de dizer QUANTAS')
+  assert.match(f, /garantia/i)
+  assert.match(f, /lote/i, 'no lote, a frase diz que as pecas sao deste lote')
+  assert.doesNotMatch(f, /d[eê] baixa/i,
+    'aqui nao ha conselho a dar: a garantia e de uma pessoa de verdade')
+})
+
+test('fraseDaRecusa: a mesma recusa numa peca sozinha nao fala em lote', () => {
+  // vessel_excluir_peca devolve so `garantias: 1`, sem `total`. Dizer "deste
+  // lote" ao excluir UMA peca seria mentira pequena, e a tela nao mente.
+  const f = fraseDaRecusa('tem_garantia', { garantias: 1 })
+  assert.match(f, /garantia/i)
+  assert.doesNotMatch(f, /lote/i)
+})
+
 test('fraseDaRecusa: motivo desconhecido nao vira frase vazia', () => {
   const f = fraseDaRecusa('coisa_estranha', {})
   assert.ok(f.length > 15, 'sempre tem de sobrar alguma coisa legivel na tela')

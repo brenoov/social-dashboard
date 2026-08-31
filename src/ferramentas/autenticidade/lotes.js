@@ -12,7 +12,12 @@ export function enderecoDaTag(codigo) {
 // PEÇA BAIXADA SAI DA FILA. Sem isto a tela mandaria alguém gravar a etiqueta
 // de uma peça dada como refugo, e a etiqueta iria para dentro de uma bolsa que
 // não deveria existir.
-const naFila = (p) => !p.baixada
+//
+// EXPORTADA de propósito: `nfc-fila.js` precisa exatamente desta regra para a
+// lista do gravador de mesa, e tinha uma CÓPIA à mão (`!p.gravada_em &&
+// !p.baixada`). Duas cópias da mesma regra divergem no dia em que a regra muda
+// — e a que ficar para trás manda gravar a etiqueta de uma peça baixada.
+export const naFila = (p) => !p.baixada
 
 export function progressoDoLote(pecas) {
   // a baixada sai dos DOIS números: se ficasse no total, o lote nunca fecharia
@@ -49,6 +54,21 @@ export function fraseDaRecusa(motivo, dados = {}) {
     case 'tem_gravada':
       return `Não dá para excluir: ${d.gravadas} das ${d.total} etiquetas deste lote `
         + 'já foram gravadas e podem estar dentro de bolsas. Você pode dar baixa nas peças, uma a uma.'
+    case 'tem_garantia': {
+      // `gravada_em` não era a única prova de que a peça está no mundo: a
+      // cliente registra a garantia pelo CÓDIGO, sem a peça precisar estar
+      // gravada, e `vessel_registros` cai por `on delete cascade` junto com a
+      // peça. Aqui não há conselho a dar — diferente de `esta_gravada`, não há
+      // "dê baixa em vez disso": há uma garantia de uma pessoa de verdade
+      // pendurada no código, e ninguém do lado de cá pode tirá-la.
+      const n = d.garantias ?? 1
+      // A mesma recusa serve ao lote (o banco manda `total` junto) e à peça
+      // sozinha (manda só `garantias`). Dizer "deste lote" ao excluir UMA peça
+      // seria uma mentira pequena, e a tela não mente.
+      const onde = d.total == null ? '' : ' deste lote'
+      return `Não dá para excluir: ${n} peça(s)${onde} já têm garantia registrada `
+        + 'por uma cliente. Apagar tiraria a garantia dela.'
+    }
     case 'esta_gravada':
       return 'Esta etiqueta já foi gravada e pode estar dentro de uma bolsa. '
         + 'Em vez de excluir, dê baixa nela com o motivo.'
