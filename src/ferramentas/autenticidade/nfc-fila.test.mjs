@@ -1,5 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { codigoDoEndereco, conferirLeitura, listaParaGravadorDeMesa, codigosNoTextoDoGravador } from './nfc-fila.js'
 
 test('codigoDoEndereco: tira o codigo de um endereco do selo', () => {
@@ -104,6 +105,15 @@ test('codigosNoTextoDoGravador: nao repete codigo que aparece duas vezes', () =>
   assert.deepEqual(r.reconhecidos, ['AAA111'])
 })
 
+test('listaParaGravadorDeMesa: peca baixada nao vai para o gravador', () => {
+  const pecas = [
+    { codigo: 'AAA111', numero_na_serie: 1, gravada_em: null },
+    { codigo: 'BBB111', numero_na_serie: 2, gravada_em: null, baixada: true },
+  ]
+  assert.equal(listaParaGravadorDeMesa(pecas),
+    'https://vesselbrasil.com.br/verify/AAA111')
+})
+
 test('codigosNoTextoDoGravador: o aviso de outro lote sobrevive a MAIUSCULA', () => {
   // Leitor de NFC de terceiros devolve o endereco em caixa variada — a Tarefa 1
   // ja documentou isso. Um aviso que some por causa de maiuscula e pior que
@@ -112,4 +122,22 @@ test('codigosNoTextoDoGravador: o aviso de outro lote sobrevive a MAIUSCULA', ()
     'HTTPS://VESSELBRASIL.COM.BR/VERIFY/ZZZ999', [{ codigo: 'AAA111' }])
   assert.deepEqual(r.reconhecidos, [])
   assert.deepEqual(r.ignorados, ['ZZZ999'])
+})
+
+/* A REGRA "BAIXADA SAI DA FILA" MORA NUM LUGAR SO.
+ *
+ * Ela estava escrita duas vezes: `naFila` em lotes.js, e uma copia a mao aqui
+ * (`!p.gravada_em && !p.baixada`). Duas copias da mesma regra divergem no dia
+ * em que a regra muda, e a que ficar para tras manda gravar a etiqueta de uma
+ * peca baixada — que iria costurada dentro de uma bolsa que nao deveria
+ * existir. O comportamento sozinho nao pega isso: as duas copias concordam
+ * HOJE. Por isso o teste le a fonte. */
+test('listaParaGravadorDeMesa reusa `naFila`, em vez de reescrever a regra', () => {
+  const fonte = readFileSync(new URL('./nfc-fila.js', import.meta.url).pathname, 'utf8')
+  assert.match(fonte, /import \{[^}]*\bnaFila\b[^}]*\} from '\.\/lotes\.js'/,
+    'sem importar naFila, a regra volta a existir em duas copias')
+  assert.match(fonte, /\.filter\(\(p\) => naFila\(p\) && !p\.gravada_em\)/,
+    'a fila do gravador de mesa tem de sair de naFila')
+  assert.doesNotMatch(fonte, /!p\.baixada/,
+    'a regra de "baixada sai da fila" nao se reescreve aqui: ela mora em lotes.js')
 })

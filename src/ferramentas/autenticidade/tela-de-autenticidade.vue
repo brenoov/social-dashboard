@@ -34,6 +34,49 @@
             <span>{{ dataCurta(l.fabricado_em) }}</span>
           </div>
           <button class="au-link" type="button" @click="irGravar(l.id)">Gravar as etiquetas deste lote →</button>
+
+          <div v-if="podeEditar" class="au-lote-acoes">
+            <button class="au-link" type="button" @click="abrirEdicao(l)">Editar</button>
+            <button class="au-link" type="button" @click="pedirExcluir(l.id)">Excluir</button>
+          </div>
+
+          <!-- A PERGUNTA DE EXCLUIR MORA NA PRÓPRIA TELA: a caixinha nativa do
+               navegador é proibida neste projeto e `uiConfirm` não existe aqui — e
+               há um teste que reprova até a palavra escrita. Quem recusa de verdade
+               é o banco; a tela só traduz a recusa para português. -->
+          <div v-if="excluindo === l.id" class="au-confirma">
+            <p class="au-confirma-texto">
+              Excluir o lote <strong>{{ l.modelo }}</strong> e as {{ l.quantidade }} etiquetas dele?
+            </p>
+            <p class="au-aviso-menor">
+              Só dá para excluir lote em que nenhuma etiqueta foi gravada. Se alguma já foi,
+              a tela vai dizer quantas.
+            </p>
+            <div class="au-acoes">
+              <button class="au-botao secundario" type="button" @click="excluindo = null">Cancelar</button>
+              <button class="au-botao" type="button" @click="excluirLote(l.id)">Sim, excluir</button>
+            </div>
+          </div>
+
+          <div v-if="editando === l.id" class="au-edicao">
+            <label class="au-campo"><span class="au-rot">Modelo</span>
+              <input v-model="edicao.modelo" type="text" maxlength="80"></label>
+            <label class="au-campo"><span class="au-rot">Cor</span>
+              <input v-model="edicao.cor" type="text" maxlength="60"></label>
+            <label class="au-campo"><span class="au-rot">Referência</span>
+              <input v-model="edicao.sku" type="text" maxlength="40"></label>
+            <label class="au-campo"><span class="au-rot">Fabricado em</span>
+              <input v-model="edicao.fabricado_em" type="date"></label>
+            <label class="au-campo"><span class="au-rot">Quantidade</span>
+              <input v-model="edicao.quantidade" type="number" min="1" max="500"></label>
+            <p class="au-aviso-menor">
+              Aumentar cria etiquetas novas. Diminuir tira só as que ainda não foram gravadas.
+            </p>
+            <div class="au-acoes">
+              <button class="au-botao secundario" type="button" @click="editando = null">Cancelar</button>
+              <button class="au-botao" type="button" @click="salvarEdicao">Salvar</button>
+            </div>
+          </div>
         </div>
       </div>
     </template>
@@ -132,6 +175,66 @@
             </div>
           </template>
 
+          <!-- OS DOIS CAMINHOS DA PEÇA DA VEZ, lado a lado.
+               DAR BAIXA é o caminho de quem NÃO pode excluir: peça gravada pode
+               estar dentro de uma bolsa, e excluir faria a página da cliente
+               dizer "não consta".
+               EXCLUIR é o caminho certo para a peça que ainda NÃO foi gravada —
+               nada dela existe no mundo, e um lote com peça sobrando é para
+               diminuir, não para encher de baixa. Sem este botão,
+               `vessel_excluir_peca` estava no ar, concedida e provada, sem
+               nenhum chamador.
+               As duas perguntas moram na própria tela: a caixinha nativa do
+               navegador é proibida neste projeto, e há um teste que reprova até
+               a palavra escrita. -->
+          <div v-if="podeEditar && !gravando && !baixando && !excluindoPeca" class="au-peca-acoes">
+            <button class="au-link au-baixar" type="button"
+                    @click="baixando = true">Dar baixa nesta peça</button>
+            <!-- `proxima` é a primeira SEM gravação, então esta guarda é
+                 redundante hoje — e está escrita assim de propósito: o dia em
+                 que a fila mudar de regra, o botão de excluir some sozinho em
+                 vez de aparecer sobre uma peça que já está dentro de uma bolsa. -->
+            <button v-if="!proxima.gravada_em" class="au-link au-baixar" type="button"
+                    @click="excluindoPeca = true">Excluir esta peça</button>
+          </div>
+
+          <div v-if="excluindoPeca" class="au-confirma">
+            <p class="au-confirma-texto">
+              Excluir a peça {{ proxima.numero_na_serie }}, de código
+              <strong>{{ proxima.codigo }}</strong>?
+            </p>
+            <p class="au-aviso-menor">
+              O código deixa de existir, e a página da cliente passa a dizer que ele não
+              consta. Quem recusa é o banco: peça já gravada, ou com garantia registrada
+              por uma cliente, não sai — nesses casos o caminho é dar baixa. As peças
+              seguintes do lote são renumeradas.
+            </p>
+            <div class="au-acoes">
+              <button class="au-botao secundario" type="button"
+                      @click="excluindoPeca = false">Cancelar</button>
+              <button class="au-botao" type="button" :disabled="exclusaoEmVoo"
+                      @click="excluirPeca(proxima.codigo)">Sim, excluir</button>
+            </div>
+          </div>
+
+          <div v-if="baixando" class="au-confirma">
+            <p class="au-confirma-texto">Dar baixa na peça {{ proxima.numero_na_serie }}?</p>
+            <label class="au-campo"><span class="au-rot">Motivo</span>
+              <select v-model="motivoDaBaixa">
+                <option v-for="m in MOTIVOS_DE_BAIXA" :key="m.chave" :value="m.chave">{{ m.rotulo }}</option>
+              </select>
+            </label>
+            <p class="au-aviso-menor">
+              A peça sai da fila de gravação e continua respondendo normalmente para a cliente.
+              Dá para desfazer depois.
+            </p>
+            <div class="au-acoes">
+              <button class="au-botao secundario" type="button" @click="baixando = false">Cancelar</button>
+              <button class="au-botao" type="button" :disabled="baixaEmVoo"
+                      @click="baixarPeca(proxima.codigo)">Dar baixa</button>
+            </div>
+          </div>
+
           <!-- GRAVADOR DE MESA -->
           <details class="au-mesa">
             <!-- A seta é desenhada aqui porque `display:flex` no <summary> apaga o
@@ -168,26 +271,33 @@
             </div>
           </details>
         </div>
+
+        <!-- A LISTA DAS BAIXADAS FICA FORA DO BLOCO DE GRAVAÇÃO de propósito:
+             quando a última peça da fila é gravada aquele bloco inteiro some, e
+             junto com ele sumiria o único caminho para desfazer uma baixa feita
+             por engano. -->
+        <div v-if="baixadasDoLote.length" class="au-baixadas-lote">
+          <details class="au-mesa">
+            <!-- a seta é desenhada aqui pelo mesmo motivo da gaveta do gravador
+                 de mesa: `display:flex` no <summary> apaga o triângulo que o
+                 navegador desenha sozinho. Em SVG, nunca emoji. -->
+            <summary>
+              <svg class="au-seta" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"
+                   fill="none" stroke="currentColor" stroke-width="2.4"
+                   stroke-linecap="round" stroke-linejoin="round"><polyline points="9 5 16 12 9 19" /></svg>
+              <span>{{ baixadasDoLote.length }} peça(s) baixada(s) neste lote</span>
+            </summary>
+            <ul class="au-baixadas">
+              <li v-for="pc in baixadasDoLote" :key="pc.codigo">
+                <span>Peça {{ pc.numero_na_serie }} — {{ rotuloDoMotivo(pc.baixa_motivo) }}</span>
+                <button v-if="podeEditar" class="au-link" type="button" :disabled="baixaEmVoo"
+                        @click="desfazerBaixa(pc.codigo)">Desfazer</button>
+              </li>
+            </ul>
+          </details>
+        </div>
       </template>
     </template>
-
-    <!-- ── O GUIA DA PRIMEIRA VEZ ──────────────────────────────────────────
-         Abre sozinho na primeira visita e some depois. O "pular" fica sempre
-         visível: guia que prende a pessoa vira estorvo, não ajuda. -->
-    <div v-if="guiaAberto" class="au-guia-fundo" role="dialog" aria-modal="true"
-         aria-label="Como gravar as etiquetas">
-      <div class="au-guia">
-        <p class="au-guia-conta">{{ telaDoGuia + 1 }} de {{ TELAS_DO_GUIA.length }}</p>
-        <h3 class="au-guia-titulo">{{ TELAS_DO_GUIA[telaDoGuia].titulo }}</h3>
-        <p class="au-guia-texto">{{ TELAS_DO_GUIA[telaDoGuia].texto }}</p>
-        <div class="au-guia-acoes">
-          <button class="au-botao secundario" type="button" @click="fecharGuia">Pular</button>
-          <button class="au-botao" type="button" @click="avancarGuia">
-            {{ telaDoGuia + 1 === TELAS_DO_GUIA.length ? 'Entendi, começar' : 'Continuar' }}
-          </button>
-        </div>
-      </div>
-    </div>
 
     <!-- ── REGISTROS ────────────────────────────────────────────────────── -->
     <template v-else-if="aba === 'registros'">
@@ -258,8 +368,59 @@
             <div class="au-card-linha"><span>última em {{ dataCurta(a.ultima) }}</span></div>
           </div>
         </div>
+
+        <!-- O ALERTA MAIS IMPORTANTE DESTA TELA. A página da cliente não avisa
+             nada sobre baixa (decisão do dono) — então quem avisa é o painel,
+             usando as leituras que a página já registra. Assim o dono fica
+             sabendo que a bolsa extraviada apareceu, sem incomodar quem está
+             com ela. -->
+        <template v-if="resumo.baixadasLidas">
+          <h2 class="au-secao">Peças baixadas que foram lidas</h2>
+          <p class="au-instrucao">
+            Estas peças estão baixadas e alguém encostou o celular nelas depois disso.
+            Vale conferir onde a bolsa apareceu.
+          </p>
+          <div class="au-lista">
+            <div v-for="b in (alertas?.baixadas_lidas || [])" :key="b.codigo" class="au-card alerta">
+              <div class="au-card-topo">
+                <span class="au-modelo">{{ b.codigo }}</span>
+                <span class="au-progresso">{{ b.leituras }} leitura(s)</span>
+              </div>
+              <div class="au-card-linha">
+                <span>{{ rotuloDoMotivo(b.motivo) }}</span>
+                <span>última em {{ dataCurta(b.ultima) }}</span>
+              </div>
+            </div>
+          </div>
+        </template>
       </template>
     </template>
+
+    <!-- O GUIA FICA FORA DA CORRENTE DAS ABAS. Ele estava ENTRE a aba Gravar e
+         a aba Registros, e um `v-if` no meio de um `v-if`/`v-else-if` PARTE a
+         corrente em duas: a segunda metade recomeçava do zero e o `v-else` dela
+         — a aba Alertas inteira — vinha desenhado embaixo das abas Lotes e
+         Gravar, e também embaixo do "Carregando…". Medido no navegador, a
+         375px, em 30/08.
+         Ele é sobreposição de tela cheia: onde mora no HTML não muda o desenho,
+         muda só a corrente. -->
+    <!-- ── O GUIA DA PRIMEIRA VEZ ──────────────────────────────────────────
+         Abre sozinho na primeira visita e some depois. O "pular" fica sempre
+         visível: guia que prende a pessoa vira estorvo, não ajuda. -->
+    <div v-if="guiaAberto" class="au-guia-fundo" role="dialog" aria-modal="true"
+         aria-label="Como gravar as etiquetas">
+      <div class="au-guia">
+        <p class="au-guia-conta">{{ telaDoGuia + 1 }} de {{ TELAS_DO_GUIA.length }}</p>
+        <h3 class="au-guia-titulo">{{ TELAS_DO_GUIA[telaDoGuia].titulo }}</h3>
+        <p class="au-guia-texto">{{ TELAS_DO_GUIA[telaDoGuia].texto }}</p>
+        <div class="au-guia-acoes">
+          <button class="au-botao secundario" type="button" @click="fecharGuia">Pular</button>
+          <button class="au-botao" type="button" @click="avancarGuia">
+            {{ telaDoGuia + 1 === TELAS_DO_GUIA.length ? 'Entendi, começar' : 'Continuar' }}
+          </button>
+        </div>
+      </div>
+    </div>
 
     <!-- ── FORMULÁRIO DE LOTE ───────────────────────────────────────────── -->
     <div v-if="formulario" class="au-fundo" @click.self="formulario = false">
@@ -308,7 +469,10 @@ import BarraDeTopo from '../../compartilhado/barra-de-topo.vue'
 import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { hasPermission } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { adminToast } from '../../compartilhado/avisos.js'
-import { enderecoDaTag, progressoDoLote, proximaPorGravar, linhasDoCsv, resumoDeAlertas } from './lotes.js'
+import {
+  enderecoDaTag, progressoDoLote, proximaPorGravar, linhasDoCsv, resumoDeAlertas,
+  MOTIVOS_DE_BAIXA, fraseDaRecusa,
+} from './lotes.js'
 import { conferirLeitura, listaParaGravadorDeMesa, codigosNoTextoDoGravador } from './nfc-fila.js'
 import { PASSOS, TELAS_DO_GUIA, passoAtual, guiaJaVisto, marcarGuiaVisto, proximaTelaDoGuia } from './tutorial.js'
 import { temSuporte, traduzirFalha, criarGravador } from './gravador-nfc.js'
@@ -367,6 +531,32 @@ const confirmacaoDoGravador = ref(null)  // { reconhecidos, ignorados } enquanto
 
 const novo = reactive({ modelo: '', cor: '', sku: '', quantidade: 20, fabricado_em: '' })
 
+// EDITAR E EXCLUIR ABREM DENTRO DO MESMO CARTÃO, e só um de cada vez: dois
+// blocos empilhados no mesmo lote fazem a tela perguntar duas coisas ao mesmo
+// tempo, e aí nenhuma das duas é a pergunta principal.
+const editando = ref(null)    // o lote com o formulário de editar aberto, ou null
+const excluindo = ref(null)   // o lote com a pergunta de excluir na tela, ou null
+const edicao = reactive({ modelo: '', cor: '', sku: '', fabricado_em: '', quantidade: 1 })
+
+// A PERGUNTA DE DAR BAIXA, na aba Gravar. Ela é da peça da vez, então basta um
+// sim/não: só existe uma peça da vez. O motivo nasce em "Extraviada" porque é o
+// que o dono mais vai usar, e a lista inteira fica à vista para trocar.
+const baixando = ref(false)
+const motivoDaBaixa = ref('extraviada')
+// A TRAVA DE "EM VOO". Dois toques rápidos disparam duas chamadas. O índice
+// único do banco segura a segunda, então o dado nunca corrompe — mas a pessoa
+// lê "Esta peça já está baixada" logo depois de baixá-la, e a tela parece estar
+// contradizendo o que ela acabou de fazer.
+const baixaEmVoo = ref(false)
+
+// EXCLUIR A PEÇA DA VEZ. Mesma forma da pergunta de baixa, e as duas nunca
+// aparecem juntas: duas perguntas na tela ao mesmo tempo é o mesmo que nenhuma
+// ser a principal. A trava de "em voo" existe pelo mesmo motivo da baixa —
+// dois toques rápidos disparam duas chamadas, e a segunda volta com
+// "não encontrei esse registro" logo depois de a peça ter saído.
+const excluindoPeca = ref(false)
+const exclusaoEmVoo = ref(false)
+
 const podeCriar = computed(() => hasPermission('autenticidade', 'criar'))
 const podeEditar = computed(() => hasPermission('autenticidade', 'editar'))
 
@@ -374,6 +564,16 @@ const pecasDoLote = (id) => pecas.value.filter((p) => p.lote_id === id)
 const loteAtual = computed(() => lotes.value.find((l) => l.id === loteEscolhido.value) || null)
 const proxima = computed(() => proximaPorGravar(pecasDoLote(loteEscolhido.value)))
 const resumo = computed(() => resumoDeAlertas(alertas.value))
+
+// As baixadas saem da fila de gravação, então precisam de um lugar PRÓPRIO para
+// aparecer: sem esta lista, dar baixa por engano não teria como ser desfeito.
+const baixadasDoLote = computed(() => pecasDoLote(loteEscolhido.value)
+  .filter((p) => p.baixada)
+  .sort((a, b) => (a.numero_na_serie || 0) - (b.numero_na_serie || 0)))
+
+function rotuloDoMotivo(chave) {
+  return (MOTIVOS_DE_BAIXA.find((m) => m.chave === chave) || {}).rotulo || chave || '—'
+}
 
 const registrosFiltrados = computed(() => {
   const termo = busca.value.trim().toLowerCase()
@@ -402,6 +602,23 @@ function dataCurta(valor) {
 watch(loteEscolhido, () => {
   recadoNfc.value = ''
   confirmacaoDoGravador.value = null
+  baixando.value = false
+  excluindoPeca.value = false
+})
+
+// TROCAR A PEÇA DA VEZ FECHA A PERGUNTA DE BAIXA, pelo mesmo cuidado do watch
+// acima: a pergunta diz o número de UMA peça, e peça errada na pergunta é pior
+// que pergunta nenhuma.
+// Dois caminhos concretos: com a pergunta aberta, "Gravei essa" continua
+// clicável — gravando a última, `proxima` vira nulo, o bloco todo some e
+// `baixando` fica preso em `true`; depois um "Desfazer" devolve uma peça à fila
+// e o bloco voltava COM A PERGUNTA JÁ ABERTA, para a peça que a pessoa acabou de
+// restaurar. O outro é a pergunta trocar de peça calada por baixo da mão.
+// O watch é pelo CÓDIGO, não pelo objeto: `carregar()` refaz `pecas.value`
+// inteiro, e pelo objeto isto dispararia a cada recarga sem a peça ter mudado.
+watch(() => proxima.value?.codigo, () => {
+  baixando.value = false
+  excluindoPeca.value = false
 })
 
 function voltar() { router.push({ name: 'gestao-interna' }) }
@@ -420,20 +637,69 @@ async function carregar() {
   carregando.value = true
   falha.value = ''
   try {
-    const [l, p, r, a] = await Promise.all([
+    const [l, p, r, a, baixas] = await Promise.all([
       sbClient.from('vessel_lotes').select('*').order('criado_em', { ascending: false }),
       sbClient.from('vessel_pecas').select('codigo,lote_id,numero_na_serie,gravada_em'),
       sbClient.from('vessel_registros').select('*').order('registrado_em', { ascending: false }),
       sbClient.rpc('vessel_alertas'),
+      // baixa ATIVA é a linha com `desfeita_em` nula. `vessel_baixas` tem a
+      // mesma política de SELECT de `vessel_pecas`, então se lê do mesmo jeito.
+      sbClient.from('vessel_baixas').select('codigo,motivo,baixada_em').is('desfeita_em', null),
     ])
-    if (l.error) throw l.error
+    // NENHUMA DESTAS LEITURAS PODE FALHAR EM SILÊNCIO, e cada uma mente de um
+    // jeito diferente quando falha (PADRAO-DA-CENTRAL item 9: a tela nunca
+    // mente). Falhar à vista é sempre melhor:
+    //
+    //  · `baixas`  — sem a lista, nenhuma peça sai marcada e a peça baixada
+    //                volta para a fila como se nada tivesse acontecido: alguém
+    //                gravaria a etiqueta de uma peça dada como refugo;
+    //  · `p`       — sem as peças, o lote aparece com a fila VAZIA, e a tela
+    //                diz "todas as etiquetas já foram gravadas" sem nenhuma ter
+    //                sido;
+    //  · `a`       — sem os alertas, `resumoDeAlertas(null).limpo` dá `true` e a
+    //                aba anuncia "Nada suspeito nos últimos 30 dias. Foram 0
+    //                leituras" com uma bolsa extraviada sendo lida. Falha
+    //                virando "está tudo bem" é o defeito mais caro deste
+    //                projeto;
+    //  · `r`       — sem os registros, a tela diz "Nenhuma cliente registrou a
+    //                garantia ainda" para uma lista que existe.
+    //
+    // E `error` NÃO É A ÚNICA FORMA DE FALHAR. As funções do banco deste painel
+    // respondem 200 com `{ ok:false, motivo:'sem_permissao' }` quando o portão
+    // recusa — não é erro de rede, é a função dizendo não. `resumoDeAlertas`
+    // desse objeto não acha NENHUMA das três chaves e devolve `limpo: true`: a
+    // aba anunciava "Nada suspeito nos últimos 30 dias" para quem simplesmente
+    // não podia ver os alertas. O caminho é real e tem nome: quem tem a chave
+    // `autenticidade` no front e NÃO no `features[]` do banco — são dois
+    // lugares, e o LEIA-ME desta pasta avisa disso.
+    for (const leitura of [l, p, r, a, baixas]) {
+      if (leitura.error) throw leitura.error
+      if (leitura.data && leitura.data.ok === false) throw Object.assign(
+        new Error(leitura.data.motivo), { recusa: leitura.data.motivo })
+    }
     lotes.value = l.data || []
     pecas.value = p.data || []
     registros.value = r.data || []
     alertas.value = a.data || null
+    // A PEÇA CARREGA A BAIXA JUNTO: é o campo `baixada` — este nome exato, e
+    // booleano — que `naFila` usa em lotes.js para tirar a peça da fila de
+    // gravação. Trocar o nome aqui não quebra teste nenhum: a fila simplesmente
+    // pararia de filtrar, em silêncio.
+    const porCodigo = new Map((baixas.data || []).map((b) => [b.codigo, b]))
+    pecas.value.forEach((p2) => {
+      const b = porCodigo.get(p2.codigo)
+      p2.baixada = Boolean(b)
+      p2.baixa_motivo = b?.motivo || null
+      p2.baixada_em = b?.baixada_em || null
+    })
     if (!loteEscolhido.value && lotes.value.length) loteEscolhido.value = lotes.value[0].id
   } catch (e) {
-    falha.value = 'Não consegui carregar. Confira sua conexão e tente de novo.'
+    // `e.recusa` só existe quando quem disse não foi a rede, e sim o BANCO.
+    // Mandar "confira sua conexão" para quem está sem a chave `autenticidade`
+    // é apontar o defeito errado, e a pessoa mexe na internet a manhã inteira.
+    falha.value = e?.recusa
+      ? fraseDaRecusa(e.recusa)
+      : 'Não consegui carregar. Confira sua conexão e tente de novo.'
   } finally {
     carregando.value = false
   }
@@ -469,6 +735,115 @@ async function gerarLote() {
     erroForm.value = 'Não consegui gerar o lote agora. Tente de novo.'
   } finally {
     salvando.value = false
+  }
+}
+
+function abrirEdicao(l) {
+  excluindo.value = null
+  editando.value = l.id
+  edicao.modelo = l.modelo || ''
+  edicao.cor = l.cor || ''
+  edicao.sku = l.sku || ''
+  edicao.fabricado_em = l.fabricado_em || ''
+  edicao.quantidade = l.quantidade || 1
+}
+
+function pedirExcluir(id) {
+  editando.value = null
+  excluindo.value = id
+}
+
+// `sbClient.rpc` NÃO ESTOURA: devolve `{ data, error }`. `error` é falha de rede
+// ou de permissão; `data.ok === false` é a regra de negócio do banco recusando.
+// Os dois precisam aparecer, e com frases diferentes — tratar só o `error` foi
+// defeito real deste mesmo arquivo, e a tela anunciava sucesso quando nada
+// tinha acontecido (PADRAO-DA-CENTRAL, item 9: a tela nunca mente).
+async function salvarEdicao() {
+  const { data, error } = await sbClient.rpc('vessel_editar_lote', {
+    p_lote: editando.value,
+    p_modelo: edicao.modelo,
+    p_cor: edicao.cor,
+    p_sku: edicao.sku,
+    p_fabricado_em: edicao.fabricado_em || null,
+    p_quantidade: Number(edicao.quantidade),
+  })
+  if (error) { adminToast('Não consegui salvar agora', false); return }
+  if (!data?.ok) { adminToast(fraseDaRecusa(data?.motivo, data), false); return }
+  editando.value = null
+  await carregar()
+  adminToast('Lote atualizado')
+}
+
+// QUEM RECUSA É O BANCO, NÃO A TELA. Lote com etiqueta já gravada não se exclui:
+// a página da cliente passaria a dizer "não consta" e uma bolsa original
+// pareceria falsa. A tela só traduz a recusa, com o número que o banco devolveu.
+async function excluirLote(id) {
+  const { data, error } = await sbClient.rpc('vessel_excluir_lote', { p_lote: id })
+  if (error) { adminToast('Não consegui excluir agora', false); return }
+  if (!data?.ok) { excluindo.value = null; adminToast(fraseDaRecusa(data?.motivo, data), false); return }
+  excluindo.value = null
+  await carregar()
+  adminToast(`Lote excluído, com ${data.excluidas} etiqueta(s).`)
+}
+
+// DAR BAIXA É O CAMINHO DE QUEM NÃO PODE EXCLUIR. Peça gravada pode estar
+// dentro de uma bolsa: excluir faria a página da cliente dizer "não consta" e
+// uma bolsa original pareceria falsa. A baixa tira a peça da fila, guarda o
+// motivo, e a página da cliente continua respondendo igual.
+//
+// `sbClient.rpc` NÃO ESTOURA: devolve `{ data, error }`. `error` é rede ou
+// permissão; `data.ok === false` é a regra do banco recusando. Os dois aparecem,
+// com frases diferentes.
+async function baixarPeca(codigo) {
+  if (baixaEmVoo.value) return
+  baixaEmVoo.value = true
+  try {
+    const { data, error } = await sbClient.rpc('vessel_baixar_peca',
+      { p_codigo: codigo, p_motivo: motivoDaBaixa.value })
+    if (error) { adminToast('Não consegui dar baixa agora', false); return }
+    if (!data?.ok) { adminToast(fraseDaRecusa(data?.motivo, data), false); return }
+    baixando.value = false
+    await carregar()
+    const rotulo = rotuloDoMotivo(motivoDaBaixa.value)
+    adminToast(`Peça baixada como ${rotulo}. Ela sai da fila e continua respondendo para a cliente.`)
+  } finally {
+    baixaEmVoo.value = false
+  }
+}
+
+// EXCLUIR UMA PEÇA. Vale para a que ainda NÃO foi gravada: nada dela existe no
+// mundo. Quem recusa continua sendo o banco — peça gravada volta 'esta_gravada'
+// e peça com garantia registrada volta 'tem_garantia' —, e a tela só traduz.
+// Esta é a razão de a frase `esta_gravada` existir: até aqui ela era
+// inalcançável, porque `vessel_excluir_peca` não tinha nenhum chamador.
+async function excluirPeca(codigo) {
+  if (exclusaoEmVoo.value) return
+  exclusaoEmVoo.value = true
+  try {
+    const { data, error } = await sbClient.rpc('vessel_excluir_peca', { p_codigo: codigo })
+    if (error) { adminToast('Não consegui excluir agora', false); return }
+    // a pergunta fecha ANTES do recado da recusa: deixá-la aberta convida a
+    // apertar de novo, e a resposta seria a mesma
+    excluindoPeca.value = false
+    if (!data?.ok) { adminToast(fraseDaRecusa(data?.motivo, data), false); return }
+    await carregar()
+    adminToast('Peça excluída. As seguintes do lote foram renumeradas.')
+  } finally {
+    exclusaoEmVoo.value = false
+  }
+}
+
+async function desfazerBaixa(codigo) {
+  if (baixaEmVoo.value) return
+  baixaEmVoo.value = true
+  try {
+    const { data, error } = await sbClient.rpc('vessel_desfazer_baixa', { p_codigo: codigo })
+    if (error) { adminToast('Não consegui desfazer agora', false); return }
+    if (!data?.ok) { adminToast(fraseDaRecusa(data?.motivo, data), false); return }
+    await carregar()
+    adminToast('Baixa desfeita. A peça voltou para a fila.')
+  } finally {
+    baixaEmVoo.value = false
   }
 }
 
@@ -660,6 +1035,12 @@ onMounted(() => {
 
 .au-botao{font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--sobre-cor);background:var(--accent);border:1px solid var(--accent);border-radius:6px;padding:10px 16px;cursor:pointer;}
 .au-botao[disabled]{opacity:.6;cursor:default;}
+/* O LINK DESABILITADO PRECISA PARECER DESABILITADO. `.au-link[disabled]` não
+   existia: o "Desfazer" das baixadas fica `:disabled` durante a chamada e
+   continuava com a MESMA cara de clicável, sem efeito nenhum. É a doutrina que
+   esta própria tela escreve nas frases de recusa — botão desabilitado calado faz
+   a pessoa achar que a ferramenta está quebrada. */
+.au-link[disabled]{opacity:.6;cursor:default;}
 .au-botao.secundario{color:var(--accent);background:transparent;}
 
 .au-lista{display:flex;flex-direction:column;gap:10px;padding:16px 24px 0;max-width:720px;}
@@ -727,7 +1108,7 @@ onMounted(() => {
 .au-folha .au-erro{padding:12px 24px 0;}
 
 @media (max-width:520px){
-  .abas,.au-topo-acao,.au-lista,.au-campo,.au-gravacao,.au-acoes{padding-left:16px;padding-right:16px;}
+  .abas,.au-topo-acao,.au-lista,.au-campo,.au-gravacao,.au-acoes,.au-baixadas-lote{padding-left:16px;padding-right:16px;}
   .au-vazio,.au-erro,.au-instrucao,.au-secao{padding-left:16px;padding-right:16px;}
   .au-gravacao .au-acoes{padding-left:0;padding-right:0;}
   .au-botao{flex:1;}
@@ -790,4 +1171,63 @@ onMounted(() => {
    porque alvo de toque abaixo de 40px e defeito */
 .au-guia-acoes{display:flex; gap:var(--sp-2); flex-wrap:wrap}
 .au-guia-acoes .au-botao{flex:1 1 140px; min-height:40px}
+
+/* ── EDITAR E EXCLUIR O LOTE ────────────────────────────────────
+   Cor sai de token, nunca escrita a mao (PADRAO-DA-CENTRAL, item 2).
+   A pergunta de excluir REAPROVEITA `.au-confirma`, o bloco de aviso que esta
+   tela ja tem: repintar aquela regra mudaria a gaveta do gravador de mesa, la
+   na aba Gravar, que nao e desta tarefa. */
+.au-lote-acoes{display:flex; gap:var(--sp-3); margin-top:var(--sp-2); flex-wrap:wrap}
+/* O link nasce com 13px de altura. Alvo de dedo abaixo de 40px e defeito
+   (PADRAO item 6) — cresce a area, o texto continua link. */
+.au-lote-acoes .au-link{display:inline-flex; align-items:center; min-height:40px; margin-top:0}
+.au-edicao{
+  margin-top:var(--sp-2); padding:var(--sp-3);
+  border:1px solid var(--border); border-radius:var(--radius-md);
+  background:var(--surface2);
+}
+/* O recuo lateral ja vem do bloco. Sem isto os campos saem 24px mais para
+   dentro que o resto do cartao — mesmo motivo do `.au-gravacao .au-acoes`. */
+.au-edicao .au-campo{padding:var(--sp-2) 0 0; max-width:none}
+.au-edicao .au-acoes{padding:var(--sp-3) 0 0}
+/* 16px no campo nao e estetica: abaixo disso o iOS da zoom ao focar e a tela
+   salta na cara de quem esta digitando. */
+.au-edicao input{min-height:40px; box-sizing:border-box; font-size:max(16px, calc(16px * var(--escala-texto, 1)))}
+/* Os botoes destes dois blocos vivem dentro do cartao do lote; sem isto saem
+   com 35,5px de altura, como os da gaveta do gravador saiam. */
+.au-card .au-botao{min-height:40px; box-sizing:border-box}
+.au-aviso-menor{
+  margin:var(--sp-2) 0 0; font-family:var(--fonte-principal);
+  font-size:max(9px, calc(13px * var(--escala-texto, 1)));
+  line-height:1.45; color:var(--muted); overflow-wrap:anywhere;
+}
+/* ── DAR BAIXA E DESFAZER ─────────────────────────────────────────────────
+   Cor sai de token, nunca escrita a mao (PADRAO-DA-CENTRAL, item 2). A pergunta
+   de dar baixa REAPROVEITA `.au-confirma`, o bloco de aviso que esta tela ja
+   tem — repintar aquela regra mexeria na gaveta do gravador de mesa e na
+   pergunta de excluir lote, que nao sao desta tarefa. */
+/* O link nasce com 13px de altura. Alvo de dedo abaixo de 40px e defeito
+   (PADRAO item 6), e este e apertado com o celular na mao. */
+.au-baixar{display:inline-flex; align-items:center; min-height:40px}
+/* "Dar baixa" e "Excluir esta peça" ficam lado a lado, e empilham a 375px em
+   vez de encolher: alvo de dedo abaixo de 40px e defeito (PADRAO item 6). */
+.au-peca-acoes{display:flex; gap:var(--sp-3); flex-wrap:wrap}
+/* O recuo lateral ja vem do bloco: sem isto o seletor de motivo sai 24px mais
+   para dentro que o resto da caixa — mesmo motivo do `.au-edicao .au-campo`. */
+.au-confirma .au-campo{padding:var(--sp-2) 0 0; max-width:none}
+/* A lista das baixadas vive FORA do `.au-gravacao`, entao carrega o proprio
+   recuo. O `@media` la em cima passa este bloco para 16px junto com os outros. */
+.au-baixadas-lote{padding:0 24px; max-width:620px}
+.au-baixadas{list-style:none; margin:var(--sp-2) 0 0; padding:0}
+.au-baixadas li{
+  display:flex; justify-content:space-between; align-items:center;
+  gap:var(--sp-2); padding:var(--sp-1) 0;
+  font-family:var(--fonte-principal); color:var(--text);
+  font-size:max(9px, calc(14px * var(--escala-texto, 1)));
+  overflow-wrap:anywhere;
+  border-bottom:1px solid var(--border);
+}
+/* Mesma historia do `.au-baixar`: o "Desfazer" precisa de 40px de area de dedo,
+   e o `margin-top` do `.au-link` desalinharia ele da linha. */
+.au-baixadas .au-link{min-height:40px; display:inline-flex; align-items:center; margin-top:0; flex:none}
 </style>

@@ -9,8 +9,19 @@ export function enderecoDaTag(codigo) {
   return `${DOMINIO}/verify/${String(codigo || '').trim().toUpperCase()}`
 }
 
+// PEÇA BAIXADA SAI DA FILA. Sem isto a tela mandaria alguém gravar a etiqueta
+// de uma peça dada como refugo, e a etiqueta iria para dentro de uma bolsa que
+// não deveria existir.
+//
+// EXPORTADA de propósito: `nfc-fila.js` precisa exatamente desta regra para a
+// lista do gravador de mesa, e tinha uma CÓPIA à mão (`!p.gravada_em &&
+// !p.baixada`). Duas cópias da mesma regra divergem no dia em que a regra muda
+// — e a que ficar para trás manda gravar a etiqueta de uma peça baixada.
+export const naFila = (p) => !p.baixada
+
 export function progressoDoLote(pecas) {
-  const lista = Array.isArray(pecas) ? pecas : []
+  // a baixada sai dos DOIS números: se ficasse no total, o lote nunca fecharia
+  const lista = (Array.isArray(pecas) ? pecas : []).filter(naFila)
   const gravadas = lista.filter((p) => p.gravada_em).length
   return { gravadas, total: lista.length, texto: `${gravadas} de ${lista.length}` }
 }
@@ -19,9 +30,65 @@ export function progressoDoLote(pecas) {
 // banco não devolve ordenado sozinho, então a ordem se garante aqui.
 export function proximaPorGravar(pecas) {
   const lista = (Array.isArray(pecas) ? pecas : [])
-    .filter((p) => !p.gravada_em)
+    .filter((p) => naFila(p) && !p.gravada_em)
     .sort((a, b) => (a.numero_na_serie || 0) - (b.numero_na_serie || 0))
   return lista[0] || null
+}
+
+// ── OS MOTIVOS DE BAIXA ────────────────────────────────────────────────────
+// Os quatro que o dono escolheu. A chave é o que o banco aceita (há um `check`
+// na tabela com exatamente estas quatro); o rótulo é o que a pessoa lê.
+export const MOTIVOS_DE_BAIXA = [
+  { chave: 'extraviada', rotulo: 'Extraviada' },
+  { chave: 'defeito', rotulo: 'Defeito ou refugo' },
+  { chave: 'devolvida', rotulo: 'Devolvida' },
+  { chave: 'etiqueta_perdida', rotulo: 'Etiqueta perdida ou danificada' },
+]
+
+// ── AS FRASES DE RECUSA ────────────────────────────────────────────────────
+// Botão desabilitado calado faz a pessoa achar que a ferramenta está quebrada.
+// Cada recusa do banco vira uma frase que diz POR QUE e O QUE FAZER.
+export function fraseDaRecusa(motivo, dados = {}) {
+  const d = dados || {}
+  switch (motivo) {
+    case 'tem_gravada':
+      return `Não dá para excluir: ${d.gravadas} das ${d.total} etiquetas deste lote `
+        + 'já foram gravadas e podem estar dentro de bolsas. Você pode dar baixa nas peças, uma a uma.'
+    case 'tem_garantia': {
+      // `gravada_em` não era a única prova de que a peça está no mundo: a
+      // cliente registra a garantia pelo CÓDIGO, sem a peça precisar estar
+      // gravada, e `vessel_registros` cai por `on delete cascade` junto com a
+      // peça. Aqui não há conselho a dar — diferente de `esta_gravada`, não há
+      // "dê baixa em vez disso": há uma garantia de uma pessoa de verdade
+      // pendurada no código, e ninguém do lado de cá pode tirá-la.
+      const n = d.garantias ?? 1
+      // A mesma recusa serve ao lote (o banco manda `total` junto) e à peça
+      // sozinha (manda só `garantias`). Dizer "deste lote" ao excluir UMA peça
+      // seria uma mentira pequena, e a tela não mente.
+      const onde = d.total == null ? '' : ' deste lote'
+      return `Não dá para excluir: ${n} peça(s)${onde} já têm garantia registrada `
+        + 'por uma cliente. Apagar tiraria a garantia dela.'
+    }
+    case 'esta_gravada':
+      return 'Esta etiqueta já foi gravada e pode estar dentro de uma bolsa. '
+        + 'Em vez de excluir, dê baixa nela com o motivo.'
+    case 'abaixo_do_gravado':
+      return `Não dá para diminuir tanto: ${d.gravadas} peça(s) já foram gravadas. `
+        + `O mínimo é ${d.gravadas}.`
+    case 'ja_baixada':
+      return 'Esta peça já está baixada. Desfaça a baixa antes de baixar de novo.'
+    case 'nao_esta_baixada':
+      return 'Esta peça não está baixada.'
+    case 'sem_permissao':
+      return 'Você não tem permissão para isso. Peça a chave "autenticidade" a um administrador.'
+    case 'lote_nao_existe':
+    case 'peca_nao_existe':
+      return 'Não encontrei esse registro. Recarregue a tela e tente de novo.'
+    case 'dados_invalidos':
+      return 'Confira os campos: o modelo é obrigatório e a quantidade vai de 1 a 500.'
+    default:
+      return 'Não consegui fazer isso agora. Recarregue a tela e tente de novo.'
+  }
 }
 
 const COLUNAS = [
@@ -51,5 +118,15 @@ export function linhasDoCsv(registros) {
 export function resumoDeAlertas(alertas) {
   const repetidas = alertas?.repetidas?.length || 0
   const invalidas = alertas?.invalidas?.length || 0
-  return { repetidas, invalidas, limpo: repetidas === 0 && invalidas === 0 }
+  // A PEÇA BAIXADA QUE FOI LIDA É O ALERTA MAIS IMPORTANTE DESTE PROJETO: a
+  // bolsa foi dada como extraviada e alguém encostou o celular nela depois
+  // disso. Sem contar aqui, a aba dizia "nada suspeito" com uma bolsa
+  // extraviada reaparecendo no mundo — e a tela nunca mente.
+  const baixadasLidas = alertas?.baixadas_lidas?.length || 0
+  return {
+    repetidas,
+    invalidas,
+    baixadasLidas,
+    limpo: repetidas === 0 && invalidas === 0 && baixadasLidas === 0,
+  }
 }
