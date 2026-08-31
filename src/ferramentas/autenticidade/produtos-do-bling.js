@@ -92,13 +92,27 @@ export function corDoProduto(codigo, nome) {
 // que a cliente lê como modelo. Continua editável na tela: o Bling preenche,
 // a pessoa confere.
 //
-// O corte usa a MESMA fronteira de palavra do `corDoProduto`: cortar por letras
-// transformava "Bolsa Tote Grande Paris Couro" em "Tote Grande Paris C".
+// O CORTE É POR PALAVRAS, NUNCA POR CONTAGEM DE LETRAS. Contar letras já tinha
+// transformado "Bolsa Tote Grande Paris Couro" em "Tote Grande Paris C", e o
+// mesmo defeito voltou pela porta dos fundos com o ACENTO DECOMPOSTO: o Bling
+// manda "ç" como um caractere só (NFC) ou como "c" + cedilha solta (NFD), a
+// conta era feita no texto SEM acento e aplicada no texto COM acento, os dois
+// com comprimentos diferentes, e "Bolsa Tote Grande Florença" em NFD saía como
+// "Tote Grande F". Tirar do fim tantas PALAVRAS quantas a cor tem não depende
+// de quantos code points cada uma ocupa.
+//
+// O ruído do fim (o tamanho do ERP) sai junto: é o mesmo que o
+// `terminaEmPalavra` já ignora no nome, e deixá-lo devolveria o modelo com a
+// cor dentro. O modelo NUNCA fica vazio — se o corte levasse tudo, fica o nome.
 export function modeloDoProduto(nome, cor) {
-  let texto = String(nome ?? '').trim().replace(/^bolsa\s+/i, '').trim()
-  if (cor) {
-    const semCor = texto.slice(0, texto.length - String(cor).length).trim()
-    if (terminaEmPalavra(semAcento(texto), semAcento(cor)) && semCor) texto = semCor
+  let texto = String(nome ?? '').trim()
+    .replace(/^bolsa\s+/i, '').replace(/\s+/g, ' ').trim()
+  if (cor && terminaEmPalavra(semAcento(texto), semAcento(cor))) {
+    const palavras = texto.split(' ')
+    while (palavras.length && !ehPalavraDeCor(semAcento(palavras[palavras.length - 1]))) palavras.pop()
+    const quantasDaCor = semAcento(cor).split(' ').filter(Boolean).length
+    const semCor = palavras.slice(0, palavras.length - quantasDaCor).join(' ').trim()
+    if (semCor) texto = semCor
   }
   return texto
 }

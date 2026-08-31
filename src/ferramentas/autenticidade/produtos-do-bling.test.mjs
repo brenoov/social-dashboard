@@ -170,3 +170,22 @@ test('corDoProduto: espaco digitado a mais no ERP nao parte a cor composta', () 
   // composta inteiro, vivo para todo nome com espaço a mais.
   assert.equal(corDoProduto('SS1500-Off-White', 'Bolsa Bath Off  White'), 'Off White')
 })
+
+test('modeloDoProduto: acento decomposto (NFD) nao mutila o modelo', () => {
+  // O Bling manda "ç" das duas formas: um caractere só (NFC) ou "c" + cedilha
+  // solta (NFD). Cortar a cor CONTANDO LETRAS quebrava na segunda: a conta era
+  // feita sobre o texto sem acento e aplicada sobre o texto COM acento, os dois
+  // com comprimentos diferentes, e sobrava "Tote Grande F". É o defeito de
+  // "cortar no meio da palavra" voltando pela porta dos fundos — por isso o
+  // corte é por PALAVRAS, que não dependem de quantos code points cada uma tem.
+  const nome = 'Bolsa Tote Grande Florença'.normalize('NFD')
+  const cor = corDoProduto('SS1-Florenca', nome)
+  assert.equal(cor, 'Florenca')
+  assert.equal(modeloDoProduto(nome, cor), 'Tote Grande')
+})
+
+test('modeloDoProduto: o tamanho do fim sai junto com a cor', () => {
+  // "Bolsa Bath Mostarda P" com cor "Mostarda": o "P" é ruído do ERP, e deixá-lo
+  // ali devolveria o modelo com a cor dentro ("Bath Mostarda").
+  assert.equal(modeloDoProduto('Bolsa Bath Mostarda P', 'Mostarda'), 'Bath')
+})
