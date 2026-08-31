@@ -16,8 +16,14 @@ export function ehProdutoVessel(codigo) {
   return /^SS/i.test(String(codigo ?? '').trim())
 }
 
+// JUNTAR OS ESPAÇOS REPETIDOS FAZ PARTE DA LIMPEZA: o nome do produto vem do
+// ERP DIGITADO à mão, e dedo escorregado põe dois espaços no meio. Sem isto,
+// "off white" (um espaço, vindo do código) nunca terminava "off  white" (dois,
+// vindo do nome), a cor composta voltava pela METADE — "White" — e o "Off"
+// ficava grudado no modelo.
 const semAcento = (s) => String(s ?? '')
-  .normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
+  .normalize('NFD').replace(/[̀-ͯ]/g, '')
+  .toLowerCase().replace(/\s+/g, ' ').trim()
 
 // ── A COR, quando dá para ter certeza ─────────────────────────────────────
 // O SKU carrega pedaços separados por hífen, e um deles COSTUMA ser a cor:

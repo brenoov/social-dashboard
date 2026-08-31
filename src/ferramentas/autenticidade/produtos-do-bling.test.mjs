@@ -140,3 +140,12 @@ test('produtosParaEscolher: o produto de cor composta chega inteiro na tela', ()
   assert.equal(p.cor, 'Off White')
   assert.equal(p.modelo, 'De Mão Média Bath')
 })
+
+test('corDoProduto: espaco digitado a mais no ERP nao parte a cor composta', () => {
+  // O nome vem do ERP DIGITADO à mão, e dedo escorregado põe dois espaços. Como
+  // o `semAcento` não juntava espaços repetidos, "off white" (um espaço, do
+  // código) nunca terminava "off  white" (dois, do nome) — e a cor voltava pela
+  // METADE, como "White", com o "Off" grudado no modelo. É o defeito da cor
+  // composta inteiro, vivo para todo nome com espaço a mais.
+  assert.equal(corDoProduto('SS1500-Off-White', 'Bolsa Bath Off  White'), 'Off White')
+})
