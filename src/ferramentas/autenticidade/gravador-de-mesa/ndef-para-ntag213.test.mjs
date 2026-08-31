@@ -315,3 +315,64 @@ test('aceita Uint8Array, que e o que um leitor devolve', () => {
   assert.equal(escritas[0].pagina, 5)
   assert.equal(enderecoNaEtiqueta(Uint8Array.from(memoriaDepois(escritas, DE_FABRICA))), ENDERECO)
 })
+
+// ── A MENSAGEM PODE TER MAIS DE UM REGISTRO ────────────────────────────────
+// LER SO O PRIMEIRO REGISTRO E O DEFEITO MAIS PERIGOSO DESTE ARQUIVO.
+// `conferirLeitura` (nfc-fila.js) trata endereco vazio como 'vazia' → PODE
+// GRAVAR. Entao uma etiqueta que JA TEM outra peca, mas com o endereco no
+// segundo registro, seria lida como em branco e gravada por cima: a bolsa que
+// estava com aquela etiqueta perde a identidade, e ninguem descobre ate uma
+// cliente encostar o celular e ver a bolsa errada.
+//
+// O caminho do celular sempre fez certo: `urlDaMensagem`, em gravador-nfc.js,
+// ja percorre TODOS os `records`. Aqui tinha de ser igual.
+
+// Embrulha uma mensagem NDEF no TLV com terminador, do jeito que fica na etiqueta.
+const comTlv = (mensagem) => [0x03, mensagem.length, ...mensagem, 0xfe]
+
+test('endereco no SEGUNDO registro tambem e encontrado', () => {
+  // registro de TEXTO primeiro (91 = primeiro registro, forma curta, tipo
+  // conhecido), registro de URL depois (51 = ultimo registro)
+  const texto1 = [0x91, 0x01, 0x04, 0x54, 0x02, ...texto('enA')]
+  const url = [0x51, 0x01, 0x06, 0x55, 0x04, ...texto('x.com')]
+  assert.equal(enderecoNaEtiqueta(comTlv([...texto1, ...url])), 'https://x.com')
+})
+
+test('endereco depois do registro de aplicativo do Android e encontrado', () => {
+  // O caso de verdade: etiqueta gravada pelo NFC Tools na bancada. Ele poe um
+  // Android Application Record (tipo externo, TNF 4) ANTES do endereco.
+  const nome = 'android.com:pkg'
+  const pacote = 'com.wakdev.wdnfc'
+  const aar = [0x94, nome.length, pacote.length, ...texto(nome), ...texto(pacote)]
+  const resto = `vesselbrasil.com.br/verify/${CODIGO}`
+  const url = [0x51, 0x01, 1 + resto.length, 0x55, 0x04, ...texto(resto)]
+  assert.equal(enderecoNaEtiqueta(comTlv([...aar, ...url])), ENDERECO,
+    'a etiqueta JA TEM esta peca: dizer que esta vazia manda gravar por cima')
+})
+
+test('pedaco de registro cortado (bit CF) nao passa por endereco inteiro', () => {
+  // B1 tem o bit CF: e so o COMECO de um endereco, continuado no registro
+  // seguinte (TNF 6, "continua o de cima"). Meio endereco nao vale por endereco.
+  const pedaco1 = [0xb1, 0x01, 0x04, 0x55, 0x04, ...texto('abc')]
+  const pedaco2 = [0x16, 0x00, 0x03, ...texto('def')]
+  const url = [0x51, 0x01, 0x06, 0x55, 0x04, ...texto('x.com')]
+  assert.equal(enderecoNaEtiqueta(comTlv([...pedaco1, ...pedaco2, ...url])), 'https://x.com')
+})
+
+test('registro de endereco absoluto (TNF 3) tambem e endereco', () => {
+  // O celular le este tipo tambem (`absolute-url`, em urlDaMensagem). Se o
+  // tradutor de mesa nao lesse, ele diria "vazia" para uma etiqueta ocupada.
+  const url = 'https://x.com/a'
+  assert.equal(enderecoNaEtiqueta(comTlv([0xd3, url.length, 0x00, ...texto(url)])), url)
+})
+
+test('endereco absoluto que nao e da web nao vale por endereco', () => {
+  const urn = 'urn:nfc:ext:x'
+  assert.equal(enderecoNaEtiqueta(comTlv([0xd3, urn.length, 0x00, ...texto(urn)])), '')
+})
+
+test('varios registros e NENHUM de endereco devolve vazio', () => {
+  const texto1 = [0x91, 0x01, 0x04, 0x54, 0x02, ...texto('enA')]
+  const texto2 = [0x51, 0x01, 0x04, 0x54, 0x02, ...texto('enB')]
+  assert.equal(enderecoNaEtiqueta(comTlv([...texto1, ...texto2])), '')
+})

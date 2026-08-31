@@ -8,12 +8,27 @@
 // O DOMÍNIO NÃO MORA AQUI. O endereço chega pronto, de `enderecoDaTag`
 // (lotes.js). Domínio em dois lugares é domínio errado esperando acontecer — e
 // este vai gravado dentro de um chip costurado numa bolsa, onde não se corrige.
+//
+// O QUE ESTE ARQUIVO NÃO FAZ, DE PROPÓSITO:
+//  • Não confere a página 3 dentro de `planoDeGravacao`. A ordem — conferir o
+//    Capability Container, ler a memória, planejar, gravar, ler de volta e
+//    conferir com `enderecoNaEtiqueta` — é de quem chama. O tradutor traduz;
+//    quem decide o que fazer com a etiqueta é a tela. Não faltou: é separado.
+//  • Não junta escritas. Uma escrita por página está certo: o leitor de mesa
+//    escreve 4 bytes por vez numa etiqueta destas. A LEITURA é que pode pegar 4
+//    páginas de uma tacada; a escrita, não. Agrupar seria otimizar contra o
+//    hardware.
+//  • Não trava a etiqueta. Travar mexe na página 40 e no Capability Container,
+//    é irreversível, e é outro módulo.
 
 // ── A MEMÓRIA DA ETIQUETA (datasheet NXP) ──────────────────────────────────
 // A NTAG213 tem páginas de 4 bytes. A página 3 é o Capability Container. As
 // páginas 4 a 39 (0x04–0x27) são os 144 bytes de memória do usuário — o único
 // lugar onde este arquivo pode escrever. A página 40 são as travas dinâmicas e
 // as 41 a 44 são configuração e senha: escrever lá estraga a etiqueta.
+const LETRAS_PARA_BYTES = new TextEncoder()
+const BYTES_PARA_LETRAS = new TextDecoder()
+
 const BYTES_POR_PAGINA = 4
 export const PRIMEIRA_PAGINA = 4
 export const ULTIMA_PAGINA = 39
@@ -62,7 +77,7 @@ function registroDeUrl(endereco) {
   }
   const [codigo, prefixo] = PREFIXOS.find(([, p]) => p && texto.toLowerCase().startsWith(p))
     || [0x00, '']
-  const conteudo = [codigo, ...new TextEncoder().encode(texto.slice(prefixo.length))]
+  const conteudo = [codigo, ...LETRAS_PARA_BYTES.encode(texto.slice(prefixo.length))]
   return [0xd1, 0x01, conteudo.length, 0x55, ...conteudo]
 }
 
@@ -153,39 +168,107 @@ export function planoDeGravacao(endereco, memoriaAtual) {
 // ── O CONTRÁRIO: O QUE ESTÁ NA ETIQUETA ────────────────────────────────────
 // Conferir é metade do trabalho. É por aqui que se prova que a gravação deu
 // certo, e é por aqui que se descobre que a etiqueta JÁ TEM outra peça antes de
-// escrever por cima — gravar em cima apagaria a etiqueta de outra bolsa, que
-// não tem como ser reaberta para trocar.
+// escrever por cima.
+//
+// ⚠️ VOLTAR VAZIO AQUI FAZ A TELA DIZER "ETIQUETA EM BRANCO" E GRAVAR POR CIMA
+// DE OUTRA BOLSA. Quem decide gravar é `conferirLeitura`, em nfc-fila.js, e ela
+// trata endereço vazio como 'vazia' → pode gravar. A bolsa que estava com
+// aquela etiqueta perde a identidade, e ninguém descobre até uma cliente
+// encostar o celular e ver a bolsa errada — com a etiqueta já costurada dentro
+// do forro, onde não se reabre.
+//
+// A CICATRIZ: a primeira versão deste arquivo lia só o PRIMEIRO registro da
+// mensagem. Nosso celular grava um registro só, então na bancada parecia certo.
+// Mas uma etiqueta gravada pelo NFC Tools, ou por qualquer app de terceiro, põe
+// o registro de aplicativo do Android ANTES do endereço — e essa etiqueta seria
+// lida como em branco. O caminho do celular sempre fez certo: `urlDaMensagem`,
+// em gravador-nfc.js, percorre TODOS os `records`. Aqui é igual: na dúvida,
+// procura-se MAIS, nunca menos.
 
-// Lê UM registro NDEF e devolve o endereço dele. Devolve '' para tudo que não
-// for um registro de URL: registro de texto, de tipo estranho, cortado no meio.
-// Vazio quer dizer "não achei endereço aqui" — nunca um endereço adivinhado.
-function enderecoDoRegistro(bytes) {
+// Os bits do cabeçalho de cada registro (NFC Forum NDEF):
+const REGISTRO_ULTIMO = 0x40 // ME: a mensagem acaba neste registro
+const REGISTRO_PEDACO = 0x20 // CF: isto é só um PEDAÇO de um registro maior
+const REGISTRO_CURTO = 0x10 // SR: o tamanho do conteúdo cabe em 1 byte
+const REGISTRO_TEM_ID = 0x08 // IL: tem um campo de id no meio
+const TIPO_CONHECIDO = 0x01 // TNF 1: tipo do catálogo do NFC Forum ('U', 'T'...)
+const TIPO_ENDERECO_ABSOLUTO = 0x03 // TNF 3: o NOME do tipo é a própria URL
+const NOME_URI = 0x55 // 'U', de URI
+// O bit MB (0x80) marca o primeiro registro. Ele NÃO é exigido aqui: recusar a
+// mensagem inteira por causa dele devolveria '' — e '' é a resposta perigosa.
+
+// Corta a mensagem na cadeia de registros dela, andando pelos tamanhos que cada
+// cabeçalho declara. Para no ME, e para também se os bytes acabarem no meio:
+// mensagem cortada não vira registro adivinhado.
+function registrosDaMensagem(bytes) {
+  const registros = []
   let i = 0
-  const cabecalho = bytes[i++]
-  if (typeof cabecalho !== 'number') return ''
-  const tipoDeNome = cabecalho & 0x07 // TNF: 1 = tipo conhecido do NFC Forum
-  const forma_curta = (cabecalho & 0x10) !== 0
-  const temId = (cabecalho & 0x08) !== 0
-  // A forma longa gasta 4 bytes de tamanho e só existe acima de 255 bytes de
-  // conteúdo — não cabe numa etiqueta de 144. Se aparecer, é lixo.
-  if (tipoDeNome !== 0x01 || !forma_curta) return ''
+  while (i < bytes.length) {
+    const cabecalho = bytes[i]
+    if (typeof cabecalho !== 'number') break
+    let j = i + 1
+    const tamanhoDoNome = bytes[j]
+    j += 1
 
-  const tamanhoDoNome = bytes[i++]
-  const tamanhoDoConteudo = bytes[i++]
-  const tamanhoDoId = temId ? bytes[i++] : 0
-  const nome = bytes.slice(i, i + tamanhoDoNome)
-  i += tamanhoDoNome + tamanhoDoId
-  if (tamanhoDoNome !== 1 || nome[0] !== 0x55) return '' // 55 = 'U', de URI
+    let tamanhoDoConteudo
+    if (cabecalho & REGISTRO_CURTO) {
+      tamanhoDoConteudo = bytes[j]
+      j += 1
+    } else {
+      // A forma longa gasta 4 bytes e só existe acima de 255 bytes de conteúdo:
+      // não cabe numa etiqueta de 144. Lê-se assim mesmo para conseguir PULAR o
+      // registro e chegar no próximo, em vez de desistir da mensagem inteira —
+      // desistir devolveria vazio, que é o que manda gravar por cima.
+      const quatro = bytes.slice(j, j + 4)
+      j += 4
+      if (quatro.length < 4) break
+      tamanhoDoConteudo = quatro[0] * 0x1000000 + quatro[1] * 0x10000
+        + quatro[2] * 0x100 + quatro[3]
+    }
 
-  const conteudo = bytes.slice(i, i + tamanhoDoConteudo)
-  if (conteudo.length !== tamanhoDoConteudo || conteudo.length === 0) return ''
+    const tamanhoDoId = (cabecalho & REGISTRO_TEM_ID) ? bytes[j++] : 0
+    if (![tamanhoDoNome, tamanhoDoConteudo, tamanhoDoId].every((n) => typeof n === 'number')) break
+
+    const nome = bytes.slice(j, j + tamanhoDoNome)
+    j += tamanhoDoNome + tamanhoDoId
+    const conteudo = bytes.slice(j, j + tamanhoDoConteudo)
+    j += tamanhoDoConteudo
+    if (nome.length !== tamanhoDoNome || conteudo.length !== tamanhoDoConteudo) break
+
+    registros.push({ cabecalho, nome, conteudo })
+    i = j
+    if (cabecalho & REGISTRO_ULTIMO) break
+  }
+  return registros
+}
+
+// O endereço de UM registro, ou '' quando aquele registro não é endereço.
+// Vazio aqui só quer dizer "não é neste": quem chama continua procurando nos
+// outros. Nunca é um endereço adivinhado.
+function enderecoDoRegistro({ cabecalho, nome, conteudo }) {
+  // Pedaço de registro cortado é MEIO endereço, e meio endereço não vale por
+  // endereço: um pedaço com `https://abc` faria a tela dizer que a etiqueta já
+  // está gravada com uma peça que não existe.
+  if (cabecalho & REGISTRO_PEDACO) return ''
+  const tipo = cabecalho & 0x07
+
+  // Endereço absoluto: o NOME do tipo é a própria URL e o conteúdo vem vazio. O
+  // celular lê este tipo também (`absolute-url`, em urlDaMensagem) — se aqui
+  // não lesse, o gravador de mesa diria "vazia" para uma etiqueta ocupada.
+  if (tipo === TIPO_ENDERECO_ABSOLUTO) {
+    const url = BYTES_PARA_LETRAS.decode(Uint8Array.from(nome))
+    return /^https?:\/\//i.test(url) ? url : ''
+  }
+
+  if (tipo !== TIPO_CONHECIDO) return ''
+  if (nome.length !== 1 || nome[0] !== NOME_URI) return ''
+  if (!conteudo.length) return ''
   const prefixo = PREFIXOS.find(([codigo]) => codigo === conteudo[0])
   if (!prefixo) return '' // `tel:`, `mailto:` e companhia não são endereço de peça
-  return prefixo[1] + new TextDecoder().decode(Uint8Array.from(conteudo.slice(1)))
+  return prefixo[1] + BYTES_PARA_LETRAS.decode(Uint8Array.from(conteudo.slice(1)))
 }
 
 // Recebe os bytes lidos da etiqueta (a partir da página 4) e devolve o endereço
-// que está lá — ou '' se não houver mensagem NDEF de URL.
+// que está lá — ou '' se não houver mensagem NDEF de URL em registro nenhum.
 export function enderecoNaEtiqueta(memoriaAtual) {
   const memoria = bytesLidos(memoriaAtual)
   let i = 0
@@ -195,7 +278,16 @@ export function enderecoNaEtiqueta(memoriaAtual) {
     if (tipo === TLV_ENCHIMENTO) { i += 1; continue } // enchimento gasta 1 byte só
     const tamanho = memoria[i + 1]
     if (typeof tamanho !== 'number' || tamanho === 0xff) return ''
-    if (tipo === TLV_MENSAGEM) return enderecoDoRegistro(memoria.slice(i + 2, i + 2 + tamanho))
+    if (tipo === TLV_MENSAGEM) {
+      // TODOS os registros, não só o primeiro. O primeiro pode ser o registro
+      // de aplicativo do Android, um texto, ou qualquer coisa que outro app pôs
+      // na frente.
+      for (const registro of registrosDaMensagem(memoria.slice(i + 2, i + 2 + tamanho))) {
+        const endereco = enderecoDoRegistro(registro)
+        if (endereco) return endereco
+      }
+      return ''
+    }
     // qualquer outro embrulho (Lock Control, memória reservada) se pula inteiro
     i += 2 + tamanho
   }
