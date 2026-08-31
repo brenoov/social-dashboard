@@ -109,8 +109,29 @@ test('corDoProduto: pedaco de UMA letra nao vira cor', () => {
   // Tamanho (P/M/G) no fim do SKU é um pedaço de uma letra só, e uma letra
   // casa por acaso com quase um nome em dez.
   assert.equal(corDoProduto('SS1234-a', 'Bolsa Angers Seda'), '')
-  assert.equal(corDoProduto('SS1234-G', 'Bolsa De Mão Média Bath Mostarda G'), 'G',
-    'quando a letra É a última palavra do nome, ela continua valendo')
+
+  // ESTE TESTE MUDOU DE LADO em 31/08/2026, e o motivo importa: ele afirmava
+  // que "quando a letra É a última palavra do nome, ela continua valendo" —
+  // consagrava o defeito como acerto. Não vale. NENHUMA COR EM PORTUGUÊS TEM
+  // UMA LETRA SÓ: esse "G" é o tamanho, e o ERP escreve o mesmo tamanho no fim
+  // do nome, então as duas fontes concordarem ali não prova nada. Quem encosta
+  // o celular na etiqueta lia "Cor: G". O certo é voltar VAZIO e quem cria o
+  // lote preencher: campo vazio a pessoa vê; campo errado ela não.
+  assert.equal(corDoProduto('SS1234-G', 'Bolsa De Mão Média Bath Mostarda G'), '',
+    'tamanho nao e cor — voltar vazio e deixar a pessoa preencher')
+})
+
+test('corDoProduto: pedaco so de numero nao vira cor', () => {
+  // Códigos internos ("02") também terminam o nome por acaso. A cliente lia
+  // "Cor: 02". Cor tem letra.
+  assert.equal(corDoProduto('SS1-02', 'Bolsa Tote Paris 02'), '')
+})
+
+test('corDoProduto: a cor certa nao vem somada do tamanho solto', () => {
+  // Aqui a junção "Mostarda P" terminava o nome inteirinha e a cor saía com um
+  // "P" pendurado. O tamanho é ruído dos DOIS lados — do código e do nome — e
+  // o que sobra depois de tirá-lo é a cor de verdade.
+  assert.equal(corDoProduto('SS1234-Mostarda-P', 'Bolsa Bath Mostarda P'), 'Mostarda')
 })
 
 test('corDoProduto: cor composta partida pelo hifen volta INTEIRA', () => {

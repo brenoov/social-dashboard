@@ -38,15 +38,34 @@ const semAcento = (s) => String(s ?? '')
 // concordam, a cor volta vazia e quem cria o lote preenche. Campo vazio a
 // pessoa vê; campo errado ela não.
 //
+// PARECER COR JÁ ELIMINA MUITO CHUTE: pelo menos dois caracteres e pelo menos
+// uma letra. NENHUMA COR EM PORTUGUÊS TEM UMA LETRA SÓ — o "G" solto do fim do
+// SKU é o tamanho (P/M/G) e o "02" é código interno. Os dois terminavam o nome
+// por acaso, e quem encostava o celular na etiqueta lia "Cor: G".
+const ehPalavraDeCor = (palavra) => palavra.length >= 2 && /[a-z]/.test(palavra)
+
+// E O MESMO RUÍDO APARECE NO FIM DO NOME, porque o ERP carimba o tamanho nos
+// dois lugares: o SKU acaba em "-P" e o nome acaba em " P". Por isso ele sai do
+// fim do nome antes da comparação — senão "Bolsa Bath Mostarda P" não termina
+// em "Mostarda" e a cor CERTA se perde junto com a errada. Sai só do fim, e só
+// enquanto for ruído: palavra de verdade no meio ninguém toca.
+const palavrasUteis = (texto) => {
+  const p = String(texto).split(' ').filter(Boolean)
+  while (p.length && !ehPalavraDeCor(p[p.length - 1])) p.pop()
+  return p
+}
+
 // TERMINAR O NOME É TERMINAR NUMA PALAVRA INTEIRA. Com `endsWith` puro a
 // comparação era de LETRAS, não de palavras, e o estrago saía nos dois campos
 // de uma vez:
 //   "SS1234-Ouro" + "Bolsa Tote Grande Paris Couro" → cor "Ouro",
 //                                     modelo "Tote Grande Paris C"
-// Um pedaço de UMA letra (o tamanho P/M/G que alguns SKUs carregam) casava por
-// acaso com quase um nome em dez.
+// Recebe os dois lados já passados pelo `semAcento`.
 function terminaEmPalavra(nome, alvo) {
-  return nome === alvo || nome.endsWith(' ' + alvo)
+  const palavras = String(alvo).split(' ').filter(Boolean)
+  if (!palavras.length || !palavras.every(ehPalavraDeCor)) return false
+  const n = palavrasUteis(nome).join(' ')
+  return n === alvo || n.endsWith(' ' + alvo)
 }
 
 // A COR COMPOSTA CHEGA PARTIDA: o hífen que separa os pedaços do SKU é o mesmo
