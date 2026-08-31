@@ -148,6 +148,34 @@ begin
   insert into resultado values (27, 'e NAO apagou nenhuma delas',
     (select count(*) = 2 from public.vessel_pecas
       where lote_id = '44444444-4444-4444-4444-444444444444'));
+
+  -- ── QUEM PODE CHAMAR, e nao so o que a funcao FAZ ───────────────────────
+  -- As asserçoes acima medem COMPORTAMENTO. Nenhuma delas pegaria o furo que
+  -- foi para producao em 30/08: `vessel_criar_pecas` ficou executavel por
+  -- QUALQUER pessoa logada, porque `revoke ... from public, anon` NAO tira a
+  -- concessao que o Postgres da por default a `authenticated`. E o ajudante era
+  -- security definer SEM portao por dentro — a concessao era a unica porta.
+  -- Estas quatro linhas sao a versao permanente daquela liçao.
+  insert into resultado values (90, 'ajudante criar_pecas: quem esta logado NAO executa',
+    has_function_privilege('authenticated','public.vessel_criar_pecas(uuid,int,int)','execute') = false);
+  insert into resultado values (91, 'ajudante renumerar_lote: quem esta logado NAO executa',
+    has_function_privilege('authenticated','public.vessel_renumerar_lote(uuid)','execute') = false);
+  insert into resultado values (92, 'nenhuma funcao de administracao aberta ao ANONIMO',
+    (select bool_and(has_function_privilege('anon', p.oid, 'execute') = false)
+       from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname = 'public'
+        and p.proname in ('vessel_gerar_lote','vessel_editar_lote','vessel_excluir_lote',
+                          'vessel_excluir_peca','vessel_baixar_peca','vessel_desfazer_baixa',
+                          'vessel_marcar_gravada','vessel_alertas',
+                          'vessel_criar_pecas','vessel_renumerar_lote')));
+  insert into resultado values (93, 'e toda funcao de administracao tem portao POR DENTRO',
+    (select bool_and(pg_get_functiondef(p.oid) like '%is_vessel_admin()%')
+       from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname = 'public'
+        and p.proname in ('vessel_gerar_lote','vessel_editar_lote','vessel_excluir_lote',
+                          'vessel_excluir_peca','vessel_baixar_peca','vessel_desfazer_baixa',
+                          'vessel_marcar_gravada','vessel_alertas',
+                          'vessel_criar_pecas','vessel_renumerar_lote')));
 end $$;
 
 -- TODAS as linhas têm de vir passou = true. Qualquer false ou nulo é defeito.
