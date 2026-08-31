@@ -84,6 +84,28 @@ export function textoDoAviso(causa, { ehAdmin = false, horaDoDado = null, tecnic
   return { titulo: 'O Bling não respondeu.', detalhe: `Erro no servidor do Bling.${HORA(horaDoDado)}${curto ? ' · ' + curto : ''}` }
 }
 
+// ── DO ERRO PEGO NO `catch` ATÉ AS DUAS FRASES DA FAIXA ───────────────────
+// Entre `catch (e)` e `textoDoAviso` há um passo de dois dedos que cada tela
+// vinha dando à mão — e a terceira tela a dar errou os dois lados dele:
+//
+//   1. `e.message` NÃO é a causa. `ErroDoBling` faz `super(tecnica || causa)`,
+//      então `message` é sempre o texto técnico ("403 sem permissao"), nenhum
+//      ramo de classificação casa com ele e o aviso caía sempre em "O Bling não
+//      respondeu" — anunciando um problema de crachá como queda do fornecedor.
+//   2. `textoDoAviso` devolve um OBJETO. Jogado inteiro num `{{ }}`, a pessoa lê
+//      `[object Object]`.
+//
+// O passo mora aqui, junto do `ErroDoBling` e do `textoDoAviso`, para não haver
+// uma quarta tela dando-o à mão. Erro que NÃO é do Bling vira 'erro-na-tela':
+// defeito nosso não se anuncia como defeito do fornecedor.
+export function avisoDoErro(erro, opcoes = {}) {
+  const doBling = erro instanceof ErroDoBling
+  const causa = doBling ? erro.causa : 'erro-na-tela'
+  const tecnica = doBling ? erro.tecnica : (erro?.message || '')
+  const { titulo, detalhe } = textoDoAviso(causa, { ...opcoes, tecnica })
+  return { titulo, detalhe }
+}
+
 // ── A chamada ─────────────────────────────────────────────────────────────
 // A diferença que importa em relação ao código antigo é UMA linha: conferir
 // `r.ok` antes de interpretar o corpo. O resto é o mesmo.

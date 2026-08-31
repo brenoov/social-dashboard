@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 // conectar-no-banco-de-dados.js chama window.supabase.createClient() ao carregar
 // (no navegador existe, aqui não). Mesmo truque de notificacoes-push.test.mjs.
 globalThis.window = { supabase: { createClient: () => ({}) } }
-const { classificarFalhaDoBling, textoDoAviso, ErroDoBling, chamarBling, paginasDoBling } = await import('./chamada-do-bling.js')
+const { classificarFalhaDoBling, textoDoAviso, avisoDoErro, ErroDoBling, chamarBling, paginasDoBling } = await import('./chamada-do-bling.js')
 
 test('500 com "Token refresh failed" é o Bling recusando o iamundi', () => {
   const corpo = { error: 'Error: Token refresh failed: {"error":{"type":"FORBIDDEN","message":"Usuário não autorizado"}}' }
@@ -150,4 +150,43 @@ test('paginasDoBling propaga a falha em vez de devolver lista vazia', async () =
     () => comFetch([{ status: 500, corpo: { error: 'boom' } }],
       () => paginasDoBling(sbFalso, 'pedidos/vendas', {})),
     (e) => e instanceof ErroDoBling && e.causa === 'bling-fora')
+})
+
+// ── DO ERRO PEGO NO `catch` ATÉ A FAIXA NA TELA ───────────────────────────
+// Este é o passo que cada tela vinha fazendo à mão, e o Selo Vessel errou os
+// dois lados dele de uma vez: passou `e.message` (que é sempre o texto TÉCNICO,
+// porque `ErroDoBling` faz `super(tecnica || causa)`) e jogou o OBJETO inteiro
+// na tela, onde a pessoa lia `[object Object]`.
+test('avisoDoErro lê a CAUSA, não a mensagem técnica', () => {
+  // `message` aqui é "403 sem permissao": nenhum ramo de classificação casa com
+  // isso, e o aviso saía "O Bling não respondeu" — acusando o Bling de um
+  // problema de crachá.
+  const e = new ErroDoBling('sem-acesso-a-vendas', '403 sem permissao')
+  assert.equal(e.message, '403 sem permissao', 'a message É a técnica — é essa a armadilha')
+  assert.deepEqual(avisoDoErro(e, { ehAdmin: true }), {
+    titulo: 'Este login não tem acesso a Vendas.',
+    detalhe: 'Falta a chave `sales` ou `gestor` no perfil.',
+  })
+})
+
+test('avisoDoErro devolve DUAS frases de texto, nunca um objeto para a tela', () => {
+  const { titulo, detalhe } = avisoDoErro(
+    new ErroDoBling('bling-recusou-token', '500 Token refresh failed'), { ehAdmin: true })
+  assert.equal(typeof titulo, 'string')
+  assert.equal(typeof detalhe, 'string')
+  assert.match(titulo, /Bling recusou/)
+  assert.match(detalhe, /Token refresh failed/)
+})
+
+test('avisoDoErro: erro que NÃO é do Bling não vira jargão do Bling', () => {
+  const { titulo, detalhe } = avisoDoErro(new TypeError('x is not a function'), { ehAdmin: true })
+  assert.equal(titulo, 'A tela falhou ao montar os números.')
+  assert.match(detalhe, /não é o Bling/i)
+})
+
+test('avisoDoErro: quem não é admin não lê jargão', () => {
+  const { titulo, detalhe } = avisoDoErro(
+    new ErroDoBling('bling-recusou-token', '500 Token refresh failed'), { ehAdmin: false })
+  assert.equal(detalhe, '')
+  assert.doesNotMatch(titulo, /Token/)
 })
