@@ -34,6 +34,49 @@
             <span>{{ dataCurta(l.fabricado_em) }}</span>
           </div>
           <button class="au-link" type="button" @click="irGravar(l.id)">Gravar as etiquetas deste lote →</button>
+
+          <div v-if="podeEditar" class="au-lote-acoes">
+            <button class="au-link" type="button" @click="abrirEdicao(l)">Editar</button>
+            <button class="au-link" type="button" @click="pedirExcluir(l.id)">Excluir</button>
+          </div>
+
+          <!-- A PERGUNTA DE EXCLUIR MORA NA PRÓPRIA TELA: a caixinha nativa do
+               navegador é proibida neste projeto e `uiConfirm` não existe aqui — e
+               há um teste que reprova até a palavra escrita. Quem recusa de verdade
+               é o banco; a tela só traduz a recusa para português. -->
+          <div v-if="excluindo === l.id" class="au-confirma">
+            <p class="au-confirma-texto">
+              Excluir o lote <strong>{{ l.modelo }}</strong> e as {{ l.quantidade }} etiquetas dele?
+            </p>
+            <p class="au-aviso-menor">
+              Só dá para excluir lote em que nenhuma etiqueta foi gravada. Se alguma já foi,
+              a tela vai dizer quantas.
+            </p>
+            <div class="au-acoes">
+              <button class="au-botao secundario" type="button" @click="excluindo = null">Cancelar</button>
+              <button class="au-botao" type="button" @click="excluirLote(l.id)">Sim, excluir</button>
+            </div>
+          </div>
+
+          <div v-if="editando === l.id" class="au-edicao">
+            <label class="au-campo"><span class="au-rot">Modelo</span>
+              <input v-model="edicao.modelo" type="text" maxlength="80"></label>
+            <label class="au-campo"><span class="au-rot">Cor</span>
+              <input v-model="edicao.cor" type="text" maxlength="60"></label>
+            <label class="au-campo"><span class="au-rot">Referência</span>
+              <input v-model="edicao.sku" type="text" maxlength="40"></label>
+            <label class="au-campo"><span class="au-rot">Fabricado em</span>
+              <input v-model="edicao.fabricado_em" type="date"></label>
+            <label class="au-campo"><span class="au-rot">Quantidade</span>
+              <input v-model="edicao.quantidade" type="number" min="1" max="500"></label>
+            <p class="au-aviso-menor">
+              Aumentar cria etiquetas novas. Diminuir tira só as que ainda não foram gravadas.
+            </p>
+            <div class="au-acoes">
+              <button class="au-botao secundario" type="button" @click="editando = null">Cancelar</button>
+              <button class="au-botao" type="button" @click="salvarEdicao">Salvar</button>
+            </div>
+          </div>
         </div>
       </div>
     </template>
@@ -308,7 +351,7 @@ import BarraDeTopo from '../../compartilhado/barra-de-topo.vue'
 import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { hasPermission } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { adminToast } from '../../compartilhado/avisos.js'
-import { enderecoDaTag, progressoDoLote, proximaPorGravar, linhasDoCsv, resumoDeAlertas } from './lotes.js'
+import { enderecoDaTag, progressoDoLote, proximaPorGravar, linhasDoCsv, resumoDeAlertas, fraseDaRecusa } from './lotes.js'
 import { conferirLeitura, listaParaGravadorDeMesa, codigosNoTextoDoGravador } from './nfc-fila.js'
 import { PASSOS, TELAS_DO_GUIA, passoAtual, guiaJaVisto, marcarGuiaVisto, proximaTelaDoGuia } from './tutorial.js'
 import { temSuporte, traduzirFalha, criarGravador } from './gravador-nfc.js'
@@ -366,6 +409,13 @@ const textoDoGravador = ref('')
 const confirmacaoDoGravador = ref(null)  // { reconhecidos, ignorados } enquanto a pergunta está na tela
 
 const novo = reactive({ modelo: '', cor: '', sku: '', quantidade: 20, fabricado_em: '' })
+
+// EDITAR E EXCLUIR ABREM DENTRO DO MESMO CARTÃO, e só um de cada vez: dois
+// blocos empilhados no mesmo lote fazem a tela perguntar duas coisas ao mesmo
+// tempo, e aí nenhuma das duas é a pergunta principal.
+const editando = ref(null)    // o lote com o formulário de editar aberto, ou null
+const excluindo = ref(null)   // o lote com a pergunta de excluir na tela, ou null
+const edicao = reactive({ modelo: '', cor: '', sku: '', fabricado_em: '', quantidade: 1 })
 
 const podeCriar = computed(() => hasPermission('autenticidade', 'criar'))
 const podeEditar = computed(() => hasPermission('autenticidade', 'editar'))
@@ -470,6 +520,54 @@ async function gerarLote() {
   } finally {
     salvando.value = false
   }
+}
+
+function abrirEdicao(l) {
+  excluindo.value = null
+  editando.value = l.id
+  edicao.modelo = l.modelo || ''
+  edicao.cor = l.cor || ''
+  edicao.sku = l.sku || ''
+  edicao.fabricado_em = l.fabricado_em || ''
+  edicao.quantidade = l.quantidade || 1
+}
+
+function pedirExcluir(id) {
+  editando.value = null
+  excluindo.value = id
+}
+
+// `sbClient.rpc` NÃO ESTOURA: devolve `{ data, error }`. `error` é falha de rede
+// ou de permissão; `data.ok === false` é a regra de negócio do banco recusando.
+// Os dois precisam aparecer, e com frases diferentes — tratar só o `error` foi
+// defeito real deste mesmo arquivo, e a tela anunciava sucesso quando nada
+// tinha acontecido (PADRAO-DA-CENTRAL, item 9: a tela nunca mente).
+async function salvarEdicao() {
+  const { data, error } = await sbClient.rpc('vessel_editar_lote', {
+    p_lote: editando.value,
+    p_modelo: edicao.modelo,
+    p_cor: edicao.cor,
+    p_sku: edicao.sku,
+    p_fabricado_em: edicao.fabricado_em || null,
+    p_quantidade: Number(edicao.quantidade),
+  })
+  if (error) { adminToast('Não consegui salvar agora', false); return }
+  if (!data?.ok) { adminToast(fraseDaRecusa(data?.motivo, data), false); return }
+  editando.value = null
+  await carregar()
+  adminToast('Lote atualizado')
+}
+
+// QUEM RECUSA É O BANCO, NÃO A TELA. Lote com etiqueta já gravada não se exclui:
+// a página da cliente passaria a dizer "não consta" e uma bolsa original
+// pareceria falsa. A tela só traduz a recusa, com o número que o banco devolveu.
+async function excluirLote(id) {
+  const { data, error } = await sbClient.rpc('vessel_excluir_lote', { p_lote: id })
+  if (error) { adminToast('Não consegui excluir agora', false); return }
+  if (!data?.ok) { excluindo.value = null; adminToast(fraseDaRecusa(data?.motivo, data), false); return }
+  excluindo.value = null
+  await carregar()
+  adminToast(`Lote excluído, com ${data.excluidas} etiqueta(s).`)
 }
 
 async function copiar() {
@@ -790,4 +888,34 @@ onMounted(() => {
    porque alvo de toque abaixo de 40px e defeito */
 .au-guia-acoes{display:flex; gap:var(--sp-2); flex-wrap:wrap}
 .au-guia-acoes .au-botao{flex:1 1 140px; min-height:40px}
+
+/* ── EDITAR E EXCLUIR O LOTE ────────────────────────────────────
+   Cor sai de token, nunca escrita a mao (PADRAO-DA-CENTRAL, item 2).
+   A pergunta de excluir REAPROVEITA `.au-confirma`, o bloco de aviso que esta
+   tela ja tem: repintar aquela regra mudaria a gaveta do gravador de mesa, la
+   na aba Gravar, que nao e desta tarefa. */
+.au-lote-acoes{display:flex; gap:var(--sp-3); margin-top:var(--sp-2); flex-wrap:wrap}
+/* O link nasce com 13px de altura. Alvo de dedo abaixo de 40px e defeito
+   (PADRAO item 6) — cresce a area, o texto continua link. */
+.au-lote-acoes .au-link{display:inline-flex; align-items:center; min-height:40px; margin-top:0}
+.au-edicao{
+  margin-top:var(--sp-2); padding:var(--sp-3);
+  border:1px solid var(--border); border-radius:var(--radius-md);
+  background:var(--surface2);
+}
+/* O recuo lateral ja vem do bloco. Sem isto os campos saem 24px mais para
+   dentro que o resto do cartao — mesmo motivo do `.au-gravacao .au-acoes`. */
+.au-edicao .au-campo{padding:var(--sp-2) 0 0; max-width:none}
+.au-edicao .au-acoes{padding:var(--sp-3) 0 0}
+/* 16px no campo nao e estetica: abaixo disso o iOS da zoom ao focar e a tela
+   salta na cara de quem esta digitando. */
+.au-edicao input{min-height:40px; box-sizing:border-box; font-size:max(16px, calc(16px * var(--escala-texto, 1)))}
+/* Os botoes destes dois blocos vivem dentro do cartao do lote; sem isto saem
+   com 35,5px de altura, como os da gaveta do gravador saiam. */
+.au-card .au-botao{min-height:40px; box-sizing:border-box}
+.au-aviso-menor{
+  margin:var(--sp-2) 0 0; font-family:var(--fonte-principal);
+  font-size:max(9px, calc(13px * var(--escala-texto, 1)));
+  line-height:1.45; color:var(--muted); overflow-wrap:anywhere;
+}
 </style>
