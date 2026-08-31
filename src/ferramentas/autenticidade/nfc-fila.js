@@ -1,7 +1,7 @@
 // A fila de gravação das etiquetas NFC. Contas puras — sem DOM, sem rede, sem
 // NDEFReader — porque é aqui que mora a decisão de marcar ou não uma peça como
 // gravada, e essa decisão precisa ser testável sem abrir navegador.
-import { enderecoDaTag } from './lotes.js'
+import { enderecoDaTag, naFila } from './lotes.js'
 
 // O prefixo NASCE de enderecoDaTag, nunca escrito de novo. Domínio em dois
 // lugares é domínio errado esperando acontecer — e este aqui vai gravado dentro
@@ -43,8 +43,10 @@ export function listaParaGravadorDeMesa(pecas) {
   return (Array.isArray(pecas) ? pecas : [])
     // peça baixada (extraviada, defeito, devolvida, etiqueta perdida) sai da
     // fila: não faz sentido gravar uma etiqueta nova para uma peça que não vai
-    // virar bolsa
-    .filter((p) => !p.gravada_em && !p.baixada)
+    // virar bolsa. A regra vem de `naFila`, em lotes.js, e NÃO é reescrita
+    // aqui: esta linha já foi uma cópia à mão da mesma regra, e cópia é o que
+    // fica para trás no dia em que a regra muda.
+    .filter((p) => naFila(p) && !p.gravada_em)
     .sort((a, b) => (a.numero_na_serie || 0) - (b.numero_na_serie || 0))
     .map((p) => enderecoDaTag(p.codigo))
     .join('\n')
