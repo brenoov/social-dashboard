@@ -120,17 +120,48 @@ Deno.serve(async (req: Request) => {
 
     const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
-    // Este proxy alimenta duas áreas: Vendas ('sales' → Gestão à Vista e
-    // Análise de Vendas) e Gestão Comercial ('gestor'). Quem tem qualquer uma
-    // das duas pode consultar; admin passa direto. Tem gente com 'sales' e sem
-    // 'gestor', então exigir só uma das chaves derrubaria telas legítimas.
+    // O CORPO É LIDO AQUI, e não lá embaixo, porque a permissão passou a
+    // depender do CAMINHO. `req.json()` só pode ser chamado uma vez.
+    const { endpoint, params } = await req.json();
+    if (!endpoint || typeof endpoint !== 'string') {
+      return json({ error: 'endpoint required' }, 400);
+    }
+    if (!caminhoPermitido(endpoint)) {
+      return json({ error: 'endpoint nao permitido' }, 403);
+    }
+
+    // ── QUEM PODE, E ATÉ ONDE ────────────────────────────────────────────
+    //
+    // Este proxy alimenta Vendas ('sales' → Gestão à Vista e Análise de Vendas)
+    // e Gestão Comercial ('gestor'). Quem tem qualquer uma das duas pode
+    // consultar; admin passa direto. Tem gente com 'sales' e sem 'gestor',
+    // então exigir só uma das chaves derrubaria telas legítimas.
+    //
+    // ATÉ 31/08/2026 ISTO ERA UMA PERGUNTA SÓ — "pode ou não pode?" — e quem
+    // passava alcançava todos os caminhos da lista. Agora são duas, porque
+    // entrou um consumidor que precisa de MENOS.
+    //
+    // O painel de Autenticidade cria lotes de etiqueta NFC e precisa do NOME e
+    // do código dos produtos. De faturamento não precisa de nada. Medido em
+    // `profiles`: das três pessoas com a chave 'autenticidade', uma não tem
+    // 'sales' nem 'gestor' — ou ela ganhava acesso ao faturamento inteiro para
+    // escolher um produto numa lista, ou o seletor nunca funcionava para ela.
+    // As duas saídas eram ruins, e a segunda ainda apontaria o culpado errado.
+    //
+    // Então 'autenticidade' abre SÓ os caminhos de produto. Quem tem essa chave
+    // e pedir pedidos de venda continua levando 403, como antes.
+    const CAMINHO_DE_PRODUTO = /^produtos(\/[A-Za-z0-9_-]+)?$/;
+
     const { data: prof } = await sb
       .from('profiles')
       .select('role, features, is_superadmin, escopo_por_equipe')
       .eq('id', user.id)
       .single();
     const features = Array.isArray(prof?.features) ? prof.features : [];
-    const allowed = !!prof && (prof.role === 'admin' || features.includes('sales') || features.includes('gestor'));
+    const podeVendas = !!prof && (prof.role === 'admin'
+      || features.includes('sales') || features.includes('gestor'));
+    const podeProdutos = podeVendas || (!!prof && features.includes('autenticidade'));
+    const allowed = CAMINHO_DE_PRODUTO.test(endpoint) ? podeProdutos : podeVendas;
     if (!allowed) return json({ error: 'sem permissao' }, 403);
 
     // ── DE QUAIS CANAIS ESSA PESSOA VÊ O FATURAMENTO (B1f, 13/08/2026) ───────
@@ -187,16 +218,6 @@ Deno.serve(async (req: Request) => {
       canais: canaisDoBling,
       membrosDeGrupo,
     });
-
-    const { endpoint, params } = await req.json();
-
-    if (!endpoint || typeof endpoint !== 'string') {
-      return json({ error: 'endpoint required' }, 400);
-    }
-
-    if (!caminhoPermitido(endpoint)) {
-      return json({ error: 'endpoint nao permitido' }, 403);
-    }
 
     const token = await getValidToken(sb);
 
