@@ -196,7 +196,8 @@
             </p>
             <div class="au-acoes">
               <button class="au-botao secundario" type="button" @click="baixando = false">Cancelar</button>
-              <button class="au-botao" type="button" @click="baixarPeca(proxima.codigo)">Dar baixa</button>
+              <button class="au-botao" type="button" :disabled="baixaEmVoo"
+                      @click="baixarPeca(proxima.codigo)">Dar baixa</button>
             </div>
           </div>
 
@@ -255,7 +256,7 @@
             <ul class="au-baixadas">
               <li v-for="pc in baixadasDoLote" :key="pc.codigo">
                 <span>Peça {{ pc.numero_na_serie }} — {{ rotuloDoMotivo(pc.baixa_motivo) }}</span>
-                <button v-if="podeEditar" class="au-link" type="button"
+                <button v-if="podeEditar" class="au-link" type="button" :disabled="baixaEmVoo"
                         @click="desfazerBaixa(pc.codigo)">Desfazer</button>
               </li>
             </ul>
@@ -361,6 +362,14 @@
       </template>
     </template>
 
+    <!-- O GUIA FICA FORA DA CORRENTE DAS ABAS. Ele estava ENTRE a aba Gravar e
+         a aba Registros, e um `v-if` no meio de um `v-if`/`v-else-if` PARTE a
+         corrente em duas: a segunda metade recomeçava do zero e o `v-else` dela
+         — a aba Alertas inteira — vinha desenhado embaixo das abas Lotes e
+         Gravar, e também embaixo do "Carregando…". Medido no navegador, a
+         375px, em 30/08.
+         Ele é sobreposição de tela cheia: onde mora no HTML não muda o desenho,
+         muda só a corrente. -->
     <!-- ── O GUIA DA PRIMEIRA VEZ ──────────────────────────────────────────
          Abre sozinho na primeira visita e some depois. O "pular" fica sempre
          visível: guia que prende a pessoa vira estorvo, não ajuda. -->
@@ -379,14 +388,6 @@
       </div>
     </div>
 
-    <!-- O GUIA FICA FORA DA CORRENTE DAS ABAS. Ele estava ENTRE a aba Gravar e
-         a aba Registros, e um `v-if` no meio de um `v-if`/`v-else-if` PARTE a
-         corrente em duas: a segunda metade recomeçava do zero e o `v-else` dela
-         — a aba Alertas inteira — vinha desenhado embaixo das abas Lotes e
-         Gravar, e também embaixo do "Carregando…". Medido no navegador, a
-         375px, em 30/08.
-         Ele é sobreposição de tela cheia: onde mora no HTML não muda o desenho,
-         muda só a corrente. -->
     <!-- ── FORMULÁRIO DE LOTE ───────────────────────────────────────────── -->
     <div v-if="formulario" class="au-fundo" @click.self="formulario = false">
       <form class="au-folha" @submit.prevent="gerarLote">
@@ -508,6 +509,11 @@ const edicao = reactive({ modelo: '', cor: '', sku: '', fabricado_em: '', quanti
 // que o dono mais vai usar, e a lista inteira fica à vista para trocar.
 const baixando = ref(false)
 const motivoDaBaixa = ref('extraviada')
+// A TRAVA DE "EM VOO". Dois toques rápidos disparam duas chamadas. O índice
+// único do banco segura a segunda, então o dado nunca corrompe — mas a pessoa
+// lê "Esta peça já está baixada" logo depois de baixá-la, e a tela parece estar
+// contradizendo o que ela acabou de fazer.
+const baixaEmVoo = ref(false)
 
 const podeCriar = computed(() => hasPermission('autenticidade', 'criar'))
 const podeEditar = computed(() => hasPermission('autenticidade', 'editar'))
@@ -557,6 +563,18 @@ watch(loteEscolhido, () => {
   baixando.value = false
 })
 
+// TROCAR A PEÇA DA VEZ FECHA A PERGUNTA DE BAIXA, pelo mesmo cuidado do watch
+// acima: a pergunta diz o número de UMA peça, e peça errada na pergunta é pior
+// que pergunta nenhuma.
+// Dois caminhos concretos: com a pergunta aberta, "Gravei essa" continua
+// clicável — gravando a última, `proxima` vira nulo, o bloco todo some e
+// `baixando` fica preso em `true`; depois um "Desfazer" devolve uma peça à fila
+// e o bloco voltava COM A PERGUNTA JÁ ABERTA, para a peça que a pessoa acabou de
+// restaurar. O outro é a pergunta trocar de peça calada por baixo da mão.
+// O watch é pelo CÓDIGO, não pelo objeto: `carregar()` refaz `pecas.value`
+// inteiro, e pelo objeto isto dispararia a cada recarga sem a peça ter mudado.
+watch(() => proxima.value?.codigo, () => { baixando.value = false })
+
 function voltar() { router.push({ name: 'gestao-interna' }) }
 
 function irGravar(id) {
@@ -582,13 +600,26 @@ async function carregar() {
       // mesma política de SELECT de `vessel_pecas`, então se lê do mesmo jeito.
       sbClient.from('vessel_baixas').select('codigo,motivo,baixada_em').is('desfeita_em', null),
     ])
-    if (l.error) throw l.error
-    // ESTA LEITURA NÃO PODE FALHAR EM SILÊNCIO. Sem a lista de baixas nenhuma
-    // peça sai marcada, e peça baixada volta para a fila de gravação como se
-    // nada tivesse acontecido — alguém gravaria a etiqueta de uma peça dada
-    // como refugo. Falhar à vista é melhor que a fila errada (PADRAO-DA-CENTRAL
-    // item 9: a tela nunca mente).
-    if (baixas.error) throw baixas.error
+    // NENHUMA DESTAS LEITURAS PODE FALHAR EM SILÊNCIO, e cada uma mente de um
+    // jeito diferente quando falha (PADRAO-DA-CENTRAL item 9: a tela nunca
+    // mente). Falhar à vista é sempre melhor:
+    //
+    //  · `baixas`  — sem a lista, nenhuma peça sai marcada e a peça baixada
+    //                volta para a fila como se nada tivesse acontecido: alguém
+    //                gravaria a etiqueta de uma peça dada como refugo;
+    //  · `p`       — sem as peças, o lote aparece com a fila VAZIA, e a tela
+    //                diz "todas as etiquetas já foram gravadas" sem nenhuma ter
+    //                sido;
+    //  · `a`       — sem os alertas, `resumoDeAlertas(null).limpo` dá `true` e a
+    //                aba anuncia "Nada suspeito nos últimos 30 dias. Foram 0
+    //                leituras" com uma bolsa extraviada sendo lida. Falha
+    //                virando "está tudo bem" é o defeito mais caro deste
+    //                projeto;
+    //  · `r`       — sem os registros, a tela diz "Nenhuma cliente registrou a
+    //                garantia ainda" para uma lista que existe.
+    for (const leitura of [l, p, r, a, baixas]) {
+      if (leitura.error) throw leitura.error
+    }
     lotes.value = l.data || []
     pecas.value = p.data || []
     registros.value = r.data || []
@@ -702,22 +733,34 @@ async function excluirLote(id) {
 // permissão; `data.ok === false` é a regra do banco recusando. Os dois aparecem,
 // com frases diferentes.
 async function baixarPeca(codigo) {
-  const { data, error } = await sbClient.rpc('vessel_baixar_peca',
-    { p_codigo: codigo, p_motivo: motivoDaBaixa.value })
-  if (error) { adminToast('Não consegui dar baixa agora', false); return }
-  if (!data?.ok) { adminToast(fraseDaRecusa(data?.motivo, data), false); return }
-  baixando.value = false
-  await carregar()
-  const rotulo = rotuloDoMotivo(motivoDaBaixa.value)
-  adminToast(`Peça baixada como ${rotulo}. Ela sai da fila e continua respondendo para a cliente.`)
+  if (baixaEmVoo.value) return
+  baixaEmVoo.value = true
+  try {
+    const { data, error } = await sbClient.rpc('vessel_baixar_peca',
+      { p_codigo: codigo, p_motivo: motivoDaBaixa.value })
+    if (error) { adminToast('Não consegui dar baixa agora', false); return }
+    if (!data?.ok) { adminToast(fraseDaRecusa(data?.motivo, data), false); return }
+    baixando.value = false
+    await carregar()
+    const rotulo = rotuloDoMotivo(motivoDaBaixa.value)
+    adminToast(`Peça baixada como ${rotulo}. Ela sai da fila e continua respondendo para a cliente.`)
+  } finally {
+    baixaEmVoo.value = false
+  }
 }
 
 async function desfazerBaixa(codigo) {
-  const { data, error } = await sbClient.rpc('vessel_desfazer_baixa', { p_codigo: codigo })
-  if (error) { adminToast('Não consegui desfazer agora', false); return }
-  if (!data?.ok) { adminToast(fraseDaRecusa(data?.motivo, data), false); return }
-  await carregar()
-  adminToast('Baixa desfeita. A peça voltou para a fila.')
+  if (baixaEmVoo.value) return
+  baixaEmVoo.value = true
+  try {
+    const { data, error } = await sbClient.rpc('vessel_desfazer_baixa', { p_codigo: codigo })
+    if (error) { adminToast('Não consegui desfazer agora', false); return }
+    if (!data?.ok) { adminToast(fraseDaRecusa(data?.motivo, data), false); return }
+    await carregar()
+    adminToast('Baixa desfeita. A peça voltou para a fila.')
+  } finally {
+    baixaEmVoo.value = false
+  }
 }
 
 async function copiar() {

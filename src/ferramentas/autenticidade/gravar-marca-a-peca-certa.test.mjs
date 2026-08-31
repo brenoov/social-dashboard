@@ -235,3 +235,56 @@ test('o guia da primeira visita vem DEPOIS da corrente inteira', () => {
       `o bloco "${marca}" precisa vir antes do guia, senão a corrente das abas parte ali`);
   }
 });
+
+/* NENHUMA LEITURA DE `carregar()` PODE FALHAR EM SILÊNCIO, e cada uma mente de
+ * um jeito diferente. A pior é a dos alertas: `resumoDeAlertas(null).limpo` dá
+ * `true`, e a aba anuncia "Nada suspeito nos últimos 30 dias. Foram 0 leituras"
+ * com uma bolsa extraviada sendo lida — falha virando "está tudo bem". Este
+ * teste sai da PRÓPRIA lista do `Promise.all`: leitura nova entra conferida ou
+ * reprova aqui. */
+test('carregar() não deixa NENHUMA leitura falhar em silêncio', () => {
+  const corpo = corpoDaFuncao('carregar');
+  const lista = corpo.match(/const \[([^\]]+)\] = await Promise\.all/);
+  assert.ok(lista, 'carregar() parou de ler tudo de uma vez');
+  const nomes = lista[1].split(',').map((n) => n.trim()).filter(Boolean);
+  assert.ok(nomes.length >= 5, `esperava ao menos 5 leituras, achei ${nomes.length}`);
+  const semEspaco = corpo.replace(/\s+/g, ' ');
+  for (const n of nomes) {
+    const umPorUm = new RegExp(`if \\(${n}\\.error\\) throw`);
+    const emLote = new RegExp(`for \\(const \\w+ of \\[[^\\]]*\\b${n}\\b[^\\]]*\\]\\)[^]*?\\.error\\) throw`);
+    assert.ok(
+      umPorUm.test(semEspaco) || emLote.test(semEspaco),
+      `a leitura \`${n}\` pode falhar sem ninguém ver: lista vazia vira "não há nada"`,
+    );
+  }
+});
+
+/* Dois toques rápidos disparam duas chamadas. O índice único do banco segura a
+ * segunda, então o dado nunca corrompe — mas a pessoa lê "Esta peça já está
+ * baixada" logo depois de baixá-la, e a tela parece contradizer o que ela acabou
+ * de fazer. O `finally` é metade da trava: sem ele, uma recusa deixa a trava
+ * presa e o botão nunca mais responde. */
+test('baixar e desfazer não disparam duas vezes com dois toques', () => {
+  for (const nome of ['baixarPeca', 'desfazerBaixa']) {
+    const corpo = corpoDaFuncao(nome).replace(/\s+/g, ' ');
+    assert.match(
+      corpo, /if \(baixaEmVoo\.value\) return baixaEmVoo\.value = true/,
+      `${nome} aceita o segundo toque antes de o primeiro voltar`,
+    );
+    assert.match(
+      corpo, /finally \{ baixaEmVoo\.value = false \}/,
+      `sem o finally, uma recusa deixa a trava de ${nome} presa para sempre`,
+    );
+  }
+});
+
+/* A pergunta de baixa diz o número de UMA peça. Com ela aberta, "Gravei essa"
+ * continua clicável: gravando a última, `proxima` vira nulo, o bloco todo some e
+ * `baixando` fica preso em `true` — depois um "Desfazer" devolve uma peça à fila
+ * e o bloco voltava COM A PERGUNTA JÁ ABERTA, para a peça recém-restaurada. */
+test('a pergunta de baixa não sobrevive à troca da peça da vez', () => {
+  const trecho = script.slice(script.indexOf('watch(() => proxima.value?.codigo'));
+  assert.notEqual(trecho, '', 'sem watch na peça da vez, a pergunta fica aberta para a peça errada');
+  const ate = trecho.slice(0, trecho.indexOf('})') + 2).replace(/\s+/g, ' ');
+  assert.match(ate, /baixando\.value = false/, 'trocar a peça da vez tem de fechar a pergunta');
+});
