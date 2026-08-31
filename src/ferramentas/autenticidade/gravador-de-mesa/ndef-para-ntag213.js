@@ -201,3 +201,54 @@ export function enderecoNaEtiqueta(memoriaAtual) {
   }
   return ''
 }
+
+// ── A PÁGINA 3: O CAPABILITY CONTAINER ─────────────────────────────────────
+// Quatro bytes que dizem se a etiqueta está formatada como NDEF e quanto cabe
+// nela. Numa NTAG213 de fábrica são `E1 10 12 00`:
+//   E1 = está formatada como NDEF
+//   10 = versão 1.0 do formato
+//   12 = 18, e o tamanho é ESTE NÚMERO VEZES 8 → 144 bytes
+//   00 = pode ler e pode gravar
+//
+// ⚠️ NUNCA SE ESCREVE NESTA PÁGINA. Ela já vem certa de fábrica, os bits dela só
+// mudam num sentido (com OR) e a mudança é IRREVERSÍVEL. Aqui só se lê.
+const CC_FORMATADA = 0xe1
+const CC_DE_FABRICA_DA_NTAG213 = [0xe1, 0x10, 0x12, 0x00]
+
+export function conferirCapabilityContainer(pagina3) {
+  const bytes = bytesLidos(pagina3)
+  const nada = { formatada: false, deFabrica: false, bytesDeMemoria: 0, podeGravar: false }
+  if (bytes.length < BYTES_POR_PAGINA) {
+    return {
+      ...nada,
+      aviso: 'Não li os 4 bytes da página 3 desta etiqueta. '
+        + 'Encoste a etiqueta de novo e segure parada.',
+    }
+  }
+
+  const [marca, versao, tamanho, acesso] = bytes
+  if (marca !== CC_FORMATADA) {
+    return {
+      ...nada,
+      aviso: 'Esta etiqueta não está formatada como NDEF (a página 3 não começa com E1). '
+        + 'Use uma etiqueta NTAG213 nova, do jeito que vem de fábrica.',
+    }
+  }
+
+  // O quarto byte tem duas metades: a primeira manda no ler, a segunda no
+  // gravar. Zero é liberado; F é fechado. Etiqueta fechada para gravação não
+  // volta atrás — e o operador que insiste nela joga fora etiqueta boa achando
+  // que o leitor quebrou.
+  const podeGravar = (acesso & 0x0f) === 0x00
+  const deFabrica = CC_DE_FABRICA_DA_NTAG213.every((b, i) => b === bytes[i])
+  return {
+    formatada: true,
+    deFabrica,
+    versao,
+    bytesDeMemoria: tamanho * 8,
+    podeGravar,
+    aviso: podeGravar
+      ? ''
+      : 'Esta etiqueta está travada: só dá para ler, nunca mais gravar. Use outra.',
+  }
+}

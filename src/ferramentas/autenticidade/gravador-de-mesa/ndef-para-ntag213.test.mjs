@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { enderecoDaTag } from '../lotes.js'
-import { planoDeGravacao, enderecoNaEtiqueta } from './ndef-para-ntag213.js'
+import { planoDeGravacao, enderecoNaEtiqueta, conferirCapabilityContainer } from './ndef-para-ntag213.js'
 
 // O codigo de peca de verdade: 10 letras do alfabeto sem O, 0, I e 1 — as
 // quatro que a pessoa confunde lendo em cima do couro.
@@ -260,4 +260,58 @@ test('prefixo que nao e endereco da web devolve vazio', () => {
 test('memoria cortada no meio da mensagem devolve vazio, nao lixo', () => {
   assert.equal(enderecoNaEtiqueta([0x03, 0x2a, 0xd1, 0x01]), '')
   assert.equal(enderecoNaEtiqueta([0x03]), '')
+})
+
+// ── A PAGINA 3: A ETIQUETA ESTA FORMATADA? ─────────────────────────────────
+test('CC de fabrica: formatada, de fabrica, e cabem 144 bytes', () => {
+  const r = conferirCapabilityContainer([0xe1, 0x10, 0x12, 0x00])
+  assert.equal(r.formatada, true)
+  assert.equal(r.deFabrica, true)
+  // o terceiro byte e o tamanho DIVIDIDO por 8: 0x12 = 18, e 18 x 8 = 144
+  assert.equal(r.bytesDeMemoria, 144)
+  assert.equal(r.podeGravar, true)
+  assert.equal(r.aviso, '', 'etiqueta boa nao merece aviso nenhum')
+})
+
+test('CC de uma etiqueta maior diz que cabe mais', () => {
+  // NTAG216: 0x6D = 109, e 109 x 8 = 872 bytes
+  const r = conferirCapabilityContainer([0xe1, 0x10, 0x6d, 0x00])
+  assert.equal(r.formatada, true)
+  assert.equal(r.deFabrica, false, 'nao e o CC de fabrica de uma NTAG213')
+  assert.equal(r.bytesDeMemoria, 872)
+})
+
+test('CC que nao comeca com E1: a etiqueta nao esta formatada como NDEF', () => {
+  const r = conferirCapabilityContainer([0x00, 0x00, 0x00, 0x00])
+  assert.equal(r.formatada, false)
+  assert.equal(r.deFabrica, false)
+  assert.equal(r.bytesDeMemoria, 0)
+  assert.equal(r.podeGravar, false)
+  assert.match(r.aviso, /formatada/i, 'a frase tem de dizer o que ha de errado')
+})
+
+test('CC de etiqueta travada: da para ler, nao da para gravar', () => {
+  // o segundo pedaco do quarto byte manda no gravar: 0 = pode, F = nao pode
+  const r = conferirCapabilityContainer([0xe1, 0x10, 0x12, 0x0f])
+  assert.equal(r.formatada, true)
+  assert.equal(r.podeGravar, false)
+  assert.match(r.aviso, /travada|só dá para ler|so da para ler/i)
+})
+
+test('pagina 3 nao lida, curta ou nula avisa em vez de fingir', () => {
+  for (const nada of [null, undefined, [], [0xe1, 0x10], 'nada']) {
+    const r = conferirCapabilityContainer(nada)
+    assert.equal(r.formatada, false, `${String(nada)} nao pode passar por formatada`)
+    assert.match(r.aviso, /p[aá]gina 3/i)
+  }
+})
+
+test('aceita Uint8Array, que e o que um leitor devolve', () => {
+  const r = conferirCapabilityContainer(Uint8Array.from([0xe1, 0x10, 0x12, 0x00]))
+  assert.equal(r.deFabrica, true)
+  assert.equal(r.bytesDeMemoria, 144)
+  // e o mesmo vale para as outras duas funcoes
+  const escritas = planoDeGravacao(ENDERECO, Uint8Array.from(DE_FABRICA))
+  assert.equal(escritas[0].pagina, 5)
+  assert.equal(enderecoNaEtiqueta(Uint8Array.from(memoriaDepois(escritas, DE_FABRICA))), ENDERECO)
 })
