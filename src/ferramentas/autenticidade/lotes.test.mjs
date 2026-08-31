@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   enderecoDaTag, progressoDoLote, proximaPorGravar, linhasDoCsv, resumoDeAlertas,
+  MOTIVOS_DE_BAIXA, fraseDaRecusa,
 } from './lotes.js'
 
 test('enderecoDaTag: e exatamente o que vai gravado na etiqueta', () => {
@@ -65,4 +66,62 @@ test('resumoDeAlertas: conta os dois tipos', () => {
 test('resumoDeAlertas: resposta vazia do banco nao quebra a tela', () => {
   assert.equal(resumoDeAlertas(null).limpo, true)
   assert.equal(resumoDeAlertas({}).limpo, true)
+})
+
+test('proximaPorGravar: peca BAIXADA sai da fila', () => {
+  // sem isto a tela mandaria alguem gravar a etiqueta de uma peca dada como
+  // refugo — e a etiqueta ia para dentro de uma bolsa que nao deveria existir
+  const pecas = [
+    { codigo: 'A', numero_na_serie: 1, gravada_em: null, baixada: true },
+    { codigo: 'B', numero_na_serie: 2, gravada_em: null },
+  ]
+  assert.equal(proximaPorGravar(pecas).codigo, 'B')
+})
+
+test('proximaPorGravar: lote so com baixadas devolve nulo', () => {
+  assert.equal(proximaPorGravar([{ codigo: 'A', gravada_em: null, baixada: true }]), null)
+})
+
+test('progressoDoLote: peca baixada nao entra na conta', () => {
+  // se entrasse no total, o lote NUNCA fecharia: ficaria "2 de 3" para sempre
+  const pecas = [
+    { gravada_em: '2026-08-30T10:00:00Z' },
+    { gravada_em: '2026-08-30T10:01:00Z' },
+    { gravada_em: null, baixada: true },
+  ]
+  assert.deepEqual(progressoDoLote(pecas), { gravadas: 2, total: 2, texto: '2 de 2' })
+})
+
+test('progressoDoLote: peca GRAVADA e depois baixada tambem sai dos dois numeros', () => {
+  const pecas = [
+    { gravada_em: '2026-08-30T10:00:00Z' },
+    { gravada_em: '2026-08-30T10:01:00Z', baixada: true },
+  ]
+  assert.deepEqual(progressoDoLote(pecas), { gravadas: 1, total: 1, texto: '1 de 1' })
+})
+
+test('MOTIVOS_DE_BAIXA: os quatro do dono, com rotulo em portugues', () => {
+  assert.deepEqual(MOTIVOS_DE_BAIXA.map((m) => m.chave),
+    ['extraviada', 'defeito', 'devolvida', 'etiqueta_perdida'])
+  MOTIVOS_DE_BAIXA.forEach((m) => assert.ok(m.rotulo.length > 3))
+})
+
+test('fraseDaRecusa: explica POR QUE, com o numero, em vez de "nao foi possivel"', () => {
+  const f = fraseDaRecusa('tem_gravada', { gravadas: 7, total: 20 })
+  assert.match(f, /7/)
+  assert.match(f, /20/)
+  assert.match(f, /baixa/i, 'tem de dizer o que fazer no lugar')
+})
+
+test('fraseDaRecusa: peca gravada manda dar baixa', () => {
+  assert.match(fraseDaRecusa('esta_gravada', {}), /baixa/i)
+})
+
+test('fraseDaRecusa: abaixo do gravado diz qual e o minimo', () => {
+  assert.match(fraseDaRecusa('abaixo_do_gravado', { gravadas: 7 }), /7/)
+})
+
+test('fraseDaRecusa: motivo desconhecido nao vira frase vazia', () => {
+  const f = fraseDaRecusa('coisa_estranha', {})
+  assert.ok(f.length > 15, 'sempre tem de sobrar alguma coisa legivel na tela')
 })

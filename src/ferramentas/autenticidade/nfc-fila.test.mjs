@@ -104,6 +104,15 @@ test('codigosNoTextoDoGravador: nao repete codigo que aparece duas vezes', () =>
   assert.deepEqual(r.reconhecidos, ['AAA111'])
 })
 
+test('listaParaGravadorDeMesa: peca baixada nao vai para o gravador', () => {
+  const pecas = [
+    { codigo: 'AAA111', numero_na_serie: 1, gravada_em: null },
+    { codigo: 'BBB111', numero_na_serie: 2, gravada_em: null, baixada: true },
+  ]
+  assert.equal(listaParaGravadorDeMesa(pecas),
+    'https://vesselbrasil.com.br/verify/AAA111')
+})
+
 test('codigosNoTextoDoGravador: o aviso de outro lote sobrevive a MAIUSCULA', () => {
   // Leitor de NFC de terceiros devolve o endereco em caixa variada — a Tarefa 1
   // ja documentou isso. Um aviso que some por causa de maiuscula e pior que

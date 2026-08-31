@@ -41,7 +41,10 @@ export function conferirLeitura(lidoDaTag, codigoEsperado) {
 // qualquer programa lê.
 export function listaParaGravadorDeMesa(pecas) {
   return (Array.isArray(pecas) ? pecas : [])
-    .filter((p) => !p.gravada_em)
+    // peça baixada (extraviada, defeito, devolvida, etiqueta perdida) sai da
+    // fila: não faz sentido gravar uma etiqueta nova para uma peça que não vai
+    // virar bolsa
+    .filter((p) => !p.gravada_em && !p.baixada)
     .sort((a, b) => (a.numero_na_serie || 0) - (b.numero_na_serie || 0))
     .map((p) => enderecoDaTag(p.codigo))
     .join('\n')
