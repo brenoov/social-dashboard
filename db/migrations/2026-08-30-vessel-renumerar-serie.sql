@@ -18,7 +18,12 @@
 --
 -- Esta migration REDEFINE `vessel_editar_lote` e `vessel_excluir_peca`, que
 -- nasceram em `2026-08-30-vessel-editar-lote.sql` e `2026-08-30-vessel-excluir.sql`.
--- As versões de lá ficaram para trás; esta é a que vale.
+-- As versões de lá ficaram para trás.
+--
+-- ⚠️ E ESTA TAMBÉM NÃO É A ÚLTIMA PALAVRA sobre essas duas funções. Quem manda
+-- é `2026-08-30-vessel-zz-fecha-o-portao-e-garantias.sql`, que roda depois de
+-- todas (o `zz` do nome existe para isso: o runner aplica em ordem alfabética).
+-- Lá elas ganham a regra da GARANTIA e a renumeração fora dos ramos.
 
 create or replace function public.vessel_renumerar_lote(p_lote uuid)
 returns int language plpgsql security definer set search_path to 'public'

@@ -1,3 +1,8 @@
+-- ⚠️ ESTE ARQUIVO NÃO É A ÚLTIMA PALAVRA: falta aqui a regra da GARANTIA
+-- (peça sem gravação, mas com garantia registrada, também não pode sumir — o
+-- `on delete cascade` de `vessel_registros` levaria a garantia da cliente).
+-- Quem fecha isso é `2026-08-30-vessel-zz-fecha-o-portao-e-garantias.sql`.
+--
 -- EXCLUIR SÓ O QUE NUNCA FOI GRAVADO.
 --
 -- A recusa mora AQUI, e não na tela. A tela impedir não basta: quem chamar a

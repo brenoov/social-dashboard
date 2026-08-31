@@ -1,3 +1,10 @@
+-- ⚠️ ESTE ARQUIVO NÃO É A ÚLTIMA PALAVRA. O `vessel_criar_pecas` que ele cria
+-- aqui embaixo NÃO tem portão por dentro, e `vessel_editar_lote` ainda ignora a
+-- garantia da cliente. Quem corrige as duas coisas é
+-- `2026-08-30-vessel-zz-fecha-o-portao-e-garantias.sql`, que o runner aplica
+-- depois desta por ordem alfabética — é para isso que o `zz` existe no nome
+-- dele. Não renomeie aquele arquivo.
+--
 -- O SORTEIO DE CÓDIGOS, ESCRITO UMA VEZ SÓ.
 --
 -- Ele nasceu dentro do vessel_gerar_lote. Agora o vessel_editar_lote também
