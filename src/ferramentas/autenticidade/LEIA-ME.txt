@@ -101,3 +101,45 @@ Etiqueta costurada dentro de bolsa vendida nao se regrava. A partir da primeira
 etiqueta gravada, renovar vesselbrasil.com.br deixa de ser opcional - e o
 caminho /verify/ e o formato do codigo congelam junto.
 O dominio sai de enderecoDaTag() em lotes.js e de nenhum outro lugar.
+
+EXCLUIR, EDITAR E BAIXAR
+========================
+
+EXCLUIR SO O QUE NUNCA FOI GRAVADO. A pagina da cliente, diante de um codigo
+que nao existe, diz "nao consta no nosso registro de pecas". Entao apagar uma
+peca cuja etiqueta ja foi costurada dentro de uma bolsa faz a bolsa ORIGINAL
+parecer falsa para quem comprou - e nao ha como desfazer, porque a etiqueta
+esta dentro da bolsa.
+
+Por isso peca gravada vira BAIXA, com motivo (extraviada, defeito, devolvida,
+etiqueta perdida). O codigo continua respondendo normalmente para a cliente: a
+pagina NAO MUDA, por decisao do dono. O que muda e que a peca sai da fila de
+gravacao - senao a tela mandaria alguem gravar a etiqueta de uma peca dada como
+refugo.
+
+A BAIXA SE DESFAZ, e o historico guarda as duas coisas. Peca dada como
+extraviada reaparece, e um clique errado nao pode ser definitivo numa peca que
+ja esta com a cliente. Por isso e TABELA e nao coluna: com coluna, baixar de
+novo depois de desfazer apagaria a baixa anterior.
+
+A RECUSA MORA NO BANCO, nao na tela. A tela impedir nao basta: quem chama a
+funcao direto passaria por cima. As funcoes de excluir se negam sozinhas quando
+ha peca gravada, e dizem QUANTAS estao presas.
+
+O ALERTA DE PECA BAIXADA LIDA existe porque a pagina nao avisa nada. Como ela
+ja registra toda leitura, o painel avisa quando alguem encosta o celular numa
+peca baixada - o dono fica sabendo que a bolsa extraviada apareceu, sem
+incomodar quem esta com ela.
+
+EDITAR: modelo, cor, SKU e data de fabricacao sao seguros a qualquer momento,
+porque nao tocam em codigo nenhum. Aumentar a quantidade cria codigos novos
+continuando a serie. Diminuir tira as NAO GRAVADAS de maior numero; abaixo do
+que ja foi gravado, recusa.
+
+A SERIE E RENUMERADA QUANDO O LOTE DIMINUI. A pagina da cliente mostra
+"peca N de TOTAL". Sem renumerar, diminuir um lote de 10 para 5 deixaria quem
+tem a peca 10 lendo "peca 10 de 5". O CODIGO da etiqueta NAO muda - e ele que
+identifica a peca, e e ele que esta costurado dentro da bolsa - mas o NUMERO
+pode mudar: quem viu "peca 10 de 10" pode ver "peca 5 de 5" depois. Numero
+coerente vale mais que numero imutavel: incoerencia a cliente percebe, mudanca
+silenciosa quase nunca.
