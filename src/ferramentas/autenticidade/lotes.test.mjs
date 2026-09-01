@@ -101,10 +101,29 @@ test('progressoDoLote: peca GRAVADA e depois baixada tambem sai dos dois numeros
   assert.deepEqual(progressoDoLote(pecas), { gravadas: 1, total: 1, texto: '1 de 1' })
 })
 
-test('MOTIVOS_DE_BAIXA: os quatro do dono, com rotulo em portugues', () => {
+/* A LISTA INTEIRA, e nao "contem tal chave".
+ *
+ * ESTA LISTA MORA EM TRES LUGARES e os tres precisam concordar:
+ *   1. o `check (motivo in (...))` da coluna `vessel_baixas.motivo`;
+ *   2. o `if ... not in (...)` de dentro de `vessel_baixar_peca` — e o de
+ *      `vessel_sobrescrever_etiqueta`, que confere o motivo da baixa;
+ *   3. `MOTIVOS_DE_BAIXA`, em `lotes.js`, que e o que a tela oferece.
+ *
+ * O `deepEqual` da lista inteira e de proposito: com um `includes`, acrescentar
+ * um motivo aqui e esquecer do banco passaria verde, e a tela ofereceria uma
+ * opcao que o banco recusa com `motivo_invalido`. Ficar vermelho e o aviso de
+ * que os outros dois lugares tambem tem de ser conferidos. */
+test('MOTIVOS_DE_BAIXA: a lista INTEIRA, na mesma ordem, com rotulo em portugues', () => {
   assert.deepEqual(MOTIVOS_DE_BAIXA.map((m) => m.chave),
-    ['extraviada', 'defeito', 'devolvida', 'etiqueta_perdida'])
+    ['extraviada', 'defeito', 'devolvida', 'etiqueta_perdida', 'teste'])
   MOTIVOS_DE_BAIXA.forEach((m) => assert.ok(m.rotulo.length > 3))
+})
+
+test("MOTIVOS_DE_BAIXA: 'teste' tem rotulo proprio, e nao vira 'Defeito ou refugo'", () => {
+  // a peca usada para testar a gravacao nunca vira bolsa. Baixando-a como
+  // 'defeito', a contagem de refugo da producao mentiria.
+  assert.equal(rotuloDoMotivo('teste'), 'Usada em teste')
+  assert.notEqual(rotuloDoMotivo('teste'), rotuloDoMotivo('defeito'))
 })
 
 test('fraseDaRecusa: explica POR QUE, com o numero, em vez de "nao foi possivel"', () => {

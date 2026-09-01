@@ -36,13 +36,30 @@ export function proximaPorGravar(pecas) {
 }
 
 // ── OS MOTIVOS DE BAIXA ────────────────────────────────────────────────────
-// Os quatro que o dono escolheu. A chave é o que o banco aceita (há um `check`
-// na tabela com exatamente estas quatro); o rótulo é o que a pessoa lê.
+// A chave é o que o banco aceita; o rótulo é o que a pessoa lê.
+//
+// ⚠️ ESTA LISTA MORA EM TRÊS LUGARES, e os três precisam concordar. Quem
+// acrescentar um motivo aqui e esquecer dos outros dois vê a tela oferecer uma
+// opção que o banco recusa com `motivo_invalido` — e a pessoa fica achando que
+// a ferramenta quebrou:
+//
+//   1. o `check (motivo in (...))` da coluna `vessel_baixas.motivo`;
+//   2. o `if ... not in (...)` de DENTRO de `vessel_baixar_peca` — e o de
+//      `vessel_sobrescrever_etiqueta`, que confere o motivo da baixa antes de
+//      escrever (a trava mais fechada é a que manda, e é a de dentro da função);
+//   3. esta lista, que é o que a tela oferece.
+//
+// Os 1 e 2 foram acertados em `db/migrations/2026-09-01-vessel-editar-etiquetas.sql`.
+// Este arquivo é o 3.
 export const MOTIVOS_DE_BAIXA = [
   { chave: 'extraviada', rotulo: 'Extraviada' },
   { chave: 'defeito', rotulo: 'Defeito ou refugo' },
   { chave: 'devolvida', rotulo: 'Devolvida' },
   { chave: 'etiqueta_perdida', rotulo: 'Etiqueta perdida ou danificada' },
+  // A peça que foi usada para testar a gravação. Ela nunca vira bolsa, e sem
+  // este motivo ela era baixada como 'defeito' — que faria a contagem de
+  // refugo da produção mentir.
+  { chave: 'teste', rotulo: 'Usada em teste' },
 ]
 
 // O RÓTULO QUE A PESSOA LÊ, a partir da chave que o banco aceita. Ele MORA AQUI,
