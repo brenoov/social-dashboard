@@ -2,8 +2,9 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   enderecoDaTag, progressoDoLote, proximaPorGravar, linhasDoCsv, resumoDeAlertas,
-  MOTIVOS_DE_BAIXA, fraseDaRecusa,
+  MOTIVOS_DE_BAIXA, fraseDaRecusa, fraseDaSenha,
   rotuloDoMotivo, pecasEmOrdem, estadoDaPeca, linhasDaListaDoLote,
+  codigosComGarantia, etiquetasGravadas, motivoObrigatorio, descricaoDaPeca,
 } from './lotes.js'
 
 test('enderecoDaTag: e exatamente o que vai gravado na etiqueta', () => {
@@ -101,10 +102,29 @@ test('progressoDoLote: peca GRAVADA e depois baixada tambem sai dos dois numeros
   assert.deepEqual(progressoDoLote(pecas), { gravadas: 1, total: 1, texto: '1 de 1' })
 })
 
-test('MOTIVOS_DE_BAIXA: os quatro do dono, com rotulo em portugues', () => {
+/* A LISTA INTEIRA, e nao "contem tal chave".
+ *
+ * ESTA LISTA MORA EM TRES LUGARES e os tres precisam concordar:
+ *   1. o `check (motivo in (...))` da coluna `vessel_baixas.motivo`;
+ *   2. o `if ... not in (...)` de dentro de `vessel_baixar_peca` — e o de
+ *      `vessel_sobrescrever_etiqueta`, que confere o motivo da baixa;
+ *   3. `MOTIVOS_DE_BAIXA`, em `lotes.js`, que e o que a tela oferece.
+ *
+ * O `deepEqual` da lista inteira e de proposito: com um `includes`, acrescentar
+ * um motivo aqui e esquecer do banco passaria verde, e a tela ofereceria uma
+ * opcao que o banco recusa com `motivo_invalido`. Ficar vermelho e o aviso de
+ * que os outros dois lugares tambem tem de ser conferidos. */
+test('MOTIVOS_DE_BAIXA: a lista INTEIRA, na mesma ordem, com rotulo em portugues', () => {
   assert.deepEqual(MOTIVOS_DE_BAIXA.map((m) => m.chave),
-    ['extraviada', 'defeito', 'devolvida', 'etiqueta_perdida'])
+    ['extraviada', 'defeito', 'devolvida', 'etiqueta_perdida', 'teste'])
   MOTIVOS_DE_BAIXA.forEach((m) => assert.ok(m.rotulo.length > 3))
+})
+
+test("MOTIVOS_DE_BAIXA: 'teste' tem rotulo proprio, e nao vira 'Defeito ou refugo'", () => {
+  // a peca usada para testar a gravacao nunca vira bolsa. Baixando-a como
+  // 'defeito', a contagem de refugo da producao mentiria.
+  assert.equal(rotuloDoMotivo('teste'), 'Usada em teste')
+  assert.notEqual(rotuloDoMotivo('teste'), rotuloDoMotivo('defeito'))
 })
 
 test('fraseDaRecusa: explica POR QUE, com o numero, em vez de "nao foi possivel"', () => {
@@ -277,4 +297,195 @@ test('linhasDaListaDoLote: ponto-e-virgula no motivo nao quebra a coluna', () =>
     { codigo: 'A1B2C3', numero_na_serie: 1, baixada: true, baixa_motivo: 'sumiu; voltou' },
   ])
   assert.ok(csv.includes('"sumiu; voltou"'))
+})
+
+/* ── A SENHA PEDIDA ANTES DE APAGAR ────────────────────────────────────────
+ * Ela e FRICCAO, nao cofre: quem manda de verdade e o portao do banco. O que
+ * estes testes seguram e a HONESTIDADE das frases — depois de digitar a senha
+ * errada, a pessoa precisa saber que nada foi apagado, senao ela vai procurar o
+ * lote que continua la achando que sumiu. */
+
+test('fraseDaSenha: cada recusa da edge vira frase em portugues, sem codigo cru', () => {
+  const codigos = ['senha_incorreta', 'bloqueado', 'sem_senha', 'sem_sessao', 'falha_interna']
+  for (const c of codigos) {
+    const f = fraseDaSenha(c)
+    assert.ok(f.length > 20, `a frase de ${c} ficou curta demais para explicar`)
+    assert.doesNotMatch(f, /_/, `a frase de ${c} vazou o codigo cru do banco`)
+  }
+})
+
+test('fraseDaSenha: toda recusa diz que NADA foi apagado', () => {
+  // esta e a parte que a pessoa precisa ler: sem ela, quem errou a senha fica
+  // sem saber se o lote foi embora ou nao — e a tela nunca mente.
+  for (const c of ['senha_incorreta', 'bloqueado', 'sem_sessao', 'falha_interna']) {
+    assert.match(fraseDaSenha(c), /nada foi apagado/i, `a frase de ${c} nao diz o que sobrou`)
+  }
+})
+
+test('fraseDaSenha: senha errada e bloqueio sao frases DIFERENTES', () => {
+  // "bloqueado por dez minutos" lido como "senha incorreta" faz a pessoa tentar
+  // sem parar, e cada tentativa estica o bloqueio
+  assert.notEqual(fraseDaSenha('senha_incorreta'), fraseDaSenha('bloqueado'))
+  assert.match(fraseDaSenha('bloqueado'), /dez minutos/)
+})
+
+test('fraseDaSenha: codigo desconhecido nao vira frase vazia', () => {
+  assert.ok(fraseDaSenha('coisa_que_ninguem_conhece').length > 20)
+  assert.ok(fraseDaSenha(undefined).length > 20)
+})
+
+/* ── EDITAR ETIQUETA JA GRAVADA ────────────────────────────────────────────
+ * Do outro lado de cada uma destas contas ha uma etiqueta costurada dentro de
+ * uma bolsa de couro, que nao se descose. */
+
+test('fraseDaRecusa: TODA recusa das funcoes novas tem frase propria', () => {
+  // a lista sai do contrato da migration 2026-09-01. Recusa que cai no
+  // `default` faz a pessoa ler "Recarregue a tela e tente de novo" para um
+  // problema que tem conserto conhecido — e ela recarrega a manha inteira.
+  const doBanco = [
+    'nao_esta_gravada', 'motivo_obrigatorio', 'motivo_invalido', 'destino_invalido',
+    'mesma_peca', 'antiga_nao_existe', 'nova_nao_existe', 'antiga_nao_esta_gravada',
+    'nova_ja_gravada',
+  ]
+  const generica = fraseDaRecusa('coisa_que_ninguem_conhece', {})
+  const semFrase = doBanco.filter((m) => fraseDaRecusa(m, {}) === generica)
+  assert.deepEqual(semFrase, [], 'caiu no default: ' + semFrase.join(', '))
+})
+
+test('fraseDaRecusa: motivo obrigatorio diz POR QUE, e fala da garantia', () => {
+  const f = fraseDaRecusa('motivo_obrigatorio', {})
+  assert.match(f, /garantia/i)
+  assert.match(f, /motivo/i)
+})
+
+test('fraseDaRecusa: nova_ja_gravada explica o estrago e diz o caminho', () => {
+  // este e o defeito que a funcao inteira veio impedir: o mesmo codigo em DUAS
+  // etiquetas, em duas bolsas
+  const f = fraseDaRecusa('nova_ja_gravada', {})
+  assert.match(f, /DUAS bolsas/)
+  assert.match(f, /Etiquetas/, 'tem de dizer ONDE se apaga a gravacao')
+})
+
+test('fraseDaRecusa: antiga_nao_esta_gravada manda gravar normalmente, sem sobrescrever', () => {
+  assert.match(fraseDaRecusa('antiga_nao_esta_gravada', {}), /Gravar nesta etiqueta/)
+})
+
+test('codigosComGarantia: compara em MAIUSCULAS dos dois lados', () => {
+  // o banco guarda em maiusculas, mas quem monta o conjunto e a tela: um
+  // registro antigo em caixa baixa faria a peca de uma cliente aparecer SEM a
+  // marca de garantia, e a tela deixaria apagar a gravacao dela sem motivo
+  const com = codigosComGarantia([{ codigo: 'k7m4x9' }, { codigo: ' BBB222 ' }])
+  assert.equal(com.has('K7M4X9'), true)
+  assert.equal(com.has('BBB222'), true)
+  assert.equal(com.size, 2)
+})
+
+test('codigosComGarantia: sem registro nenhum devolve conjunto vazio, sem estourar', () => {
+  assert.equal(codigosComGarantia(null).size, 0)
+  assert.equal(codigosComGarantia([{ codigo: null }, {}]).size, 0)
+})
+
+test('etiquetasGravadas: so as que TEM gravacao', () => {
+  const pecas = [
+    { codigo: 'A', gravada_em: '2026-09-01T10:00:00Z', numero_na_serie: 1 },
+    { codigo: 'B', gravada_em: null, numero_na_serie: 2 },
+  ]
+  assert.deepEqual(etiquetasGravadas(pecas).map((p) => p.codigo), ['A'])
+})
+
+test('etiquetasGravadas: com lote escolhido, ordena pela SERIE', () => {
+  // e assim que se procura a peca no 7 dentro de um lote de 50
+  const pecas = [
+    { codigo: 'C', lote_id: 'L1', numero_na_serie: 3, gravada_em: '2026-09-01T08:00:00Z' },
+    { codigo: 'A', lote_id: 'L1', numero_na_serie: 1, gravada_em: '2026-09-01T10:00:00Z' },
+    { codigo: 'Z', lote_id: 'L2', numero_na_serie: 1, gravada_em: '2026-09-01T11:00:00Z' },
+  ]
+  assert.deepEqual(etiquetasGravadas(pecas, 'L1').map((p) => p.codigo), ['A', 'C'])
+})
+
+test('etiquetasGravadas: sem filtro, a gravada mais RECENTE primeiro', () => {
+  // quem abre a aba sem filtrar acabou de gravar errado e quer desfazer
+  const pecas = [
+    { codigo: 'VELHA', numero_na_serie: 1, gravada_em: '2026-08-01T10:00:00Z' },
+    { codigo: 'NOVA', numero_na_serie: 9, gravada_em: '2026-09-01T10:00:00Z' },
+  ]
+  assert.deepEqual(etiquetasGravadas(pecas).map((p) => p.codigo), ['NOVA', 'VELHA'])
+})
+
+test('etiquetasGravadas: a BAIXADA continua na lista', () => {
+  // ela pode ter sido gravada ANTES da baixa, e `vessel_desmarcar_gravada`
+  // funciona nela. Tirando-a daqui, some justamente a peca baixada por engano
+  // depois de gravada — que e o caso que a aba existe para consertar.
+  const pecas = [{ codigo: 'A', numero_na_serie: 1, gravada_em: 'x', baixada: true }]
+  assert.deepEqual(etiquetasGravadas(pecas).map((p) => p.codigo), ['A'])
+})
+
+test('etiquetasGravadas: NAO mexe na lista que a tela esta desenhando', () => {
+  // `sort` ordena NO LUGAR — mesmo cuidado de `pecasEmOrdem`
+  const pecas = [
+    { codigo: 'B', lote_id: 'L1', numero_na_serie: 2, gravada_em: 'x' },
+    { codigo: 'A', lote_id: 'L1', numero_na_serie: 1, gravada_em: 'x' },
+  ]
+  etiquetasGravadas(pecas, 'L1')
+  assert.deepEqual(pecas.map((p) => p.codigo), ['B', 'A'])
+})
+
+test('etiquetasGravadas: sem peca nenhuma nao estoura', () => {
+  assert.deepEqual(etiquetasGravadas(null), [])
+  assert.deepEqual(etiquetasGravadas(undefined, 'L1'), [])
+})
+
+/* QUANDO O MOTIVO E OBRIGATORIO — a tela precisa saber ANTES do banco.
+ * Deixando o banco dar a bronca, a pessoa aperta o botao, espera a rede e so
+ * entao descobre que faltava um campo que estava na tela o tempo todo. */
+
+test('motivoObrigatorio: peca COM garantia exige motivo escrito', () => {
+  assert.equal(motivoObrigatorio({ temGarantia: true }), true)
+  assert.equal(motivoObrigatorio({ temGarantia: true, destino: 'fila' }), true)
+})
+
+test('motivoObrigatorio: destino BAIXA exige motivo mesmo sem garantia', () => {
+  // aqui o motivo nao e texto de auditoria: ele vai para `vessel_baixas.motivo`,
+  // que tem `check`, e sem ele o banco recusa com `motivo_invalido`
+  assert.equal(motivoObrigatorio({ temGarantia: false, destino: 'baixa' }), true)
+})
+
+test('motivoObrigatorio: peca sem garantia voltando para a fila NAO exige', () => {
+  // desmarcar uma peca que ninguem registrou e conserto de bancada
+  assert.equal(motivoObrigatorio({ temGarantia: false, destino: 'fila' }), false)
+  assert.equal(motivoObrigatorio({ temGarantia: false }), false)
+  assert.equal(motivoObrigatorio(), false)
+})
+
+/* QUAL PECA ESTA NESTA ETIQUETA. O codigo sozinho nao serve: quem esta com a
+ * etiqueta na mao precisa saber QUAL BOLSA vai perder a identidade. */
+
+test('descricaoDaPeca: modelo, cor e numero na serie, alem do codigo', () => {
+  const f = descricaoDaPeca(
+    { codigo: 'k7m4x9', numero_na_serie: 7 },
+    { modelo: 'Monaco', cor: 'Quartz' },
+  )
+  assert.match(f, /Monaco/)
+  assert.match(f, /Quartz/)
+  assert.match(f, /nº 7/)
+  assert.match(f, /K7M4X9/, 'o codigo vai em MAIUSCULAS, como na etiqueta')
+})
+
+test('descricaoDaPeca: o que falta simplesmente nao entra', () => {
+  // "undefined" no lugar da cor se le como se fosse o nome dela, e um pedaco
+  // vazio deixa dois separadores colados ("Monaco ·  · no 2")
+  const f = descricaoDaPeca({ codigo: 'AAA111', numero_na_serie: 2 }, { modelo: 'Monaco' })
+  assert.doesNotMatch(f, /undefined|null|· ·/)
+  assert.equal(f, 'Monaco · nº 2 — AAA111')
+})
+
+test('descricaoDaPeca: peca que a tela nao conhece diz a verdade inteira', () => {
+  // nunca inventar modelo: dizer o codigo e dizer que o lote nao foi achado
+  const f = descricaoDaPeca({ codigo: 'ZZZ999' }, null)
+  assert.match(f, /ZZZ999/)
+  assert.match(f, /não achei o lote/i)
+})
+
+test('descricaoDaPeca: sem peca nenhuma nao estoura nem inventa', () => {
+  assert.equal(descricaoDaPeca(null, null), 'peça desconhecida')
 })
