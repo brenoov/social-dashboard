@@ -282,7 +282,63 @@
           <template v-if="gravaPorNfc">
             <div class="au-endereco">{{ enderecoDaTag(proxima.codigo) }}</div>
             <p v-if="recadoNfc" class="au-recado-nfc">{{ recadoNfc }}</p>
-            <div class="au-acoes">
+
+            <!-- ── ETIQUETA JÁ GRAVADA: SOBRESCREVER? ──────────────────────
+                 A pergunta diz QUAL BOLSA está prestes a perder a identidade —
+                 modelo, cor e número na série, não só o código: "K7M4X9QP2R" não
+                 é bolsa nenhuma. E pergunta o que fazer com a peça antiga, nos
+                 dois caminhos que o dono pediu.
+                 A gravação física só acontece DEPOIS de o banco confirmar. -->
+            <div v-if="sobrescrita" class="au-confirma">
+              <p class="au-confirma-texto">
+                Esta etiqueta já está gravada com <strong>{{ sobrescrita.descricaoAntiga }}</strong>.
+                Sobrescrever apaga a identidade dessa peça desta etiqueta e grava
+                <strong>{{ sobrescrita.descricaoNova }}</strong> no lugar.
+              </p>
+              <p v-if="sobrescrita.temGarantia" class="au-aviso-menor">
+                <strong>A peça antiga tem garantia registrada por uma cliente.</strong>
+                A garantia continua valendo no código dela — por isso o motivo escrito é
+                obrigatório aqui.
+              </p>
+
+              <label class="au-campo"><span class="au-rot">O que fazer com a peça antiga</span>
+                <select v-model="destinoDaAntiga" :disabled="gravando">
+                  <option value="fila">Volta para a fila — ela ganha outra etiqueta depois</option>
+                  <option value="baixa">Dar baixa — ela não vira bolsa</option>
+                </select>
+              </label>
+
+              <label v-if="destinoDaAntiga === 'baixa'" class="au-campo">
+                <span class="au-rot">Motivo da baixa</span>
+                <select v-model="motivoDaSobrescrita" :disabled="gravando">
+                  <option value="">Escolha o motivo…</option>
+                  <option v-for="m in MOTIVOS_DE_BAIXA" :key="m.chave" :value="m.chave">{{ m.rotulo }}</option>
+                </select>
+              </label>
+              <!-- `v-else-if` GRUDA no `v-if` de cima, e é de propósito: no
+                   destino 'fila' o motivo é texto livre, e só é cobrado quando
+                   há garantia de cliente. -->
+              <label v-else-if="sobrescrita.temGarantia" class="au-campo">
+                <span class="au-rot">Motivo</span>
+                <input v-model="motivoDaSobrescrita" type="text" maxlength="200" :disabled="gravando"
+                       placeholder="Ex.: etiqueta ficou de lado antes de costurar"></label>
+
+              <p v-if="erroDaSobrescrita" class="au-recusa">{{ erroDaSobrescrita }}</p>
+
+              <div class="au-acoes">
+                <button class="au-botao secundario" type="button" :disabled="gravando"
+                        @click="desistirDaSobrescrita">Não sobrescrever</button>
+                <button class="au-botao" type="button" :disabled="gravando"
+                        @click="sobrescreverEtiqueta">
+                  {{ gravando ? 'Encoste a etiqueta…' : 'Sobrescrever esta etiqueta' }}
+                </button>
+              </div>
+            </div>
+
+            <!-- os botões normais somem enquanto a pergunta está aberta: "Gravar
+                 nesta etiqueta" ali do lado leria a MESMA etiqueta de novo e
+                 devolveria a MESMA pergunta, e a pessoa acharia que travou -->
+            <div v-if="!sobrescrita" class="au-acoes">
               <button class="au-botao" type="button" :disabled="gravando || !podeEditar"
                       @click="gravarNaEtiqueta">
                 {{ gravando ? 'Encoste a etiqueta…' : 'Gravar nesta etiqueta' }}
@@ -802,7 +858,9 @@ import {
   rotuloDoMotivo, pecasEmOrdem, estadoDaPeca, linhasDaListaDoLote,
   codigosComGarantia, etiquetasGravadas, motivoObrigatorio, descricaoDaPeca,
 } from './lotes.js'
-import { conferirLeitura, listaParaGravadorDeMesa, codigosNoTextoDoGravador } from './nfc-fila.js'
+import {
+  conferirLeitura, codigoDoEndereco, listaParaGravadorDeMesa, codigosNoTextoDoGravador,
+} from './nfc-fila.js'
 import { PASSOS, TELAS_DO_GUIA, passoAtual, guiaJaVisto, marcarGuiaVisto, proximaTelaDoGuia } from './tutorial.js'
 import { produtosParaEscolher, procurarProduto } from './produtos-do-bling.js'
 import { paginasDoBling, avisoDoErro } from '../../compartilhado/chamada-do-bling.js'
@@ -1197,6 +1255,9 @@ watch(loteEscolhido, () => {
   // é pior que sinal nenhum — mesmo motivo do recado logo acima
   sinalDaGravacao.value = ''
   confirmacaoDoGravador.value = null
+  // a pergunta de sobrescrever fala de DUAS peças pelo nome; sob um lote novo
+  // ela é pergunta do lote errado, que é pior que pergunta nenhuma
+  sobrescrita.value = null
   baixando.value = false
   excluindoPeca.value = false
 })
@@ -1214,6 +1275,9 @@ watch(loteEscolhido, () => {
 watch(() => proxima.value?.codigo, () => {
   baixando.value = false
   excluindoPeca.value = false
+  // a pergunta diz o nome da bolsa que vai ENTRAR na etiqueta: com a peça da vez
+  // trocada por baixo, ela prometeria uma e gravaria outra
+  sobrescrita.value = null
 })
 
 function voltar() { router.push({ name: 'gestao-interna' }) }
@@ -1631,8 +1695,31 @@ async function gravarNaEtiqueta() {
     const antes = await gravador.lerUmaVez()
     const situacao = conferirLeitura(antes, peca.codigo)
     if (situacao === 'outra-peca') {
+      // A ETIQUETA JÁ TEM OUTRA PEÇA. Antes isto era o fim da linha: "separe ela
+      // e pegue uma etiqueta em branco". O dono pediu para OFERECER a
+      // sobrescrita — o caso comum é a etiqueta que foi gravada e ficou de lado
+      // antes de costurar.
+      //
+      // A DECISÃO NÃO CABE AQUI DENTRO. Ela vira uma pergunta na tela, com o
+      // NOME DA BOLSA que vai perder a identidade, e a gravação física só
+      // acontece em `sobrescreverEtiqueta`, depois de o banco confirmar.
+      const codigoAntigo = codigoDoEndereco(antes)
+      const antiga = pecas.value.find((pa) => pa.codigo === codigoAntigo) || null
+      sobrescrita.value = {
+        codigoAntigo,
+        codigoNovo: peca.codigo,
+        // a peça antiga pode não estar nesta tela (lote excluído, banco de
+        // outro ambiente): `descricaoDaPeca` diz isso em vez de inventar modelo
+        descricaoAntiga: descricaoDaPeca(antiga || { codigo: codigoAntigo },
+          antiga ? loteDaPeca(antiga.lote_id) : null),
+        descricaoNova: descricaoDaPeca(peca, loteAtual.value),
+        temGarantia: temGarantia(codigoAntigo),
+      }
+      destinoDaAntiga.value = 'fila'
+      motivoDaSobrescrita.value = ''
+      erroDaSobrescrita.value = ''
       recadoNfc.value = 'PARE: esta etiqueta já tem OUTRA peça gravada. '
-        + 'Separe ela e pegue uma etiqueta em branco.'
+        + 'Escolha abaixo o que fazer com ela antes de gravar por cima.'
       // este caminho não passa por `marcarGravada`, então acende o sinal aqui
       avisarNaTela('falha')
       return
@@ -1669,6 +1756,143 @@ async function gravarNaEtiqueta() {
   } finally {
     gravando.value = false
   }
+}
+
+// ── SOBRESCREVER UMA ETIQUETA QUE JÁ TEM OUTRA PEÇA ───────────────────────
+//
+// A pergunta aberta, ou null. Guarda o que foi CONTADO no momento da leitura:
+// os dois códigos, a descrição de cada bolsa e se a antiga tem garantia.
+const sobrescrita = ref(null)
+// A decisão do dono sobre a peça ANTIGA. Ele pediu os dois caminhos: 'fila' é o
+// caso normal (etiqueta gravada que ficou de lado antes de costurar) e 'baixa' é
+// a peça que não vira bolsa. Nasce em 'fila' porque é o caso comum.
+const destinoDaAntiga = ref('fila')
+// No destino 'baixa' isto guarda uma CHAVE de MOTIVOS_DE_BAIXA; no 'fila', o
+// texto livre que a garantia exige. Trocar de destino limpa o campo, senão a
+// chave 'extraviada' viraria o "motivo escrito" de uma peça que voltou à fila.
+const motivoDaSobrescrita = ref('')
+const erroDaSobrescrita = ref('')
+
+watch(destinoDaAntiga, () => { motivoDaSobrescrita.value = '' })
+
+const motivoDaSobrescritaObrigatorio = computed(() => motivoObrigatorio({
+  temGarantia: sobrescrita.value?.temGarantia, destino: destinoDaAntiga.value,
+}))
+
+function desistirDaSobrescrita() {
+  sobrescrita.value = null
+  motivoDaSobrescrita.value = ''
+  erroDaSobrescrita.value = ''
+  recadoNfc.value = 'Não sobrescrevi nada. Separe esta etiqueta e pegue uma em branco.'
+}
+
+// ⚠️ A ORDEM AQUI É A REGRA INTEIRA: O BANCO PRIMEIRO, A ETIQUETA DEPOIS.
+//
+// Gravando primeiro e registrando depois, uma falha na segunda metade — rede
+// caindo, aba fechada, token expirando — deixaria a peça ANTIGA marcada como
+// gravada com a etiqueta que acabou de ser reciclada, e a NOVA sem marca
+// nenhuma: duas bolsas com a mesma identidade. Nesta ordem, o pior caso é a
+// etiqueta ficar com o endereço velho e o banco já dizer a verdade nova — e isso
+// a tela CONTA, com o caminho do conserto escrito.
+//
+// A troca inteira é UMA chamada só (`vessel_sobrescrever_etiqueta`), e não duas
+// da tela, porque entre "desmarcar a antiga" e "marcar a nova" haveria uma
+// janela. O corpo de uma função plpgsql é uma transação só.
+async function sobrescreverEtiqueta() {
+  const pedido = sobrescrita.value
+  if (!pedido || gravando.value) return
+  erroDaSobrescrita.value = ''
+
+  const destino = destinoDaAntiga.value
+  const motivo = motivoDaSobrescrita.value.trim()
+  // A TELA COBRA ANTES DO BANCO, pelo mesmo motivo da aba Etiquetas: o banco
+  // recusaria com `motivo_obrigatorio`/`motivo_invalido`, mas só depois de a
+  // pessoa esperar a rede por um campo que estava na tela o tempo todo.
+  if (motivoObrigatorio({ temGarantia: pedido.temGarantia, destino }) && !motivo) {
+    erroDaSobrescrita.value = destino === 'baixa'
+      ? 'Escolha o motivo da baixa da peça antiga: sem ele o banco não aceita a baixa.'
+      : fraseDaRecusa('motivo_obrigatorio')
+    return
+  }
+
+  const gravador = criarGravador()
+  if (!gravador) { gravaPorNfc.value = false; return }
+
+  gravando.value = true
+  // A recarga no fim só acontece se o BANCO tiver mudado. Recarregando sempre,
+  // uma recusa (que não mudou nada) dispararia uma leitura que pode falhar — e
+  // `carregar()` pinta a tela inteira de erro, levando junto a frase da recusa
+  // que a pessoa precisa ler.
+  let oBancoMudou = false
+  try {
+    // 1. O BANCO. Nada foi tocado na etiqueta ainda.
+    const { data, error } = await sbClient.rpc('vessel_sobrescrever_etiqueta', {
+      p_codigo_antigo: pedido.codigoAntigo,
+      p_codigo_novo: pedido.codigoNovo,
+      p_destino: destino,
+      // motivo em branco vai NULO, como o banco entende (`nullif(trim(...), '')`)
+      p_motivo: motivo || null,
+    })
+    if (error) {
+      erroDaSobrescrita.value = 'Não consegui registrar a troca agora. '
+        + 'NADA foi gravado na etiqueta — ela continua com a peça antiga. Tente de novo.'
+      avisarNaTela('falha')
+      return
+    }
+    if (!data?.ok) {
+      erroDaSobrescrita.value = fraseDaRecusa(data?.motivo, data)
+      avisarNaTela('falha')
+      return
+    }
+
+    // 2. SÓ AGORA A ETIQUETA. A pergunta sai da tela: o que ela perguntava já
+    // foi decidido, e o banco já mudou.
+    oBancoMudou = true
+    const eraDeCliente = data.tinha_garantia
+    sobrescrita.value = null
+    recadoNfc.value = 'Registrado. Encoste a MESMA etiqueta de novo e segure parado…'
+    await gravador.gravar(enderecoDaTag(pedido.codigoNovo))
+
+    // 3. LER DEPOIS: a prova de que gravou é a etiqueta devolver
+    const depois = await gravador.lerUmaVez()
+    if (conferirLeitura(depois, pedido.codigoNovo) !== 'confere') {
+      recadoNfc.value = avisoDeMeiaSobrescrita(pedido)
+      avisarNaTela('falha')
+      return
+    }
+    if (travarDepois.value) await gravador.travar()
+
+    recadoNfc.value = `Etiqueta sobrescrita. Agora ela é ${pedido.descricaoNova}.`
+      + (destino === 'baixa'
+        ? ` A peça antiga saiu da fila, baixada como ${rotuloDoMotivo(motivo)}.`
+        : ' A peça antiga voltou para a fila e espera outra etiqueta.')
+    avisarNaTela('ok')
+    if (eraDeCliente) {
+      avisoDaGarantia.value = `A peça ${pedido.codigoAntigo} tinha garantia registrada por uma `
+        + 'cliente. A garantia CONTINUA VALENDO no código dela — nada foi apagado do lado da '
+        + 'cliente. O que mudou é que a etiqueta dela foi reciclada, e a ação ficou na trilha.'
+      adminToast('Etiqueta sobrescrita. Havia garantia de cliente — leia o aviso na aba Etiquetas.')
+    }
+  } catch (erro) {
+    // Falha do chip DEPOIS de o banco já ter registrado: a tela não pode dizer
+    // "tente de novo" e ficar por isso, porque o banco já mudou.
+    recadoNfc.value = `${traduzirFalha(erro)} ${avisoDeMeiaSobrescrita(pedido)}`
+    avisarNaTela('falha')
+  } finally {
+    gravando.value = false
+    // a lista tem de refletir o que o banco fez — inclusive quando a etiqueta
+    // falhou DEPOIS de o registro entrar, que é o caso que a tela precisa contar
+    if (oBancoMudou) await carregar()
+  }
+}
+
+// O RECADO DA METADE QUE FALTOU. A troca ficou registrada e a etiqueta não. A
+// tela nunca mente: ela diz exatamente o que sobrou e por onde se conserta.
+function avisoDeMeiaSobrescrita(pedido) {
+  return `A TROCA JÁ FOI REGISTRADA, mas a etiqueta NÃO recebeu o endereço novo: `
+    + `ela ainda abre a peça ${pedido.codigoAntigo}. No sistema, ${pedido.descricaoNova} `
+    + 'já consta como gravada. Para consertar: vá à aba Etiquetas, apague a gravação dessa '
+    + 'peça — ela volta para a fila — e grave esta MESMA etiqueta de novo.'
 }
 
 // ── O GRAVADOR DE MESA: a mesma fila, de ida e de volta ────────────────────
