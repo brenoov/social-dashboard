@@ -223,3 +223,48 @@ test('todo botão desta tela nasce com 40px de alvo', () => {
   assert.match(base[1], /min-height:40px/);
   assert.match(base[1], /box-sizing:border-box/, 'sem isto o padding soma por fora e a conta muda');
 });
+
+/* ── A COLISÃO COM O `.abas` GLOBAL ──────────────────────────────────────────
+ * `.abas` é uma classe GENÉRICA e existe em `estilos-globais.css` — e o global
+ * vaza para o scoped em toda propriedade que o scoped não declarar. Estas três
+ * foram MEDIDAS no navegador com o CSS do build, não deduzidas. */
+
+test('a fileira das abas desliga o `justify-content:center` do global', () => {
+  // numa fileira que transborda, o conteúdo centralizado sai para os DOIS
+  // lados, e o que sai pela ESQUERDA não se alcança rolando: `scrollLeft` já
+  // está em 0. Medido a 375px: a aba "Lotes" nascia em -67px, fora da tela.
+  const regra = estilo.match(/\n\.abas\{([^}]*)\}/);
+  assert.ok(regra, 'a regra da fileira sumiu');
+  assert.match(regra[1], /justify-content:flex-start/);
+  assert.match(regra[1], /overflow-x:auto/, 'sem isto quem rola é a PÁGINA');
+  assert.match(regra[1], /flex-wrap:nowrap/);
+  assert.match(regra[1], /border-bottom:0/,
+    'no elemento que rola, a linha teria a largura do CONTEÚDO: quem a desenha é a .abas-barra');
+});
+
+test('a barra desenha a linha, e ela ocupa a largura da tela', () => {
+  assert.match(estilo, /\.abas-barra\{[^}]*border-bottom:1px solid var\(--border\)/);
+});
+
+test('o botão da aba desliga o `margin-bottom:-1px` do global', () => {
+  // lá ele existe para a aba encostar na linha do próprio `.abas`; aqui ele
+  // sobreporia o sublinhado da barra
+  const regra = estilo.match(/\.abas button\{([^}]*)\}/);
+  assert.ok(regra, 'a regra do botão da aba sumiu');
+  assert.match(regra[1], /margin-bottom:0/);
+  assert.match(regra[1], /min-height:40px/);
+  assert.match(regra[1], /white-space:nowrap/, 'nome de aba não corta: a barra rola');
+});
+
+test('a aba ativa usa o par de cor que o PADRAO manda, e já vem medido', () => {
+  // o accent puro sobre o próprio tom aguado dá 4,42 no tema escuro e reprova
+  // por pouco. Medido com o CSS do build: 7,49 no claro e 6,44 no escuro.
+  assert.match(estilo, /\.abas button\.on\{[^}]*color:var\(--accent-forte\)[^}]*background:var\(--accent-light\)/);
+});
+
+test('o botão secundário das perguntas não reprova no tema escuro', () => {
+  // com `--accent` puro sobre o fundo da caixa de aviso ele mede 4,46 no
+  // escuro — reprova por pouco, e "por pouco" continua sendo reprovado.
+  // Medido com o CSS do build: 4,46 → 6,02 no escuro e 5,87 → 7,91 no claro.
+  assert.match(estilo, /\.au-confirma \.au-botao\.secundario\{color:var\(--accent-forte\)\}/);
+});

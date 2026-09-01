@@ -2008,14 +2008,25 @@ onMounted(() => {
    a largura de um celular; `flex-wrap:wrap` quebrava a barra em duas linhas e
    empurrava a tela inteira para baixo, e sem nada ela empurraria a PÁGINA para
    os lados — que é defeito (PADRAO-DA-CENTRAL, item 6). Medido a 375px. */
-.abas{display:flex;gap:var(--sp-2);padding:var(--sp-4) 24px var(--sp-3);flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+/* ⚠️ EXISTE UM `.abas` GLOBAL, em `estilos-globais.css` — classe genérica, e o
+   global VAZA para o scoped. Três coisas dele precisam ser desligadas aqui, e
+   as três foram MEDIDAS no navegador com o CSS do build, não deduzidas:
+    · `justify-content:center` — numa fileira que transborda, o conteúdo
+      centralizado sai para os DOIS lados, e o que sai pela ESQUERDA não se
+      alcança rolando: `scrollLeft` já está em 0. Medido a 375px: a aba "Lotes"
+      nascia em -67px, fora da tela e inalcançável;
+    · `border-bottom` — quem desenha a linha aqui é o `.abas-barra`, que ocupa a
+      largura da tela. No elemento que rola, a linha teria a largura do CONTEÚDO;
+    · `margin-bottom:-1px` no botão, que lá existe para a aba encostar na linha
+      do próprio `.abas`; aqui ela sobreporia o sublinhado da barra. */
+.abas{display:flex;gap:var(--sp-2);padding:var(--sp-4) 24px var(--sp-3);flex-wrap:nowrap;justify-content:flex-start;border-bottom:0;overflow-x:auto;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
 /* A barrinha de rolagem some: ela roubava altura do alvo de toque e aparecia
    como um risco cinza embaixo das abas no Chrome do computador. */
 .abas::-webkit-scrollbar{display:none;}
 /* 40px de altura de verdade, não de área emprestada: aqui o alvo É o botão, e
    ele tem espaço de sobra. `flex:none` porque, encolhendo, o nome da aba
    cortaria — e texto que corta é defeito (PADRAO item 5). */
-.abas button{font-family:var(--fonte-principal);font-size:max(11px, calc(11px * var(--escala-texto, 1)));font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);background:none;border:1px solid var(--border);border-radius:var(--radius-md);padding:0 var(--sp-4);min-height:40px;box-sizing:border-box;display:inline-flex;align-items:center;white-space:nowrap;flex:none;cursor:pointer;transition:color .15s,border-color .15s,background .15s;}
+.abas button{font-family:var(--fonte-principal);font-size:max(11px, calc(11px * var(--escala-texto, 1)));font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);background:none;border:1px solid var(--border);border-radius:var(--radius-md);margin-bottom:0;padding:0 var(--sp-4);min-height:40px;box-sizing:border-box;display:inline-flex;align-items:center;white-space:nowrap;flex:none;cursor:pointer;transition:color .15s,border-color .15s,background .15s;}
 .abas button:hover{color:var(--text);border-color:var(--accent-mid);}
 /* A ATIVA GANHA FUNDO, BORDA E `aria-selected` — não só cor. O par
    `--accent-light` + `--accent-forte` é o do PADRÃO e já vem medido (5,96 a
@@ -2220,6 +2231,13 @@ onMounted(() => {
 /* O recuo lateral ja vem do bloco: sem isto o seletor de motivo sai 24px mais
    para dentro que o resto da caixa — mesmo motivo do `.au-edicao .au-campo`. */
 .au-confirma .au-campo{padding:var(--sp-2) 0 0; max-width:none}
+/* O "Cancelar"/"Não sobrescrever" destas caixas mede 4,46 de contraste no tema
+   escuro com o `--accent` puro — reprova por pouco, e "por pouco" continua
+   sendo reprovado. `--accent-forte` é o par que o PADRAO manda usar para cor
+   sobre o próprio tom aguado, e ele já vem medido. Medido aqui: 4,46 → 6,3 no
+   escuro, 5,87 → 9,0 no claro. Vale para as CINCO perguntas desta tela, não só
+   para as novas. */
+.au-confirma .au-botao.secundario{color:var(--accent-forte)}
 /* 16px no campo nao e estetica: abaixo disso o iOS da zoom ao focar e a tela
    salta na cara de quem esta digitando a senha. A regra-base do `.au-campo
    input` desta tela e de 14px — sem esta linha o campo de senha nascia com ela.
