@@ -8,8 +8,10 @@
 # ELE NAO GRAVA NADA. So le. Pode rodar com qualquer etiqueta.
 #
 # COMO RODAR: abra o PowerShell, va ate a pasta onde salvou este arquivo e rode:
-#     powershell -ExecutionPolicy Bypass -File .\testar-leitor-nfc-2026-08-31.ps1
+#     powershell -ExecutionPolicy Bypass -File .\testar-leitor-nfc_2026-09-01_v2.ps1
 
+# O `if` evita o erro "tipo já existe" quando se roda duas vezes na mesma janela.
+if (-not ("Cartao" -as [type])) {
 Add-Type @"
 using System;
 using System.Runtime.InteropServices;
@@ -22,6 +24,7 @@ public class Cartao {
   [StructLayout(LayoutKind.Sequential)] public struct Pci { public int Protocol; public int Length; }
 }
 "@
+}
 
 function Hex($bytes, $n) { ($bytes[0..($n-1)] | ForEach-Object { $_.ToString("X2") }) -join ' ' }
 
@@ -70,7 +73,9 @@ if (-not $conectado) {
 Write-Host "   Etiqueta detectada." -ForegroundColor Green
 Write-Host ""
 
-$pci = New-Object Cartao+Pci; $pci.Protocol = $ativo; $pci.Length = 8
+# `[Cartao+Pci]::new()` e nao `New-Object Cartao+Pci`: o `+` do tipo aninhado
+# confunde o New-Object em algumas versoes do PowerShell.
+$pci = [Cartao+Pci]::new(); $pci.Protocol = $ativo; $pci.Length = 8
 
 function Perguntar($nome, $apdu, $explica) {
   $recv = New-Object byte[] 258; $n = 258
