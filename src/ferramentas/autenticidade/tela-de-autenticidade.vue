@@ -465,6 +465,128 @@
       </template>
     </template>
 
+    <!-- ── ETIQUETAS ────────────────────────────────────────────────────
+         A aba de consertar o que foi gravado errado.
+
+         ⚠️ `v-else-if` GRUDA NO `v-if` ANTERIOR: este bloco entra ENTRE a aba
+         Gravar e a aba Registros, e as duas continuam sendo os vizinhos diretos
+         dele na corrente. Um `v-if` solto no meio partiria a corrente em duas, e
+         o `v-else` do fim — a aba Alertas inteira — passaria a ser desenhado
+         embaixo das outras abas. Já aconteceu nesta tela, em 30/08. -->
+    <template v-else-if="aba === 'etiquetas'">
+      <p class="au-instrucao">
+        Aqui se conserta o que já foi gravado. Apagar a gravação devolve a peça para a fila
+        e <strong>não apaga o código nem a garantia de ninguém</strong> — mas a etiqueta continua
+        costurada dentro da bolsa, e alguém vai precisar achá-la.
+      </p>
+
+      <!-- O AVISO DA GARANTIA FICA NA TELA, e não só no recado que some: uma
+           bolsa que já está com uma cliente voltar para a fila é coisa que
+           alguém vai precisar explicar. Ele só aparece quando houve garantia —
+           aviso que aparece sempre vira paisagem (PADRAO item 9). -->
+      <div v-if="avisoDaGarantia" class="au-confirma au-aviso-garantia" role="status">
+        <p class="au-confirma-texto">{{ avisoDaGarantia }}</p>
+        <div class="au-acoes">
+          <button class="au-botao secundario" type="button" @click="avisoDaGarantia = ''">Entendi</button>
+        </div>
+      </div>
+
+      <label class="au-campo"><span class="au-rot">Lote</span>
+        <select v-model="loteDaEtiqueta">
+          <option value="">Todos os lotes</option>
+          <option v-for="l in lotes" :key="l.id" :value="l.id">
+            {{ l.modelo }}<span v-if="l.cor"> · {{ l.cor }}</span>
+          </option>
+        </select>
+      </label>
+
+      <p v-if="!etiquetasDaAba.length" class="au-vazio">
+        Nenhuma etiqueta gravada {{ loteDaEtiqueta ? 'neste lote' : 'ainda' }}. Esta aba só mostra
+        peça que está marcada como gravada — é o que dá para desfazer.
+      </p>
+
+      <div v-else class="au-lista">
+        <div v-for="pc in etiquetasVisiveis" :key="pc.codigo" class="au-card">
+          <div class="au-card-topo">
+            <span class="au-modelo">{{ descricaoDaPeca(pc, loteDaPeca(pc.lote_id)) }}</span>
+            <span class="selo" :class="estadoDaPeca(pc).selo">{{ estadoDaPeca(pc).rotulo }}</span>
+          </div>
+          <div class="au-card-linha">
+            <span>Gravada em {{ dataCurta(pc.gravada_em) }}</span>
+            <span v-if="pc.baixada">Baixada — {{ rotuloDoMotivo(pc.baixa_motivo) }}</span>
+            <!-- A PEÇA COM GARANTIA APARECE MARCADA. Sem isto, quem vai apagar a
+                 gravação não tem como saber que do outro lado há uma cliente. -->
+            <span v-if="temGarantia(pc.codigo)" class="selo selo-atencao">Garantia de cliente</span>
+          </div>
+          <div class="au-peca-end">{{ enderecoDaTag(pc.codigo) }}</div>
+
+          <div v-if="podeEditar && apagando?.codigo !== pc.codigo" class="au-peca-acoes">
+            <button class="au-link au-baixar" type="button"
+                    @click="pedirApagarGravacao(pc)">Apagar a gravação</button>
+          </div>
+
+          <!-- DUAS PERGUNTAS E A SENHA, como no excluir lote: apagar a gravação
+               de uma peça costurada dentro de uma bolsa é destrutivo, e a
+               etiqueta continua existindo no mundo depois disso. -->
+          <div v-if="apagando?.codigo === pc.codigo" class="au-confirma">
+            <template v-if="etapaDeApagar === 1">
+              <p class="au-confirma-texto">
+                Apagar a gravação de <strong>{{ apagando.descricao }}</strong>?
+              </p>
+              <p class="au-aviso-menor">
+                A peça volta para a fila de gravação. O código continua existindo e a página da
+                cliente continua respondendo igual.
+              </p>
+              <div class="au-acoes">
+                <button class="au-botao secundario" type="button" @click="fecharApagar">Cancelar</button>
+                <button class="au-botao" type="button" @click="etapaDeApagar = 2">Continuar</button>
+              </div>
+            </template>
+
+            <template v-else>
+              <p class="au-confirma-texto">
+                Tem certeza? A etiqueta desta peça <strong>continua costurada dentro de uma bolsa</strong>,
+                gravada com este mesmo endereço — e o sistema vai passar a dizer que a peça está por
+                gravar. Quem pegar a fila depois vai procurar uma etiqueta que já existe.
+              </p>
+              <p v-if="apagando.temGarantia" class="au-aviso-menor">
+                <strong>Esta peça tem garantia registrada por uma cliente.</strong> A garantia continua
+                valendo no código dela — por isso o motivo escrito é obrigatório aqui.
+              </p>
+
+              <label class="au-campo">
+                <span class="au-rot">Motivo{{ motivoEhObrigatorio ? '' : ' (opcional)' }}</span>
+                <input v-model="motivoDeApagar" type="text" maxlength="200"
+                       :disabled="apagarEmVoo"
+                       placeholder="Ex.: cliquei na peça errada no meio do lote"></label>
+
+              <label class="au-campo"><span class="au-rot">Sua senha</span>
+                <input v-model="senhaDeApagar" type="password" autocomplete="current-password"
+                       :disabled="apagarEmVoo" @keydown.enter.prevent="apagarGravacao"></label>
+              <p class="au-aviso-menor">É a mesma senha com que você entra no aplicativo.</p>
+              <p v-if="erroDeApagar" class="au-recusa">{{ erroDeApagar }}</p>
+
+              <div class="au-acoes">
+                <button class="au-botao secundario" type="button" @click="fecharApagar">Cancelar</button>
+                <button class="au-botao" type="button" :disabled="apagarEmVoo" @click="apagarGravacao">
+                  {{ apagarEmVoo ? 'Conferindo…' : 'Apagar a gravação' }}
+                </button>
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+
+      <!-- lista que esconde sem avisar é lista que mente: o botão diz quantas
+           ainda faltam, como o da aba Lotes -->
+      <div v-if="etiquetasQueFaltamMostrar" class="au-acoes">
+        <button class="au-botao secundario" type="button" @click="mostrarMaisEtiquetas">
+          Mostrar mais {{ Math.min(etiquetasQueFaltamMostrar, DE_CADA_VEZ) }}
+          (faltam {{ etiquetasQueFaltamMostrar }})
+        </button>
+      </div>
+    </template>
+
     <!-- ── REGISTROS ────────────────────────────────────────────────────── -->
     <template v-else-if="aba === 'registros'">
       <div class="au-topo-acao">
@@ -678,6 +800,7 @@ import {
   enderecoDaTag, progressoDoLote, proximaPorGravar, linhasDoCsv, resumoDeAlertas,
   MOTIVOS_DE_BAIXA, fraseDaRecusa, fraseDaSenha, naFila,
   rotuloDoMotivo, pecasEmOrdem, estadoDaPeca, linhasDaListaDoLote,
+  codigosComGarantia, etiquetasGravadas, motivoObrigatorio, descricaoDaPeca,
 } from './lotes.js'
 import { conferirLeitura, listaParaGravadorDeMesa, codigosNoTextoDoGravador } from './nfc-fila.js'
 import { PASSOS, TELAS_DO_GUIA, passoAtual, guiaJaVisto, marcarGuiaVisto, proximaTelaDoGuia } from './tutorial.js'
@@ -685,9 +808,13 @@ import { produtosParaEscolher, procurarProduto } from './produtos-do-bling.js'
 import { paginasDoBling, avisoDoErro } from '../../compartilhado/chamada-do-bling.js'
 import { temSuporte, traduzirFalha, criarGravador } from './gravador-nfc.js'
 
+// A ORDEM É A DO CAMINHO: cria o lote, grava as etiquetas, conserta o que saiu
+// errado, e só depois consulta o que as clientes registraram e o que está
+// estranho. `Etiquetas` entra depois de `Gravar` porque é o desfazer dela.
 const ABAS = [
   { chave: 'lotes', rotulo: 'Lotes' },
   { chave: 'gravar', rotulo: 'Gravar' },
+  { chave: 'etiquetas', rotulo: 'Etiquetas' },
   { chave: 'registros', rotulo: 'Registros' },
   { chave: 'alertas', rotulo: 'Alertas' },
 ]
@@ -900,6 +1027,130 @@ function alternarPecas(id) {
 }
 
 function mostrarMaisPecas() { quantasMostrar.value += DE_CADA_VEZ }
+
+// ── A ABA ETIQUETAS: consertar o que foi gravado errado ───────────────────
+//
+// Ela NÃO lê nada de novo do banco. As peças, os lotes e os registros de
+// garantia já vêm de `carregar()` — o que muda aqui é o recorte:
+// `etiquetasGravadas` fica só com as que TÊM gravação, que são as únicas que
+// `vessel_desmarcar_gravada` aceita.
+const loteDaEtiqueta = ref('')
+const quantasEtiquetas = ref(DE_CADA_VEZ)
+
+// A pergunta aberta, ou null. Guarda a peça CONTADA no momento do clique
+// (código, descrição e se tinha garantia): com a lista recarregando por baixo,
+// ler a peça de novo lá no fim faria a pergunta falar de uma e apagar outra.
+const apagando = ref(null)
+const etapaDeApagar = ref(1)
+const motivoDeApagar = ref('')
+// ⚠️ Mesma regra da senha da exclusão: nunca sobrevive à ação, nunca vai para
+// `localStorage`. É fricção, não cofre.
+const senhaDeApagar = ref('')
+const erroDeApagar = ref('')
+const apagarEmVoo = ref(false)
+// o que a tela continua dizendo depois que a garantia apareceu na resposta do
+// banco. Fica até a pessoa dispensar: recado que some não é aviso de garantia.
+const avisoDaGarantia = ref('')
+
+// OS CÓDIGOS COM GARANTIA saem de `vessel_registros`, que a aba Registros já lê.
+const comGarantia = computed(() => codigosComGarantia(registros.value))
+const temGarantia = (codigo) => comGarantia.value.has(String(codigo ?? '').trim().toUpperCase())
+
+const loteDaPeca = (id) => lotes.value.find((l) => l.id === id) || null
+const etiquetasDaAba = computed(() => etiquetasGravadas(pecas.value, loteDaEtiqueta.value || null))
+const etiquetasVisiveis = computed(() => etiquetasDaAba.value.slice(0, quantasEtiquetas.value))
+const etiquetasQueFaltamMostrar = computed(
+  () => Math.max(0, etiquetasDaAba.value.length - etiquetasVisiveis.value.length))
+function mostrarMaisEtiquetas() { quantasEtiquetas.value += DE_CADA_VEZ }
+
+// A TELA AVISA ANTES, EM VEZ DE DEIXAR O BANCO DAR A BRONCA. O banco recusa com
+// `motivo_obrigatorio` quando falta motivo numa peça com garantia — mas aí a
+// pessoa já apertou o botão, digitou a senha e esperou a rede para descobrir que
+// faltava um campo que estava na tela o tempo todo.
+const motivoEhObrigatorio = computed(
+  () => motivoObrigatorio({ temGarantia: apagando.value?.temGarantia }))
+
+// TROCAR DE LOTE RECOMEÇA A LISTA E FECHA A PERGUNTA, pelo mesmo cuidado do
+// watch de `loteEscolhido`: a pergunta diz o código de UMA peça, e peça errada
+// na pergunta é pior que pergunta nenhuma. E o limite crescido de um lote de 500
+// faria o lote seguinte desenhar 500 linhas de uma vez.
+watch(loteDaEtiqueta, () => {
+  quantasEtiquetas.value = DE_CADA_VEZ
+  fecharApagar()
+})
+
+function pedirApagarGravacao(pc) {
+  apagando.value = {
+    codigo: pc.codigo,
+    temGarantia: temGarantia(pc.codigo),
+    descricao: descricaoDaPeca(pc, loteDaPeca(pc.lote_id)),
+  }
+  etapaDeApagar.value = 1
+  motivoDeApagar.value = ''
+  senhaDeApagar.value = ''
+  erroDeApagar.value = ''
+}
+
+function fecharApagar() {
+  apagando.value = null
+  etapaDeApagar.value = 1
+  motivoDeApagar.value = ''
+  // a senha sai da memória junto com a pergunta
+  senhaDeApagar.value = ''
+  erroDeApagar.value = ''
+}
+
+// APAGAR A GRAVAÇÃO DE UMA PEÇA. Quem recusa continua sendo o banco; a tela só
+// se adianta nas duas recusas que ela consegue ver daqui (motivo faltando e
+// senha), para não fazer a pessoa esperar a rede por um campo em branco.
+async function apagarGravacao() {
+  const alvo = apagando.value
+  if (!alvo || apagarEmVoo.value) return
+  erroDeApagar.value = ''
+
+  const motivo = motivoDeApagar.value.trim()
+  if (motivoObrigatorio({ temGarantia: alvo.temGarantia }) && !motivo) {
+    erroDeApagar.value = fraseDaRecusa('motivo_obrigatorio')
+    return
+  }
+  const senha = senhaDeApagar.value
+  if (!senha) { erroDeApagar.value = fraseDaSenha('sem_senha'); return }
+
+  apagarEmVoo.value = true
+  try {
+    const conferida = await conferirASenha(senha)
+    if (!conferida.ok) { erroDeApagar.value = fraseDaSenha(conferida.erro); return }
+
+    const { data, error } = await sbClient.rpc('vessel_desmarcar_gravada',
+      // motivo em branco vai NULO, e não string vazia: é o que o banco entende
+      // por "não escreveram motivo" (`nullif(trim(...), '')`)
+      { p_codigo: alvo.codigo, p_motivo: motivo || null })
+    if (error) { adminToast('Não consegui apagar a gravação agora', false); return }
+    // a recusa do banco fica DENTRO da pergunta, e não num recado que some: é
+    // ali que a pessoa está olhando, e é ali que ela conserta
+    if (!data?.ok) { erroDeApagar.value = fraseDaRecusa(data?.motivo, data); return }
+
+    // `tinha_garantia` vem do BANCO, e não do conjunto montado aqui: entre o
+    // clique e a resposta, uma cliente pode ter registrado a garantia. Quem
+    // sabe a verdade no instante da escrita é quem escreveu.
+    const codigo = alvo.codigo
+    const eraDeCliente = data.tinha_garantia
+    fecharApagar()
+    await carregar()
+    if (eraDeCliente) {
+      avisoDaGarantia.value = `A peça ${codigo} tinha garantia registrada por uma cliente. `
+        + 'A garantia CONTINUA VALENDO no código dela — nada foi apagado do lado da cliente. '
+        + 'O que mudou é que a peça voltou para a fila de gravação, e a ação ficou na trilha.'
+      adminToast('Gravação apagada. Havia garantia de cliente — leia o aviso na tela.')
+      return
+    }
+    adminToast('Gravação apagada. A peça voltou para a fila de gravação.')
+  } finally {
+    apagarEmVoo.value = false
+    // ⚠️ A senha não sobrevive à ação, em nenhum caminho.
+    senhaDeApagar.value = ''
+  }
+}
 
 // O MESMO "Copiado!" do modo do aplicativo, mas por peça: com uma frase só para
 // a lista inteira, a pessoa não saberia QUAL endereço foi para a área de
@@ -1557,7 +1808,13 @@ onMounted(() => {
 .au-topo-acao{display:flex;gap:10px;align-items:center;padding:18px 24px 0;flex-wrap:wrap;}
 .au-busca{flex:1;min-width:180px;font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));padding:9px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);}
 
-.au-botao{font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--sobre-cor);background:var(--accent);border:1px solid var(--accent);border-radius:6px;padding:10px 16px;cursor:pointer;}
+/* 40px DE ALTURA NA REGRA-BASE, e não em cada bloco. Ela já estava repetida em
+   quatro lugares (`.au-gravacao .au-botao`, `.au-card .au-botao`, o guia e as
+   ações dele) porque o botão nascia com 35,5px — medido a 375px. Cada bloco novo
+   desta tela precisava lembrar de repetir, e o de agora não lembrou: o "Entendi"
+   do aviso de garantia e o "Mostrar mais" da aba Etiquetas nasceram com 37px.
+   Dedo não acerta menos que 40 (PADRAO item 6). */
+.au-botao{font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--sobre-cor);background:var(--accent);border:1px solid var(--accent);border-radius:6px;padding:10px 16px;min-height:40px;box-sizing:border-box;cursor:pointer;}
 .au-botao[disabled]{opacity:.6;cursor:default;}
 /* O LINK DESABILITADO PRECISA PARECER DESABILITADO. `.au-link[disabled]` não
    existia: o "Desfazer" das baixadas fica `:disabled` durante a chamada e
@@ -1760,6 +2017,10 @@ onMounted(() => {
 /* A lista das baixadas vive FORA do `.au-gravacao`, entao carrega o proprio
    recuo. O `@media` la em cima passa este bloco para 16px junto com os outros. */
 .au-baixadas-lote{padding:0 24px; max-width:620px}
+/* O aviso da garantia é o único `.au-confirma` que vive solto na tela, e não
+   dentro de um cartão: ele carrega o próprio recuo, como o bloco acima. O
+   `@media` do fim do arquivo o passa para 16px junto com os outros. */
+.au-aviso-garantia{margin:var(--sp-4) 24px 0; max-width:620px}
 .au-baixadas{list-style:none; margin:var(--sp-2) 0 0; padding:0}
 .au-baixadas li{
   display:flex; justify-content:space-between; align-items:center;
@@ -1961,5 +2222,8 @@ onMounted(() => {
   /* mesmo recuo dos outros blocos da tela a 375px. Vai AQUI e não no `@media`
      de cima porque a regra-base do `.au-farol` vem depois dele. */
   .au-farol{padding-left:16px; padding-right:16px;}
+  /* mesmo motivo: a regra-base do `.au-aviso-garantia` vem depois do `@media`
+     de cima, e lá em cima este ajuste seria ignorado em silêncio. */
+  .au-aviso-garantia{margin-left:16px; margin-right:16px;}
 }
 </style>

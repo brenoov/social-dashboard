@@ -104,6 +104,38 @@ export function fraseDaRecusa(motivo, dados = {}) {
       return 'Esta peça já está baixada. Desfaça a baixa antes de baixar de novo.'
     case 'nao_esta_baixada':
       return 'Esta peça não está baixada.'
+
+    // ── AS RECUSAS DE EDITAR ETIQUETA JÁ GRAVADA ──────────────────────────
+    // Elas vêm de `vessel_desmarcar_gravada` e `vessel_sobrescrever_etiqueta`
+    // (migration 2026-09-01). Cada uma diz O QUE HOUVE e O QUE FAZER: uma
+    // recusa que só devolve o código cru faz a pessoa recarregar a tela às
+    // cegas, e do outro lado há uma etiqueta costurada dentro de uma bolsa.
+    case 'nao_esta_gravada':
+      return 'Esta peça não está marcada como gravada — não há gravação para apagar. '
+        + 'Recarregue a tela: alguém pode ter apagado antes de você.'
+    case 'motivo_obrigatorio':
+      return 'Esta peça tem garantia registrada por uma cliente. Escreva o motivo antes de continuar: '
+        + 'sem ele, ninguém consegue explicar em três meses por que a peça voltou para a fila.'
+    case 'motivo_invalido':
+      return 'Esse motivo de baixa não existe mais. Escolha um da lista e tente de novo.'
+    case 'destino_invalido':
+      return 'Escolha o que fazer com a peça antiga: voltar para a fila de gravação, ou dar baixa nela.'
+    case 'mesma_peca':
+      return 'A etiqueta já é desta mesma peça — não há nada a sobrescrever. '
+        + 'Se ela ainda não está marcada, use “Gravei essa”.'
+    case 'antiga_nao_existe':
+      return 'A peça que está DENTRO desta etiqueta não existe mais no sistema. '
+        + 'Separe a etiqueta e pegue uma em branco: sobrescrever cegamente apagaria uma identidade '
+        + 'que ninguém consegue mais reconstruir.'
+    case 'nova_nao_existe':
+      return 'A peça que você está gravando não existe mais. Recarregue a tela e escolha o lote de novo.'
+    case 'antiga_nao_esta_gravada':
+      return 'A peça que estava nesta etiqueta já tinha sido devolvida para a fila. '
+        + 'Não há sobrescrita a fazer: grave normalmente, com “Gravar nesta etiqueta”.'
+    case 'nova_ja_gravada':
+      return 'Esta peça já está marcada como gravada, e portanto já tem uma etiqueta por aí. '
+        + 'Marcá-la de novo colocaria o mesmo código em DUAS bolsas. '
+        + 'Apague a gravação dela primeiro, na aba Etiquetas.'
     case 'sem_permissao':
       return 'Você não tem permissão para isso. Peça a chave "autenticidade" a um administrador.'
     case 'lote_nao_existe':
@@ -223,6 +255,83 @@ export function linhasDaListaDoLote(pecas, { formatarData = (v) => (v == null ? 
     ].map(celula).join(';')
   })
   return [COLUNAS_DO_LOTE.join(';'), ...linhas].join('\n')
+}
+
+// ── EDITAR ETIQUETA JÁ GRAVADA ─────────────────────────────────────────────
+// Consertar o que foi gravado errado. Do outro lado de cada uma destas contas
+// há uma etiqueta costurada dentro de uma bolsa de couro, que não se descosê.
+
+// OS CÓDIGOS QUE TÊM GARANTIA DE UMA CLIENTE. Sai de `vessel_registros`, que a
+// tela já lê para a aba Registros — não é leitura nova.
+//
+// A COMPARAÇÃO É EM MAIÚSCULAS dos DOIS lados: o banco guarda o código já em
+// maiúsculas (`upper(trim(...))` em toda função), mas quem monta o conjunto aqui
+// é a tela, e um código em caixa baixa vindo de um registro antigo faria a peça
+// de uma cliente aparecer SEM a marca de garantia — e a tela deixaria apagar a
+// gravação dela sem pedir motivo.
+export function codigosComGarantia(registros) {
+  return new Set((Array.isArray(registros) ? registros : [])
+    .map((r) => String(r?.codigo ?? '').trim().toUpperCase())
+    .filter(Boolean))
+}
+
+// AS PEÇAS JÁ GRAVADAS, que são as únicas que a aba Etiquetas pode consertar.
+//
+// A ORDEM MUDA COM O FILTRO, de propósito:
+//  · com um lote escolhido, ordena pela SÉRIE — é assim que se procura a peça
+//    nº 7 dentro de um lote de 50;
+//  · sem filtro, a mais recente primeiro — quem abre a aba sem filtrar acabou
+//    de gravar errado e quer desfazer, e a peça dele é a última da lista.
+// A BAIXADA CONTINUA NA LISTA: ela pode ter sido gravada ANTES da baixa, e
+// `vessel_desmarcar_gravada` funciona nela. Tirá-la daqui esconderia justamente
+// a peça que foi baixada por engano depois de gravada.
+export function etiquetasGravadas(pecas, loteId = null) {
+  const lista = (Array.isArray(pecas) ? pecas : [])
+    .filter((p) => p && p.gravada_em && (!loteId || p.lote_id === loteId))
+  if (loteId) return lista.slice().sort((a, b) => (a.numero_na_serie || 0) - (b.numero_na_serie || 0))
+  return lista.slice().sort((a, b) => String(b.gravada_em).localeCompare(String(a.gravada_em))
+    || (a.numero_na_serie || 0) - (b.numero_na_serie || 0))
+}
+
+// QUANDO O MOTIVO ESCRITO É OBRIGATÓRIO.
+//
+// A TELA PRECISA SABER ANTES DO BANCO. As duas funções novas recusam com
+// `motivo_obrigatorio` quando falta motivo numa peça com garantia — mas deixar o
+// banco dar a bronca faz a pessoa apertar o botão, esperar a rede e só então
+// descobrir que faltava um campo que estava na tela o tempo todo.
+//
+// SÃO DOIS CASOS, e o segundo não é sobre garantia nenhuma:
+//  1. a peça TEM garantia registrada por uma cliente — desmarcar a gravação de
+//     uma bolsa que já está com alguém é decisão, e decisão sem motivo escrito
+//     vira mistério em três meses;
+//  2. o destino da peça antiga é 'baixa' — aí o motivo não é texto de
+//     auditoria: ele vai para `vessel_baixas.motivo`, que tem `check`, e sem
+//     ele o banco recusa com `motivo_invalido`.
+export function motivoObrigatorio({ temGarantia = false, destino = null } = {}) {
+  return Boolean(temGarantia) || destino === 'baixa'
+}
+
+// QUAL PEÇA ESTÁ NESTA ETIQUETA, em uma linha que se lê em voz alta na bancada.
+//
+// O CÓDIGO SOZINHO NÃO SERVE. Quem está com a etiqueta na mão e vai decidir se
+// sobrescreve precisa saber QUAL BOLSA está prestes a perder a identidade —
+// "K7M4X9QP2R" não é bolsa nenhuma; "Mônaco · Quartz · nº 7" é.
+// Cada pedaço que faltar simplesmente não entra, em vez de virar "undefined" ou
+// um "—" que a pessoa lê como se fosse o nome do modelo.
+export function descricaoDaPeca(peca, lote) {
+  const p = peca || {}
+  const l = lote || {}
+  const partes = []
+  if (l.modelo) partes.push(String(l.modelo))
+  if (l.cor) partes.push(String(l.cor))
+  if (p.numero_na_serie != null) partes.push(`nº ${p.numero_na_serie}`)
+  const codigo = String(p.codigo ?? '').trim().toUpperCase()
+  if (!partes.length) {
+    // peça que a tela não conhece: nunca inventar modelo. Dizer só o código, e
+    // dizer que não se sabe de qual lote ele é, é a verdade inteira.
+    return codigo ? `código ${codigo} (não achei o lote dele nesta tela)` : 'peça desconhecida'
+  }
+  return codigo ? `${partes.join(' · ')} — ${codigo}` : partes.join(' · ')
 }
 
 export function resumoDeAlertas(alertas) {
