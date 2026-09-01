@@ -121,16 +121,25 @@ test('a etiqueta que saiu e voltou também é esperada, não recusada de vez', a
   assert.ok(sessao.nome)
 })
 
-// ⚠️ ESPERAR NÃO CONSERTA TUDO. Serviço do Windows parado e leitor ocupado por
-// outro programa não se resolvem sozinhos em 15 segundos: insistir em silêncio
-// deixa quem está na bancada olhando para uma tela parada, achando que a
-// etiqueta é que está ruim, e trocando etiqueta boa uma atrás da outra.
-test('serviço do Windows parado NÃO fica tentando de novo: para na hora e diz o que fazer', async () => {
-  let esperas = 0
+// ⚠️ ESPERAR NÃO CONSERTA TUDO. Leitor ocupado por outro programa não se resolve
+// sozinho em 15 segundos: insistir em silêncio deixa quem está na bancada
+// olhando para uma tela parada, achando que a etiqueta é que está ruim, e
+// trocando etiqueta boa uma atrás da outra.
+//
+// ESTE TESTE MUDOU EM 01/09/2026, e a mudança é a lição. Ele exigia que o
+// serviço parado falhasse SEM UMA ÚNICA nova tentativa — escrito a partir da
+// suposição de que serviço parado é sempre defeito. A bancada mediu o contrário:
+// o serviço sobe SOB DEMANDA, e a primeira chamada de todo turno pega ele
+// levantando. Agora o que se exige é o TETO: umas poucas tentativas curtas, não
+// os 60 segundos da espera pela etiqueta.
+test('serviço do Windows parado tenta pouquíssimo e para, sem gastar a espera da etiqueta', async () => {
+  const pausas = []
   const ponte = ponteDeMentira({ aoConectar: () => erroPcsc('0x8010001D') })
-  const leitor = criarLeitorDeMesa({ ponte, dormir: async () => { esperas += 1 } })
+  const leitor = criarLeitorDeMesa({ ponte, dormir: async (ms) => { pausas.push(ms) } })
   await assert.rejects(() => leitor.conectar({ segundosDeEspera: 60 }), /Cart[ãa]o Inteligente/i)
-  assert.equal(esperas, 0, 'ficou esperando por uma coisa que não se conserta esperando')
+  assert.ok(pausas.length <= 3, `esperou ${pausas.length} vezes por algo que não se conserta esperando`)
+  const total = pausas.reduce((a, b) => a + b, 0)
+  assert.ok(total <= 2000, `gastou ${total}ms: a espera do arranque virou a espera da etiqueta`)
 })
 
 test('leitor ocupado por outro programa para na hora e manda fechar o outro programa', async () => {
@@ -173,10 +182,18 @@ test('leitura que voltou pela metade é FALHA, nunca meia memória', async () =>
   await assert.rejects(() => sessao.lerPaginas(4, 16), /incompleta|2 de 16/i)
 })
 
+// A frase do `63 00` mudou em 01/09/2026: ela mandava conferir a etiqueta, e na
+// bancada o defeito era um comando com um byte a mais. Agora ela diz o que o
+// código significa na prática, e não manda trocar etiqueta boa.
 test('leitura recusada pelo leitor vira frase de bancada, não código cru', async () => {
   const ponte = ponteDeMentira({ responder: () => [0x63, 0x00] })
   const sessao = await criarLeitorDeMesa({ ponte, dormir: semEspera }).conectar()
-  await assert.rejects(() => sessao.lerPaginas(4, 16), /encoste de novo/i)
+  await assert.rejects(() => sessao.lerPaginas(4, 16), (e) => {
+    assert.match(e.message, /não entendeu o comando/i)
+    assert.doesNotMatch(e.message, /^63 00$/)
+    assert.doesNotMatch(e.message, /troque a etiqueta/i)
+    return true
+  })
 })
 
 test('a etiqueta que sai de cima do leitor no meio da leitura diz isso', async () => {
@@ -304,4 +321,120 @@ test('este programa não depende de nada que precise ser compilado', async () =>
   const dependencias = Object.keys(pacote.dependencies || {})
   assert.deepEqual(dependencias, ['@supabase/supabase-js'],
     'entrou dependência nova: confira se ela compila antes de deixar')
+})
+
+// ── O SERVIÇO DO WINDOWS SOBE SOB DEMANDA ──────────────────────────────────
+//
+// ⚠️ A CICATRIZ, MEDIDA NA BANCADA EM 01/09/2026, com a etiqueta parada no
+// leitor:
+//
+//     1 CONECTAR ...
+//     #1 ERRO SCardConnect 0x8010001D
+//     1 CONECTAR ...        (o MESMO comando, de novo)
+//     #1 OK
+//
+// `0x8010001D` é o Windows dizendo que o serviço de cartão ainda não estava de
+// pé. Ele sobe SOB DEMANDA: a primeira chamada depois de abrir o processo pega o
+// serviço levantando, e a segunda funciona.
+//
+// Sem tratar isso, A PRIMEIRA ETIQUETA DE TODO TURNO FALHA — e o operador
+// aprende a "tentar duas vezes". Superstição nasce de defeito não consertado, e
+// depois esconde falha de verdade: no dia em que o leitor estiver mesmo ruim,
+// ele vai tentar duas vezes, dar errado, e não contar a ninguém.
+
+test('a primeira conexão do turno, que pega o serviço subindo, se conserta sozinha', async () => {
+  const ponte = ponteDeMentira({
+    aoConectar: (tentativa) => (tentativa === 1 ? erroPcsc('0x8010001D') : null),
+  })
+  const sessao = await criarLeitorDeMesa({ ponte, dormir: semEspera }).conectar()
+  assert.equal(sessao.nome, 'ACS ACR122U PICC Interface 00 00')
+  assert.equal(ponte.registro.filter((r) => r.o_que === 'conectar').length, 2,
+    'não tentou de novo, ou tentou demais')
+})
+
+test('entre as duas tentativas há uma pausa curta — o serviço precisa de um instante', async () => {
+  const pausas = []
+  const ponte = ponteDeMentira({
+    aoConectar: (tentativa) => (tentativa === 1 ? erroPcsc('0x8010001D') : null),
+  })
+  await criarLeitorDeMesa({ ponte, dormir: async (ms) => pausas.push(ms) }).conectar()
+  assert.equal(pausas.length, 1)
+  assert.ok(pausas[0] > 0 && pausas[0] <= 1000, `pausa de ${pausas[0]}ms: curta demais ou longa demais`)
+})
+
+// ⚠️ O TETO É PEQUENO, E ISSO IMPORTA. Serviço que não sobe em três tentativas
+// não vai subir sozinho: aí a frase tem de mandar a pessoa abrir os Serviços do
+// Windows, em vez de o programa ficar tentando calado para sempre.
+test('serviço que não sobe nunca acaba com a frase de abrir os Serviços do Windows', async () => {
+  const ponte = ponteDeMentira({ aoConectar: () => erroPcsc('0x8010001D') })
+  const leitor = criarLeitorDeMesa({ ponte, dormir: semEspera })
+  await assert.rejects(() => leitor.conectar({ segundosDeEspera: 60 }), /Cart[ãa]o Inteligente/i)
+  const tentativas = ponte.registro.filter((r) => r.o_que === 'conectar').length
+  assert.ok(tentativas >= 2 && tentativas <= 4, `tentou ${tentativas} vezes: o teto está errado`)
+})
+
+// ⚠️ NÃO SE REPETE CEGAMENTE QUALQUER ERRO. "Não há etiqueta" é recusa legítima
+// e já tem o laço de espera dela, que é longo de propósito (o operador está
+// pegando a próxima bolsa). Misturar os dois faria uma recusa rápida virar
+// travamento — e o leitor tomado por outro programa ficaria escondido atrás de
+// tentativas caladas.
+test('erro que NÃO é do serviço não ganha nova tentativa: falha na hora', async () => {
+  for (const codigo of ['0x8010000B', '0x8010002E', '0x80100009']) {
+    const ponte = ponteDeMentira({ aoConectar: () => erroPcsc(codigo) })
+    const leitor = criarLeitorDeMesa({ ponte, dormir: semEspera })
+    await assert.rejects(() => leitor.conectar({ segundosDeEspera: 60 }))
+    assert.equal(ponte.registro.filter((r) => r.o_que === 'conectar').length, 1,
+      `${codigo} foi repetido, e não devia`)
+  }
+})
+
+test('"não há etiqueta" continua no laço de espera longo, não no de arranque', async () => {
+  const pausas = []
+  const ponte = ponteDeMentira({
+    aoConectar: (tentativa) => (tentativa < 5 ? erroPcsc('0x8010000C') : null),
+  })
+  await criarLeitorDeMesa({ ponte, dormir: async (ms) => pausas.push(ms) }).conectar()
+  // as pausas da espera pela etiqueta são as longas (meio segundo), não as do arranque
+  assert.equal(pausas.length, 4)
+  assert.ok(pausas.every((ms) => ms === 500), `pausas: ${pausas.join(', ')}`)
+})
+
+test('o arranque conserta uma vez e a etiqueta ainda pode demorar a chegar', async () => {
+  const ponte = ponteDeMentira({
+    aoConectar: (tentativa) => {
+      if (tentativa === 1) return erroPcsc('0x8010001D')   // serviço subindo
+      if (tentativa < 4) return erroPcsc('0x8010000C')     // ninguém encostou ainda
+      return null
+    },
+  })
+  const sessao = await criarLeitorDeMesa({ ponte, dormir: semEspera }).conectar()
+  assert.ok(sessao.nome)
+})
+
+// ── NADA DE COMANDO TORTO NO CABO ──────────────────────────────────────────
+// ⚠️ Um byte a mais no comando fez o leitor responder `63 00` na bancada, e duas
+// rodadas foram gastas procurando defeito na etiqueta. Tudo que sai por este
+// arquivo passa por `conferirApdu` antes.
+test('todo comando que chega ao cabo tem o tamanho certo', async () => {
+  const { conferirApdu } = await import('./comandos-do-acr122u.js')
+  const ponte = ponteDeMentira({
+    responder: () => [0x04, 0xa2, 0x3b, 0x7a, 0x11, 0x22, 0x33, 0x90, 0x00],
+  })
+  const sessao = await criarLeitorDeMesa({ ponte, dormir: semEspera }).conectar()
+  await sessao.numeroDeSerie()
+  await sessao.versaoDoLeitor()
+  const ponte2 = ponteDeMentira()
+  const sessao2 = await criarLeitorDeMesa({ ponte: ponte2, dormir: semEspera }).conectar()
+  await sessao2.escreverPagina(4, [1, 2, 3, 4])
+  const ponte3 = ponteDeMentira({ responder: () => new Array(16).fill(0).concat([0x90, 0x00]) })
+  const sessao3 = await criarLeitorDeMesa({ ponte: ponte3, dormir: semEspera }).conectar()
+  await sessao3.lerPaginas(4, 16)
+
+  const todos = [ponte, ponte2, ponte3]
+    .flatMap((p) => p.registro.filter((r) => r.o_que === 'transmitir').map((r) => r.apdu))
+  assert.ok(todos.length >= 4, 'nenhum comando chegou ao cabo')
+  for (const apdu of todos) {
+    assert.doesNotThrow(() => conferirApdu(apdu),
+      `comando torto chegou ao cabo: ${apdu.map((b) => b.toString(16)).join(' ')}`)
+  }
 })

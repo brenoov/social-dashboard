@@ -51,6 +51,12 @@ function ponteComEtiqueta(paginas, { registro = [] } = {}) {
       const apdu = Array.from(comando)
       registro.push(apdu)
       const [cla, ins, , p2] = apdu
+      // ⚠️ O LEITOR DE VERDADE RESPONDE `63 00` A COMANDO DE TAMANHO ERRADO —
+      // medido na bancada em 01/09/2026, com `FFB000030400` (um byte a mais).
+      // A de mentira faz o mesmo: uma que aceitasse qualquer tamanho deixaria a
+      // suíte verde em cima de um comando que a vida real recusa.
+      const tamanhos = { 0xb0: 5, 0xd6: 9, 0xca: 5 }
+      if (tamanhos[ins] && apdu.length !== tamanhos[ins]) return [0x63, 0x00]
       if (cla === 0xff && ins === 0xb0) {          // ler
         const quantos = apdu[4]
         const tudo = paginas.flat()

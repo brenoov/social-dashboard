@@ -88,12 +88,23 @@ OS COMANDOS, e nenhum outro:
     resposta boa termina em 90 00
     paginas do usuario: 4 a 39. Nunca escrever fora. Nunca escrever na 3.
 
+O TAMANHO DE CADA COMANDO E FIXO, e o programa recusa o que estiver fora:
+
+    ler       FF B0 00 <pagina> <n>                ->  5 bytes
+    escrever  FF D6 00 <pagina> 04 <b1 b2 b3 b4>   ->  9 bytes  (5 + 4)
+    serie     FF CA 00 00 00                       ->  5 bytes
+    versao    FF 00 48 00 00                       ->  5 bytes
+
+ESCREVER SAO NOVE, NAO DEZ. Cinco de cabecalho mais quatro de dados. E o
+comando que a bancada provou. Quem "corrigir" para dez faz toda gravacao ser
+recusada e o gravador morre na primeira etiqueta.
+
 A LEITURA atravessa paginas (ate 16 bytes de uma vez); A ESCRITA nao (4 bytes,
 uma pagina por comando).
 
 
-AS TRES ARMADILHAS QUE MAIS CUSTAM
-==================================
+AS CINCO ARMADILHAS QUE MAIS CUSTAM
+===================================
 
 1. A ETIQUETA NAO VEM EM BRANCO DE FABRICA. As paginas 4 e 5 saem com um Lock
    Control TLV de 5 bytes, que atravessa a pagina 4 para dentro da 5. Por isso o
@@ -111,6 +122,23 @@ AS TRES ARMADILHAS QUE MAIS CUSTAM
    devolve ok: true sem olhar quantas linhas mudaram. Por isso `marcarGravada`
    (entrar.js) LE A PECA DE VOLTA: quem diz que ficou registrado e o dado, nunca
    a resposta.
+
+4. A PRIMEIRA CONEXAO DE TODO TURNO FALHA. O servico de cartao do Windows sobe
+   SOB DEMANDA: a primeira chamada depois de abrir o processo pega ele
+   levantando e volta 0x8010001D; a segunda funciona. `conectar` tenta de novo
+   sozinho, ate 3 vezes, com 300ms de pausa. Sem isso o operador aprende a
+   "tentar duas vezes" — e superstição esconde falha de verdade depois.
+
+   MAS SO PARA ESSA FAMILIA. "Nao ha etiqueta" tem o laco de espera dele, que e
+   longo de proposito (o operador esta pegando a proxima bolsa). Leitor ocupado
+   por outro programa falha na hora. Repetir cegamente qualquer erro
+   transformaria recusa rapida em travamento.
+
+5. `63 00` NAO QUER DIZER ETIQUETA RUIM. Na bancada, um comando com UM BYTE A
+   MAIS (FFB000030400, seis onde cabem cinco) respondeu 63 00, e duas rodadas
+   foram gastas procurando defeito na etiqueta e no aparelho. O tamanho agora e
+   conferido ANTES do cabo, e a frase do 63 00 diz que o leitor nao entendeu o
+   comando — nunca manda trocar etiqueta boa.
 
 
 COMO ELE FALA COM O LEITOR
@@ -187,14 +215,18 @@ Ele fica esperando comandos. Digite (com uma etiqueta encostada):
     5 SAIR
 
 
-O QUE AINDA NAO FOI PROVADO
-===========================
+O QUE JA FOI PROVADO NO WINDOWS
+===============================
 
-Este computador e um Mac: nao ha powershell.exe aqui, e nao ha leitor. O script
-NUNCA FOI EXECUTADO. O que esta provado e:
+A PONTE RODOU DE VERDADE, no Windows do dono, em 01/09/2026:
 
-  - o caminho dos bytes, a mao, no Windows do dono, em 01/09/2026;
-  - o lado JavaScript inteiro, com processo e etiqueta de mentira;
-  - a FORMA do script (chaves, aspas, separadores, as 6 armadilhas).
+    CONECTAR ...          -> OK  (na segunda tentativa: ver armadilha 4)
+    APDU FFB0000304       -> E11012009000   (NTAG213 de fabrica)
+    APDU FFCA000000       -> 5A4584461D4189 9000  (numero de serie)
 
-O primeiro teste no Windows tem de ser numa etiqueta descartavel.
+O protocolo numerado casou todas as respostas. O caminho inteiro — processo
+vivo, linha em hexadecimal, winscard.dll — esta provado.
+
+O QUE AINDA NAO FOI PROVADO: a GRAVACAO (FF D6) por este programa, e o motor
+completo rodando um lote. O primeiro teste de escrita no Windows tem de ser numa
+etiqueta descartavel.

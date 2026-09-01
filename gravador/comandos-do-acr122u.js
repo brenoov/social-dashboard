@@ -114,7 +114,9 @@ export function apduDeEscrita(pagina, bytes) {
       + 'só entram inteiros de 0 a 255.',
     )
   }
-  return [0xff, 0xd6, 0x00, pagina, BYTES_POR_PAGINA, ...conteudo]
+  // O construtor confere o próprio trabalho. Não é desconfiança de si: é a
+  // trava que pega uma edição distraída AQUI, em vez de no leitor da bancada.
+  return conferirApdu([0xff, 0xd6, 0x00, pagina, BYTES_POR_PAGINA, ...conteudo])
 }
 
 // MONTA A LEITURA. A leitura ATRAVESSA páginas, então a conta de onde ela
@@ -137,7 +139,7 @@ export function apduDeLeitura(pagina, quantosBytes) {
       + 'depois da 39 estão as travas e a senha da etiqueta. Leia em pedaços menores.',
     )
   }
-  return [0xff, 0xb0, 0x00, pagina, quantosBytes]
+  return conferirApdu([0xff, 0xb0, 0x00, pagina, quantosBytes])
 }
 
 // ── LER A RESPOSTA ─────────────────────────────────────────────────────────
@@ -156,8 +158,15 @@ const RESPOSTA_BOA = [0x90, 0x00]
 // confiante em cima de um palpite — e a frase manda o operador jogar fora
 // etiqueta boa. O que não está aqui sai com o hexadecimal na cara.
 const FRASES = {
-  '63 00': 'O leitor não conseguiu falar com a etiqueta. Encoste de novo e segure parada; '
-    + 'se repetir na mesma etiqueta, ela pode estar danificada.',
+  // ⚠️ ESTA FRASE JÁ MANDOU DUAS PESSOAS OLHAREM PARA O LUGAR ERRADO. Em
+  // 01/09/2026, na bancada, um comando com UM BYTE A MAIS (`FFB000030400`, seis
+  // bytes onde cabem cinco) respondeu `63 00`, e duas rodadas foram gastas
+  // procurando defeito na etiqueta e no aparelho. O defeito estava no comando,
+  // deste lado. Por isso a frase diz o que ele significa NA PRÁTICA, e não manda
+  // trocar a etiqueta: operador que troca etiqueta boa joga bolsa fora.
+  '63 00': 'O leitor não entendeu o comando, ou não executou. Na prática isto quase sempre é '
+    + 'comando montado errado — não é defeito da etiqueta, e trocar de etiqueta não resolve. '
+    + 'Se o programa não mudou, encoste a etiqueta de novo e segure parada; se repetir, avise.',
   '6A 81': 'Esta etiqueta não aceita esse comando — pode não ser uma NTAG213. '
     + 'Use uma etiqueta NTAG213, do jeito que vem de fábrica.',
   '6B 00': 'O leitor recusou a página pedida. Isso é defeito do programa, não da etiqueta: '
@@ -167,6 +176,65 @@ const FRASES = {
   '6D 00': 'Este leitor não conhece esse comando. Confira se é mesmo um ACR122U — '
     + 'o de fábrica aparece no Windows como "ACS ACR122U PICC Interface".',
   '6E 00': 'Este leitor não conhece essa família de comandos. Confira se é mesmo um ACR122U.',
+}
+
+// ── O TAMANHO TOTAL DO COMANDO ─────────────────────────────────────────────
+//
+// ⚠️ A CICATRIZ, MEDIDA NA BANCADA EM 01/09/2026: foi mandado `FFB000030400` —
+// seis bytes, um a mais que os cinco de `FF B0 00 03 04`. O leitor respondeu
+// `63 00`, que não diz nada a ninguém, e DUAS RODADAS foram gastas procurando
+// defeito na etiqueta e no aparelho. O erro nasceu deste lado, e é aqui que ele
+// tinha de ter parado.
+//
+// Cada um dos quatro comandos tem tamanho FIXO e conhecido. A conta, byte a
+// byte, para ninguém ter de refazer de cabeça:
+//
+//   ler       FF B0 00 <página> <n>                → 5
+//   escrever  FF D6 00 <página> 04 <b1 b2 b3 b4>   → 5 + 4 = 9
+//   série     FF CA 00 00 00                       → 5
+//   versão    FF 00 48 00 00                       → 5
+//
+// ⚠️ ESCREVER SÃO **NOVE**, NÃO DEZ. Cinco de cabeçalho mais quatro de dados. É
+// o comando que a bancada provou — as 12 escritas que responderam `90 00`. Se
+// alguém "corrigir" para dez, toda gravação passa a ser recusada aqui e o
+// gravador morre na primeira etiqueta.
+const COMANDOS_CONHECIDOS = [
+  { nome: 'ler uma página', cabecalho: [0xff, 0xb0], tamanho: 5 },
+  { nome: 'escrever uma página', cabecalho: [0xff, 0xd6], tamanho: 9 },
+  { nome: 'número de série da etiqueta', cabecalho: [0xff, 0xca], tamanho: 5 },
+  { nome: 'versão do firmware do leitor', cabecalho: [0xff, 0x00, 0x48], tamanho: 5 },
+]
+
+// Recusa ANTES do cabo. Devolve o comando quando ele está certo, para poder ser
+// usada em cadeia.
+export function conferirApdu(apdu) {
+  const bytes = listaDeBytes(apdu)
+  if (!bytes.length || bytes.some((b) => !ehByte(b))) {
+    throw new Error(
+      `Isto não é um comando de leitor: ${JSON.stringify(apdu)?.slice(0, 60)}. `
+      + 'Só saem daqui os quatro comandos provados na etiqueta.',
+    )
+  }
+  const conhecido = COMANDOS_CONHECIDOS.find(
+    ({ cabecalho }) => cabecalho.every((b, i) => bytes[i] === b),
+  )
+  // ⚠️ NÃO SE INVENTA COMANDO DE APARELHO. Cabeçalho fora dos quatro provados
+  // não vira tentativa no leitor: vira recusa aqui, com nome, em vez de um
+  // `63 00` que ninguém sabe ler.
+  if (!conhecido) {
+    throw new Error(
+      `Comando desconhecido (${emHex(bytes.slice(0, 3))}...). Este programa só manda quatro `
+      + 'comandos ao leitor: ler página, escrever página, número de série e versão do leitor.',
+    )
+  }
+  if (bytes.length !== conhecido.tamanho) {
+    throw new Error(
+      `O comando de ${conhecido.nome} tem ${conhecido.tamanho} bytes, e vieram `
+      + `${bytes.length}: ${emHex(bytes)}. O leitor responderia "63 00" a isto, que parece `
+      + 'defeito de etiqueta e não é — o comando é que está errado.',
+    )
+  }
+  return bytes
 }
 
 // `bytesEsperados` é opcional e existe por causa de UMA cicatriz.

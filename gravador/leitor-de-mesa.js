@@ -27,6 +27,7 @@ import {
   APDU_VERSAO_DO_LEITOR,
   lerResposta,
   emHex,
+  conferirApdu,
 } from './comandos-do-acr122u.js'
 import {
   criarPonteDoPowershell,
@@ -53,6 +54,36 @@ export function traduzirFalha(erro) {
   return 'Não consegui falar com o leitor (motivo desconhecido). '
     + 'Desligue e ligue o cabo USB e tente de novo.'
 }
+
+// ── O SERVIÇO DO WINDOWS SOBE SOB DEMANDA ──────────────────────────────────
+//
+// ⚠️ MEDIDO NA BANCADA EM 01/09/2026, com a etiqueta parada em cima do leitor:
+//
+//     1 CONECTAR ...
+//     #1 ERRO SCardConnect 0x8010001D
+//     1 CONECTAR ...        (o MESMO comando, de novo)
+//     #1 OK
+//
+// `0x8010001D` é o Windows dizendo que o serviço de cartão ainda não estava de
+// pé. Ele NÃO fica parado por defeito: ele sobe SOB DEMANDA, e a primeira
+// chamada depois de abrir o processo paga por isso.
+//
+// Sem tentar de novo sozinho, A PRIMEIRA ETIQUETA DE TODO TURNO FALHA — e o
+// operador aprende a "tentar duas vezes". Superstição nasce de defeito não
+// consertado, e depois esconde falha de verdade: no dia em que o leitor estiver
+// mesmo ruim, ele vai tentar duas vezes, dar errado, e não contar a ninguém.
+const CODIGOS_DO_ARRANQUE = new Set(['0X8010001D', '0X8010001E'])
+
+// ⚠️ O TETO É PEQUENO E A PAUSA É CURTA, DE PROPÓSITO. Serviço que não sobe em
+// três tentativas não vai subir sozinho — aí a frase manda a pessoa abrir os
+// Serviços do Windows, em vez de o programa ficar tentando calado para sempre.
+// E o arranque é OUTRA COISA da espera pela etiqueta: aquela é longa porque o
+// operador está pegando a próxima bolsa; esta é de instantes, porque é o Windows
+// levantando um serviço. Misturar as duas faria uma recusa rápida virar
+// travamento, e esconderia o leitor tomado por outro programa atrás de
+// tentativas caladas.
+const TENTATIVAS_DE_ARRANQUE = 3
+const PAUSA_DO_ARRANQUE = 300
 
 const dormirDeVerdade = (ms) => new Promise((r) => { setTimeout(r, ms) })
 
@@ -105,6 +136,7 @@ export function criarLeitorDeMesa({
   async function conectar({ nome = null, segundosDeEspera = 15, intervalo = 500 } = {}) {
     const escolhido = await escolher(nome)
     const prazo = agora() + segundosDeEspera * 1000
+    let arranques = 0
     let ultima = null
 
     for (;;) {
@@ -113,10 +145,21 @@ export function criarLeitorDeMesa({
         return criarSessao(escolhido)
       } catch (erro) {
         ultima = erro
-        // ESPERAR NÃO CONSERTA TUDO. Serviço do Windows parado, leitor ausente e
-        // leitor tomado por outro programa não se resolvem sozinhos em 15
-        // segundos.
-        if (CODIGOS_QUE_NAO_PASSAM_ESPERANDO.has(codigoDoPcsc(erro?.codigo || erro?.message))) {
+        const codigo = codigoDoPcsc(erro?.codigo || erro?.message)
+
+        // O SERVIÇO SUBINDO: tenta de novo, pouquíssimas vezes, com pausa curta.
+        // Estas tentativas NÃO contam contra o prazo da etiqueta — quem esperou
+        // aqui foi o Windows, não a pessoa.
+        if (CODIGOS_DO_ARRANQUE.has(codigo) && arranques < TENTATIVAS_DE_ARRANQUE - 1) {
+          arranques += 1
+          await dormir(PAUSA_DO_ARRANQUE)
+          continue
+        }
+
+        // ESPERAR NÃO CONSERTA TUDO. Leitor ausente e leitor tomado por outro
+        // programa não se resolvem sozinhos em 15 segundos; e o serviço que não
+        // subiu em três tentativas também não vai subir.
+        if (CODIGOS_QUE_NAO_PASSAM_ESPERANDO.has(codigo)) {
           throw new Error(traduzirFalha(erro))
         }
         // Processo morto também não se conserta esperando: sem o PowerShell não
@@ -145,6 +188,10 @@ export function criarLeitorDeMesa({
           'Esta etiqueta já foi desconectada. Encoste-a de novo para falar com ela de novo.',
         )
       }
+      // ⚠️ NADA DE COMANDO TORTO NO CABO. Um byte a mais fez o leitor responder
+      // `63 00` na bancada, e duas rodadas foram gastas procurando defeito na
+      // etiqueta. A conferência é aqui, na saída, porque é aqui que passa TUDO.
+      conferirApdu(apdu)
       let bruto
       try {
         bruto = await ponte.transmitir(apdu)
@@ -189,7 +236,7 @@ export function criarLeitorDeMesa({
         if (!ligada) throw new Error('O leitor já foi desconectado.')
         let bytes
         try {
-          bytes = await ponte.transmitir(APDU_VERSAO_DO_LEITOR)
+          bytes = await ponte.transmitir(conferirApdu(APDU_VERSAO_DO_LEITOR))
         } catch (erro) {
           throw new Error(traduzirFalha(erro))
         }
