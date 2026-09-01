@@ -3714,7 +3714,12 @@ onMounted(() => {
      respiro, e não buraco dentro do desenho. */
   .au-bancada{
     display:grid;
-    grid-template-columns:minmax(0,1fr) minmax(0,660px) minmax(0,1fr);
+    /* 720px NÃO É UM NÚMERO REDONDO ESCOLHIDO NO OLHO: é a medida do endereço.
+       Medido no navegador a 1440px — o endereço de um código de 10 caracteres
+       precisa de 648px em `--fonte-dados` a 24px, e com os 48px de recuo da
+       caixa dá 696. Com 660 ele quebrava a URL no meio ("…B4F8S1T / R"), e no
+       modo de copiar é justamente o endereço que a pessoa lê e copia. */
+    grid-template-columns:minmax(0,1fr) minmax(0,720px) minmax(0,1fr);
     grid-template-rows:auto minmax(0,1fr);
     column-gap:var(--sp-6); row-gap:var(--sp-5);
   }

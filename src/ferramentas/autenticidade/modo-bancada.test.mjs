@@ -340,7 +340,7 @@ test('o painel do computador é UM bloco centrado, e não uma faixa num canto', 
     estilo.lastIndexOf('@media (max-width:520px){'),
   );
   assert.match(grande, /\.au-bancada\{\s*display:grid;/);
-  assert.match(grande, /grid-template-columns:minmax\(0,1fr\) minmax\(0,660px\) minmax\(0,1fr\);/,
+  assert.match(grande, /grid-template-columns:minmax\(0,1fr\) minmax\(0,720px\) minmax\(0,1fr\);/,
     'as colunas de fora têm de ser iguais, senão o bloco sai do centro');
   assert.match(grande, /\.au-bancada-obra\{grid-column:2; grid-row:2; align-self:center;/);
   assert.match(grande, /\.au-bancada-lado\{grid-column:3; grid-row:2; align-self:center;/);
