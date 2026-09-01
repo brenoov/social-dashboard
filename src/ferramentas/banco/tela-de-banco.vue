@@ -36,7 +36,7 @@
 import { computed, onMounted } from 'vue'
 import BarraDeTopo from '../../compartilhado/barra-de-topo.vue'
 import { useRouter } from 'vue-router'
-import { sbClient, SUPABASE_URL } from '../../compartilhado/conectar-no-banco-de-dados.js'
+import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { hasPermission } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { adminToast } from '../../compartilhado/avisos.js'
 
@@ -98,7 +98,6 @@ function renderArquivos(){
     const{cls,lbl}=_bancoIconInfo(f.name);
     const size=_fmtBytes(f.metadata?.size||0);
     const date=f.updated_at?new Date(f.updated_at).toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'}).replace(/ de /g,'/').replace('.',''):'—';
-    const pub=SUPABASE_URL+'/storage/v1/object/public/arquivos/'+encodeURIComponent(f.name);
     const row=document.createElement('div');
     row.className='banco-file-row';
     row.dataset.fname=f.name;
@@ -111,8 +110,20 @@ function renderArquivos(){
     const dt=document.createElement('div');dt.className='banco-file-details';dt.textContent=lbl+' · '+size+' · '+date;
     meta.appendChild(nm);meta.appendChild(dt);
     const acts=document.createElement('div');acts.className='banco-file-acts';
-    const dlA=document.createElement('a');
-    dlA.className='banco-dl-btn';dlA.href=pub;dlA.download=f.name;dlA.target='_blank';
+    // O LINK NASCE NO CLIQUE, E VALE 60 SEGUNDOS.
+    //
+    // Antes era `/object/public/arquivos/...`: endereço fixo, sem login, que
+    // funcionava para QUALQUER pessoa que o tivesse — e a ferramenta se chama
+    // "banco de arquivos da Central", nome que faz todo mundo achar que é
+    // interno. Um endereço desses, uma vez copiado num grupo de mensagens,
+    // nunca mais é recolhido.
+    //
+    // `createSignedUrl` pede o arquivo em nome de QUEM ESTÁ LOGADO, então a
+    // permissão é conferida no servidor a cada clique. Nada de endereço eterno.
+    const dlA=document.createElement('button');
+    dlA.type='button';
+    dlA.className='banco-dl-btn';
+    dlA.addEventListener('click',()=>_bancoBaixar(f.name));
     dlA.innerHTML=_SVG_DL;
     const dlSp=document.createElement('span');dlSp.textContent='Baixar';dlA.appendChild(dlSp);
     acts.appendChild(dlA);
@@ -168,6 +179,36 @@ function setupBancoUpload(){
 function _sanitizeStorageKey(name){
   return name.normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-zA-Z0-9._\-]/g,'_');
 }
+// Pede um link temporário e baixa. Falha em conferir é falha em BAIXAR: sem o
+// link, não se abre nada — nunca cair num endereço público como plano B.
+async function _bancoBaixar(nome){
+  const{data,error}=await sbClient.storage.from('arquivos').createSignedUrl(nome,60,{download:nome});
+  if(error||!data?.signedUrl){
+    adminToast('Não consegui liberar o download de "'+nome+'". Recarregue a página e tente de novo.',false);
+    return;
+  }
+  const a=document.createElement('a');
+  a.href=data.signedUrl;a.download=nome;a.rel='noopener';
+  document.body.appendChild(a);a.click();a.remove();
+}
+
+// A MENSAGEM CRUA DO SERVIDOR NÃO EXPLICA NADA a quem está com o arquivo na
+// mão. "mime type application/x-msdownload is not supported" fez o dono achar
+// que a ferramenta estava quebrada — e o que faltava era só o tipo na lista.
+function _fraseDaFalha(erro,file){
+  const m=String(erro?.message||'').toLowerCase()
+  if(m.includes('mime')||m.includes('not supported')||m.includes('invalid_mime'))
+    return 'O banco não aceita este tipo de arquivo ("'+(file.type||'tipo desconhecido')+'"). '
+         + 'Se ele deveria ser aceito, avise — a lista de tipos é ajustável.'
+  if(m.includes('exceeded')||m.includes('too large')||m.includes('maximum'))
+    return 'Arquivo grande demais: o limite é 50 MB por arquivo.'
+  if(m.includes('row-level security')||m.includes('unauthorized')||m.includes('403'))
+    return 'Você não tem permissão para enviar arquivo aqui. Fale com um administrador.'
+  if(m.includes('failed to fetch')||m.includes('network'))
+    return 'A internet caiu no meio do envio. Tente de novo.'
+  return 'Não consegui enviar: '+(erro?.message||'motivo desconhecido')
+}
+
 async function _bancoUpload(file){
   const wrap=document.getElementById('banco-progress-wrap');
   const fill=document.getElementById('banco-progress-fill');
@@ -176,7 +217,14 @@ async function _bancoUpload(file){
   wrap.style.display='block';lbl.textContent='Enviando '+file.name+'…';fill.style.width='20%';
   const{error}=await sbClient.storage.from('arquivos').upload(storageKey,file,{cacheControl:'3600',upsert:true});
   fill.style.width='100%';
-  if(error){lbl.textContent='Erro: '+error.message;setTimeout(()=>{wrap.style.display='none';fill.style.width='0%';},3500);return;}
+  if(error){
+    const frase=_fraseDaFalha(error,file);
+    lbl.textContent=frase;
+    adminToast(frase,false);
+    // 3,5s some antes de a pessoa terminar de ler uma frase de duas linhas
+    setTimeout(()=>{wrap.style.display='none';fill.style.width='0%';},9000);
+    return;
+  }
   lbl.textContent=file.name+' enviado!';
   setTimeout(()=>{wrap.style.display='none';fill.style.width='0%';loadArquivos();},1200);
 }
