@@ -105,6 +105,17 @@ export function fraseDaRecusa(motivo, dados = {}) {
     case 'nao_esta_baixada':
       return 'Esta peça não está baixada.'
 
+    // ── A RECUSA QUE NÃO EXISTIA, PORQUE O BANCO MENTIA ───────────────────
+    // `vessel_marcar_gravada` respondia `ok: true` sem olhar se mudou alguma
+    // linha — código inexistente, peça já gravada e linha barrada davam todas a
+    // MESMA resposta do sucesso. A tela dizia "gravada" e seguia. Numa gravação
+    // em série isso vira etiqueta dentro de uma bolsa sem registro nenhum, e as
+    // duas peças ficam idênticas por fora: ninguém separa qual foi.
+    // Consertado na migration `2026-09-01-zzz-marcar-gravada-para-de-mentir`.
+    case 'peca_nao_existe':
+      return 'Este código não existe no sistema. Confira o que foi lido da etiqueta: '
+        + 'ela pode ser de outro lote, ou a peça pode ter sido excluída.'
+
     // ── AS RECUSAS DE EDITAR ETIQUETA JÁ GRAVADA ──────────────────────────
     // Elas vêm de `vessel_desmarcar_gravada` e `vessel_sobrescrever_etiqueta`
     // (migration 2026-09-01). Cada uma diz O QUE HOUVE e O QUE FAZER: uma

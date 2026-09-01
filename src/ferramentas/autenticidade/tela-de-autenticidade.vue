@@ -1877,7 +1877,15 @@ async function marcarGravada(codigo = proxima.value?.codigo) {
   try {
     const { data, error } = await sbClient.rpc('vessel_marcar_gravada', { p_codigo: codigo })
     if (error) throw error
-    if (!data?.ok) { adminToast('Sem permissão para marcar', false); avisarNaTela('falha'); return false }
+    // O MOTIVO VEM DO BANCO, não é mais adivinhado. Até 01/09/2026 esta linha
+    // dizia "Sem permissão para marcar" para QUALQUER recusa — e o banco só
+    // sabia recusar por permissão, porque respondia `ok:true` mesmo quando não
+    // mudava linha nenhuma. Código inexistente passava por gravado.
+    if (!data?.ok) {
+      adminToast(fraseDaRecusa(data?.motivo) || 'Não consegui marcar esta peça.', false)
+      avisarNaTela('falha')
+      return false
+    }
     // atualiza só a peça, sem recarregar tudo: a equipe está gravando em
     // sequência e uma recarga inteira a cada etiqueta trava o ritmo
     const alvo = pecas.value.find((p) => p.codigo === codigo)
