@@ -1,0 +1,12 @@
+{
+  "name": "gravador-de-etiquetas",
+  "private": true,
+  "type": "module",
+  "description": "O motor do gravador de etiquetas de mesa da Vessel: fala com o leitor ACR122U pela porta PC/SC do Windows. Mora FORA do painel de proposito — ver LEIA-ME.txt.",
+  "scripts": {
+    "test": "node --test *.test.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0"
+  }
+}
