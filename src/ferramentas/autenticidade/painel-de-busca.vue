@@ -12,7 +12,7 @@
  * ESTILO PRÓPRIO, com prefixo próprio (`pb-`): componente com `<style scoped>`
  * não alcança as classes `au-` da tela grande. Só tokens, nunca hex.
  */
-import { computed } from 'vue'
+import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
 import { intervaloDoAtalho, filtroAtivo } from './busca-e-arquivamento.js'
 
 const props = defineProps({
@@ -75,6 +75,27 @@ const periodoEscrito = computed(() => {
 })
 const gavetaAberta = computed(() => Boolean((props.filtro.de || props.filtro.ate) && !props.filtro.atalho))
 
+// NO COMPUTADOR A GAVETA JÁ NASCE ABERTA. Ela existe porque a 375px os dois
+// campos de data comiam 560px de altura e empurravam a lista para fora da
+// primeira tela — numa tela larga esse motivo não existe, o painel inteiro cabe
+// numa faixa e esconder duas datas atrás de um clique é só um clique a mais.
+//
+// POR QUE ISTO É JAVASCRIPT E NÃO CSS: `<details>` fechado esconde o conteúdo
+// pelo motor do navegador, e nenhuma regra de CSS reabre — quem abre é o
+// atributo `open`. `matchMedia` lê o mesmo 900px do `@media` do estilo abaixo, e
+// os dois têm de continuar iguais.
+//
+// O valor inicial é lido na definição (e não num `onMounted`) para a primeira
+// pintura já sair certa: começar fechado e abrir depois faria a faixa saltar.
+// `matchMedia` não existe em ambiente sem navegador — daí a guarda.
+const consulta = typeof window !== 'undefined' && window.matchMedia
+  ? window.matchMedia('(min-width: 900px)')
+  : null
+const telaLarga = ref(Boolean(consulta?.matches))
+function anotarLargura(e) { telaLarga.value = e.matches }
+onMounted(() => consulta?.addEventListener('change', anotarLargura))
+onBeforeUnmount(() => consulta?.removeEventListener('change', anotarLargura))
+
 // LIMPAR TIRA TUDO, inclusive o recorte com que a aba abriu — é assim que se
 // chega ao "e o resto" na aba Etiquetas, que abre nos últimos 30 dias.
 function limpar() {
@@ -103,7 +124,7 @@ function limpar() {
     <!-- A seta é desenhada aqui porque `display:flex` no <summary> apaga o
          triângulo que o Chrome desenha sozinho — e o triângulo era a única
          pista de que a gaveta abre. Em SVG, nunca emoji. -->
-    <details class="pb-mais" :open="gavetaAberta">
+    <details class="pb-mais" :open="gavetaAberta || telaLarga">
       <summary>
         <svg class="pb-seta" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"
              fill="none" stroke="currentColor" stroke-width="2.4"
@@ -212,6 +233,53 @@ function limpar() {
   font-family:var(--fonte-principal);
   font-size:max(9px, calc(11px * var(--escala-texto, 1)));
   font-weight:600; color:var(--accent-forte);
+}
+
+/* ── A TELA GRANDE ────────────────────────────────────────────────────────
+   No celular o painel empilha, e está certo: com 375px de largura busca,
+   atalhos e estado não cabem lado a lado sem espremer o alvo do dedo.
+   No computador eles cabem, e empilhados deixavam a caixa com 720px de largura
+   e quatro andares de altura, empurrando a lista para baixo da dobra.
+   Aqui viram UMA FAIXA: buscar · período · estado.
+
+   AS CINCO POSIÇÕES SÃO ESCRITAS À MÃO, e não deixadas para o encaixe
+   automático: a gaveta e a contagem ocupam a linha inteira, e com posição
+   automática a primeira delas empurraria o "Estado" para uma terceira linha,
+   deixando um vão na primeira. Contado no navegador, não deduzido.
+
+   900px é o mesmo corte do `matchMedia` do script aqui de cima e do `@media`
+   da tela grande. Os três têm de continuar iguais. */
+@media (min-width:900px){
+  .pb-caixa{
+    max-width:none; margin-left:24px; margin-right:24px;
+    padding:var(--sp-4) var(--sp-5);
+    display:grid;
+    grid-template-columns:minmax(240px,1fr) minmax(260px,.6fr);
+    align-items:end; column-gap:var(--sp-5); row-gap:var(--sp-3);
+  }
+  .pb-busca{grid-column:1; grid-row:1; margin-bottom:0}
+  .pb-estado{grid-column:2; grid-row:1; margin-top:0; max-width:none}
+  .pb-atalhos{grid-column:1 / -1; grid-row:2; margin-bottom:0}
+  /* A gaveta do período nasce ABERTA aqui (o `telaLarga` do script), então ela
+     é uma linha de verdade e não um clique escondido. */
+  .pb-mais{grid-column:1 / -1; grid-row:3}
+  .pb-conta{grid-column:1 / -1; grid-row:4; margin-top:0}
+  /* Sem isto cada campo de data esticaria para meia faixa. Uma data escrita
+     não fica mais legível com 500px de campo. */
+  .pb-linha .pb-campo{flex:0 1 200px}
+}
+
+/* OS SETE ATALHOS DE DATA SÓ SOBEM PARA A PRIMEIRA LINHA QUANDO CABEM INTEIROS.
+   Medido a 1024px com os três na mesma linha: os atalhos quebravam em duas
+   fileiras e o "Estado" ficava com 180px, cortando "Só com peça por gravar"
+   dentro do próprio seletor — texto cortado é defeito (PADRAO item 5).
+   A partir de 1240px os três cabem, e aí a faixa vira uma linha só. */
+@media (min-width:1240px){
+  .pb-caixa{grid-template-columns:minmax(240px,1fr) minmax(0,auto) minmax(260px,.5fr)}
+  .pb-atalhos{grid-column:2; grid-row:1}
+  .pb-estado{grid-column:3; grid-row:1}
+  .pb-mais{grid-row:2}
+  .pb-conta{grid-row:3}
 }
 
 /* O `@media` do celular é a ÚLTIMA coisa deste arquivo, e tem de continuar

@@ -82,7 +82,11 @@
         o período ou o estado, ou aperte “Limpar a busca”.
       </p>
 
-      <div class="au-lista">
+      <!-- NO COMPUTADOR ESTA LISTA VIRA GRADE (duas colunas por volta de 1000px,
+           três a partir de 1400px). A classe é só o gancho do `@media
+           (min-width)` do fim do arquivo: no celular ela não pinta nada, e a
+           coluna única de hoje fica exatamente como está. -->
+      <div class="au-lista au-grade-de-lotes">
         <div v-for="l in lotesVisiveis" :key="l.id" class="au-card">
           <div class="au-card-topo">
             <span class="au-modelo">{{ l.modelo }}</span>
@@ -198,7 +202,23 @@
               Este lote não tem peça nenhuma.
             </p>
 
-            <ul v-else class="au-pecas-lista">
+            <!-- ── A LISTA DAS PEÇAS VIRA TABELA NO COMPUTADOR ──────────────
+                 O cabeçalho mora DENTRO do `<ul>`, como primeiro item, por dois
+                 motivos: o `<p v-if>` e o `<ul v-else>` são vizinhos diretos de
+                 uma corrente `v-if`/`v-else` — um elemento no meio a partiria —
+                 e, dentro da lista que rola (`max-height:60dvh`), ele fica
+                 `position:sticky` e continua no alto enquanto a pessoa varre
+                 500 peças.
+                 `aria-hidden` porque ele não acrescenta informação nenhuma:
+                 cada linha já diz "nº 3", "Gravada em 12/08" por escrito. Ele é
+                 ajuda de OLHO, para varrer coluna. No celular não existe:
+                 `display:none` na regra-base, e só o `@media (min-width)` o
+                 acende. -->
+            <ul v-else class="au-pecas-lista au-tabela-pecas">
+              <li class="au-tabela-cab" aria-hidden="true">
+                <span>Nº</span><span>Código</span><span>Estado</span>
+                <span>Situação</span><span>Endereço</span><span>Ações</span>
+              </li>
               <li v-for="pc in pecasVisiveis" :key="pc.codigo" class="au-peca">
                 <div class="au-peca-topo">
                   <span class="au-peca-n">nº {{ pc.numero_na_serie }}</span>
@@ -657,7 +677,17 @@
         ou aperte “Limpar a busca”.
       </p>
 
-      <div v-else class="au-lista">
+      <!-- NO COMPUTADOR ESTES CARTÕES VIRAM TABELA. O cabeçalho é o PRIMEIRO
+           FILHO da lista, e não um irmão antes dela: este `<div>` é o `v-else`
+           de uma corrente `v-if`/`v-else-if`, e qualquer elemento colocado
+           entre os dois partiria a corrente — já aconteceu nesta tela, em
+           30/08. `aria-hidden` porque cada linha já diz tudo por escrito
+           ("Gravada em 12/08"); ele é ajuda de olho para varrer coluna. -->
+      <div v-else class="au-lista au-tabela au-tabela-etiquetas">
+        <div class="au-tabela-cab" aria-hidden="true">
+          <span>Peça</span><span>Estado</span><span>Situação</span>
+          <span>Endereço da etiqueta</span><span>Ações</span>
+        </div>
         <div v-for="pc in etiquetasVisiveis" :key="pc.codigo" class="au-card">
           <div class="au-card-topo">
             <span class="au-modelo">{{ descricaoDaPeca(pc, loteDaPeca(pc.lote_id)) }}</span>
@@ -755,7 +785,15 @@
         Nada encontrado para “{{ busca }}”.
       </p>
 
-      <div class="au-lista">
+      <!-- Tabela no computador; cartão no celular. As duas últimas colunas são
+           as únicas opcionais desta linha, e ficam no FIM de propósito: quando
+           faltam, sobram células vazias no fim e as quatro primeiras continuam
+           alinhadas de linha para linha. -->
+      <div class="au-lista au-tabela au-tabela-garantias">
+        <div class="au-tabela-cab" aria-hidden="true">
+          <span>Cliente</span><span>Garantia até</span><span>Código</span>
+          <span>WhatsApp</span><span>Onde comprou</span><span>Comprou em</span>
+        </div>
         <div v-for="r in registrosFiltrados" :key="r.codigo" class="au-card">
           <div class="au-card-topo">
             <span class="au-modelo">{{ r.nome }}</span>
@@ -785,7 +823,13 @@
 
       <template v-else>
         <h2 class="au-secao" v-if="resumo.repetidas">Peças lidas de muitos aparelhos</h2>
-        <div class="au-lista">
+        <!-- Tabela no computador, cartão no celular: as três listas desta aba
+             são de varredura, e coluna alinhada é o que deixa a linha estranha
+             saltar aos olhos. -->
+        <div class="au-lista au-tabela au-tabela-repetidas">
+          <div class="au-tabela-cab" aria-hidden="true">
+            <span>Código</span><span>Aparelhos</span><span>Leituras</span><span>Última leitura</span>
+          </div>
           <div v-for="a in (alertas?.repetidas || [])" :key="a.codigo" class="au-card alerta">
             <div class="au-card-topo">
               <span class="au-modelo">{{ a.codigo }}</span>
@@ -799,7 +843,10 @@
         </div>
 
         <h2 class="au-secao" v-if="resumo.invalidas">Códigos que não existem, tentados</h2>
-        <div class="au-lista">
+        <div class="au-lista au-tabela au-tabela-invalidas">
+          <div class="au-tabela-cab" aria-hidden="true">
+            <span>Código tentado</span><span>Tentativas</span><span>Última tentativa</span>
+          </div>
           <div v-for="a in (alertas?.invalidas || [])" :key="a.codigo" class="au-card alerta">
             <div class="au-card-topo">
               <span class="au-modelo">{{ a.codigo }}</span>
@@ -820,7 +867,10 @@
             Estas peças estão baixadas e alguém encostou o celular nelas depois disso.
             Vale conferir onde a bolsa apareceu.
           </p>
-          <div class="au-lista">
+          <div class="au-lista au-tabela au-tabela-baixadas">
+            <div class="au-tabela-cab" aria-hidden="true">
+              <span>Código</span><span>Leituras</span><span>Motivo da baixa</span><span>Última leitura</span>
+            </div>
             <div v-for="b in (alertas?.baixadas_lidas || [])" :key="b.codigo" class="au-card alerta">
               <div class="au-card-topo">
                 <span class="au-modelo">{{ b.codigo }}</span>
@@ -2698,6 +2748,289 @@ onMounted(() => {
 }
 .au-fila-n{white-space:nowrap}
 .au-fila-cod{font-size:max(9px, calc(12px * var(--escala-texto, 1)))}
+
+/* ── O CABEÇALHO DE TABELA NÃO EXISTE NO CELULAR ──────────────────────────
+   No celular a forma certa é o cartão: cada linha se lê sozinha, com o rótulo
+   escrito junto do dado ("Gravada em 12/08", "nº 3"). Um cabeçalho ali seria
+   uma fileira de palavras soltas em cima de nada.
+   Por isso a regra-base é `display:none`, e só o `@media (min-width:900px)`
+   logo abaixo o acende. A 375px ele não ocupa uma linha, não conta como alvo de
+   toque e não entra na medição — medido, não deduzido. */
+.au-tabela-cab{display:none}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   A TELA GRANDE — TUDO O QUE VEM DAQUI ATÉ O `@media` DO CELULAR
+   ══════════════════════════════════════════════════════════════════════════
+   POR QUE ESTE BLOCO EXISTE. Até 01/09 esta tela não tinha UMA regra
+   `@media (min-width)`. Tudo era travado em 520–720px (`.au-lista{720}`,
+   `.au-gravacao{620}`, `.au-campo{520}`), e num monitor de 1440px o conteúdo
+   ficava numa faixa à esquerda: MEDIDO — a lista usava 720 de 1440 (50%) e a
+   bancada de gravação 620 de 1440 (43%). O dono viu e disse "no computador
+   está horrível, mal distribuído". É também o item 7 do PADRAO-DA-CENTRAL, com
+   estas palavras: "Tela é full-bleed: nada de coluna estreita centralizada".
+
+   ONDE ELE MORA, E POR QUÊ. Aqui, DEPOIS de todas as regras-base e ANTES do
+   `@media (max-width:520px)` do fim do arquivo. As duas coisas importam:
+     · depois das regras-base, senão o `max-width` de lá ganharia por vir por
+       último com a mesma especificidade — que é o defeito silencioso que já
+       aconteceu duas vezes neste arquivo;
+     · antes do `@media` do celular, porque HÁ TESTE que exige que aquele bloco
+       seja a última coisa do CSS (`aba-de-etiquetas.test.mjs`,
+       `ver-as-pecas-do-lote.test.mjs`). As duas consultas não se cruzam — uma
+       vale até 520px, a outra a partir de 900px —, então a ordem entre elas não
+       muda desenho nenhum: é só o teste, e ele está certo.
+
+   O CELULAR NÃO REGRIDE. Nada aqui vale abaixo de 900px. O desenho de celular
+   é o de hoje, medido antes e depois: 375px continua com 0 de rolagem
+   horizontal, 0 alvo abaixo de 40px, 0 campo abaixo de 16px e 0 texto cortado.
+
+   POR QUE 900px. É o mesmo corte que a Frota usa (`@media(min-width:900px)` lá)
+   — telas irmãs que mudam de forma na mesma largura é o que faz a Central
+   parecer uma coisa só. */
+@media (min-width:900px){
+
+  /* ── 1. FULL-BLEED: CAI O TETO DE LARGURA ──────────────────────────────
+     O recuo continua sendo 24px, o mesmo da Frota e do Patrimônio — não é
+     invenção nova, é o número que a casa usa. */
+  .au-lista, .au-gravacao, .au-farol, .au-baixadas-lote{max-width:none;}
+
+  /* A PROSA NÃO ACOMPANHA, E É DE PROPÓSITO. `.au-ajuda`, `.au-instrucao`,
+     `.au-vazio`, `.au-erro` e `.au-pronto` são frases para LER, e linha de
+     texto corrida com 1400px de largura o olho não acompanha — ele perde a
+     linha na volta. Full-bleed vale para o que se VARRE (lista, tabela, grade);
+     texto corrido mantém a medida de leitura. Elas ficam com o teto de hoje. */
+
+  /* A busca do topo (aba Garantias) esticava de ponta a ponta: um campo de
+     busca de 1392px não fica melhor que um de 420px, só fica maior. */
+  .au-topo-acao .au-busca{max-width:420px;}
+
+  /* ── 2. O PASSO A PASSO ────────────────────────────────────────────────
+     Ele é um caminho de três etapas, e no computador cabe DEITADO — que é a
+     forma em que se lê um caminho. Ganha também o recuo de 24px: no celular
+     ele nasceu encostado na borda (x=0) enquanto o resto da tela começa em
+     16px, e alinhar as duas coisas aqui é metade da queixa de "mal
+     distribuído". No celular ele fica como está — mexer ali seria mexer no que
+     já foi medido. */
+  .au-passos{
+    flex-direction:row; align-items:stretch;
+    gap:var(--sp-3); padding:var(--sp-2) 24px 0; margin-bottom:var(--sp-4);
+  }
+  .au-passo-item{flex:1 1 0; min-width:0;}
+  .au-passo-txt strong{overflow-wrap:anywhere;}
+  .au-rever{padding:0 24px;}
+
+  /* ── 3. A BANCADA DE GRAVAÇÃO: DUAS COLUNAS ────────────────────────────
+     Esta é a tela mais importante da ferramenta, e a única usada DE PÉ: a
+     pessoa está com a bolsa numa mão e o celular na outra. Ela precisa ver ao
+     mesmo tempo ONDE ESTÁ (a peça da vez e a fila ao redor) e O QUE FAZER (o
+     endereço, o botão, a gaveta do gravador de mesa) — sem rolar.
+     À esquerda, estreita, a fila; à direita, larga, a ação.
+
+     COMO A GRADE FUNCIONA, porque não é óbvia. Os filhos de `.au-gravacao`
+     mudam de número conforme o modo (NFC ou aplicativo) e conforme as
+     perguntas abertas — de 6 a 12. Para a fila poder acompanhar a coluna
+     inteira ela precisa de `grid-row:2 / -1`, e `-1` só existe quando há
+     linhas EXPLÍCITAS: daí o `repeat(24, auto)`. Vinte e quatro é folga sobre
+     o pior caso contado (12). Linha explícita sem conteúdo mede zero, e o
+     `row-gap:0` é obrigatório junto: com gap, as 12 linhas vazias virariam
+     espaço morto no fim da coluna. O respiro entre os blocos continua vindo do
+     `padding`/`margin` que cada um já tem para o celular. */
+  .au-gravacao{
+    display:grid;
+    grid-template-columns:minmax(240px,300px) minmax(0,1fr);
+    grid-template-rows:repeat(24, auto);
+    column-gap:var(--sp-6); row-gap:0;
+    align-items:start;
+  }
+  .au-gravacao > *{grid-column:2;}
+  .au-gravacao > .au-passo{grid-column:1; grid-row:1;}
+  .au-gravacao > .au-fila{grid-column:1; grid-row:2 / -1; margin-top:var(--sp-3);}
+
+  /* O ENDEREÇO É O QUE SE CONFERE ANTES DE ENCOSTAR, e no computador ele é
+     lido a um braço de distância da tela. Cresce de 17px para 26px e ganha ar.
+     `max()` com o mesmo `--escala-texto` do resto: quem aumenta a letra do
+     sistema continua mandando aqui. */
+  .au-endereco{
+    font-size:max(20px, calc(26px * var(--escala-texto, 1)));
+    padding:var(--sp-5); margin-top:var(--sp-4); line-height:1.45;
+  }
+
+  /* ── 4. O FAROL DO LOTE, EM FAIXA ──────────────────────────────────────
+     A barra e o texto de um lado, o sinal da gravação do outro — a informação
+     de estado do lote inteiro, numa faixa só, em cima das duas colunas.
+     `:has(.au-sinal)` porque o sinal só existe enquanto grava ou logo depois:
+     sem ele a segunda coluna seria um vão de 24px de nada. Ele é suportado
+     desde o Safari 15.4, e já é usado na Frota; sem ele, a faixa simplesmente
+     continua empilhada, como no celular — nada quebra. */
+  .au-farol:has(.au-sinal){
+    display:grid; grid-template-columns:minmax(0,1fr) fit-content(420px);
+    grid-template-rows:auto auto; align-items:center; column-gap:var(--sp-5);
+  }
+  .au-farol:has(.au-sinal) > .au-barra{grid-column:1; grid-row:1; align-self:end;}
+  .au-farol:has(.au-sinal) > .au-barra-texto{grid-column:1; grid-row:2;}
+  .au-farol:has(.au-sinal) > .au-sinal{grid-column:2; grid-row:1 / 3; margin-top:0;}
+
+  /* ── 5. LOTES: GRADE, NÃO FILEIRA ──────────────────────────────────────
+     `auto-fill` com mínimo de 440px dá exatamente o que se pediu, e sem
+     inventar mais um ponto de quebra: 1 coluna até ~1000px, DUAS a partir de
+     1000px (2×440+16 = 896 cabem em 952), TRÊS a partir de ~1400px
+     (3×440+32 = 1352). Contado, não estimado.
+
+     `align-items:start` é o conserto que a Frota já pagou caro: sem ele toda a
+     linha fica com a altura do cartão mais alto dela, e um cartão de lote com
+     a pergunta de excluir aberta ao lado de dois curtos viraria duas caixas
+     brancas com 250px de nada dentro. */
+  .au-grade-de-lotes{
+    display:grid; grid-template-columns:repeat(auto-fill, minmax(440px, 1fr));
+    gap:var(--sp-4); align-items:start;
+  }
+  /* O CARTÃO ABERTO OCUPA A LARGURA TODA. Dentro dele mora a tabela das peças,
+     com seis colunas e o endereço inteiro: espremida em 440px ela não seria
+     tabela nenhuma. O mesmo vale para o formulário de editar e para as duas
+     perguntas de excluir, que são conversas — e conversa espremida numa coluna
+     de grade é onde o dedo erra o botão. */
+  .au-grade-de-lotes > .au-card:has(.au-pecas),
+  .au-grade-de-lotes > .au-card:has(.au-edicao),
+  .au-grade-de-lotes > .au-card:has(.au-confirma){grid-column:1 / -1;}
+
+  /* ── 6. AS LISTAS DE VARREDURA VIRAM TABELA ────────────────────────────
+     Cartão é a forma certa para UMA coisa por vez, e continua sendo a do
+     celular. Numa tela larga com dezenas de linhas a forma certa é a tabela:
+     cabeçalho em cima, colunas alinhadas, o olho descendo por uma coluna só.
+
+     COMO AS COLUNAS SE ALINHAM SEM MUDAR O HTML DO CELULAR: cada cartão vira
+     uma grade com o MESMO `grid-template-columns` do cabeçalho, e as caixas
+     que só serviam para agrupar (`.au-card-topo`, `.au-card-linha`,
+     `.au-peca-topo`) viram `display:contents` — elas somem da grade e os
+     filhos delas passam a ser as células. É por isso que o `<div>` do
+     cabeçalho pôde entrar como primeiro filho da lista sem tocar em mais nada.
+
+     `overflow-wrap:anywhere` em tudo: texto cortado é defeito (PADRAO item 5),
+     e numa coluna estreita "Positano Bolsa de Ombro Grande" precisa quebrar em
+     vez de vazar. Por isso também nenhuma coluna tem mínimo em pixel — todas
+     são `minmax(0, Nfr)`: fração não estoura a largura, e a página nunca ganha
+     rolagem horizontal por causa da tabela. */
+  .au-lista.au-tabela{
+    gap:0; padding-top:var(--sp-4);
+    display:block;
+  }
+  .au-tabela .au-tabela-cab{
+    display:grid; align-items:end; gap:var(--sp-2) var(--sp-4);
+    padding:var(--sp-3) var(--sp-4);
+    border:1px solid var(--border); border-bottom:0;
+    border-radius:var(--card-radius) var(--card-radius) 0 0;
+    background:var(--surface2);
+    font-family:var(--fonte-principal);
+    font-size:max(9px, calc(10px * var(--escala-texto, 1)));
+    font-weight:700; letter-spacing:1.5px; text-transform:uppercase;
+    color:var(--muted); overflow-wrap:anywhere;
+  }
+  .au-tabela .au-card{
+    display:grid; align-items:center; gap:var(--sp-2) var(--sp-4);
+    padding:var(--sp-3) var(--sp-4);
+    border-radius:0; border-width:1px 1px 0 1px;
+  }
+  .au-tabela .au-card:last-child{
+    border-bottom-width:1px;
+    border-radius:0 0 var(--card-radius) var(--card-radius);
+  }
+  /* A COR DE ALERTA VAI PARA A LINHA INTEIRA, e não para uma borda de baixo
+     que se leria como divisória. Filete à esquerda, na cor do token. */
+  .au-tabela .au-card.alerta{
+    border-color:var(--border);
+    box-shadow:inset 3px 0 0 var(--orange);
+  }
+  .au-tabela .au-card-topo{display:contents;}
+  /* CÉLULA NÃO ESTICA O SELO. Filho de grade nasce com `justify-self:stretch`,
+     e a etiqueta de estado saía como uma pílula de 160px com uma palavra
+     perdida no meio. Ela tem a largura do que ela diz, encostada à esquerda
+     como o resto da coluna. */
+  .au-tabela .selo, .au-tabela-pecas .selo{justify-self:start;}
+  .au-tabela .au-modelo, .au-tabela .au-progresso, .au-tabela .au-ref,
+  .au-tabela .au-card-linha, .au-tabela .au-peca-end{min-width:0; overflow-wrap:anywhere;}
+  /* `white-space:nowrap` na regra-base do `.au-progresso` cortaria a célula. */
+  .au-tabela .au-progresso{white-space:normal;}
+  .au-tabela .au-card-linha{margin-top:0;}
+  .au-tabela .au-peca-end{margin-top:0;}
+  .au-tabela .au-peca-acoes, .au-tabela .au-confirma{margin-top:0;}
+  /* A conversa (apagar a gravação) ocupa a linha inteira, embaixo das células:
+     ela tem duas etapas, senha e recusa escrita, e não é uma célula. */
+  .au-tabela .au-card > .au-confirma{grid-column:1 / -1; margin-top:var(--sp-3);}
+
+  .au-tabela-etiquetas .au-tabela-cab, .au-tabela-etiquetas .au-card{
+    grid-template-columns:minmax(0,2fr) minmax(0,1fr) minmax(0,1.3fr) minmax(0,2.4fr) minmax(0,1.4fr);
+  }
+  .au-tabela-garantias .au-tabela-cab, .au-tabela-garantias .au-card{
+    grid-template-columns:minmax(0,2fr) minmax(0,1fr) minmax(0,1.1fr) minmax(0,1.2fr) minmax(0,1.3fr) minmax(0,1fr);
+  }
+  /* Nas três tabelas de Alertas a linha de baixo do cartão tem sempre o mesmo
+     número de células, então ela também vira `display:contents` e as colunas
+     ficam alinhadas de ponta a ponta. Em Garantias as duas últimas são
+     opcionais — e por serem as ÚLTIMAS, quando faltam sobra célula vazia no
+     fim e as quatro primeiras continuam no lugar. */
+  .au-tabela-garantias .au-card-linha, .au-tabela-repetidas .au-card-linha,
+  .au-tabela-invalidas .au-card-linha, .au-tabela-baixadas .au-card-linha{display:contents;}
+  .au-tabela-repetidas .au-tabela-cab, .au-tabela-repetidas .au-card{
+    grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1.4fr);
+  }
+  .au-tabela-invalidas .au-tabela-cab, .au-tabela-invalidas .au-card{
+    grid-template-columns:minmax(0,1.8fr) minmax(0,1fr) minmax(0,1.4fr);
+  }
+  .au-tabela-baixadas .au-tabela-cab, .au-tabela-baixadas .au-card{
+    grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) minmax(0,1.4fr) minmax(0,1.4fr);
+  }
+
+  /* ── 7. AS PEÇAS DO LOTE, TAMBÉM EM TABELA ─────────────────────────────
+     Um lote tem até 500 peças, e é a lista mais varrida da ferramenta: número,
+     código, estado, situação, endereço e as duas ações.
+     O cabeçalho é o primeiro `<li>` e fica `position:sticky` no alto: a lista
+     rola dentro da própria caixa (`max-height:60dvh`), e cabeçalho que sobe
+     junto com a rolagem não serve para nada depois da décima linha. */
+  .au-pecas{padding:var(--sp-4);}
+  .au-tabela-pecas .au-tabela-cab{
+    display:grid; align-items:end; gap:var(--sp-2) var(--sp-4);
+    position:sticky; top:0; z-index:1;
+    padding:var(--sp-2) var(--sp-3);
+    background:var(--surface2); border-bottom:1px solid var(--border);
+    font-family:var(--fonte-principal);
+    font-size:max(9px, calc(10px * var(--escala-texto, 1)));
+    font-weight:700; letter-spacing:1.5px; text-transform:uppercase;
+    color:var(--muted); overflow-wrap:anywhere;
+  }
+  .au-tabela-pecas{margin-top:var(--sp-3);}
+  .au-tabela-pecas .au-peca{
+    display:grid; align-items:center; gap:var(--sp-2) var(--sp-4);
+    padding:var(--sp-2) var(--sp-3);
+  }
+  .au-tabela-pecas .au-tabela-cab, .au-tabela-pecas .au-peca{
+    grid-template-columns:minmax(0,.5fr) minmax(0,1.3fr) minmax(0,1fr) minmax(0,1.4fr) minmax(0,2.4fr) minmax(0,1.8fr);
+  }
+  .au-tabela-pecas .au-peca-topo{display:contents;}
+  .au-tabela-pecas .au-peca-estado, .au-tabela-pecas .au-peca-end{margin-top:0; min-width:0;}
+  /* Os dois links de ação, um debaixo do outro: lado a lado nesta coluna eles
+     ficariam com metade da largura do texto que carregam. Cada um mantém os
+     40px de alvo que já tem. */
+  .au-tabela-pecas .au-peca-links{flex-direction:column; align-items:flex-start; gap:0;}
+
+  /* ── 8. A LISTA DAS BAIXADAS ───────────────────────────────────────────
+     Sai do teto de 620px junto com o resto, mas a linha em si não precisa de
+     1400px: ela é "Peça 7 — defeito" com um "Desfazer" do outro lado. */
+  .au-baixadas li{max-width:720px;}
+
+  /* ── 9. O GUIA DE BANCADA RESPIRA ──────────────────────────────────────
+     No celular ele ocupa a tela; no computador ele era uma caixa de 420px com
+     onze telas de texto dentro, com o miolo rolando à toa. Em 640px o texto
+     cabe, e os itens viram o que eles são: uma lista de termo e explicação,
+     com o rótulo numa coluna e a explicação na outra — que é a forma em que se
+     acha um caso com o olho, de pé, na bancada. */
+  .au-guia{max-width:640px; padding:var(--sp-5);}
+  .au-guia-itens{
+    display:grid; grid-template-columns:minmax(120px, max-content) minmax(0,1fr);
+    column-gap:var(--sp-4); row-gap:var(--sp-2);
+  }
+  .au-guia-itens dt{margin-top:0;}
+  .au-guia-itens dd{margin:0;}
+}
 
 /* O `@media` do celular deste bloco fica AQUI, e não no de cima junto com os
    outros: as regras-base acima têm a mesma especificidade e vêm depois no
