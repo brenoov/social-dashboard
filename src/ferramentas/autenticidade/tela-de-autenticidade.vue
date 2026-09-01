@@ -1304,7 +1304,11 @@ function baixarListaDoLote(l) {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `lote-${l.modelo || 'sem-modelo'}-completo.csv`
+  // A DATA DE FABRICAÇÃO VAI NO NOME porque dois lotes do MESMO modelo baixavam
+  // com o mesmo nome, e o segundo virava "(1)" na pasta de Downloads — ou pior,
+  // substituía o primeiro. O arquivo é o registro de qual link foi para qual
+  // bolsa: nome repetido aqui é registro de produção perdido.
+  a.download = `lote-${l.modelo || 'sem-modelo'}-${l.fabricado_em || 'sem-data'}-completo.csv`
   a.click()
   URL.revokeObjectURL(url)
 }
