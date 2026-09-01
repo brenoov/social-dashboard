@@ -275,6 +275,27 @@
             </div>
           </template>
 
+          <!-- ── A FILA AO REDOR ─────────────────────────────────────────
+               A que acabou de sair e as próximas. A da vez NÃO se distingue só
+               pela cor: ela ganha fundo, borda e o selo escrito "Agora" — cor
+               sozinha some para quem não a enxerga.
+               Com uma peça só na fila a lista não aparece: bloco que mostra
+               apenas a peça que já está na tela logo acima vira paisagem. -->
+          <div v-if="filaAoRedor.length > 1" class="au-fila">
+            <p class="au-fila-titulo">A fila deste lote</p>
+            <ul class="au-fila-lista">
+              <li v-for="pf in filaAoRedor" :key="pf.codigo"
+                  :class="['au-fila-item', { atual: pf.codigo === proxima.codigo }]">
+                <span class="au-fila-n">nº {{ pf.numero_na_serie }}</span>
+                <span class="au-ref au-fila-cod">{{ pf.codigo }}</span>
+                <span class="selo"
+                      :class="pf.codigo === proxima.codigo ? 'selo-info' : estadoDaPeca(pf).selo">
+                  {{ pf.codigo === proxima.codigo ? 'Agora' : estadoDaPeca(pf).rotulo }}
+                </span>
+              </li>
+            </ul>
+          </div>
+
           <!-- OS DOIS CAMINHOS DA PEÇA DA VEZ, lado a lado.
                DAR BAIXA é o caminho de quem NÃO pode excluir: peça gravada pode
                estar dentro de uma bolsa, e excluir faria a página da cliente
@@ -610,7 +631,7 @@ import { hasPermission } from '../../compartilhado/controle-de-login-e-usuario.j
 import { adminToast } from '../../compartilhado/avisos.js'
 import {
   enderecoDaTag, progressoDoLote, proximaPorGravar, linhasDoCsv, resumoDeAlertas,
-  MOTIVOS_DE_BAIXA, fraseDaRecusa,
+  MOTIVOS_DE_BAIXA, fraseDaRecusa, naFila,
   rotuloDoMotivo, pecasEmOrdem, estadoDaPeca, linhasDaListaDoLote,
 } from './lotes.js'
 import { conferirLeitura, listaParaGravadorDeMesa, codigosNoTextoDoGravador } from './nfc-fila.js'
@@ -747,6 +768,28 @@ const pecasDoLote = (id) => pecas.value.filter((p) => p.lote_id === id)
 const loteAtual = computed(() => lotes.value.find((l) => l.id === loteEscolhido.value) || null)
 const proxima = computed(() => proximaPorGravar(pecasDoLote(loteEscolhido.value)))
 const resumo = computed(() => resumoDeAlertas(alertas.value))
+
+// ── A FILA AO REDOR DA PEÇA DA VEZ ────────────────────────────────────────
+// Quem grava 50 seguidas se perde: a tela mostrava SÓ a peça da vez, e o único
+// jeito de saber onde parou era contar etiqueta na mão. Aqui aparecem a que
+// acabou de sair e as próximas, com a da vez marcada.
+//
+// SÃO POUCAS LINHAS DE PROPÓSITO. A lista inteira do lote é da aba Lotes, e vai
+// a 500: aqui, no meio da gravação, uma lista longa empurraria o botão de gravar
+// para fora da tela do celular — e o botão é o que a pessoa está procurando.
+const QUANTAS_ADIANTE = 4
+const filaAoRedor = computed(() => {
+  const atual = proxima.value
+  if (!atual) return []
+  // A BAIXADA SAI, pela mesma regra da fila de gravação (`naFila`, em lotes.js):
+  // ela não vai virar bolsa, e mostrá-la aqui como "a próxima" mandaria alguém
+  // gravar a etiqueta de uma peça dada como refugo.
+  const lista = pecasEmOrdem(pecasDoLote(loteEscolhido.value)).filter(naFila)
+  const i = lista.findIndex((p) => p.codigo === atual.codigo)
+  if (i === -1) return []
+  // uma para trás — a que acabou de sair — e as próximas
+  return lista.slice(Math.max(0, i - 1), i + 1 + QUANTAS_ADIANTE)
+})
 
 // As baixadas saem da fila de gravação, então precisam de um lugar PRÓPRIO para
 // aparecer: sem esta lista, dar baixa por engano não teria como ser desfeito.
@@ -1691,6 +1734,32 @@ onMounted(() => {
   .au-anel, .au-marca-ok, .au-marca-erro{animation:none; opacity:1; transform:none}
   .au-barra-cheia{transition:none}
 }
+
+/* ── A FILA AO REDOR DA PEÇA DA VEZ ───────────────────────────────────────
+   Cor só de token e espaço só da escala (PADRAO-DA-CENTRAL, itens 2 e 7). */
+.au-fila{margin-top:var(--sp-4)}
+.au-fila-titulo{
+  margin:0 0 var(--sp-2); font-family:var(--fonte-principal);
+  font-size:max(9px, calc(10px * var(--escala-texto, 1)));
+  font-weight:700; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted);
+}
+.au-fila-lista{list-style:none; margin:0; padding:0}
+.au-fila-item{
+  display:flex; align-items:center; gap:var(--sp-2); flex-wrap:wrap;
+  padding:var(--sp-2); border-radius:var(--radius-md);
+  border:1px solid transparent;
+  font-family:var(--fonte-principal); color:var(--muted);
+  font-size:max(9px, calc(13px * var(--escala-texto, 1)));
+  overflow-wrap:anywhere;
+}
+/* A DA VEZ NÃO SE DISTINGUE SÓ PELA COR: ela ganha fundo, borda E o selo escrito
+   "Agora". Quem não enxerga a diferença de cor continua sabendo qual é. */
+.au-fila-item.atual{
+  background:var(--surface2); color:var(--text); font-weight:600;
+  border-color:color-mix(in srgb, var(--accent) 38%, var(--surface));
+}
+.au-fila-n{white-space:nowrap}
+.au-fila-cod{font-size:max(9px, calc(12px * var(--escala-texto, 1)))}
 
 /* O `@media` do celular deste bloco fica AQUI, e não no de cima junto com os
    outros: as regras-base acima têm a mesma especificidade e vêm depois no

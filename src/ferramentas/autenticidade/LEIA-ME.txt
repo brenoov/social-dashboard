@@ -13,11 +13,20 @@ AS QUATRO ABAS
 
 LOTES      Cada lote e uma fornada de bolsas do mesmo modelo. Ao criar um lote
            de 20, nascem 20 codigos DIFERENTES, um por bolsa.
+           "Ver as pecas e os links" abre a lista do lote: numero da serie,
+           codigo, o endereco que foi gravado, o estado (gravada com a data,
+           pendente, ou baixada com o motivo), copiar o endereco e abrir a
+           pagina que a CLIENTE ve. E de la que sai "Baixar a lista inteira",
+           a planilha para arquivar junto da ordem de producao.
 
 GRAVAR     Mostra UMA etiqueta por vez, com o endereco em letra grande, botao de
            copiar e "Gravei essa". Existe por um motivo pratico: 20 etiquetas
            sao fisicamente identicas, e sem essa tela e questao de tempo ate
            alguem gravar a mesma duas vezes e pular outra.
+           Ao redor dela aparece A FILA — a peca que acabou de sair e as
+           proximas, com a da vez marcada —, uma barra de progresso do lote e o
+           sinal de vida da gravacao (anel pulsando enquanto espera a etiqueta,
+           check quando o banco confirma, tremor quando falha).
 
 REGISTROS  Quem registrou a garantia: nome, WhatsApp, onde comprou. Da pra
            buscar e baixar em planilha.
@@ -59,7 +68,9 @@ lotes.js                   as continhas soltas (endereco da etiqueta, progresso
                            alertas, frases de recusa). Ficam separadas porque
                            sao testadas em lotes.test.mjs. `naFila` — a regra de
                            que peca baixada sai da fila — mora AQUI e so aqui:
-                           nfc-fila.js importa em vez de reescrever.
+                           nfc-fila.js importa em vez de reescrever. O mesmo
+                           vale para `rotuloDoMotivo`: a tela e a planilha do
+                           lote escrevem o MESMO motivo porque bebem daqui.
 
 GRAVAR ENCOSTANDO O CELULAR
 ===========================
@@ -103,6 +114,42 @@ Etiqueta costurada dentro de bolsa vendida nao se regrava. A partir da primeira
 etiqueta gravada, renovar vesselbrasil.com.br deixa de ser opcional - e o
 caminho /verify/ e o formato do codigo congelam junto.
 O dominio sai de enderecoDaTag() em lotes.js e de nenhum outro lugar.
+
+AS DUAS LISTAS DO LOTE, E POR QUE SAO DUAS
+=========================================
+
+`listaParaGravadorDeMesa` (nfc-fila.js) e a FILA DO QUE FALTA: uma URL por
+linha, para alimentar o gravador de mesa. Ela TIRA as gravadas e as baixadas —
+misturar as gravadas nela mandaria a maquina regravar etiqueta que ja esta
+costurada dentro de uma bolsa.
+
+`linhasDaListaDoLote` (lotes.js) CONTA A HISTORIA: sai com TODAS as pecas, na
+ordem da serie, com numero, codigo, endereco, estado, a data da gravacao e o
+motivo da baixa. E a lista para arquivar junto da ordem de producao — quem
+arquiva precisa saber o que aconteceu com cada numero.
+
+Sao duas de proposito. Juntar numa so quebra uma das duas, e a que quebra e a
+que manda a maquina gravar de novo.
+
+A DATA DA PLANILHA ENTRA POR PARAMETRO (`formatarData`), e nao e formatada
+dentro de lotes.js: o fuso da Central mora na tela (`dataCurta`, em
+America/Sao_Paulo). Escrevendo uma segunda formatacao la, o arquivo sairia com a
+data de um dia e a tela com a de outro.
+
+A ANIMACAO NUNCA E O UNICO AVISO
+================================
+
+A aba Gravar se mexe: anel pulsando, check que cresce, tremor na falha. Mas
+`@media (prefers-reduced-motion: reduce)` desliga o movimento — e nesses casos o
+estado tem de APARECER sem se mexer. Por isso cada estado tambem esta ESCRITO,
+no `textoDoSinal` e no recado grande logo abaixo dele.
+
+Ha teste que varre o CSS da tela, junta toda classe que anima e reprova a que
+nao estiver desligada naquele bloco (gravacao-com-vida.test.mjs). Animacao nova
+entra por ali ou nao entra.
+
+Pela mesma razao a barra de progresso NAO substituiu o "6 de 20": barra sozinha
+nao diz quantas faltam e nao da para ler em voz alta na bancada.
 
 EXCLUIR, EDITAR E BAIXAR
 ========================
