@@ -20,7 +20,9 @@ const script = fonte.slice(fonte.indexOf('<script setup>'), fonte.indexOf('</scr
 const estilo = fonte.slice(fonte.indexOf('<style scoped>'));
 /** O cartão de um lote, na aba Lotes: do `v-for` até o fim do `.au-lista`. */
 const cartao = template.slice(
-  template.indexOf('<div v-for="l in lotes"'),
+  // `lotesVisiveis`, e não `lotes`: a aba passou a abrir nos lotes EM ANDAMENTO,
+  // com os encerrados atrás do botão "Ver encerrados"
+  template.indexOf('<div v-for="l in lotesVisiveis"'),
   template.indexOf("<!-- ── GRAVAR ──"),
 );
 
@@ -119,6 +121,10 @@ test('o cartão do lote não perdeu NADA do que já mostrava', () => {
     ['excluir', /@click="pedirExcluir\(l\.id\)"/],
     ['a pergunta de excluir', /v-if="excluindo === l\.id" class="au-confirma"/],
     ['o formulário de editar', /v-if="editando === l\.id" class="au-edicao"/],
+    // o que o cartão GANHOU com o arquivamento: sem o estado escrito,
+    // "encerrado" seria uma regra invisível que só se percebe quando o lote
+    // some da lista
+    ['o estado do lote, escrito', /marcaDoLote\(l\.id\)\.rotulo/],
   ];
   const sumiram = antes.filter(([, regra]) => !regra.test(cartao)).map(([nome]) => nome);
   assert.deepEqual(sumiram, [], 'sumiu do cartão do lote: ' + sumiram.join(', '));

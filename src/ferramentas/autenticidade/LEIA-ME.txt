@@ -8,10 +8,25 @@ A pagina da cliente NAO esta aqui: ela e um arquivo separado, em
 public/verify/index.html, porque precisa abrir em 1 segundo no 4G de uma loja e
 nao pode carregar o painel inteiro junto.
 
-AS QUATRO ABAS
-==============
+AS CINCO ABAS, E POR QUE TRES DELAS TEM NUMERO
+==============================================
 
-LOTES      Cada lote e uma fornada de bolsas do mesmo modelo. Ao criar um lote
+A barra de abas mostra uma SEQUENCIA, porque a ferramenta e um caminho e nao um
+armario:
+
+    1 LOTES   2 GRAVAR   3 ETIQUETAS   .   GARANTIAS   ALERTAS
+
+Os tres primeiros sao os passos, na ordem em que se faz. Garantias e Alertas
+ficam do outro lado do separador porque nao sao passos: sao consulta. Numerar os
+cinco mentiria sobre o fluxo.
+
+A BARRA E A `.abas` GLOBAL, a mesma da Frota, do Patrimonio e dos Acessos. Uma
+entrega anterior escreveu uma barra propria aqui (com fundo, moldura e rolagem
+por dentro) e o dono viu na hora que a tela tinha ficado diferente das irmas.
+Nao ha regra de `.abas` no CSS desta tela, e ha teste que reprova se voltar. Com
+cinco itens ela quebra em duas linhas no celular — igual as irmas fariam.
+
+1 LOTES    Cada lote e uma fornada de bolsas do mesmo modelo. Ao criar um lote
            de 20, nascem 20 codigos DIFERENTES, um por bolsa.
            "Ver as pecas e os links" abre a lista do lote: numero da serie,
            codigo, o endereco que foi gravado, o estado (gravada com a data,
@@ -19,7 +34,7 @@ LOTES      Cada lote e uma fornada de bolsas do mesmo modelo. Ao criar um lote
            pagina que a CLIENTE ve. E de la que sai "Baixar a lista inteira",
            a planilha para arquivar junto da ordem de producao.
 
-GRAVAR     Mostra UMA etiqueta por vez, com o endereco em letra grande, botao de
+2 GRAVAR   Mostra UMA etiqueta por vez, com o endereco em letra grande, botao de
            copiar e "Gravei essa". Existe por um motivo pratico: 20 etiquetas
            sao fisicamente identicas, e sem essa tela e questao de tempo ate
            alguem gravar a mesma duas vezes e pular outra.
@@ -28,8 +43,14 @@ GRAVAR     Mostra UMA etiqueta por vez, com o endereco em letra grande, botao de
            sinal de vida da gravacao (anel pulsando enquanto espera a etiqueta,
            check quando o banco confirma, tremor quando falha).
 
-REGISTROS  Quem registrou a garantia: nome, WhatsApp, onde comprou. Da pra
-           buscar e baixar em planilha.
+3 ETIQUETAS
+           O desfazer da aba Gravar: apagar uma gravacao feita errado, com duas
+           perguntas e a senha. A peca volta para a fila; o codigo e a garantia
+           da cliente continuam existindo. Abre nos ULTIMOS 30 DIAS.
+
+GARANTIAS  Quem registrou a garantia: nome, WhatsApp, onde comprou. Da pra
+           buscar e baixar em planilha. (A chave interna dela continua sendo
+           `registros`, que e o nome da tabela; o que mudou foi so o rotulo.)
 
 ALERTAS    Os sinais de falsificacao. A etiqueta guarda um endereco, e endereco
            se copia — entao a etiqueta sozinha nao impede nada. O que denuncia a
@@ -59,10 +80,77 @@ permissions{} (RECURSOS e PERMISSION_TREE em
 src/compartilhado/controle-de-login-e-usuario.js) e o banco le features[]
 (is_vessel_admin()). Mexer so num dos dois tira o acesso em silencio.
 
+O ARQUIVAMENTO AUTOMATICO, E A BUSCA
+====================================
+
+A tela acumulava tudo para sempre: com 50 lotes ela virava um muro, o seletor da
+aba Gravar oferecia 40 lotes sem nada a fazer, e a aba Etiquetas listava todas
+as gravacoes desde o comeco.
+
+UM LOTE ESTA ENCERRADO quando todas as pecas dele ja foram gravadas ou baixadas.
+Isso e CONTADO NA HORA, com o que a tela ja lia — nao ha coluna nova, nao ha
+migration, nao ha estado gravado em lugar nenhum. Desfazer uma baixa devolve o
+lote para "em andamento" sozinho, sem ninguem precisar destravar nada.
+
+  aba Lotes      abre nos EM ANDAMENTO; os encerrados ficam atras do botao
+                 "Ver encerrados (N)", que diz o numero e tem volta;
+  aba Gravar     o seletor so oferece lote com peca POR GRAVAR. Duas excecoes,
+                 e as duas para a tela nao mentir: o lote ESCOLHIDO nunca sai
+                 (ao gravar a ultima peca ele encerra na hora, e o seletor
+                 ficaria em branco com o check ainda na tela), e o estado
+                 "Todos, inclusive encerrados" traz os outros de volta — e o
+                 unico caminho para DESFAZER uma baixa num lote encerrado;
+  aba Etiquetas  abre nos ULTIMOS 30 DIAS, e o resto vem no "Qualquer data" ou
+                 no "Limpar a busca".
+
+A BUSCA E A MESMA NAS TRES: por data (com atalhos — hoje, 7 dias, 30 dias, este
+mes, este ano — e o periodo exato numa gaveta), por modelo, por cor, por
+referencia, pelo CODIGO DE UMA PECA e por estado. Sem acento e sem caixa, e cada
+palavra digitada pode estar num campo diferente ("monaco quartz" acha o lote).
+
+O CODIGO DA PECA ACHA O LOTE DELA: quem esta com a etiqueta na mao tem o codigo,
+e nao o modelo — esse caminho nao existia em lugar nenhum da tela.
+
+E AS TRES DIZEM SEMPRE "N DE M". Lista recortada sem numero faz a pessoa achar
+que perdeu dado, e aqui o dado e o link que ficou dentro de uma bolsa de couro.
+
+O GUIA DE BANCADA
+=================
+
+`tutorial.js` guarda cinco coisas, todas testadas:
+
+  PASSOS         o passo a passo curto que fica na aba Gravar. O numero dele e
+                 o MESMO numero da aba — duas numeracoes seriam duas verdades;
+  AJUDA_DA_ABA   uma ou duas linhas DENTRO de cada aba, sempre a vista. Guia
+                 unico ninguem reabre: quem cai na aba Alertas seis meses depois
+                 nao vai procurar um guia para entender aquela lista. Aba nova
+                 sem verbete aqui reprova no teste;
+  ESTAGIOS       os tres estagios por extenso — o que fazer, o que a tela mostra
+                 e como saber que deu certo. As telas do guia NASCEM daqui;
+  SOCORRO        "deu errado, e agora?": sete casos, cada um com o que houve e o
+                 que fazer. E a parte que quem esta de pe na bancada mais
+                 procura, e era a que nao estava escrita em lugar nenhum;
+  ONDE_SE_GRAVA  quem grava por onde. O gravador de mesa esta marcado
+                 `pronto: false` — a maquina ainda nao foi comprada, e prometer
+                 mandaria alguem procurar na bancada uma coisa que nao esta la.
+
+O guia abre sozinho na primeira visita (o "ja vi" mora no aparelho, nunca no
+banco) e volta pelo botao "Rever o guia de bancada" da aba Gravar.
+
 OS ARQUIVOS
 ===========
 
-tela-de-autenticidade.vue  a tela inteira, com as quatro abas
+tela-de-autenticidade.vue  a tela inteira, com as cinco abas
+painel-de-busca.vue        o bloco de busca das abas Lotes, Gravar e Etiquetas.
+                           E um componente porque busca escrita tres vezes e
+                           busca que diverge — a aba que ficasse para tras
+                           passaria a esconder dado que as outras acham. Ele nao
+                           filtra nada: so devolve o que a pessoa pediu.
+busca-e-arquivamento.js    as contas do arquivamento e da busca (estado do lote,
+                           atalhos de data no fuso de Sao Paulo, os filtros das
+                           tres abas, a frase "N de M"). Testadas sem navegador
+                           em busca-e-arquivamento.test.mjs.
+tutorial.js                o guia de bancada — ver a secao acima.
 lotes.js                   as continhas soltas (endereco da etiqueta, progresso
                            do lote, proxima a gravar, planilha, resumo de
                            alertas, frases de recusa). Ficam separadas porque

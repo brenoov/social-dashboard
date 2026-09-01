@@ -95,7 +95,7 @@ test('a peça com garantia de cliente aparece MARCADA na lista', () => {
 });
 
 test('a lista não desenha 500 linhas de uma vez, e diz quantas faltam', () => {
-  assert.match(script, /etiquetasDaAba\.value\.slice\(0, quantasEtiquetas\.value\)/);
+  assert.match(script, /etiquetasFiltradas\.value\.slice\(0, quantasEtiquetas\.value\)/);
   assert.match(aba, /v-for="pc in etiquetasVisiveis"/, 'o v-for roda sobre a fatia');
   assert.match(aba, /faltam \{\{ etiquetasQueFaltamMostrar \}\}/,
     'lista que esconde sem avisar é lista que mente');
@@ -224,42 +224,73 @@ test('todo botão desta tela nasce com 40px de alvo', () => {
   assert.match(base[1], /box-sizing:border-box/, 'sem isto o padding soma por fora e a conta muda');
 });
 
-/* ── A COLISÃO COM O `.abas` GLOBAL ──────────────────────────────────────────
- * `.abas` é uma classe GENÉRICA e existe em `estilos-globais.css` — e o global
- * vaza para o scoped em toda propriedade que o scoped não declarar. Estas três
- * foram MEDIDAS no navegador com o CSS do build, não deduzidas. */
+/* ── A BARRA DE ABAS É A DA CASA ────────────────────────────────────────────
+ * ⚠️ ESTE BLOCO ESTÁ AO CONTRÁRIO DO QUE ESTAVA EM 30/08, E É DE PROPÓSITO.
+ *
+ * Antes ele exigia os overrides de uma barra PRÓPRIA (`.abas-barra` com fundo e
+ * moldura, `flex-wrap:nowrap`, `overflow-x:auto`, `justify-content:flex-start`,
+ * `border-bottom:0`, `margin-bottom:0`). O dono abriu a tela e viu na hora que
+ * ela tinha ficado diferente da Frota, do Patrimônio e dos Acessos.
+ *
+ * O `nowrap` era a origem de todo o resto: ele fazia a fileira transbordar, e o
+ * transbordo é que exigia desligar a centralização e pôr a rolagem. A `.abas`
+ * global QUEBRA em duas linhas no celular — não transborda, não rola, não
+ * esconde a primeira aba —, e é assim que as três telas irmãs se comportam.
+ *
+ * Agora o teste guarda o contrário: regra local de `.abas` nesta tela é o
+ * caminho de volta para aquele defeito. */
 
-test('a fileira das abas desliga o `justify-content:center` do global', () => {
-  // numa fileira que transborda, o conteúdo centralizado sai para os DOIS
-  // lados, e o que sai pela ESQUERDA não se alcança rolando: `scrollLeft` já
-  // está em 0. Medido a 375px: a aba "Lotes" nascia em -67px, fora da tela.
-  const regra = estilo.match(/\n\.abas\{([^}]*)\}/);
-  assert.ok(regra, 'a regra da fileira sumiu');
-  assert.match(regra[1], /justify-content:flex-start/);
-  assert.match(regra[1], /overflow-x:auto/, 'sem isto quem rola é a PÁGINA');
-  assert.match(regra[1], /flex-wrap:nowrap/);
-  assert.match(regra[1], /border-bottom:0/,
-    'no elemento que rola, a linha teria a largura do CONTEÚDO: quem a desenha é a .abas-barra');
+test('a tela NÃO reescreve a barra de abas: ela usa a `.abas` global', () => {
+  // a REGRA, e não a palavra: o comentário logo acima dela conta a história da
+  // barra própria de propósito, para o próximo não a reinventar
+  assert.doesNotMatch(estilo, /\n\s*\.abas-barra\s*\{/,
+    'a barra própria voltou — esta tela tem de usar a `.abas` da casa, como Frota e Patrimônio');
+  const proprias = [...estilo.matchAll(/(^|\n)\s*(\.abas[^{,\n]*)\{/g)].map((m) => m[2].trim());
+  assert.deepEqual(proprias, [],
+    `regra local de .abas nesta tela: ${proprias.join(', ')} — a barra é a global, e override local `
+    + 'é o que deixou esta tela diferente das irmãs');
 });
 
-test('a barra desenha a linha, e ela ocupa a largura da tela', () => {
-  assert.match(estilo, /\.abas-barra\{[^}]*border-bottom:1px solid var\(--border\)/);
+test('a barra é a global, com botões simples e a classe `on` na ativa', () => {
+  assert.match(template, /<div class="abas" role="tablist">/,
+    'a barra global é `<div class="abas" role="tablist">`, como na Frota');
+  assert.match(template, /:class="\{ on: aba === ab\.chave \}"/,
+    'a ativa se marca com a classe `on`, que é o que a `.abas` global pinta');
+  // o `aria-selected` é melhoria de verdade e não muda a aparência: o
+  // sublinhado da global também é cor, e cor sozinha some para quem não a vê
+  assert.match(template, /:aria-selected="String\(aba === ab\.chave\)"/);
 });
 
-test('o botão da aba desliga o `margin-bottom:-1px` do global', () => {
-  // lá ele existe para a aba encostar na linha do próprio `.abas`; aqui ele
-  // sobreporia o sublinhado da barra
-  const regra = estilo.match(/\.abas button\{([^}]*)\}/);
-  assert.ok(regra, 'a regra do botão da aba sumiu');
-  assert.match(regra[1], /margin-bottom:0/);
-  assert.match(regra[1], /min-height:40px/);
-  assert.match(regra[1], /white-space:nowrap/, 'nome de aba não corta: a barra rola');
+test('a barra mostra a SEQUÊNCIA: três passos numerados e duas consultas', () => {
+  const lista = script.slice(script.indexOf('const ABAS = ['), script.indexOf('\n]', script.indexOf('const ABAS = [')));
+  const numerados = [...lista.matchAll(/chave: '(\w+)', n: (\d)/g)].map((m) => [m[1], Number(m[2])]);
+  assert.deepEqual(numerados, [['lotes', 1], ['gravar', 2], ['etiquetas', 3]],
+    'os três primeiros são passos, na ordem em que se faz');
+  assert.doesNotMatch(lista.slice(lista.indexOf("chave: 'registros'")), / n: /,
+    'Garantias e Alertas não são passos: numerá-los mentiria sobre o fluxo');
+  assert.match(lista, /chave: 'registros', rotulo: 'Garantias'/,
+    'a lista das garantias das clientes se chama Garantias na tela');
+  assert.match(lista, /separaAntes: true/, 'falta o separador entre os passos e as consultas');
+  assert.match(template, /<span v-if="ab\.separaAntes" class="au-abas-sep" aria-hidden="true">/,
+    'o separador é visual: sai da árvore de acessibilidade');
 });
 
-test('a aba ativa usa o par de cor que o PADRAO manda, e já vem medido', () => {
-  // o accent puro sobre o próprio tom aguado dá 4,42 no tema escuro e reprova
-  // por pouco. Medido com o CSS do build: 7,49 no claro e 6,44 no escuro.
-  assert.match(estilo, /\.abas button\.on\{[^}]*color:var\(--accent-forte\)[^}]*background:var\(--accent-light\)/);
+test('o número da aba não vira ruído no leitor de tela', () => {
+  // ouvir "um lotes" não ajuda ninguém: o número é `aria-hidden` e volta
+  // escrito por extenso no `aria-label`
+  assert.match(template, /<span v-if="ab\.n" class="au-aba-n" aria-hidden="true">/);
+  assert.match(template, /:aria-label="ab\.leitura"/);
+  assert.match(script, /leitura: 'Passo 1: Lotes'/);
+});
+
+test('o que a tela acrescenta à barra global não mexe no desenho dela', () => {
+  // altura, peso de fonte e sublinhado têm de continuar iguais aos da Frota
+  const acrescentado = [...estilo.matchAll(/\n(\.au-abas?-\w+)\{([^}]*)\}/g)];
+  assert.ok(acrescentado.length >= 2, 'sumiram as regras do número e do separador');
+  for (const [, seletor, corpo] of acrescentado) {
+    assert.doesNotMatch(corpo, /min-height|font-weight|border-bottom|text-transform|letter-spacing/,
+      `${seletor} mexe no desenho da barra global — é o que deixaria esta tela diferente das irmãs`);
+  }
 });
 
 test('o botão secundário das perguntas não reprova no tema escuro', () => {

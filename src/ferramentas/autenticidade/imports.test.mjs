@@ -17,5 +17,10 @@ guardarImports(import.meta.url, {
   // Quantas telas a pasta tem hoje. Se cair, é `.vue` sumindo — e o guarda
   // passaria por estar vazio, que é o mesmo que não existir. Mexer aqui é de
   // propósito, nunca de passagem.
-  minimoDeTelas: 1,
+  //
+  // Passou de 1 para 2 em 01/09: `painel-de-busca.vue` é o bloco de busca que
+  // as abas Lotes, Gravar e Etiquetas compartilham. Ele conta como tela para o
+  // guarda porque tem `<script setup>` e pode chamar vizinho sem importar,
+  // exatamente como a tela grande.
+  minimoDeTelas: 2,
 })
