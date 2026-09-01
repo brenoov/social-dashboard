@@ -35,9 +35,19 @@
           </div>
           <button class="au-link" type="button" @click="irGravar(l.id)">Gravar as etiquetas deste lote →</button>
 
-          <div v-if="podeEditar" class="au-lote-acoes">
-            <button class="au-link" type="button" @click="abrirEdicao(l)">Editar</button>
-            <button class="au-link" type="button" @click="pedirExcluir(l.id)">Excluir</button>
+          <!-- AS AÇÕES DO LOTE FICAM TODAS NA MESMA LINHA. "Ver as peças" entra
+               aqui e não numa linha própria: duas fileiras de link uma embaixo
+               da outra empurram o cartão seguinte para fora da vista no
+               celular. Editar e Excluir continuam atrás de `podeEditar`. -->
+          <div class="au-lote-acoes">
+            <button class="au-link" type="button" :aria-expanded="String(loteAberto === l.id)"
+                    @click="alternarPecas(l.id)">
+              {{ loteAberto === l.id ? 'Esconder as peças' : 'Ver as peças e os links' }}
+            </button>
+            <template v-if="podeEditar">
+              <button class="au-link" type="button" @click="abrirEdicao(l)">Editar</button>
+              <button class="au-link" type="button" @click="pedirExcluir(l.id)">Excluir</button>
+            </template>
           </div>
 
           <!-- A PERGUNTA DE EXCLUIR MORA NA PRÓPRIA TELA: a caixinha nativa do
@@ -76,6 +86,60 @@
               <button class="au-botao secundario" type="button" @click="editando = null">Cancelar</button>
               <button class="au-botao" type="button" @click="salvarEdicao">Salvar</button>
             </div>
+          </div>
+
+          <div v-if="loteAberto === l.id" class="au-pecas">
+            <div class="au-pecas-topo">
+              <span class="au-pecas-conta">
+                Mostrando {{ pecasVisiveis.length }} de {{ pecasDoLoteAberto.length }} peça(s)
+              </span>
+              <button class="au-botao secundario" type="button" @click="baixarListaDoLote(l)">
+                Baixar a lista inteira
+              </button>
+            </div>
+
+            <p v-if="!pecasDoLoteAberto.length" class="au-aviso-menor">
+              Este lote não tem peça nenhuma.
+            </p>
+
+            <ul v-else class="au-pecas-lista">
+              <li v-for="pc in pecasVisiveis" :key="pc.codigo" class="au-peca">
+                <div class="au-peca-topo">
+                  <span class="au-peca-n">nº {{ pc.numero_na_serie }}</span>
+                  <span class="au-ref au-peca-cod">{{ pc.codigo }}</span>
+                  <span class="selo" :class="estadoDaPeca(pc).selo">{{ estadoDaPeca(pc).rotulo }}</span>
+                </div>
+                <!-- o estado por escrito, nunca só pela cor do selo: gravada
+                     diz QUANDO, e baixada diz POR QUÊ -->
+                <p class="au-peca-estado">
+                  <template v-if="pc.baixada">Baixada — {{ rotuloDoMotivo(pc.baixa_motivo) }}</template>
+                  <template v-else-if="pc.gravada_em">Gravada em {{ dataCurta(pc.gravada_em) }}</template>
+                  <template v-else>Ainda não gravada</template>
+                </p>
+                <!-- o endereço é O QUE VAI DENTRO DA BOLSA: sai de
+                     `enderecoDaTag`, nunca do domínio escrito à mão -->
+                <div class="au-peca-end">{{ enderecoDaTag(pc.codigo) }}</div>
+                <div class="au-peca-links">
+                  <button class="au-link au-peca-botao" type="button"
+                          @click="copiarEnderecoDaPeca(pc.codigo)">
+                    {{ enderecoCopiado === pc.codigo ? 'Copiado!' : 'Copiar endereço' }}
+                  </button>
+                  <!-- abre o que a CLIENTE vê, para conferir na hora. Aba nova
+                       com `rel="noopener"`: sem ele a página aberta ganha uma
+                       alça para esta aqui. -->
+                  <a class="au-link au-peca-botao" :href="enderecoDaTag(pc.codigo)"
+                     target="_blank" rel="noopener">Abrir a página da cliente</a>
+                </div>
+              </li>
+            </ul>
+
+            <!-- 500 peças desenhadas de uma vez travam a tela do celular. O
+                 botão diz quantas ainda faltam: lista que esconde sem avisar é
+                 lista que mente. -->
+            <button v-if="pecasQueFaltamMostrar" class="au-botao secundario" type="button"
+                    @click="mostrarMaisPecas">
+              Mostrar mais {{ Math.min(pecasQueFaltamMostrar, DE_CADA_VEZ) }} (faltam {{ pecasQueFaltamMostrar }})
+            </button>
           </div>
         </div>
       </div>
@@ -511,6 +575,7 @@ import { adminToast } from '../../compartilhado/avisos.js'
 import {
   enderecoDaTag, progressoDoLote, proximaPorGravar, linhasDoCsv, resumoDeAlertas,
   MOTIVOS_DE_BAIXA, fraseDaRecusa,
+  rotuloDoMotivo, pecasEmOrdem, estadoDaPeca, linhasDaListaDoLote,
 } from './lotes.js'
 import { conferirLeitura, listaParaGravadorDeMesa, codigosNoTextoDoGravador } from './nfc-fila.js'
 import { PASSOS, TELAS_DO_GUIA, passoAtual, guiaJaVisto, marcarGuiaVisto, proximaTelaDoGuia } from './tutorial.js'
@@ -612,8 +677,51 @@ const baixadasDoLote = computed(() => pecasDoLote(loteEscolhido.value)
   .filter((p) => p.baixada)
   .sort((a, b) => (a.numero_na_serie || 0) - (b.numero_na_serie || 0)))
 
-function rotuloDoMotivo(chave) {
-  return (MOTIVOS_DE_BAIXA.find((m) => m.chave === chave) || {}).rotulo || chave || '—'
+// ── VER AS PEÇAS DE UM LOTE ───────────────────────────────────────────────
+// O buraco que o dono apontou: "não consigo ver os links que já foram gravados
+// em lotes". A tela inteira mostrava UM código — o da próxima peça da fila —, e
+// depois de gravar e costurar ninguém respondia "qual link ficou na bolsa nº 7".
+//
+// UM LOTE ABERTO POR VEZ, pelo mesmo motivo de editar e excluir: duas listas
+// longas abertas ao mesmo tempo empurram o resto da tela para fora da vista.
+const loteAberto = ref(null)
+
+// UM LOTE PODE TER 500 PEÇAS, e desenhar 500 linhas de uma vez trava a tela no
+// celular. Ela abre com um punhado e cresce a pedido — a lista nunca mente
+// sobre o tamanho, porque o botão diz quantas ainda faltam.
+const DE_CADA_VEZ = 50
+const quantasMostrar = ref(DE_CADA_VEZ)
+// qual endereço acabou de ser copiado, para o botão dizer "Copiado!" só nele
+const enderecoCopiado = ref('')
+
+const pecasDoLoteAberto = computed(() => pecasEmOrdem(pecasDoLote(loteAberto.value)))
+const pecasVisiveis = computed(() => pecasDoLoteAberto.value.slice(0, quantasMostrar.value))
+const pecasQueFaltamMostrar = computed(
+  () => Math.max(0, pecasDoLoteAberto.value.length - pecasVisiveis.value.length))
+
+function alternarPecas(id) {
+  loteAberto.value = loteAberto.value === id ? null : id
+  // recomeça do topo: deixar o limite crescido de um lote de 500 faria o lote
+  // seguinte desenhar 500 linhas de uma vez, que é o que este limite evita
+  quantasMostrar.value = DE_CADA_VEZ
+  enderecoCopiado.value = ''
+}
+
+function mostrarMaisPecas() { quantasMostrar.value += DE_CADA_VEZ }
+
+// O MESMO "Copiado!" do modo do aplicativo, mas por peça: com uma frase só para
+// a lista inteira, a pessoa não saberia QUAL endereço foi para a área de
+// transferência — e ia costurar a etiqueta errada achando que conferiu.
+async function copiarEnderecoDaPeca(codigo) {
+  try {
+    await navigator.clipboard.writeText(enderecoDaTag(codigo))
+    enderecoCopiado.value = codigo
+    setTimeout(() => {
+      if (enderecoCopiado.value === codigo) enderecoCopiado.value = ''
+    }, 1800)
+  } catch (e) {
+    adminToast('Não consegui copiar — selecione o endereço na mão', false)
+  }
 }
 
 const registrosFiltrados = computed(() => {
@@ -1050,6 +1158,25 @@ function baixarListaDoGravador() {
   URL.revokeObjectURL(url)
 }
 
+// A LISTA INTEIRA DO LOTE, para arquivar junto da ordem de produção.
+// Função NOVA, e não um remendo em `baixarListaDoGravador` logo acima: aquela
+// baixa a FILA DO QUE FALTA e alimenta o gravador de mesa — misturar as
+// gravadas nela mandaria a máquina regravar etiqueta que já está dentro de uma
+// bolsa. São duas listas de propósito.
+function baixarListaDoLote(l) {
+  const doLote = pecasDoLote(l.id)
+  if (!doLote.length) { adminToast('Este lote não tem peça nenhuma', false); return }
+  const csv = linhasDaListaDoLote(doLote, { formatarData: dataCurta })
+  // BOM na frente: sem ele o Excel abre "Mônaco" como "MÃ´naco"
+  const blob = new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `lote-${l.modelo || 'sem-modelo'}-completo.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 // ESTE É O ÚNICO CAMINHO QUE MARCA PEÇA SEM CONFERIR ETIQUETA NENHUMA.
 // `codigosNoTextoDoGravador` aceita qualquer texto que contenha os códigos —
 // colar de volta o próprio arquivo que acabou de ser baixado marcaria o lote
@@ -1354,6 +1481,70 @@ onMounted(() => {
 }
 .au-produto:hover, .au-produto:focus-visible{background:var(--surface2)}
 .au-produto strong{font-size:14px; font-weight:600; line-height:1.3}
+/* ── AS PEÇAS DE UM LOTE ──────────────────────────────────────────────────
+   Cor só de token e espaço só da escala (PADRAO-DA-CENTRAL, itens 2 e 7). O
+   bloco reaproveita `.selo` das classes prontas — estado com cor inventada é o
+   que o padrão proíbe, e o selo já vem com contraste medido nos dois temas. */
+.au-pecas{
+  margin-top:var(--sp-3); padding:var(--sp-3);
+  border:1px solid var(--border); border-radius:var(--radius-md);
+  background:var(--surface2);
+}
+.au-pecas-topo{
+  display:flex; align-items:center; justify-content:space-between;
+  gap:var(--sp-3); flex-wrap:wrap;
+}
+.au-pecas-conta{
+  font-family:var(--fonte-principal);
+  font-size:max(9px, calc(12px * var(--escala-texto, 1)));
+  color:var(--muted); overflow-wrap:anywhere;
+}
+/* A LISTA ROLA DENTRO DA PRÓPRIA CAIXA. Um lote pode ter 500 peças: sem esta
+   altura, abrir um lote empurraria os outros lotes para 50 telas abaixo e o
+   cartão viraria a página inteira. `dvh` e nunca `vh` — no celular o `vh` é
+   calculado com a barra de endereço escondida, e o fim fica atrás dela. */
+.au-pecas-lista{
+  list-style:none; margin:var(--sp-3) 0 0; padding:0;
+  max-height:60dvh; overflow-y:auto; overscroll-behavior:contain;
+}
+.au-peca{padding:var(--sp-2) 0; border-bottom:1px solid var(--border)}
+.au-peca:last-child{border-bottom:0}
+.au-peca-topo{display:flex; align-items:center; gap:var(--sp-2); flex-wrap:wrap}
+.au-peca-n{
+  font-family:var(--fonte-principal); font-weight:700;
+  font-size:max(9px, calc(13px * var(--escala-texto, 1)));
+  color:var(--text); white-space:nowrap;
+}
+.au-peca-cod{
+  font-size:max(9px, calc(13px * var(--escala-texto, 1)));
+  color:var(--text); overflow-wrap:anywhere;
+}
+.au-peca-estado{
+  margin:var(--sp-1) 0 0; font-family:var(--fonte-principal);
+  font-size:max(9px, calc(12px * var(--escala-texto, 1)));
+  color:var(--muted); line-height:1.45; overflow-wrap:anywhere;
+}
+/* O endereço é o que se confere letra por letra na hora de costurar: fonte de
+   dados e quebra garantida, como o `.au-endereco` da aba Gravar. */
+.au-peca-end{
+  margin-top:var(--sp-1); font-family:var(--fonte-dados);
+  font-size:max(9px, calc(12px * var(--escala-texto, 1)));
+  line-height:1.5; color:var(--text); word-break:break-all; user-select:all;
+}
+.au-peca-links{display:flex; gap:var(--sp-3); flex-wrap:wrap}
+/* Alvo de dedo de 40px sem virar botão: cresce a área, o texto continua link
+   (PADRAO item 6). O `text-decoration` existe porque um deles é `<a>`. */
+.au-peca-botao{
+  display:inline-flex; align-items:center; min-height:40px; margin-top:0;
+  text-decoration:none;
+}
+.au-pecas > .au-botao{margin-top:var(--sp-3)}
+/* Medido a 375px: o "Gravar as etiquetas deste lote →" saía com 13px de altura
+   — alvo de dedo abaixo de 40px é defeito (PADRAO item 6), e este é o botão
+   principal do cartão. Cresce a área, o texto continua link. É o único `.au-link`
+   filho DIRETO do cartão; os de dentro dos blocos já têm a regra deles. */
+.au-card > .au-link{display:inline-flex; align-items:center; min-height:40px}
+
 /* O `@media` do celular deste bloco fica AQUI, e não no de cima junto com os
    outros: as regras-base acima têm a mesma especificidade e vêm depois no
    arquivo, então lá em cima elas seriam simplesmente ignoradas a 375px.
@@ -1361,5 +1552,11 @@ onMounted(() => {
 @media (max-width:520px){
   .au-escolha-produto > .au-aviso-menor{padding-left:16px;padding-right:16px;}
   .au-produtos{padding-left:8px;padding-right:8px;}
+  /* Medido a 375px: com o `.au-botao{flex:1}` do celular, "Baixar a lista
+     inteira" disputava a linha com a contagem e saía quebrado em TRÊS linhas.
+     Em coluna cada um tem a sua, e o botão ocupa a largura toda. O `flex:none`
+     é obrigatório: em coluna, o `flex:1` cresceria a ALTURA do botão. */
+  .au-pecas-topo{flex-direction:column; align-items:stretch;}
+  .au-pecas-topo .au-botao{flex:none;}
 }
 </style>

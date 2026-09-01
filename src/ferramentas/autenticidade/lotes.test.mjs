@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import {
   enderecoDaTag, progressoDoLote, proximaPorGravar, linhasDoCsv, resumoDeAlertas,
   MOTIVOS_DE_BAIXA, fraseDaRecusa,
+  rotuloDoMotivo, pecasEmOrdem, estadoDaPeca, linhasDaListaDoLote,
 } from './lotes.js'
 
 test('enderecoDaTag: e exatamente o que vai gravado na etiqueta', () => {
@@ -171,4 +172,109 @@ test('resumoDeAlertas: banco velho, sem baixadas_lidas, nao quebra a tela', () =
   // o campo chega da RPC: enquanto ela nao for atualizada, a chave nem existe
   assert.equal(resumoDeAlertas({ repetidas: [], invalidas: [] }).baixadasLidas, 0)
   assert.equal(resumoDeAlertas(null).baixadasLidas, 0)
+})
+
+// ── A LISTA INTEIRA DO LOTE ────────────────────────────────────────────────
+// Depois de gravar e costurar, ninguem conseguia responder "qual link ficou na
+// bolsa no 7": o unico codigo visivel na tela era o da PROXIMA peca da fila.
+
+test('rotuloDoMotivo: a chave do banco vira a frase que a pessoa le', () => {
+  assert.equal(rotuloDoMotivo('etiqueta_perdida'), 'Etiqueta perdida ou danificada')
+})
+
+test('rotuloDoMotivo: chave desconhecida nao vira vazio na tela', () => {
+  // motivo novo no banco e rotulo velho na tela: melhor mostrar a chave crua
+  // do que uma celula em branco, que se le como "nao tem motivo"
+  assert.equal(rotuloDoMotivo('chave_que_ninguem_conhece'), 'chave_que_ninguem_conhece')
+  assert.equal(rotuloDoMotivo(null), '—')
+})
+
+test('pecasEmOrdem: ordena pela serie, que e por onde se procura', () => {
+  const pecas = [{ numero_na_serie: 3 }, { numero_na_serie: 1 }, { numero_na_serie: 2 }]
+  assert.deepEqual(pecasEmOrdem(pecas).map((p) => p.numero_na_serie), [1, 2, 3])
+})
+
+test('pecasEmOrdem: NAO mexe na lista que a tela esta desenhando', () => {
+  // `sort` ordena NO LUGAR. Sem o `slice()`, esta funcao reordenaria o array do
+  // Vue por baixo da tela — e a lista de cima trocaria de ordem sozinha.
+  const pecas = [{ numero_na_serie: 3 }, { numero_na_serie: 1 }]
+  pecasEmOrdem(pecas)
+  assert.deepEqual(pecas.map((p) => p.numero_na_serie), [3, 1])
+})
+
+test('pecasEmOrdem: sem peca nenhuma nao estoura', () => {
+  assert.deepEqual(pecasEmOrdem(null), [])
+  assert.deepEqual(pecasEmOrdem(undefined), [])
+})
+
+test('estadoDaPeca: os tres estados, cada um com o seu selo', () => {
+  assert.equal(estadoDaPeca({}).chave, 'pendente')
+  assert.equal(estadoDaPeca({}).selo, 'selo-neutro')
+  assert.equal(estadoDaPeca({ gravada_em: '2026-08-05T10:00:00Z' }).chave, 'gravada')
+  assert.equal(estadoDaPeca({ gravada_em: '2026-08-05T10:00:00Z' }).selo, 'selo-ok')
+  assert.equal(estadoDaPeca({ baixada: true }).chave, 'baixada')
+  assert.equal(estadoDaPeca({ baixada: true }).selo, 'selo-atencao')
+})
+
+test('estadoDaPeca: peca GRAVADA e depois baixada aparece como BAIXADA', () => {
+  // a baixa e a ultima coisa que aconteceu com a peca. Dizendo "gravada",
+  // alguem iria procurar o link dentro de uma bolsa dada como refugo.
+  const p = { gravada_em: '2026-08-05T10:00:00Z', baixada: true, baixa_motivo: 'defeito' }
+  assert.equal(estadoDaPeca(p).chave, 'baixada')
+})
+
+test('estadoDaPeca: sem peca nenhuma nao estoura', () => {
+  assert.equal(estadoDaPeca(null).chave, 'pendente')
+})
+
+test('linhasDaListaDoLote: cabecalho + uma linha por peca, na ordem da serie', () => {
+  const csv = linhasDaListaDoLote([
+    { codigo: 'BBB222', numero_na_serie: 2, gravada_em: null },
+    { codigo: 'AAA111', numero_na_serie: 1, gravada_em: '2026-08-05T10:00:00Z' },
+  ], { formatarData: () => '05/08/2026' })
+  const linhas = csv.split('\n')
+  assert.equal(linhas[0], 'numero;codigo;endereco;estado;gravada em;motivo da baixa')
+  assert.equal(linhas[1], '1;AAA111;https://vesselbrasil.com.br/verify/AAA111;Gravada;05/08/2026;')
+  assert.equal(linhas[2], '2;BBB222;https://vesselbrasil.com.br/verify/BBB222;Pendente;;')
+})
+
+test('linhasDaListaDoLote: a baixada ENTRA na lista, com o motivo', () => {
+  // esta e a diferenca inteira para `listaParaGravadorDeMesa`, que tira a
+  // baixada da fila. Quem arquiva precisa saber o que aconteceu com o numero 3.
+  const csv = linhasDaListaDoLote([
+    { codigo: 'CCC333', numero_na_serie: 3, baixada: true, baixa_motivo: 'extraviada' },
+  ])
+  assert.equal(csv.split('\n')[1],
+    '3;CCC333;https://vesselbrasil.com.br/verify/CCC333;Baixada;;Extraviada')
+})
+
+test('linhasDaListaDoLote: a que FALTA tambem entra — a lista e INTEIRA', () => {
+  const pecas = [
+    { codigo: 'AAA111', numero_na_serie: 1, gravada_em: 'x' },
+    { codigo: 'BBB222', numero_na_serie: 2 },
+    { codigo: 'CCC333', numero_na_serie: 3, baixada: true, baixa_motivo: 'defeito' },
+  ]
+  assert.equal(linhasDaListaDoLote(pecas).split('\n').length, 4, 'cabecalho + as tres pecas')
+})
+
+test('linhasDaListaDoLote: lote vazio sai so com o cabecalho', () => {
+  assert.equal(linhasDaListaDoLote([]), 'numero;codigo;endereco;estado;gravada em;motivo da baixa')
+  assert.equal(linhasDaListaDoLote(null).split('\n').length, 1)
+})
+
+test('linhasDaListaDoLote: o endereco NUNCA e escrito a mao', () => {
+  // o dominio vai gravado dentro de um chip costurado numa bolsa, onde nao se
+  // corrige. Ele nasce de `enderecoDaTag`, e este teste amarra os dois.
+  const csv = linhasDaListaDoLote([{ codigo: 'k7m4x9', numero_na_serie: 1 }])
+  assert.ok(csv.includes(enderecoDaTag('k7m4x9')))
+  assert.ok(csv.includes('/verify/K7M4X9'), 'o codigo vai em MAIUSCULAS, como na etiqueta')
+})
+
+test('linhasDaListaDoLote: ponto-e-virgula no motivo nao quebra a coluna', () => {
+  // Excel em portugues abre CSV por ponto-e-virgula: sem aspas, a planilha
+  // inteira desalinha a partir dali
+  const csv = linhasDaListaDoLote([
+    { codigo: 'A1B2C3', numero_na_serie: 1, baixada: true, baixa_motivo: 'sumiu; voltou' },
+  ])
+  assert.ok(csv.includes('"sumiu; voltou"'))
 })
