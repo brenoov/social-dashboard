@@ -3,23 +3,40 @@
     <barra-de-topo voltar="Gestão Interna" titulo="Autenticidade e Garantia" @voltar="voltar" />
 
     <!-- ── O MENU DE ABAS ───────────────────────────────────────────────
-         A BARRA ROLA POR DENTRO, e nunca a página. Com cinco abas, a fileira
-         mede mais que a largura de um celular — e barra que empurra a PÁGINA
-         para os lados desalinha a tela inteira (PADRAO-DA-CENTRAL, item 6:
-         rolagem horizontal na página é ZERO). Medido a 375px.
-         A ATIVA NÃO SE DISTINGUE SÓ PELA COR: ela ganha fundo, borda e o
-         `aria-selected`, que é o que o leitor de tela anuncia. Cor sozinha some
-         para quem não a enxerga.
-         O par `--accent-light` + `--accent-forte` é o do PADRÃO, e vem medido:
-         o accent puro sobre o próprio tom aguado dá 4,42 no tema escuro e
-         reprova. -->
-    <div class="abas-barra">
-      <div class="abas" role="tablist" ref="barraDasAbas">
-        <button v-for="ab in ABAS" :key="ab.chave" role="tab" type="button"
-                :data-aba="ab.chave" :aria-selected="String(aba === ab.chave)"
-                :class="{ on: aba === ab.chave }" @click="aba = ab.chave">{{ ab.rotulo }}</button>
-      </div>
+         É A BARRA `.abas` DA CASA, a mesma da Frota, do Patrimônio e dos
+         Acessos — e não uma barra própria. A entrega anterior inventou uma
+         (`.abas-barra`, com fundo e moldura, rolando por dentro) e o dono viu
+         na hora que esta tela tinha ficado diferente das irmãs. A barra global
+         já resolve o que a nova foi inventar, inclusive os 40px de alvo de
+         toque, corrigidos para as quatro telas em 19/08.
+         Ela tem `flex-wrap:wrap`: com cinco itens quebra em duas linhas no
+         celular, e é assim que as irmãs se comportam.
+
+         A BARRA MOSTRA A SEQUÊNCIA, porque a ferramenta é um caminho e não um
+         armário: 1 Lotes → 2 Gravar → 3 Etiquetas é a ordem em que se faz.
+         Garantias e Alertas ficam do outro lado do separador porque não são
+         passos: são consulta. Numerar os cinco mentiria sobre o fluxo.
+
+         O `aria-selected` continua: a ativa não se distingue só pela cor (o
+         sublinhado do global também é cor), e é isso que o leitor de tela
+         anuncia. O número é `aria-hidden` e volta no `aria-label` como
+         "Passo 1: Lotes" — ouvir "um lotes" não ajuda ninguém. -->
+    <div class="abas" role="tablist">
+      <template v-for="ab in ABAS" :key="ab.chave">
+        <span v-if="ab.separaAntes" class="au-abas-sep" aria-hidden="true">·</span>
+        <button role="tab" type="button" :data-aba="ab.chave" :aria-label="ab.leitura"
+                :aria-selected="String(aba === ab.chave)"
+                :class="{ on: aba === ab.chave }" @click="aba = ab.chave">
+          <span v-if="ab.n" class="au-aba-n" aria-hidden="true">{{ ab.n }}</span>{{ ab.rotulo }}
+        </button>
+      </template>
     </div>
+
+    <!-- A AJUDA CURTA DA ABA, dentro dela. O guia inteiro ninguém reabre: quem
+         cai na aba Alertas seis meses depois não vai procurar um guia para
+         descobrir o que aquela lista significa. Os textos moram em
+         `tutorial.js`, e há teste que reprova aba sem verbete. -->
+    <p class="au-ajuda">{{ AJUDA_DA_ABA[aba] }}</p>
 
     <p v-if="carregando" class="au-vazio">Carregando…</p>
     <p v-else-if="falha" class="au-erro">{{ falha }}</p>
@@ -35,13 +52,47 @@
         peça sai com o seu próprio código.
       </p>
 
+      <!-- ── A BUSCA E O ARQUIVAMENTO ────────────────────────────────────
+           A aba abre nos EM ANDAMENTO. Com 50 lotes ela virava um muro, e o
+           que a pessoa procura é sempre a fornada que está na bancada.
+           NADA SOME DE VERDADE: o botão logo abaixo diz quantos estão
+           encerrados e traz todos de volta, e a contagem do painel diz sempre
+           "N de M". Não há coluna nova no banco: encerrado é o lote em que toda
+           peça já foi gravada ou baixada, contado na hora. -->
+      <PainelDeBusca v-else v-model:filtro="filtroDeLotes"
+                     :atalhos="ATALHOS_DE_DATA" :estados="ESTADOS_DE_LOTE"
+                     rotulo-da-data="Fabricado em" estado-padrao="andamento"
+                     dica="Modelo, cor, referência ou o código de uma peça"
+                     :contagem="contagemDeLotes" />
+
+      <div v-if="lotes.length" class="au-acoes">
+        <button v-if="filtroDeLotes.estado === 'andamento'" class="au-botao secundario" type="button"
+                :disabled="!lotesEncerrados" @click="verEncerrados">
+          Ver encerrados ({{ lotesEncerrados }})
+        </button>
+        <button v-else class="au-botao secundario" type="button" @click="verEmAndamento">
+          Voltar aos em andamento
+        </button>
+      </div>
+
+      <!-- A tela nunca mente: "nada encontrado" e "não há lote nenhum" são
+           coisas diferentes, e a segunda já foi dita lá em cima. -->
+      <p v-if="lotes.length && !lotesVisiveis.length" class="au-vazio">
+        Nenhum lote com esse recorte. Há {{ lotes.length }} lote(s) no total — mude a busca,
+        o período ou o estado, ou aperte “Limpar a busca”.
+      </p>
+
       <div class="au-lista">
-        <div v-for="l in lotes" :key="l.id" class="au-card">
+        <div v-for="l in lotesVisiveis" :key="l.id" class="au-card">
           <div class="au-card-topo">
             <span class="au-modelo">{{ l.modelo }}</span>
             <span class="au-progresso">{{ progressoDoLote(pecasDoLote(l.id)).texto }} gravadas</span>
           </div>
           <div class="au-card-linha">
+            <!-- O ESTADO DO LOTE, ESCRITO. Sem ele, "encerrado" seria uma regra
+                 invisível que só se percebe quando o lote some da lista. O selo
+                 sai das classes prontas do PADRAO, nunca de cor à mão. -->
+            <span class="selo" :class="marcaDoLote(l.id).selo">{{ marcaDoLote(l.id).rotulo }}</span>
             <span v-if="l.cor">{{ l.cor }}</span>
             <span v-if="l.sku" class="au-ref">ref. {{ l.sku }}</span>
             <span>{{ l.quantidade }} {{ l.quantidade === 1 ? 'peça' : 'peças' }}</span>
@@ -207,7 +258,9 @@
         </li>
       </ol>
       <p class="au-rever">
-        <button class="au-link" type="button" @click="abrirGuia">Rever o passo a passo completo</button>
+        <button class="au-link" type="button" @click="abrirGuia">
+          Rever o guia de bancada — inclusive o “deu errado, e agora?”
+        </button>
       </p>
 
       <p v-if="!lotes.length" class="au-vazio">
@@ -216,13 +269,37 @@
       </p>
 
       <template v-else>
+        <!-- ── A FILA DE TRABALHO, E SÓ ELA ────────────────────────────────
+             O seletor oferecia os 50 lotes, inclusive os 40 que não têm mais
+             nada a fazer. Aqui ele oferece só quem tem peça POR GRAVAR — mais o
+             lote escolhido, que nunca sai: ao gravar a última peça o lote
+             encerra na hora, e se ele sumisse do seletor a lista ficaria em
+             branco levando junto o ✓ da etiqueta recém-encostada.
+             O estado "Todos, inclusive encerrados" existe porque a lista das
+             peças BAIXADAS mora nesta aba, e é o único caminho para desfazer
+             uma baixa num lote já encerrado. -->
+        <PainelDeBusca v-model:filtro="filtroDeGravar"
+                       :atalhos="ATALHOS_DE_DATA" :estados="ESTADOS_DO_SELETOR"
+                       rotulo-da-data="Fabricado em" estado-padrao="por_gravar"
+                       dica="Modelo, cor, referência ou o código de uma peça"
+                       :contagem="contagemDoSeletor" />
+
+        <!-- Frase útil no lugar de lista vazia: dizer "nenhum lote" com 50
+             lotes encerrados na mão seria mentira, e sem explicação a pessoa
+             acharia que a ferramenta quebrou. -->
+        <p v-if="!lotesComPecaPorGravar(lotes, pecasDoLote)" class="au-pronto">
+          Não há nenhuma etiqueta por gravar: os {{ lotes.length }} lote(s) estão encerrados —
+          cada peça já foi gravada ou baixada. Crie um lote novo na aba <strong>1 Lotes</strong>,
+          ou troque o estado acima para “Todos” se veio desfazer uma baixa.
+        </p>
+
         <label class="au-campo">
           <span class="au-rot">Lote</span>
           <!-- travado durante a gravação: trocar de lote no meio dos 8 segundos
                era o caminho que gravava uma peça e marcava outra -->
           <select v-model="loteEscolhido" :disabled="gravando">
-            <option v-for="l in lotes" :key="l.id" :value="l.id">
-              {{ l.modelo }}<span v-if="l.cor"> · {{ l.cor }}</span> — {{ progressoDoLote(pecasDoLote(l.id)).texto }}
+            <option v-for="l in lotesDoSeletor" :key="l.id" :value="l.id">
+              {{ l.modelo }}<span v-if="l.cor"> · {{ l.cor }}</span> — {{ progressoDoLote(pecasDoLote(l.id)).texto }}<span v-if="loteEstaEncerrado(l.id)"> · encerrado</span>
             </option>
           </select>
         </label>
@@ -556,9 +633,28 @@
         </select>
       </label>
 
+      <!-- ── A BUSCA ─────────────────────────────────────────────────────
+           A aba abre nos ÚLTIMOS 30 DIAS, e o resto fica atrás da busca: quem
+           vem aqui acabou de gravar errado, e a peça dele é de hoje. O atalho
+           "Qualquer data" (ou o "Limpar a busca") traz a história inteira de
+           volta, e a contagem diz sempre quantas de quantas. -->
+      <PainelDeBusca v-model:filtro="filtroDeEtiquetas"
+                     :atalhos="ATALHOS_DE_DATA" :estados="ESTADOS_DE_ETIQUETA"
+                     rotulo-da-data="Gravada em" estado-padrao="todas"
+                     dica="Código da peça, modelo, referência ou o nº da série"
+                     :contagem="contagemDeEtiquetas" />
+
       <p v-if="!etiquetasDaAba.length" class="au-vazio">
         Nenhuma etiqueta gravada {{ loteDaEtiqueta ? 'neste lote' : 'ainda' }}. Esta aba só mostra
         peça que está marcada como gravada — é o que dá para desfazer.
+      </p>
+
+      <!-- "Nada encontrado" e "não há nada" são coisas diferentes, e a tela não
+           pode dizer uma pela outra. -->
+      <p v-else-if="!etiquetasFiltradas.length" class="au-vazio">
+        Nenhuma etiqueta com esse recorte. Há {{ etiquetasDaAba.length }} gravada(s)
+        {{ loteDaEtiqueta ? 'neste lote' : 'no total' }} — mude a busca, o período ou o estado,
+        ou aperte “Limpar a busca”.
       </p>
 
       <div v-else class="au-lista">
@@ -748,17 +844,36 @@
          375px, em 30/08.
          Ele é sobreposição de tela cheia: onde mora no HTML não muda o desenho,
          muda só a corrente. -->
-    <!-- ── O GUIA DA PRIMEIRA VEZ ──────────────────────────────────────────
-         Abre sozinho na primeira visita e some depois. O "pular" fica sempre
-         visível: guia que prende a pessoa vira estorvo, não ajuda. -->
+    <!-- ── O GUIA DE BANCADA ───────────────────────────────────────────────
+         Abre sozinho na primeira visita e some depois; o botão "Rever o guia de
+         bancada" da aba Gravar o traz de volta. O "pular" fica sempre visível:
+         guia que prende a pessoa vira estorvo, não ajuda.
+         O "Voltar" nasceu com o guia longo: passar direto pela tela que
+         interessava obrigava a recomeçar o guia inteiro.
+         O MIOLO ROLA DENTRO DA CAIXA, e nunca a página atrás (PADRAO item 4):
+         as telas do socorro têm quatro casos, e no celular elas passam da
+         altura da tela. -->
     <div v-if="guiaAberto" class="au-guia-fundo" role="dialog" aria-modal="true"
-         aria-label="Como gravar as etiquetas">
+         aria-label="Guia de bancada da gravação">
       <div class="au-guia">
         <p class="au-guia-conta">{{ telaDoGuia + 1 }} de {{ TELAS_DO_GUIA.length }}</p>
         <h3 class="au-guia-titulo">{{ TELAS_DO_GUIA[telaDoGuia].titulo }}</h3>
-        <p class="au-guia-texto">{{ TELAS_DO_GUIA[telaDoGuia].texto }}</p>
+        <div class="au-guia-miolo">
+          <p class="au-guia-texto">{{ TELAS_DO_GUIA[telaDoGuia].texto }}</p>
+          <!-- Os itens são o que separa "guia de bancada" de "tela de texto":
+               cada um tem um rótulo que se acha com o olho, de pé, com o
+               celular na mão. -->
+          <dl v-if="TELAS_DO_GUIA[telaDoGuia].itens" class="au-guia-itens">
+            <template v-for="i in TELAS_DO_GUIA[telaDoGuia].itens" :key="i.rotulo">
+              <dt>{{ i.rotulo }}</dt>
+              <dd>{{ i.texto }}</dd>
+            </template>
+          </dl>
+        </div>
         <div class="au-guia-acoes">
           <button class="au-botao secundario" type="button" @click="fecharGuia">Pular</button>
+          <button class="au-botao secundario" type="button" :disabled="telaDoGuia === 0"
+                  @click="voltarGuia">Voltar</button>
           <button class="au-botao" type="button" @click="avancarGuia">
             {{ telaDoGuia + 1 === TELAS_DO_GUIA.length ? 'Entendi, começar' : 'Continuar' }}
           </button>
@@ -861,38 +976,42 @@ import {
 import {
   conferirLeitura, codigoDoEndereco, listaParaGravadorDeMesa, codigosNoTextoDoGravador,
 } from './nfc-fila.js'
-import { PASSOS, TELAS_DO_GUIA, passoAtual, guiaJaVisto, marcarGuiaVisto, proximaTelaDoGuia } from './tutorial.js'
+import {
+  PASSOS, TELAS_DO_GUIA, AJUDA_DA_ABA, passoAtual, guiaJaVisto, marcarGuiaVisto,
+  proximaTelaDoGuia, telaAnteriorDoGuia,
+} from './tutorial.js'
+import {
+  ATALHOS_DE_DATA, ESTADOS_DE_LOTE, ESTADOS_DE_ETIQUETA, intervaloDoAtalho,
+  estadoDoLote, seloDoLote, filtrarLotes, lotesParaGravar, lotesComPecaPorGravar,
+  filtrarEtiquetas, fraseDaContagem,
+} from './busca-e-arquivamento.js'
+import PainelDeBusca from './painel-de-busca.vue'
 import { produtosParaEscolher, procurarProduto } from './produtos-do-bling.js'
 import { paginasDoBling, avisoDoErro } from '../../compartilhado/chamada-do-bling.js'
 import { temSuporte, traduzirFalha, criarGravador } from './gravador-nfc.js'
 
-// A ORDEM É A DO CAMINHO: cria o lote, grava as etiquetas, conserta o que saiu
-// errado, e só depois consulta o que as clientes registraram e o que está
-// estranho. `Etiquetas` entra depois de `Gravar` porque é o desfazer dela.
+// A BARRA DE ABAS É UMA SEQUÊNCIA, e não um armário: os três primeiros são
+// PASSOS numerados, na ordem em que se faz — cria o lote, grava as etiquetas,
+// conserta o que saiu errado. Garantias e Alertas vêm depois do separador
+// porque não são passos: são consulta, e numerá-los mentiria sobre o fluxo.
+//
+// `Registros` virou `Garantias` na tela: é o que aquela lista É — as garantias
+// que as clientes registraram. A CHAVE continua `registros`, porque é o nome da
+// tabela e de metade dos comentários deste arquivo.
+//
+// `leitura` é o que o leitor de tela anuncia: ouvir "um lotes" não ajuda
+// ninguém, e o número sozinho não diz que é um passo.
 const ABAS = [
-  { chave: 'lotes', rotulo: 'Lotes' },
-  { chave: 'gravar', rotulo: 'Gravar' },
-  { chave: 'etiquetas', rotulo: 'Etiquetas' },
-  { chave: 'registros', rotulo: 'Registros' },
-  { chave: 'alertas', rotulo: 'Alertas' },
+  { chave: 'lotes', n: 1, rotulo: 'Lotes', leitura: 'Passo 1: Lotes' },
+  { chave: 'gravar', n: 2, rotulo: 'Gravar', leitura: 'Passo 2: Gravar' },
+  { chave: 'etiquetas', n: 3, rotulo: 'Etiquetas', leitura: 'Passo 3: Etiquetas' },
+  { chave: 'registros', rotulo: 'Garantias', leitura: 'Garantias', separaAntes: true },
+  { chave: 'alertas', rotulo: 'Alertas', leitura: 'Alertas' },
 ]
 
 const router = useRouter()
 const aba = ref('lotes')
 
-// A ABA ATIVA ENTRA NA VISTA SOZINHA. A barra rola por dentro (ver o CSS de
-// `.abas`), e trocar de aba POR CÓDIGO — o "Gravar as etiquetas deste lote →"
-// leva para a aba Gravar — deixava a aba escolhida fora do pedaço visível da
-// barra no celular: a tela trocava de conteúdo e nenhuma aba parecia acesa.
-// A busca é por `data-aba`, e não pela classe `.on`: a classe só existe depois
-// que o Vue redesenha, e aqui ainda não redesenhou.
-const barraDasAbas = ref(null)
-watch(aba, (qual) => {
-  const alvo = barraDasAbas.value?.querySelector(`[data-aba="${qual}"]`)
-  // `block:'nearest'` para não arrastar a PÁGINA para cima ou para baixo: quem
-  // precisa se mexer é a barra, e só no eixo horizontal.
-  alvo?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' })
-})
 const carregando = ref(true)
 const falha = ref('')
 
@@ -930,6 +1049,12 @@ function avancarGuia() {
   const proxima = proximaTelaDoGuia(telaDoGuia.value)
   if (proxima === null) fecharGuia()
   else telaDoGuia.value = proxima
+}
+// VOLTAR UMA TELA. Com o guia de bancada são mais de dez telas, e sem isto quem
+// passasse direto pela que interessava tinha de recomeçar o guia inteiro.
+function voltarGuia() {
+  const anterior = telaAnteriorDoGuia(telaDoGuia.value)
+  if (anterior !== null) telaDoGuia.value = anterior
 }
 const gravando = ref(false)
 const recadoNfc = ref('')
@@ -1026,6 +1151,68 @@ const loteAtual = computed(() => lotes.value.find((l) => l.id === loteEscolhido.
 const proxima = computed(() => proximaPorGravar(pecasDoLote(loteEscolhido.value)))
 const resumo = computed(() => resumoDeAlertas(alertas.value))
 
+// ── A BUSCA E O ARQUIVAMENTO AUTOMÁTICO ───────────────────────────────────
+//
+// A tela acumulava tudo para sempre. As contas moram em
+// `busca-e-arquivamento.js`, testadas sem navegador; aqui fica só o estado do
+// que a pessoa pediu, e cada aba tem o SEU: o recorte da aba Etiquetas
+// (últimos 30 dias) não é o mesmo da aba Lotes (em andamento), e um filtro só
+// para as três faria uma aba mudar a outra pelas costas.
+//
+// NADA DISSO TOCA O BANCO. "Encerrado" é contado na hora — lote em que toda
+// peça já foi gravada ou baixada. Desfazer uma baixa devolve o lote para "em
+// andamento" sozinho, sem ninguém precisar destravar nada.
+const FILTRO_LIMPO = { texto: '', de: '', ate: '', atalho: 'tudo', estado: '' }
+
+const filtroDeLotes = ref({ ...FILTRO_LIMPO, estado: 'andamento' })
+const filtroDeGravar = ref({ ...FILTRO_LIMPO, estado: 'por_gravar' })
+// A ABA ETIQUETAS ABRE NOS ÚLTIMOS 30 DIAS. Quem vem aqui acabou de gravar
+// errado, e a peça dele é de hoje — a história inteira continua a um toque, no
+// atalho "Qualquer data" ou no "Limpar a busca".
+const filtroDeEtiquetas = ref({
+  ...FILTRO_LIMPO, estado: 'todas', atalho: '30d', ...intervaloDoAtalho('30d', new Date()),
+})
+
+// O "estado" da aba Gravar não é o mesmo das outras: ali a pergunta é se o lote
+// tem trabalho a fazer, e não em que ponto ele está.
+const ESTADOS_DO_SELETOR = [
+  { chave: 'por_gravar', rotulo: 'Só com peça por gravar' },
+  { chave: 'todos', rotulo: 'Todos, inclusive encerrados' },
+]
+
+const marcaDoLote = (id) => seloDoLote(estadoDoLote(pecasDoLote(id)))
+const loteEstaEncerrado = (id) => estadoDoLote(pecasDoLote(id)).encerrado
+
+const lotesVisiveis = computed(() => filtrarLotes(lotes.value, {
+  pecasDoLote,
+  texto: filtroDeLotes.value.texto,
+  de: filtroDeLotes.value.de,
+  ate: filtroDeLotes.value.ate,
+  estado: filtroDeLotes.value.estado,
+}))
+const lotesEncerrados = computed(
+  () => lotes.value.length - lotesComPecaPorGravar(lotes.value, pecasDoLote))
+const contagemDeLotes = computed(() => fraseDaContagem(
+  lotesVisiveis.value.length, lotes.value.length, { um: 'lote', muitos: 'lotes' }))
+
+// Os dois botões são o mesmo controle do painel, por outra porta: quem procura
+// um lote encerrado procura um botão escrito, não um seletor de estado.
+function verEncerrados() { filtroDeLotes.value = { ...filtroDeLotes.value, estado: 'encerrado' } }
+function verEmAndamento() { filtroDeLotes.value = { ...filtroDeLotes.value, estado: 'andamento' } }
+
+const lotesDoSeletor = computed(() => lotesParaGravar(lotes.value, {
+  pecasDoLote,
+  texto: filtroDeGravar.value.texto,
+  de: filtroDeGravar.value.de,
+  ate: filtroDeGravar.value.ate,
+  // o lote escolhido nunca sai da lista: ao gravar a última peça ele encerra na
+  // hora, e o seletor ficaria em branco com o ✓ ainda na tela
+  escolhido: loteEscolhido.value,
+  incluirEncerrados: filtroDeGravar.value.estado === 'todos',
+}))
+const contagemDoSeletor = computed(() => fraseDaContagem(
+  lotesDoSeletor.value.length, lotes.value.length, { um: 'lote', muitos: 'lotes' }))
+
 // ── A FILA AO REDOR DA PEÇA DA VEZ ────────────────────────────────────────
 // Quem grava 50 seguidas se perde: a tela mostrava SÓ a peça da vez, e o único
 // jeito de saber onde parou era contar etiqueta na mão. Aqui aparecem a que
@@ -1116,10 +1303,31 @@ const temGarantia = (codigo) => comGarantia.value.has(String(codigo ?? '').trim(
 
 const loteDaPeca = (id) => lotes.value.find((l) => l.id === id) || null
 const etiquetasDaAba = computed(() => etiquetasGravadas(pecas.value, loteDaEtiqueta.value || null))
-const etiquetasVisiveis = computed(() => etiquetasDaAba.value.slice(0, quantasEtiquetas.value))
+// DOIS RECORTES EM SEQUÊNCIA, e não um só: `etiquetasDaAba` é o que EXISTE (o
+// que a aba pode consertar), e `etiquetasFiltradas` é o que a pessoa PEDIU.
+// Guardar só o segundo faria a tela dizer "nenhuma etiqueta gravada" para uma
+// busca que não achou nada — e "não há" e "não achei" são coisas diferentes.
+const etiquetasFiltradas = computed(() => filtrarEtiquetas(etiquetasDaAba.value, {
+  loteDaPeca,
+  comGarantia: comGarantia.value,
+  texto: filtroDeEtiquetas.value.texto,
+  de: filtroDeEtiquetas.value.de,
+  ate: filtroDeEtiquetas.value.ate,
+  estado: filtroDeEtiquetas.value.estado,
+}))
+const etiquetasVisiveis = computed(() => etiquetasFiltradas.value.slice(0, quantasEtiquetas.value))
 const etiquetasQueFaltamMostrar = computed(
-  () => Math.max(0, etiquetasDaAba.value.length - etiquetasVisiveis.value.length))
+  () => Math.max(0, etiquetasFiltradas.value.length - etiquetasVisiveis.value.length))
+const contagemDeEtiquetas = computed(() => fraseDaContagem(
+  etiquetasFiltradas.value.length, etiquetasDaAba.value.length,
+  { um: 'etiqueta gravada', muitos: 'etiquetas gravadas' }))
 function mostrarMaisEtiquetas() { quantasEtiquetas.value += DE_CADA_VEZ }
+
+// MUDAR A BUSCA RECOMEÇA A LISTA DO TOPO, pelo mesmo motivo do watch de
+// `loteDaEtiqueta`: com o limite crescido de uma busca larga, a busca seguinte
+// desenharia 500 linhas de uma vez. O watch NÃO precisa ser profundo porque o
+// painel troca o objeto inteiro a cada mudança — é isso que o Vue enxerga.
+watch(filtroDeEtiquetas, () => { quantasEtiquetas.value = DE_CADA_VEZ })
 
 // A TELA AVISA ANTES, EM VEZ DE DEIXAR O BANCO DAR A BRONCA. O banco recusa com
 // `motivo_obrigatorio` quando falta motivo numa peça com garantia — mas aí a
@@ -1409,7 +1617,15 @@ async function carregar() {
       p2.baixa_motivo = b?.motivo || null
       p2.baixada_em = b?.baixada_em || null
     })
-    if (!loteEscolhido.value && lotes.value.length) loteEscolhido.value = lotes.value[0].id
+    // O LOTE QUE A ABA GRAVAR ABRE É O PRIMEIRO COM PEÇA POR GRAVAR, e não o
+    // mais recente: com o lote de ontem já encerrado, a aba abria numa fila
+    // vazia dizendo "nada a fazer aqui" com trinta etiquetas esperando no lote
+    // de baixo. Sem nenhum pendente, cai no mais recente — que é o que o
+    // seletor mostra para quem veio desfazer uma baixa.
+    if (!loteEscolhido.value && lotes.value.length) {
+      const pendente = lotes.value.find((l) => !estadoDoLote(pecasDoLote(l.id)).encerrado)
+      loteEscolhido.value = (pendente || lotes.value[0]).id
+    }
   } catch (e) {
     // `e.recusa` só existe quando quem disse não foi a rede, e sim o BANCO.
     // Mandar "confira sua conexão" para quem está sem a chave `autenticidade`
@@ -2001,38 +2217,34 @@ onMounted(() => {
 <style scoped>
 .tela-autenticidade{min-height:100vh;background:transparent;position:relative;z-index:1;padding-bottom:48px;}
 /* ── O MENU DE ABAS ────────────────────────────────────────────────────────
-   A barra sublinhada separa a navegação do conteúdo: sem ela as abas flutuavam
-   soltas em cima do primeiro bloco e não se lia como um menu. */
-.abas-barra{border-bottom:1px solid var(--border);}
-/* A FILEIRA ROLA POR DENTRO, e nunca a página. Com cinco abas ela mede mais que
-   a largura de um celular; `flex-wrap:wrap` quebrava a barra em duas linhas e
-   empurrava a tela inteira para baixo, e sem nada ela empurraria a PÁGINA para
-   os lados — que é defeito (PADRAO-DA-CENTRAL, item 6). Medido a 375px. */
-/* ⚠️ EXISTE UM `.abas` GLOBAL, em `estilos-globais.css` — classe genérica, e o
-   global VAZA para o scoped. Três coisas dele precisam ser desligadas aqui, e
-   as três foram MEDIDAS no navegador com o CSS do build, não deduzidas:
-    · `justify-content:center` — numa fileira que transborda, o conteúdo
-      centralizado sai para os DOIS lados, e o que sai pela ESQUERDA não se
-      alcança rolando: `scrollLeft` já está em 0. Medido a 375px: a aba "Lotes"
-      nascia em -67px, fora da tela e inalcançável;
-    · `border-bottom` — quem desenha a linha aqui é o `.abas-barra`, que ocupa a
-      largura da tela. No elemento que rola, a linha teria a largura do CONTEÚDO;
-    · `margin-bottom:-1px` no botão, que lá existe para a aba encostar na linha
-      do próprio `.abas`; aqui ela sobreporia o sublinhado da barra. */
-.abas{display:flex;gap:var(--sp-2);padding:var(--sp-4) 24px var(--sp-3);flex-wrap:nowrap;justify-content:flex-start;border-bottom:0;overflow-x:auto;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
-/* A barrinha de rolagem some: ela roubava altura do alvo de toque e aparecia
-   como um risco cinza embaixo das abas no Chrome do computador. */
-.abas::-webkit-scrollbar{display:none;}
-/* 40px de altura de verdade, não de área emprestada: aqui o alvo É o botão, e
-   ele tem espaço de sobra. `flex:none` porque, encolhendo, o nome da aba
-   cortaria — e texto que corta é defeito (PADRAO item 5). */
-.abas button{font-family:var(--fonte-principal);font-size:max(11px, calc(11px * var(--escala-texto, 1)));font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);background:none;border:1px solid var(--border);border-radius:var(--radius-md);margin-bottom:0;padding:0 var(--sp-4);min-height:40px;box-sizing:border-box;display:inline-flex;align-items:center;white-space:nowrap;flex:none;cursor:pointer;transition:color .15s,border-color .15s,background .15s;}
-.abas button:hover{color:var(--text);border-color:var(--accent-mid);}
-/* A ATIVA GANHA FUNDO, BORDA E `aria-selected` — não só cor. O par
-   `--accent-light` + `--accent-forte` é o do PADRÃO e já vem medido (5,96 a
-   7,97 nos dois temas); o accent puro sobre o próprio tom aguado dá 4,42 no
-   tema escuro e reprova por pouco. */
-.abas button.on{color:var(--accent-forte);background:var(--accent-light);border-color:var(--accent);}
+   AQUI NÃO HÁ REGRA DE `.abas` NENHUMA, E É DE PROPÓSITO.
+   A barra é a `.abas` GLOBAL de `estilos-globais.css` — a mesma da Frota, do
+   Patrimônio e dos Acessos: mesma altura, mesmo peso de fonte, mesmo
+   sublinhado, e os 40px de alvo de toque que foram corrigidos para as quatro
+   telas em 19/08.
+
+   A entrega anterior escreveu uma barra própria aqui (`.abas-barra` com fundo e
+   moldura, `flex-wrap:nowrap`, `overflow-x:auto`) e o dono viu na hora que esta
+   tela tinha ficado diferente das irmãs. O `nowrap` era o que criava o problema
+   que o resto dos overrides existia para consertar: a barra global QUEBRA em
+   duas linhas no celular, e com isso não transborda, não rola e não esconde a
+   primeira aba. Regra local aqui é o caminho de volta para aquele defeito.
+
+   Os dois únicos acréscimos são coisas que a barra global não tem porque
+   nenhuma tela irmã precisou: o número do passo e o separador. Nenhum dos dois
+   mexe em altura, fonte ou sublinhado. */
+/* O número do passo, colado no nome da aba. Herda cor, peso e tamanho do botão
+   — pintá-lo de outra cor faria o "1" competir com "LOTES" pela leitura. */
+.au-aba-n{margin-right:var(--sp-1);font-variant-numeric:tabular-nums;}
+/* O SEPARADOR ENTRE OS PASSOS E AS CONSULTAS. Um `·` discreto, com a cor de
+   texto secundário — e não uma barra desenhada, que viraria mais uma linha
+   brigando com o sublinhado da aba ativa. Ele é enfeite de leitura, então sai
+   da árvore de acessibilidade (`aria-hidden`) e não recebe toque. */
+.au-abas-sep{align-self:center;padding:0 var(--sp-1);color:var(--muted);font-size:max(9px, calc(13px * var(--escala-texto, 1)));user-select:none;pointer-events:none;}
+
+/* A AJUDA CURTA DA ABA, logo abaixo da barra. Ela fica sempre à vista: guia
+   único ninguém reabre. Texto secundário, largura de leitura. */
+.au-ajuda{font-family:var(--fonte-principal);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));color:var(--muted);line-height:1.6;padding:var(--sp-3) 24px 0;max-width:680px;overflow-wrap:anywhere;}
 
 .au-vazio,.au-erro,.au-pronto{font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));color:var(--muted);padding:28px 24px;line-height:1.7;max-width:620px;}
 .au-erro{color:var(--red);}
@@ -2041,7 +2253,11 @@ onMounted(() => {
 .au-secao{font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text);padding:24px 24px 4px;}
 
 .au-topo-acao{display:flex;gap:10px;align-items:center;padding:18px 24px 0;flex-wrap:wrap;}
-.au-busca{flex:1;min-width:180px;font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));padding:9px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);}
+/* Medido a 375px NESTA rodada: o campo de busca da aba Garantias saía com 37px
+   de altura e 13px de fonte — abaixo dos 40px de alvo de dedo e dos 16px abaixo
+   dos quais o iOS dá zoom ao focar. Ele é anterior a esta entrega e nunca tinha
+   sido medido; o painel de busca das outras três abas já nasce nos 40/16. */
+.au-busca{flex:1;min-width:180px;box-sizing:border-box;min-height:40px;font-family:var(--fonte-principal);font-size:max(16px, calc(16px * var(--escala-texto, 1)));padding:9px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);}
 
 /* 40px DE ALTURA NA REGRA-BASE, e não em cada bloco. Ela já estava repetida em
    quatro lugares (`.au-gravacao .au-botao`, `.au-card .au-botao`, o guia e as
@@ -2124,8 +2340,11 @@ onMounted(() => {
 .au-folha .au-erro{padding:12px 24px 0;}
 
 @media (max-width:520px){
-  .abas,.au-topo-acao,.au-lista,.au-campo,.au-gravacao,.au-acoes,.au-baixadas-lote{padding-left:16px;padding-right:16px;}
-  .au-vazio,.au-erro,.au-instrucao,.au-secao{padding-left:16px;padding-right:16px;}
+  /* `.abas` saiu desta lista: o recuo de celular da barra é o do GLOBAL, que
+     usa 8px abaixo de 400px. Repetir 16px aqui era um dos overrides que faziam
+     esta tela ficar diferente das irmãs. */
+  .au-topo-acao,.au-lista,.au-campo,.au-gravacao,.au-acoes,.au-baixadas-lote{padding-left:16px;padding-right:16px;}
+  .au-vazio,.au-erro,.au-instrucao,.au-secao,.au-ajuda{padding-left:16px;padding-right:16px;}
   .au-gravacao .au-acoes{padding-left:0;padding-right:0;}
   .au-botao{flex:1;}
 }
@@ -2175,18 +2394,42 @@ onMounted(() => {
      no primeiro `npm test`. */
   touch-action:none; overscroll-behavior:contain;
 }
+/* O GUIA VIROU DE BANCADA e passou de 5 telas de texto para 11, algumas com
+   quatro casos dentro. Por isso a caixa ganhou teto de altura e o MIOLO rola
+   dentro dela — nunca a página atrás (PADRAO item 4). `dvh` e nunca `vh`: no
+   celular o `vh` é calculado com a barra de endereço escondida, e o fim do
+   texto fica atrás dela. O `overscroll-behavior`/`touch-action` do par
+   fundo+caixa é o que impede o dedo de arrastar a tela por dentro do modal. */
 .au-guia{
-  width:100%; max-width:420px; padding:var(--sp-4);
+  width:100%; max-width:420px; max-height:88dvh; padding:var(--sp-4);
+  display:flex; flex-direction:column;
   border-radius:var(--radius-lg); border:1px solid var(--border);
   background:var(--surface); color:var(--text);
+  overscroll-behavior:contain; touch-action:pan-y;
 }
 .au-guia-conta{margin:0 0 var(--sp-1); font-size:12px; color:var(--muted); letter-spacing:.06em}
 .au-guia-titulo{margin:0 0 var(--sp-2); font-size:19px; line-height:1.25}
-.au-guia-texto{margin:0 0 var(--sp-4); font-size:15px; line-height:1.55}
+/* O cabeçalho e os botões não rolam junto: quem está no meio de uma tela longa
+   precisa do "Continuar" na mão o tempo todo. */
+.au-guia-miolo{flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch}
+.au-guia-texto{margin:0 0 var(--sp-3); font-size:15px; line-height:1.55}
+/* OS ITENS SÃO O QUE SEPARA GUIA DE BANCADA DE TELA DE TEXTO: o rótulo se acha
+   com o olho, de pé, com o celular na mão. `<dl>` porque é isso que eles são —
+   um termo e a explicação dele. */
+.au-guia-itens{margin:0 0 var(--sp-3)}
+.au-guia-itens dt{
+  margin-top:var(--sp-3); font-family:var(--fonte-principal);
+  font-size:max(9px, calc(13px * var(--escala-texto, 1)));
+  font-weight:700; color:var(--text); overflow-wrap:anywhere;
+}
+.au-guia-itens dd{
+  margin:var(--sp-1) 0 0; font-size:max(9px, calc(13.5px * var(--escala-texto, 1)));
+  line-height:1.5; color:var(--muted); overflow-wrap:anywhere;
+}
 /* os botoes embaixo e lado a lado; a 375px eles empilham em vez de encolher,
    porque alvo de toque abaixo de 40px e defeito */
-.au-guia-acoes{display:flex; gap:var(--sp-2); flex-wrap:wrap}
-.au-guia-acoes .au-botao{flex:1 1 140px; min-height:40px}
+.au-guia-acoes{display:flex; gap:var(--sp-2); flex-wrap:wrap; padding-top:var(--sp-3)}
+.au-guia-acoes .au-botao{flex:1 1 120px; min-height:40px}
 
 /* ── EDITAR E EXCLUIR O LOTE ────────────────────────────────────
    Cor sai de token, nunca escrita a mao (PADRAO-DA-CENTRAL, item 2).
@@ -2467,5 +2710,13 @@ onMounted(() => {
   /* mesmo motivo: a regra-base do `.au-aviso-garantia` vem depois do `@media`
      de cima, e lá em cima este ajuste seria ignorado em silêncio. */
   .au-aviso-garantia{margin-left:16px; margin-right:16px;}
+  /* O MODAL OCUPA A TELA NO CELULAR, com 12px de cada lado (PADRAO item 4) — os
+     12px são o `padding` do fundo. `dvh` e nunca `vh`. A regra-base do
+     `.au-guia` vem depois do `@media` de cima, então este ajuste também tem de
+     morar aqui embaixo. */
+  .au-guia{max-width:none; max-height:calc(100dvh - 24px);}
+  /* Três botões a 375px não cabem lado a lado sem espremer o alvo do dedo: aqui
+     cada um ocupa a linha inteira. */
+  .au-guia-acoes .au-botao{flex:1 1 100%;}
 }
 </style>
