@@ -252,7 +252,11 @@ test('a tela NÃO reescreve a barra de abas: ela usa a `.abas` global', () => {
 });
 
 test('a barra é a global, com botões simples e a classe `on` na ativa', () => {
-  assert.match(template, /<div class="abas" role="tablist">/,
+  // O `v-if="!naBancada"` é o modo bancada, e NÃO um override: a barra continua
+  // sendo a `.abas` global — mesma classe, mesmo `role`, sem uma regra local de
+  // CSS. Ela só sai da tela enquanto se grava de pé, e volta inteira no "Sair do
+  // modo bancada". Ver `modo-bancada.test.mjs`.
+  assert.match(template, /<div v-if="!naBancada" class="abas" role="tablist">/,
     'a barra global é `<div class="abas" role="tablist">`, como na Frota');
   assert.match(template, /:class="\{ on: aba === ab\.chave \}"/,
     'a ativa se marca com a classe `on`, que é o que a `.abas` global pinta');

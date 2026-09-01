@@ -228,7 +228,10 @@ test('o @media do celular é a ÚLTIMA coisa do CSS do painel', () => {
 /* ── A AJUDA DENTRO DE CADA ABA ──────────────────────────────────────────── */
 
 test('a ajuda da aba fica na tela, e sai do tutorial', () => {
-  assert.match(template, /<p class="au-ajuda">\{\{ AJUDA_DA_ABA\[aba\] \}\}<\/p>/);
+  // O `v-if="!naBancada"` é o modo bancada: o painel de máquina não tem parágrafo
+  // de ajuda permanente — ele vira o "?" que abre o guia inteiro. Fora do modo,
+  // a ajuda continua sempre à vista, que é o que este teste guarda.
+  assert.match(template, /<p v-if="!naBancada" class="au-ajuda">\{\{ AJUDA_DA_ABA\[aba\] \}\}<\/p>/);
   assert.match(script, /AJUDA_DA_ABA,/, 'a ajuda não pode ser reescrita na tela');
 });
 

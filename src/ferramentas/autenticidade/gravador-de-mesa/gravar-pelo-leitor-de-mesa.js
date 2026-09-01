@@ -134,6 +134,13 @@ export async function escreverEConferir({ porta, endereco, memoria = null }) {
 //                         caso da bancada e por isso tem estado próprio: chamar
 //                         isto de 'falhou' faria a tela oferecer a mesma peça de
 //                         novo, e a peça sairia em DUAS etiquetas.
+//
+// `aoContar(frase, fase)` recebe DOIS argumentos, e o segundo não é enfeite: o
+// modo bancada escreve o estado em letra grande — "Encoste a etiqueta" vira
+// "Gravando…" — e adivinhar a fase lendo a FRASE seria a tela decidindo por
+// texto. Bastaria alguém melhorar uma palavra aqui para o painel parar de mudar
+// de estado, em silêncio. A fase é 'esperando' ou 'gravando', os mesmos nomes de
+// `modo-bancada.js`.
 export async function gravarPeloLeitorDeMesa({ porta, peca, endereco, marcar, aoContar = () => {} }) {
   const codigo = String(peca?.codigo ?? '').trim().toUpperCase()
   const nada = { codigo, lido: '', codigoAntigo: '' }
@@ -141,7 +148,7 @@ export async function gravarPeloLeitorDeMesa({ porta, peca, endereco, marcar, ao
   // 0. PEGAR A ETIQUETA. Sem etiqueta em cima do leitor o Windows recusa a
   // conexão — e é assim que o programa sabe que ainda não puseram nenhuma. A
   // espera, e a segunda tentativa do serviço que sobe sob demanda, são de lá.
-  aoContar('Ponha a etiqueta em cima do leitor, no meio, e segure parada…')
+  aoContar('Ponha a etiqueta em cima do leitor, no meio, e segure parada…', 'esperando')
   try {
     await porta.conectar()
   } catch (erro) {
@@ -211,7 +218,7 @@ export async function gravarPeloLeitorDeMesa({ porta, peca, endereco, marcar, ao
     }
 
     // 2, 3 e 4. O PLANO SAI DA MEMÓRIA LIDA, escreve, e lê de volta.
-    aoContar('Gravando… não tire a etiqueta de cima do leitor.')
+    aoContar('Gravando… não tire a etiqueta de cima do leitor.', 'gravando')
     let escrita
     try {
       escrita = await escreverEConferir({ porta, endereco, memoria: antes.memoria })
