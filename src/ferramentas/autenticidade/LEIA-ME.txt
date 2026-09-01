@@ -160,13 +160,60 @@ lotes.js                   as continhas soltas (endereco da etiqueta, progresso
                            vale para `rotuloDoMotivo`: a tela e a planilha do
                            lote escrevem o MESMO motivo porque bebem daqui.
 
-GRAVAR ENCOSTANDO O CELULAR
-===========================
+OS TRES MODOS DE GRAVAR
+=======================
 
-A aba Gravar tem dois modos. Onde o navegador grava NFC (Chrome no Android),
-voce encosta a etiqueta e ela grava sozinha. Onde nao grava (iPhone,
-computador), ela continua como sempre foi: endereco grande, copiar, "Gravei
-essa". A fabrica nao pode ficar refem do aparelho.
+A aba Gravar tem TRES modos, e a tela oferece o melhor que a maquina daquela
+pessoa tiver. A fabrica nao pode ficar refem do aparelho.
+
+  GRAVAR PELO LEITOR DE MESA   O caminho automatico da bancada, e o PREFERIDO
+                               onde ele existe. So aparece dentro do programa
+                               do gravador (gravador/janela/), que abre ESTA
+                               MESMA tela e empresta o leitor ACR122U para ela.
+                               A pessoa poe a etiqueta no leitor e clica: a
+                               tela le, grava, le de volta, confere e marca.
+
+  GRAVAR ENCOSTANDO O CELULAR  Onde o navegador grava NFC (Chrome no Android).
+                               Encosta a etiqueta e ela grava sozinha.
+
+  GRAVAR PELO APLICATIVO       Onde nao ha nem um nem outro (iPhone, computador
+                               sem o programa). Como sempre foi: endereco
+                               grande, copiar, "Gravei essa".
+
+Da para ir de qualquer modo para qualquer outro pelos botoes — e cada botao so
+aparece quando o caminho dele existe de verdade naquela maquina.
+
+O QUE MUDA ENTRE O CELULAR E O LEITOR DE MESA:
+
+  * A TRAVA PERMANENTE nao aparece no leitor de mesa. Travar mexe na pagina 40
+    e no Capability Container, e irreversivel, e o motor do leitor de mesa nao
+    faz isso. Interruptor que nao trava nada seria promessa falsa numa acao que
+    nao tem volta.
+  * O PLANO DE GRAVACAO se monta em cima da memoria que acabou de ser lida. No
+    celular quem monta os bytes e o proprio navegador; no leitor de mesa somos
+    nos, e a NTAG213 NAO vem em branco de fabrica (as paginas 4 e 5 trazem um
+    Lock Control de 5 bytes). Medido em 01/09/2026: plano montado supondo
+    etiqueta de fabrica, gravado numa etiqueta reaproveitada — doze `90 00` e a
+    etiqueta ilegivel para o celular.
+
+ONDE MORA CADA COISA:
+
+  gravador-nfc.js                          a porta do celular
+  gravador-de-mesa/porta-do-gravador-de-mesa.js
+                                           a porta do leitor de mesa. Irma da
+                                           de cima: e a UNICA que fala com
+                                           `window.gravadorDeMesa`
+  gravador-de-mesa/gravar-pelo-leitor-de-mesa.js
+                                           a sequencia (ler, planejar, gravar,
+                                           conferir, marcar). Mora fora do
+                                           `.vue` porque `node --test` nao
+                                           compila `.vue`, e e justamente o que
+                                           precisa de prova
+  gravador-de-mesa/ndef-para-ntag213.js    o tradutor: endereco -> bytes de cada
+                                           pagina, e de volta
+
+O programa que empresta o leitor mora em `gravador/janela/`, FORA do painel, e
+tem LEIA-ME proprio. O painel nao importa nada de la — o caminho e so de ida.
 
 A REGRA: LER ANTES E LER DEPOIS.
 Antes, porque etiqueta que ja tem OUTRA peca nao pode ser sobrescrita - isso
@@ -190,9 +237,15 @@ producao. Sao DUAS amarras com o iamundi, e as duas moram so no .vue:
   1. o login e a permissao 'autenticidade'
   2. o cliente do banco `sbClient` e o `adminToast`
 
-nfc-fila.js, gravador-nfc.js e lotes.js nao importam NADA do projeto - sao
-contas puras mais uma porta para o navegador. Mudar de casa e copiar a pasta e
-trocar essas duas amarras.
+nfc-fila.js, gravador-nfc.js, lotes.js e a pasta gravador-de-mesa/ nao importam
+NADA do projeto - sao contas puras mais duas portas para o navegador. Mudar de
+casa e copiar a pasta e trocar essas duas amarras.
+
+⚠️ UMA AMARRA A MAIS, NO SENTIDO CONTRARIO: o motor do gravador de mesa
+(`gravador/comandos-do-acr122u.js`, fora do painel) IMPORTA
+`gravador-de-mesa/ndef-para-ntag213.js` daqui, para que a faixa de paginas da
+etiqueta nao exista escrita em dois lugares. Levando esta pasta embora, aquele
+`import` precisa ir junto.
 
 O QUE NAO PODE MUDAR NUNCA
 ==========================

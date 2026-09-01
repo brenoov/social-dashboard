@@ -92,15 +92,21 @@ test('ONDE_SE_GRAVA: cobre Android, iPhone, computador e o gravador de mesa', ()
   for (const g of ONDE_SE_GRAVA) assert.ok(g.como.length > 60, `${g.chave} nao explica nada`)
 })
 
-test('ONDE_SE_GRAVA: o gravador de mesa nao e prometido como pronto', () => {
-  // a maquina ainda nao foi comprada. Escrever "use o gravador de mesa" mandaria
-  // alguem procurar na bancada uma coisa que nao esta la
-  const gravador = ONDE_SE_GRAVA.find((g) => g.chave === 'gravador')
-  assert.equal(gravador.pronto, false)
-  assert.match(gravador.como, /ainda nao|AINDA NÃO/i)
-  for (const outro of ONDE_SE_GRAVA.filter((g) => g.chave !== 'gravador')) {
-    assert.equal(outro.pronto, true, `${outro.chave} existe hoje e tem de estar marcado como pronto`)
+test('ONDE_SE_GRAVA: todo caminho listado existe HOJE, e diz onde encontrar', () => {
+  // ⚠️ MUDOU EM 01/09/2026. Ate esta data o gravador de mesa estava
+  // `pronto:false` porque a maquina nao tinha sido comprada — e o teste guardava
+  // isso, para a tela nao mandar alguem procurar na bancada uma coisa que nao
+  // estava la. A maquina chegou, o caminho foi provado a mao no Windows, e o
+  // programa que empresta o leitor existe. Manter "AINDA NAO EXISTE" agora seria
+  // a MESMA mentira ao contrario: a bancada ignoraria o botao que esta na frente
+  // dela. Se um caminho novo entrar aqui antes de existir, ele volta a `false`.
+  for (const g of ONDE_SE_GRAVA) {
+    assert.equal(g.pronto, true, `${g.chave} esta na lista e nao existe`)
   }
+  const gravador = ONDE_SE_GRAVA.find((g) => g.chave === 'gravador')
+  assert.match(gravador.como, /leitor de mesa/i, 'tem de dizer o nome do botao')
+  assert.match(gravador.como, /programa/i,
+    'tem de dizer que ele so existe dentro do programa: sem isso a pessoa procura o botao no navegador')
 })
 
 // ── deu errado, e agora? ───────────────────────────────────────────────────

@@ -21,7 +21,11 @@
          sublinhado do global também é cor), e é isso que o leitor de tela
          anuncia. O número é `aria-hidden` e volta no `aria-label` como
          "Passo 1: Lotes" — ouvir "um lotes" não ajuda ninguém. -->
-    <div class="abas" role="tablist">
+    <!-- ⚠️ A BARRA DE ABAS SOME NO MODO BANCADA, e é a primeira coisa que some.
+         Quem está de pé gravando não troca de aba: ele grava cinquenta etiquetas
+         seguidas. A barra continua a UM toque — o botão "Sair do modo bancada"
+         no alto do painel a traz de volta inteira, com as cinco abas. -->
+    <div v-if="!naBancada" class="abas" role="tablist">
       <template v-for="ab in ABAS" :key="ab.chave">
         <span v-if="ab.separaAntes" class="au-abas-sep" aria-hidden="true">·</span>
         <button role="tab" type="button" :data-aba="ab.chave" :aria-label="ab.leitura"
@@ -36,7 +40,10 @@
          cai na aba Alertas seis meses depois não vai procurar um guia para
          descobrir o que aquela lista significa. Os textos moram em
          `tutorial.js`, e há teste que reprova aba sem verbete. -->
-    <p class="au-ajuda">{{ AJUDA_DA_ABA[aba] }}</p>
+    <!-- No modo bancada ela some junto com a barra: o painel de máquina não tem
+         parágrafo de ajuda permanente. O que ela explicava continua no guia, no
+         botão "?" do alto do painel. -->
+    <p v-if="!naBancada" class="au-ajuda">{{ AJUDA_DA_ABA[aba] }}</p>
 
     <p v-if="carregando" class="au-vazio">Carregando…</p>
     <p v-else-if="falha" class="au-erro">{{ falha }}</p>
@@ -263,6 +270,177 @@
 
     <!-- ── GRAVAR ───────────────────────────────────────────────────────── -->
     <template v-else-if="aba === 'gravar'">
+
+      <!-- ══════════════════════════════════════════════════════════════════
+           O MODO BANCADA — o painel de máquina
+           ══════════════════════════════════════════════════════════════════
+           POR QUE ELE EXISTE. O dono usou esta aba de pé e disse: "ta muito ruim
+           o layout e visual, n ta funcional, está confuso, texto maiores que
+           outros, espaços vazios, não centralizados, uma criança de 5 anos
+           precisa conseguir fazer o processo, precisa ser didático, fácil,
+           FUNCIONAL". Medido na tela renderizada a 1440px, de cima para baixo:
+           260px de FILTRO (busca, seis botões de data, período exato, estado)
+           que quem grava nunca usa; a informação mais importante — "PEÇA 5 DE 12
+           · 4 DE 12 PRONTAS" — em letra pequena; e o MAIOR elemento da tela
+           sendo o endereço, que a pessoa não precisa ler porque quem lê é a
+           máquina. A causa não foi um defeito: foi a SOMA de coisas certas
+           sozinhas, e ninguém nunca ter perguntado o que a tela NÃO deveria
+           mostrar.
+
+           A ORDEM AQUI É A ORDEM DE TAMANHO, e ela é o desenho:
+             1. QUAL PEÇA É AGORA — o maior elemento, legível de pé, a um metro.
+             2. O ESTADO, com cor de estado — é o que a pessoa olha o tempo todo.
+             3. O PROGRESSO do lote — barra e "4 de 12".
+             4. UMA ação principal, um botão grande.
+             5. A fila ao redor, discreta, só para saber onde está.
+
+           ⚠️ O QUE SAI DAQUI NÃO SOME DA FERRAMENTA — sai da FRENTE. Item 8 do
+           PADRAO-DA-CENTRAL, conferido item a item; cada um tem endereço:
+             · busca, filtros de data e seletor de estado → fora da bancada, na
+               mesma aba Gravar, exatamente como estão hoje;
+             · seletor de lote → idem (e o lote da vez está escrito aqui em cima);
+             · os dois parágrafos de instrução e o passo a passo → o "?" do alto,
+               que abre o guia de bancada inteiro (`abrirGuia`);
+             · "Dar baixa nesta peça" e "Excluir esta peça" → fora da bancada;
+             · a gaveta do gravador de mesa (baixar a lista / colar o retorno) e a
+               lista das peças baixadas com o "Desfazer" → fora da bancada;
+             · a trava permanente da etiqueta e os botões de trocar de modo de
+               gravação → fora da bancada. Trocar de jeito de gravar é decisão de
+               ANTES, e no meio de cinquenta etiquetas ela só atrapalha; por isso
+               o modo em uso fica ESCRITO aqui em cima, mas não vira botão.
+           A porta de volta para todos eles é uma só e está sempre à vista:
+           "Sair do modo bancada".
+
+           ⚠️ A PERGUNTA DE SOBRESCREVER NÃO ENTRA AQUI. Ela tem dois seletores, o
+           aviso de garantia de cliente e um motivo obrigatório — e copiá-la para
+           cá criaria uma SEGUNDA pergunta de sobrescrever para manter. A que
+           ficasse para trás gravaria por cima de uma bolsa que já tem dono. Em
+           vez disso a tela SAI do modo bancada sozinha e mostra a pergunta onde
+           ela já mora (`precisaSairDaBancada`, em modo-bancada.js). -->
+      <section v-if="naBancada" class="au-bancada" :class="'au-bancada-' + estadoDaBancadaAgora.tom">
+
+        <!-- 0. A FAIXA DE CIMA. Ela não é conteúdo: é onde se sabe em que lote se
+             está, por onde se está gravando, e por onde se sai. Tudo no tamanho
+             do "resto" — nada aqui compete com o número da peça. -->
+        <div class="au-bancada-topo">
+          <p class="au-bancada-onde">
+            <strong>{{ loteAtual?.modelo }}</strong><span v-if="loteAtual?.cor"> · {{ loteAtual.cor }}</span>
+            · {{ nomeDoModo(modoDaBancada) }}
+          </p>
+          <div class="au-bancada-saidas">
+            <!-- O guia inteiro, no lugar dos dois parágrafos que ocupavam o
+                 melhor espaço da tela toda vez, para sempre. -->
+            <button class="au-bancada-menor" type="button" @click="abrirGuia">
+              ? Guia de bancada
+            </button>
+            <button class="au-bancada-menor" type="button" @click="sairDaBancada">
+              Sair do modo bancada
+            </button>
+          </div>
+        </div>
+
+        <!-- ── A COLUNA DO QUE SE FAZ ─────────────────────────────────────
+             Estes dois `<div>` não são enfeite de marcação: são as DUAS COLUNAS
+             do computador. Sem eles, o painel num monitor de 1440px seria uma
+             faixa de 620px à esquerda com metade da tela vazia — que é
+             exatamente a queixa de "espaços vazios" que trouxe esta tarefa.
+             No celular eles são duas colunas empilhadas, e a ordem de cima para
+             baixo é a mesma ordem de tamanho: peça, estado, progresso, endereço,
+             botão, fila. -->
+        <div class="au-bancada-obra">
+
+          <!-- 1. QUAL PEÇA É AGORA. O maior elemento da tela, e o único desse
+               tamanho. Com a fila acabada ele mostra o lote fechado, em vez de
+               sumir: bloco que some no fim leva junto o ✓ da última etiqueta. -->
+          <p class="au-bancada-peca">
+            <template v-if="proxima">nº {{ proxima.numero_na_serie }} de {{ loteAtual?.quantidade }}</template>
+            <template v-else>{{ progressoDoLoteAtual.texto }}</template>
+          </p>
+
+          <!-- 2. O ESTADO. É o que a pessoa olha o tempo todo, e o que muda:
+               Encoste a etiqueta → Gravando… → Pronto → Deu erro.
+               A COR É O SINAL, O TEXTO É A INFORMAÇÃO (PADRAO item 2): a moldura
+               sai de token pela classe do `tom`, e o título diz o estado por
+               escrito. Quem não distingue a cor lê a mesma coisa.
+               `role="status"` para o leitor de tela anunciar a troca sem roubar
+               o foco de quem está com a etiqueta na mão. -->
+          <div class="au-bancada-estado" role="status">
+            <p class="au-bancada-titulo">{{ estadoDaBancadaAgora.titulo }}</p>
+            <!-- O DETALHE É O QUE FAZER, e ele vem da sequência sempre que ela
+                 falou: é a única frase que sabe a diferença entre "a etiqueta
+                 ficou pela metade, separe" e "o leitor está ocupado, a etiqueta
+                 está boa". Ele está no tamanho do "resto", mas em `--text` e não
+                 em `--muted`: numa bancada, "separe esta etiqueta" não é texto
+                 secundário. -->
+            <p class="au-bancada-detalhe">{{ estadoDaBancadaAgora.detalhe }}</p>
+          </div>
+
+          <!-- O ENDEREÇO GRANDE, E SÓ NO MODO DE COPIAR. Ali a pessoa REALMENTE
+               copia — então ele é selecionável, fica no degrau do ESTADO (nunca
+               num quarto tamanho) e vem ANTES do botão, porque a ordem do gesto é
+               copiar → gravar no aplicativo → confirmar aqui.
+               Nos modos automáticos ele não aparece aqui: quem lê é a máquina, e
+               ele desce para o pé do bloco como CONFERÊNCIA. Ser o maior elemento
+               da tela era metade da queixa do dono. -->
+          <div v-if="proxima && modoDaBancada === 'copiar'" class="au-endereco">
+            {{ enderecoDaTag(proxima.codigo) }}
+          </div>
+
+          <!-- 3. UMA AÇÃO PRINCIPAL, COLADA NO ESTADO. Quem lê "ponha a etiqueta"
+               precisa ter o botão no campo de visão, sem procurar: na primeira
+               versão o botão morava no pé da tela e o olho fazia mil pixels entre
+               o que está acontecendo e o que se aperta.
+               Quem diz o que o botão faz é `acaoDaBancada` — a mesma conta pura
+               que o teste prova. Ele fica TRAVADO enquanto grava, e nunca some:
+               botão que some no meio faz a pessoa procurar, e procurar com a
+               etiqueta na mão é tirar a etiqueta de cima do leitor. -->
+          <div class="au-bancada-acao">
+            <button class="au-botao au-bancada-botao" type="button"
+                    :disabled="acaoDaBancadaAgora.ocupado || !podeEditar"
+                    @click="tocarNaBancada">{{ acaoDaBancadaAgora.rotulo }}</button>
+            <button v-if="proxima && modoDaBancada === 'copiar'" class="au-bancada-menor"
+                    type="button" @click="copiar">{{ textoCopiar }}</button>
+          </div>
+
+          <!-- 4. O PÉ DO BLOCO: quanto falta, e o endereço de conferência.
+               A barra é para o canto do olho; o texto é o que se lê em voz alta
+               do outro lado da bancada — os dois, sempre, porque barra sozinha
+               não diz quantas faltam. O endereço vem junto e pequeno: ele existe
+               para conferir com o olho, encostado no botão que o usa. -->
+          <div class="au-bancada-progresso">
+            <div class="au-barra" role="progressbar" aria-valuemin="0"
+                 :aria-valuenow="progressoDoLoteAtual.gravadas"
+                 :aria-valuemax="progressoDoLoteAtual.total"
+                 :aria-label="`${progressoDoLoteAtual.texto} etiquetas gravadas neste lote`">
+              <i class="au-barra-cheia" :style="{ width: larguraDoProgresso }"></i>
+            </div>
+            <p class="au-bancada-conta">{{ progressoDoLoteAtual.texto }} gravadas neste lote</p>
+            <p v-if="proxima && modoDaBancada !== 'copiar'" class="au-bancada-endereco">
+              {{ enderecoDaTag(proxima.codigo) }}
+            </p>
+          </div>
+        </div>
+
+        <!-- ── A COLUNA DE ONDE SE ESTÁ ───────────────────────────────────
+             5. A FILA AO REDOR, discreta: a que acabou de sair e as próximas.
+             A da vez NÃO se distingue só pela cor — ela ganha fundo, borda e a
+             palavra "agora" escrita na linha. Com uma peça só a lista não
+             aparece: um bloco que mostra apenas a peça que já está em letra
+             garrafal logo acima vira paisagem. -->
+        <div v-if="filaAoRedor.length > 1" class="au-bancada-lado">
+          <ul class="au-bancada-fila">
+            <li v-for="pf in filaAoRedor" :key="pf.codigo"
+                :class="{ agora: pf.codigo === proxima?.codigo }">
+              <span>nº {{ pf.numero_na_serie }}</span>
+              <span class="au-ref">{{ pf.codigo }}</span>
+              <span>{{ pf.codigo === proxima?.codigo ? 'agora' : estadoDaPeca(pf).rotulo.toLowerCase() }}</span>
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- ── FORA DO MODO BANCADA: a tela de hoje, inteira ────────────────── -->
+      <template v-else>
       <!-- O PASSO A PASSO. Ele existe porque o dono abriu a tela pronta e disse
            "ficou muito mal explicado": ela dizia "Crie um lote", "Gravei essa" e
            mais nada. Aqui a etapa de agora fica aberta e as outras recolhidas —
@@ -324,6 +502,24 @@
           </select>
         </label>
 
+        <!-- ── A PORTA DE ENTRADA DO MODO BANCADA ──────────────────────────
+             ENTRAR TEM DE SER ÓBVIO, e por isso ela é a ÚNICA ação principal
+             desta parte da tela e mora logo abaixo do seletor de lote: escolher
+             o lote e ir gravar é um gesto só. A frase embaixo diz o que vai
+             acontecer — botão que muda a tela inteira sem avisar assusta.
+             Ela só aparece quando há o que gravar e quem pode gravar
+             (`podeEntrarNaBancada`): botão que não leva a lugar nenhum é pior
+             que botão que não existe. -->
+        <div v-if="podeAbrirBancada" class="au-entrada-bancada">
+          <button class="au-botao au-bancada-botao" type="button" @click="entrarNaBancada">
+            Entrar no modo bancada
+          </button>
+          <p class="au-aviso-menor">
+            A tela vira um painel só com a peça da vez, o estado e um botão — para gravar de pé,
+            na bancada. Tudo o mais desta aba continua aqui, a um toque em “Sair do modo bancada”.
+          </p>
+        </div>
+
         <!-- ── O FAROL DO LOTE ─────────────────────────────────────────────
              Ele fica FORA do bloco de gravação de propósito: quando a última
              peça é gravada aquele bloco inteiro some, e com ele sumiria o ✓ da
@@ -375,8 +571,20 @@
             NFC não funciona encostado em metal.
           </p>
 
-          <!-- MODO NFC: só existe onde o navegador grava (Chrome no Android) -->
-          <template v-if="gravaPorNfc">
+          <!-- OS DOIS MODOS QUE GRAVAM A ETIQUETA AQUI MESMO, AGORA: o leitor
+               de mesa (só dentro do programa da janela) e o celular encostado
+               (só no Chrome do Android).
+
+               ELES DIVIDEM O MESMO BLOCO, e diferem só nos botões. Uma cópia
+               deste trecho seria uma SEGUNDA pergunta de sobrescrever para
+               manter — e a que ficasse para trás gravaria por cima de uma
+               bolsa que já tem dono. -->
+          <template v-if="gravaAoVivo">
+            <p v-if="gravaPorMesa" class="au-instrucao">
+              Ponha a etiqueta em cima do leitor de mesa, no meio, e deixe parada.
+              O programa lê a etiqueta ANTES de gravar — se ela já tiver outra peça
+              dentro, ele para e pergunta — e lê de volta depois, para conferir.
+            </p>
             <div class="au-endereco">{{ enderecoDaTag(proxima.codigo) }}</div>
             <p v-if="recadoNfc" class="au-recado-nfc">{{ recadoNfc }}</p>
 
@@ -437,18 +645,35 @@
                  devolveria a MESMA pergunta, e a pessoa acharia que travou -->
             <div v-if="!sobrescrita" class="au-acoes">
               <button class="au-botao" type="button" :disabled="gravando || !podeEditar"
-                      @click="gravarNaEtiqueta">
-                {{ gravando ? 'Encoste a etiqueta…' : 'Gravar nesta etiqueta' }}
+                      @click="gravarAgora">
+                {{ gravando ? textoDeGravando : (gravaPorMesa ? 'Gravar no leitor de mesa' : 'Gravar nesta etiqueta') }}
+              </button>
+              <!-- os dois caminhos de gravar aqui mesmo só aparecem juntos numa
+                   máquina que tem os dois, o que é raro. Cada botão só existe
+                   quando o OUTRO caminho está de fato disponível: botão que não
+                   leva a lugar nenhum é pior que botão que não existe. -->
+              <button v-if="gravaPorMesa && temSuporte()" class="au-botao secundario" type="button"
+                      :disabled="gravando" @click="usarOCelular">
+                Gravar encostando o celular
+              </button>
+              <button v-if="!gravaPorMesa && temLeitorDeMesaAqui" class="au-botao secundario" type="button"
+                      :disabled="gravando" @click="usarOLeitorDeMesa">
+                Gravar pelo leitor de mesa
               </button>
               <!-- travado durante a gravação: o recado (inclusive o "PARE: esta
                    etiqueta já tem OUTRA peça") só existe dentro deste v-if, e
                    trocar de modo no meio o faria sumir -->
               <button class="au-botao secundario" type="button" :disabled="gravando"
-                      @click="gravaPorNfc = false">
+                      @click="usarOAplicativo">
                 Gravar pelo aplicativo
               </button>
             </div>
-            <label class="au-trava">
+            <!-- A TRAVA NÃO APARECE NO LEITOR DE MESA, de propósito: travar mexe
+                 na página 40 e no Capability Container, é irreversível, e o motor
+                 do leitor de mesa NÃO faz isso (é outro módulo, que não existe).
+                 Um interruptor que não trava nada seria uma promessa falsa numa
+                 ação que não tem volta. -->
+            <label v-if="!gravaPorMesa" class="au-trava">
               <input type="checkbox" v-model="travarDepois">
               <span>Travar a etiqueta depois de gravar — <strong>não tem volta</strong></span>
             </label>
@@ -467,8 +692,12 @@
               <!-- `marcarGravada()` com os parênteses: sem eles o @click passaria o
                    evento do clique no lugar do código da peça -->
               <button class="au-botao" type="button" v-if="podeEditar" @click="marcarGravada()">✓ Gravei essa</button>
-              <button v-if="temSuporte()" class="au-botao secundario" type="button" @click="gravaPorNfc = true">
+              <button v-if="temSuporte()" class="au-botao secundario" type="button" @click="usarOCelular">
                 Gravar encostando o celular
+              </button>
+              <button v-if="temLeitorDeMesaAqui" class="au-botao secundario" type="button"
+                      @click="usarOLeitorDeMesa">
+                Gravar pelo leitor de mesa
               </button>
             </div>
           </template>
@@ -615,6 +844,7 @@
             </ul>
           </details>
         </div>
+      </template>
       </template>
     </template>
 
@@ -1039,6 +1269,30 @@ import PainelDeBusca from './painel-de-busca.vue'
 import { produtosParaEscolher, procurarProduto } from './produtos-do-bling.js'
 import { paginasDoBling, avisoDoErro } from '../../compartilhado/chamada-do-bling.js'
 import { temSuporte, traduzirFalha, criarGravador } from './gravador-nfc.js'
+// O LEITOR DE MESA. `porta-do-gravador-de-mesa.js` é o irmão de `gravador-nfc.js`
+// — a única que fala com `window.gravadorDeMesa`, que só existe dentro do
+// programa da janela (gravador/janela/). Fora dele, `temLeitorDeMesa()` é falso e
+// nada disto aparece na tela.
+import {
+  temLeitorDeMesa,
+  criarGravadorDeMesa,
+  traduzirFalha as traduzirFalhaDoLeitorDeMesa,
+} from './gravador-de-mesa/porta-do-gravador-de-mesa.js'
+// A SEQUÊNCIA — ler antes, planejar em cima do que leu, escrever, ler de volta e
+// conferir, e só então marcar. Mora fora do `.vue` porque `node --test` não
+// compila `.vue`, e o que precisa de prova aqui é justamente o que não se vê
+// olhando a tela: a etiqueta que sai no meio, a que responde bem e não guarda
+// nada, a leitura que falhou.
+import { gravarPeloLeitorDeMesa, escreverEConferir } from './gravador-de-mesa/gravar-pelo-leitor-de-mesa.js'
+// O MODO BANCADA. Só conta pura: qual estado sai de qual fase, qual frase sai de
+// cada estado, qual é a única ação, quando o modo pode ser ligado e quando ele
+// TEM de se desligar sozinho. Fica fora do `.vue` pelo mesmo motivo da
+// sequência: `node --test` não compila `.vue`.
+import {
+  estadoDaBancada, acaoDaBancada, nomeDoModo,
+  podeEntrarNaBancada, precisaSairDaBancada,
+  bancadaLembrada, lembrarBancada,
+} from './modo-bancada.js'
 
 // A BARRA DE ABAS É UMA SEQUÊNCIA, e não um armário: os três primeiros são
 // PASSOS numerados, na ordem em que se faz — cria o lote, grava as etiquetas,
@@ -1080,6 +1334,31 @@ const textoCopiar = ref('Copiar endereço')
 // Chrome no Android grava NFC pelo navegador; iPhone e computador não. Quem
 // não grava cai no modo de hoje, que continua inteiro logo abaixo.
 const gravaPorNfc = ref(temSuporte())
+
+// O LEITOR DE MESA só existe dentro do programa da janela, que abre ESTA MESMA
+// tela e empresta o ACR122U para ela. Constante, e não `ref`: ou a janela abriu
+// com o programa do outro lado, ou não abriu — isso não muda no meio do turno.
+const temLeitorDeMesaAqui = temLeitorDeMesa()
+// E ONDE ELE EXISTE, ELE É O PREFERIDO. É o caminho automático da bancada: lê a
+// etiqueta antes, monta o plano em cima do que leu, escreve, lê de volta,
+// confere e marca — sem ninguém encostar celular em nada, cinquenta vezes.
+const gravaPorMesa = ref(temLeitorDeMesaAqui)
+// Os DOIS modos que gravam a etiqueta aqui mesmo, agora. O terceiro — o do
+// aplicativo — é de quem não tem nem um nem outro (iPhone, computador sem o
+// programa) e continua inteiro.
+const gravaAoVivo = computed(() => gravaPorMesa.value || gravaPorNfc.value)
+const textoDeGravando = computed(() => (gravaPorMesa.value
+  ? 'Segure a etiqueta no leitor…'
+  : 'Encoste a etiqueta…'))
+
+// TROCAR DE MODO É UM LUGAR SÓ. Mexer nos dois interruptores à mão em cada
+// botão é como nasce o estado impossível — os dois ligados, ou nenhum, com a
+// tela mostrando o bloco errado. E o recado do modo anterior sai junto: ele fala
+// de uma etiqueta que não está mais na história.
+function usarOLeitorDeMesa() { gravaPorMesa.value = true; gravaPorNfc.value = false; recadoNfc.value = '' }
+function usarOCelular() { gravaPorMesa.value = false; gravaPorNfc.value = true; recadoNfc.value = '' }
+function usarOAplicativo() { gravaPorMesa.value = false; gravaPorNfc.value = false }
+
 const travarDepois = ref(false)            // ⚠️ PERMANENTE — nasce desligado
 
 // ── O TUTORIAL ────────────────────────────────────────────────────────────
@@ -1109,6 +1388,82 @@ function voltarGuia() {
 const gravando = ref(false)
 const recadoNfc = ref('')
 
+// ── O MODO BANCADA ────────────────────────────────────────────────────────
+// A aba Gravar vira um painel de máquina: a peça da vez em letra garrafal, o
+// estado com cor de estado, o progresso, e UM botão. Por quê, e o que sai da
+// frente: está escrito por extenso no template, junto do bloco.
+//
+// A ESCOLHA FICA LEMBRADA no aparelho (`modo-bancada.js`): quem grava cinquenta
+// etiquetas por dia abre esta tela várias vezes ao dia, e repetir o mesmo clique
+// toda vez é o atrito que faz a pessoa desistir da ferramenta. A porta de saída
+// está sempre à vista, então lembrar não prende ninguém.
+const modoBancada = ref(bancadaLembrada())
+
+// A FASE É DA TELA, e não da etiqueta. A sequência do leitor de mesa tem NOVE
+// estados de etiqueta; aqui são as cinco coisas que a pessoa de pé precisa
+// distinguir a um metro: parado → esperando → gravando → ok/erro.
+//
+// ⚠️ ELA NÃO SAI DE `sinalDaGravacao`, e a diferença é o que a tela promete. O
+// sinal some sozinho em 2,6 segundos porque é desenho de canto de olho; a fase é
+// a FRASE GRANDE do painel, e frase de erro que some em dois segundos é a tela
+// escondendo justamente o que a pessoa precisa ler com a bolsa na mão.
+const faseDaBancada = ref('parado')
+
+// Qual dos três jeitos está em uso. Sai dos MESMOS interruptores do resto da
+// aba — reescrever a regra aqui seria a segunda cópia que diverge.
+const modoDaBancada = computed(() => {
+  if (gravaPorMesa.value) return 'mesa'
+  return gravaPorNfc.value ? 'celular' : 'copiar'
+})
+
+// SEM PEÇA POR GRAVAR A FASE É 'fim', E O MODO NÃO SE DESLIGA. Pelo mesmo motivo
+// que o farol do lote mora fora do bloco de gravação: ao gravar a última peça,
+// `proxima` vira nulo, e um modo que sumisse nesse instante levaria junto o ✓ da
+// etiqueta que a pessoa acabou de encostar.
+const faseAtualDaBancada = computed(() => (proxima.value ? faseDaBancada.value : 'fim'))
+
+const estadoDaBancadaAgora = computed(() => estadoDaBancada({
+  fase: faseAtualDaBancada.value, modo: modoDaBancada.value, recado: recadoNfc.value,
+}))
+const acaoDaBancadaAgora = computed(() => acaoDaBancada({
+  fase: faseAtualDaBancada.value, modo: modoDaBancada.value,
+}))
+
+// O painel só existe na aba Gravar e com um lote na mão: sem lote não há peça da
+// vez, e um painel de máquina sem peça não é painel de nada.
+const naBancada = computed(
+  () => modoBancada.value && aba.value === 'gravar' && Boolean(loteEscolhido.value))
+const podeAbrirBancada = computed(() => !modoBancada.value && podeEntrarNaBancada({
+  podeEditar: podeEditar.value,
+  temLote: Boolean(loteEscolhido.value),
+  temPecaPorGravar: Boolean(proxima.value),
+}))
+
+function entrarNaBancada() {
+  // A fase recomeça do zero: entrar carregando o "Deu erro" de meia hora atrás
+  // seria a tela contando uma coisa que já não é verdade.
+  faseDaBancada.value = 'parado'
+  recadoNfc.value = ''
+  modoBancada.value = true
+  lembrarBancada(true)
+}
+
+function sairDaBancada() {
+  modoBancada.value = false
+  lembrarBancada(false)
+}
+
+// A ÚNICA AÇÃO PRINCIPAL, E QUEM DECIDE QUAL É ELA É A CONTA PURA. O template
+// não carrega regra dentro: ele desenha o rótulo que veio e chama isto.
+function tocarNaBancada() {
+  const { chave } = acaoDaBancadaAgora.value
+  if (chave === 'sair') { sairDaBancada(); return }
+  // `marcarGravada()` sem argumento é o caminho do modo do aplicativo, o mesmo
+  // do "✓ Gravei essa": ali não há gravação em voo para trocar a peça por baixo.
+  if (chave === 'marcar') { marcarGravada(); return }
+  gravarAgora()
+}
+
 // ── O SINAL DE VIDA DA GRAVAÇÃO ───────────────────────────────────────────
 // Quem grava está de pé na bancada, com a bolsa numa mão e o celular na outra,
 // e precisa entender pelo canto do olho: pulsa enquanto espera a etiqueta, ✓
@@ -1126,6 +1481,16 @@ let relogioDoSinal = null
 
 function avisarNaTela(sinal) {
   sinalDaGravacao.value = sinal
+  // ⚠️ A FASE DA BANCADA NASCE AQUI, e neste lugar só. Este é o único ponto da
+  // tela que sabe se a gravação terminou bem ou mal — os nove estados da
+  // sequência já foram traduzidos para ✓ ou ✗ antes de chegar. Escrever a fase
+  // em cada caminho de gravação seria a segunda cópia da mesma decisão, e a que
+  // ficasse para trás deixaria o painel dizendo "Gravando…" com a etiqueta já
+  // fora do leitor.
+  //
+  // O SINAL SOME EM 2,6s, A FASE NÃO. É de propósito: o desenho é canto de olho,
+  // a frase é o que se lê com a bolsa na mão.
+  if (sinal === 'ok' || sinal === 'falha') faseDaBancada.value = sinal === 'ok' ? 'ok' : 'erro'
   clearTimeout(relogioDoSinal)
   // O SINAL SOME SOZINHO. ✓ que fica na tela vira paisagem e, pior, passa a ser
   // lido como se fosse da PRÓXIMA etiqueta — e aí ele mente. O recado grande
@@ -1512,6 +1877,9 @@ watch(loteEscolhido, () => {
   // o ✓ (ou o ✗) do lote anterior sob um lote novo é sinal do lote errado, que
   // é pior que sinal nenhum — mesmo motivo do recado logo acima
   sinalDaGravacao.value = ''
+  // a frase grande do painel de bancada fala da etiqueta de UM lote; sob um lote
+  // novo ela é o estado do lote errado, que é pior que estado nenhum
+  faseDaBancada.value = 'parado'
   confirmacaoDoGravador.value = null
   // a pergunta de sobrescrever fala de DUAS peças pelo nome; sob um lote novo
   // ela é pergunta do lote errado, que é pior que pergunta nenhuma
@@ -1953,6 +2321,76 @@ async function marcarGravada(codigo = proxima.value?.codigo) {
   }
 }
 
+// O BOTÃO É UM SÓ E OS CAMINHOS SÃO DOIS. Quem escolhe é o modo em uso — e a
+// escolha mora aqui, num lugar só, para o template não ficar com regra dentro.
+function gravarAgora() {
+  return gravaPorMesa.value ? gravarNoLeitorDeMesa() : gravarNaEtiqueta()
+}
+
+// ── GRAVAR PELO LEITOR DE MESA ────────────────────────────────────────────
+// A REGRA INTEIRA MORA EM `gravar-pelo-leitor-de-mesa.js`, que se prova com
+// `node --test`: ler antes, montar o plano A PARTIR DO QUE LEU, escrever, ler de
+// volta, conferir, e só então marcar. Aqui só se liga a porta, a peça e a tela.
+//
+// ⚠️ MONTAR O PLANO SEM LER É O ESTRAGO MEDIDO NA BANCADA em 01/09/2026: bytes
+// montados supondo etiqueta de fábrica, gravados numa etiqueta reaproveitada —
+// o leitor respondeu `90 00` doze vezes e a etiqueta ficou com uma mensagem
+// quebrada, ilegível para o celular da cliente.
+async function gravarNoLeitorDeMesa() {
+  const peca = proxima.value
+  if (!peca || gravando.value) return
+  const porta = criarGravadorDeMesa()
+  // sem o programa do outro lado não há leitor: cai para o modo do aplicativo em
+  // vez de deixar um botão que não faz nada
+  if (!porta) { gravaPorMesa.value = false; return }
+
+  gravando.value = true
+  recadoNfc.value = ''
+  // a etiqueta ainda não encostou: é o que o painel de bancada diz em letra
+  // grande até a sequência avisar que começou a escrever
+  faseDaBancada.value = 'esperando'
+  try {
+    const r = await gravarPeloLeitorDeMesa({
+      porta,
+      peca,
+      endereco: enderecoDaTag(peca.codigo),
+      // MARCAR É O MESMO CAMINHO DO CELULAR. `marcarGravada` fala com o banco e
+      // só devolve verdadeiro quando o BANCO confirmou — e o `auth.uid()` sai da
+      // sessão de quem entrou NESTA janela. É por isso que o programa não guarda
+      // senha nem chave: quem gravou cada peça fica registrado pela conta dela.
+      //
+      // `peca.codigo` explícito, e não `marcarGravada()`: sem o argumento ela
+      // relê `proxima.value`, que pode ter virado outra peça no meio.
+      marcar: () => marcarGravada(peca.codigo),
+      // A FASE VEM PELO SEGUNDO ARGUMENTO, e não de ler a frase. Adivinhar o
+      // estado pelo texto faria alguém melhorar uma palavra lá dentro e o painel
+      // parar de mudar de estado, em silêncio.
+      aoContar: (frase, fase) => { recadoNfc.value = frase; if (fase) faseDaBancada.value = fase },
+    })
+
+    // A ETIQUETA JÁ TEM OUTRA PEÇA: a decisão é de quem está com a bolsa na mão.
+    // A pergunta é a MESMA do caminho do celular, com o nome da bolsa que vai
+    // perder a identidade.
+    if (r.estado === 'outra-peca') {
+      abrirPerguntaDeSobrescrita(peca, r.codigoAntigo)
+      avisarNaTela('falha')
+      return
+    }
+
+    recadoNfc.value = r.frase
+    // `marcarGravada` já acende o sinal nos estados que passaram pelo banco.
+    // Acender de novo aqui daria DOIS sinais para a mesma gravação; não acender
+    // nos outros deixaria a recusa sem sinal nenhum.
+    const passouPeloBanco = ['gravada', 'ja-era-dela', 'gravada-sem-marcar'].includes(r.estado)
+    if (!passouPeloBanco) avisarNaTela('falha')
+  } catch (erro) {
+    recadoNfc.value = traduzirFalhaDoLeitorDeMesa(erro)
+    avisarNaTela('falha')
+  } finally {
+    gravando.value = false
+  }
+}
+
 // A REGRA INTEIRA ESTÁ AQUI: lê antes, grava, lê depois, e só então marca.
 // Marcar porque o `write` não deu erro é marcar no escuro — e no escuro a peça
 // entra como pronta com a etiqueta em branco costurada dentro da bolsa.
@@ -1964,6 +2402,7 @@ async function gravarNaEtiqueta() {
 
   gravando.value = true
   recadoNfc.value = 'Encoste a etiqueta no celular e segure parado…'
+  faseDaBancada.value = 'esperando'
   try {
     // 1. LER ANTES: etiqueta com outra peça não pode ser sobrescrita
     const antes = await gravador.lerUmaVez()
@@ -1977,23 +2416,11 @@ async function gravarNaEtiqueta() {
       // A DECISÃO NÃO CABE AQUI DENTRO. Ela vira uma pergunta na tela, com o
       // NOME DA BOLSA que vai perder a identidade, e a gravação física só
       // acontece em `sobrescreverEtiqueta`, depois de o banco confirmar.
-      const codigoAntigo = codigoDoEndereco(antes)
-      const antiga = pecas.value.find((pa) => pa.codigo === codigoAntigo) || null
-      sobrescrita.value = {
-        codigoAntigo,
-        codigoNovo: peca.codigo,
-        // a peça antiga pode não estar nesta tela (lote excluído, banco de
-        // outro ambiente): `descricaoDaPeca` diz isso em vez de inventar modelo
-        descricaoAntiga: descricaoDaPeca(antiga || { codigo: codigoAntigo },
-          antiga ? loteDaPeca(antiga.lote_id) : null),
-        descricaoNova: descricaoDaPeca(peca, loteAtual.value),
-        temGarantia: temGarantia(codigoAntigo),
-      }
-      destinoDaAntiga.value = 'fila'
-      motivoDaSobrescrita.value = ''
-      erroDaSobrescrita.value = ''
-      recadoNfc.value = 'PARE: esta etiqueta já tem OUTRA peça gravada. '
-        + 'Escolha abaixo o que fazer com ela antes de gravar por cima.'
+      // A PERGUNTA É MONTADA EM UM LUGAR SÓ (`abrirPerguntaDeSobrescrita`),
+      // porque os DOIS caminhos que gravam ao vivo — o celular e o leitor de
+      // mesa — chegam aqui. Duas cópias divergiriam, e a que ficasse para trás
+      // perguntaria sobre a bolsa errada antes de apagar a identidade dela.
+      abrirPerguntaDeSobrescrita(peca, codigoDoEndereco(antes))
       // este caminho não passa por `marcarGravada`, então acende o sinal aqui
       avisarNaTela('falha')
       return
@@ -2008,6 +2435,7 @@ async function gravarNaEtiqueta() {
 
     // 2. GRAVAR
     recadoNfc.value = 'Gravando… não tire o celular.'
+    faseDaBancada.value = 'gravando'
     await gravador.gravar(enderecoDaTag(peca.codigo))
 
     // 3. LER DEPOIS: a prova de que gravou é a etiqueta devolver
@@ -2053,6 +2481,40 @@ const motivoDaSobrescritaObrigatorio = computed(() => motivoObrigatorio({
   temGarantia: sobrescrita.value?.temGarantia, destino: destinoDaAntiga.value,
 }))
 
+// ABRIR A PERGUNTA DE SOBRESCREVER — a MESMA para os dois caminhos que gravam
+// ao vivo. Ela guarda o que foi CONTADO no momento da leitura: os dois códigos,
+// a descrição de cada bolsa e se a antiga tem garantia.
+//
+// A pergunta diz QUAL BOLSA vai perder a identidade — modelo, cor e número na
+// série, não só o código: "K7M4X9QP2R" não é bolsa nenhuma.
+function abrirPerguntaDeSobrescrita(peca, codigoAntigo) {
+  const antiga = pecas.value.find((pa) => pa.codigo === codigoAntigo) || null
+  sobrescrita.value = {
+    codigoAntigo,
+    codigoNovo: peca.codigo,
+    // a peça antiga pode não estar nesta tela (lote excluído, banco de outro
+    // ambiente): `descricaoDaPeca` diz isso em vez de inventar modelo
+    descricaoAntiga: descricaoDaPeca(antiga || { codigo: codigoAntigo },
+      antiga ? loteDaPeca(antiga.lote_id) : null),
+    descricaoNova: descricaoDaPeca(peca, loteAtual.value),
+    temGarantia: temGarantia(codigoAntigo),
+  }
+  destinoDaAntiga.value = 'fila'
+  motivoDaSobrescrita.value = ''
+  erroDaSobrescrita.value = ''
+  recadoNfc.value = 'PARE: esta etiqueta já tem OUTRA peça gravada. '
+    + 'Escolha abaixo o que fazer com ela antes de gravar por cima.'
+  // ⚠️ O MODO BANCADA SAI DE CENA AQUI. Esta é a pergunta mais perigosa da
+  // ferramenta — dois seletores, o aviso de garantia de cliente e um motivo
+  // obrigatório — e ela apaga a identidade de uma bolsa. Copiá-la para dentro do
+  // painel de bancada criaria uma SEGUNDA pergunta de sobrescrever para manter,
+  // e a que ficasse para trás gravaria por cima de uma bolsa que já tem dono.
+  // Então a tela volta para onde a pergunta já mora, com todo o contexto dela.
+  // A lembrança do modo NÃO é apagada: quem escolheu a bancada não pediu para
+  // sair — ela só saiu do caminho de uma decisão que precisa de tela inteira.
+  if (precisaSairDaBancada({ sobrescrita: sobrescrita.value })) modoBancada.value = false
+}
+
 function desistirDaSobrescrita() {
   sobrescrita.value = null
   motivoDaSobrescrita.value = ''
@@ -2089,8 +2551,11 @@ async function sobrescreverEtiqueta() {
     return
   }
 
-  const gravador = criarGravador()
-  if (!gravador) { gravaPorNfc.value = false; return }
+  // NO MODO DO LEITOR DE MESA quem escreve é o programa da janela, e o navegador
+  // não precisa saber gravar NFC. Sem esta condição a sobrescrita no computador
+  // desistia AQUI, calada, com a pergunta ainda na tela e a pessoa esperando.
+  const gravador = gravaPorMesa.value ? null : criarGravador()
+  if (!gravaPorMesa.value && !gravador) { gravaPorNfc.value = false; return }
 
   gravando.value = true
   // A recarga no fim só acontece se o BANCO tiver mudado. Recarregando sempre,
@@ -2124,17 +2589,41 @@ async function sobrescreverEtiqueta() {
     oBancoMudou = true
     const eraDeCliente = data.tinha_garantia
     sobrescrita.value = null
-    recadoNfc.value = 'Registrado. Encoste a MESMA etiqueta de novo e segure parado…'
-    await gravador.gravar(enderecoDaTag(pedido.codigoNovo))
+    if (gravaPorMesa.value) {
+      // O CAMINHO DO LEITOR DE MESA. `escreverEConferir` lê a etiqueta antes de
+      // montar o plano — de novo, e é preciso: entre o clique e agora a pessoa
+      // pôs a etiqueta no leitor, e pode ser OUTRA. Ele já lê de volta e confere.
+      recadoNfc.value = 'Registrado. Ponha a MESMA etiqueta no leitor e segure parada…'
+      const porta = criarGravadorDeMesa()
+      let escrita = { ok: false, frase: 'O programa do gravador de mesa saiu do ar.' }
+      if (porta) {
+        try {
+          await porta.conectar()
+          escrita = await escreverEConferir({ porta, endereco: enderecoDaTag(pedido.codigoNovo) })
+        } catch (erro) {
+          escrita = { ok: false, frase: traduzirFalhaDoLeitorDeMesa(erro) }
+        } finally {
+          await porta.desconectar()
+        }
+      }
+      if (!escrita.ok) {
+        recadoNfc.value = `${escrita.frase} ${avisoDeMeiaSobrescrita(pedido)}`
+        avisarNaTela('falha')
+        return
+      }
+    } else {
+      recadoNfc.value = 'Registrado. Encoste a MESMA etiqueta de novo e segure parado…'
+      await gravador.gravar(enderecoDaTag(pedido.codigoNovo))
 
-    // 3. LER DEPOIS: a prova de que gravou é a etiqueta devolver
-    const depois = await gravador.lerUmaVez()
-    if (conferirLeitura(depois, pedido.codigoNovo) !== 'confere') {
-      recadoNfc.value = avisoDeMeiaSobrescrita(pedido)
-      avisarNaTela('falha')
-      return
+      // 3. LER DEPOIS: a prova de que gravou é a etiqueta devolver
+      const depois = await gravador.lerUmaVez()
+      if (conferirLeitura(depois, pedido.codigoNovo) !== 'confere') {
+        recadoNfc.value = avisoDeMeiaSobrescrita(pedido)
+        avisarNaTela('falha')
+        return
+      }
+      if (travarDepois.value) await gravador.travar()
     }
-    if (travarDepois.value) await gravador.travar()
 
     recadoNfc.value = `Etiqueta sobrescrita. Agora ela é ${pedido.descricaoNova}.`
       + (destino === 'baixa'
@@ -2759,6 +3248,168 @@ onMounted(() => {
 .au-tabela-cab{display:none}
 
 /* ══════════════════════════════════════════════════════════════════════════
+   O MODO BANCADA — O PAINEL DE MÁQUINA
+   ══════════════════════════════════════════════════════════════════════════
+   O dono usou a aba Gravar de pé e disse que estava "confuso, texto maiores que
+   outros, espaços vazios, não centralizados". As três queixas viraram três
+   regras, e elas estão escritas em CSS aqui embaixo:
+
+   1. TRÊS TAMANHOS DE TEXTO, E TRÊS SÓ. Eles moram nas três variáveis abaixo, e
+      NENHUMA regra deste bloco escreve `font-size` de outro jeito — é por isso
+      que dá para contar os tamanhos lendo o CSS, e é isso que o teste conta.
+      Os três degraus já existiam na casa, e nenhum foi inventado:
+        · 44px é o número grande de `.mc-val` (estilos-globais.css), o mesmo dos
+          painéis de KPI — o maior número que a Central desenha. No celular ele
+          cai para 32px, que é o degrau que o próprio `.mc-val` usa lá;
+        · 24px é o `.logo-area h1` do cabeçalho da Central;
+        · 13px é o corpo de texto desta tela inteira.
+      O `max(…)` com `--escala-texto` é o mesmo de todo o resto: quem aumenta a
+      letra do sistema continua mandando aqui.
+
+   2. NADA DE ESPAÇO MORTO. O painel é UMA coluna, com um recuo só, e cada bloco
+      encostado no de cima pelo `gap` da escala. Não há grade de duas colunas
+      aqui de propósito: a metade vazia da direita era metade da queixa.
+
+   3. ALINHAMENTO. Tudo começa na MESMA linha vertical — o número, o estado, a
+      barra, o botão e a fila. Nada centralizado, nada recuado a mais.
+
+   A COR DE ESTADO SAI DE TOKEN (PADRAO item 2), por uma variável só
+   (`--bancada-cor`) que a classe do `tom` troca. A cor é o SINAL; o texto é a
+   informação, e por isso ele fica sempre em `--text`. */
+.au-bancada{
+  /* OS TRÊS TAMANHOS. Se um quarto aparecer aqui, o desenho voltou a ser o que o
+     dono reprovou — e há teste que reprova junto. */
+  --bancada-peca:   max(16px, calc(44px * var(--escala-texto, 1)));
+  --bancada-estado: max(16px, calc(24px * var(--escala-texto, 1)));
+  --bancada-resto:  max(9px,  calc(13px * var(--escala-texto, 1)));
+  --bancada-cor: var(--border);
+  display:flex; flex-direction:column; gap:var(--sp-4);
+  padding:var(--sp-4) 24px var(--sp-8);
+  font-family:var(--fonte-principal); color:var(--text);
+}
+/* O TOM DO ESTADO. Cada um é um token, nenhum é um hex — e nenhum deles é a
+   única forma de saber o que aconteceu: o título ao lado diz por escrito. */
+.au-bancada-neutro{--bancada-cor:var(--border)}
+.au-bancada-agindo{--bancada-cor:var(--accent)}
+.au-bancada-ok{--bancada-cor:var(--green)}
+.au-bancada-erro{--bancada-cor:var(--red)}
+.au-bancada > *{margin:0}
+/* AS DUAS COLUNAS. No celular são duas pilhas, uma embaixo da outra, na ordem em
+   que se lê; no computador (`@media (min-width:900px)`) elas ficam lado a lado.
+   `min-width:0` porque filho de grade nasce com largura mínima do conteúdo, e
+   sem isto o endereço em fonte de dados empurraria a coluna e a página ganharia
+   rolagem para os lados. */
+.au-bancada-obra, .au-bancada-lado{
+  display:flex; flex-direction:column; gap:var(--sp-4); min-width:0;
+}
+.au-bancada-obra > *, .au-bancada-lado > *{margin:0}
+
+/* ── 0. A FAIXA DE CIMA: onde se está e por onde se sai ──────────────────── */
+.au-bancada-topo{
+  display:flex; align-items:center; justify-content:space-between;
+  gap:var(--sp-3); flex-wrap:wrap;
+  padding-bottom:var(--sp-3); border-bottom:1px solid var(--border);
+}
+.au-bancada-onde{
+  font-size:var(--bancada-resto); line-height:1.45;
+  color:var(--muted); overflow-wrap:anywhere;
+}
+.au-bancada-onde strong{color:var(--text); font-weight:700}
+.au-bancada-saidas{display:flex; gap:var(--sp-2); flex-wrap:wrap}
+/* AS DUAS SAÍDAS SÃO SECUNDÁRIAS, e é o desenho que diz isso: borda e fundo
+   transparente, nunca cinza (PADRAO item 3), no tamanho do "resto". Elas não
+   competem com o botão de gravar. 40px de alvo porque dedo não acerta menos que
+   isso, e `--accent-forte` porque `--accent` puro sobre superfície reprova por
+   pouco no tema escuro — e "por pouco" continua sendo reprovado. */
+.au-bancada-menor{
+  display:inline-flex; align-items:center; min-height:40px; box-sizing:border-box;
+  padding:0 var(--sp-3);
+  font-family:var(--fonte-principal); font-size:var(--bancada-resto); font-weight:600;
+  color:var(--accent-forte); background:transparent;
+  border:1px solid var(--border); border-radius:var(--radius-md); cursor:pointer;
+}
+
+/* ── 1. QUAL PEÇA É AGORA — o maior elemento da tela ─────────────────────── */
+.au-bancada-peca{
+  font-family:var(--fonte-dados); font-size:var(--bancada-peca);
+  font-weight:600; line-height:1.05; letter-spacing:-.01em;
+  color:var(--text); font-variant-numeric:tabular-nums; overflow-wrap:anywhere;
+}
+
+/* ── 2. O ESTADO — o que a pessoa olha o tempo todo ──────────────────────── */
+.au-bancada-estado{
+  padding:var(--sp-4); border-radius:var(--radius-lg);
+  background:color-mix(in srgb, var(--bancada-cor) 10%, var(--surface));
+  border:1px solid color-mix(in srgb, var(--bancada-cor) 38%, var(--surface));
+  /* A faixa grossa à esquerda é a cor lida de longe, sem depender de ler nada.
+     Ela SOMA ao texto, nunca o substitui. */
+  box-shadow:inset 4px 0 0 var(--bancada-cor);
+}
+.au-bancada-titulo{
+  font-size:var(--bancada-estado); font-weight:700; line-height:1.2;
+  color:var(--text); overflow-wrap:anywhere;
+}
+/* O DETALHE É O QUE FAZER. Ele fica no tamanho do "resto", mas em `--text` e não
+   em `--muted`: numa bancada, "separe esta etiqueta" não é texto secundário. */
+.au-bancada-detalhe{
+  margin-top:var(--sp-2); font-size:var(--bancada-resto); line-height:1.5;
+  color:var(--text); overflow-wrap:anywhere;
+}
+
+/* ── 3. O PROGRESSO ─────────────────────────────────────────────────────── */
+.au-bancada-progresso{display:flex; flex-direction:column; gap:var(--sp-2)}
+.au-bancada-conta{
+  font-size:var(--bancada-resto); color:var(--muted); overflow-wrap:anywhere;
+}
+
+/* ── 4. A ÚNICA AÇÃO PRINCIPAL ──────────────────────────────────────────── */
+.au-bancada-acao{display:flex}
+/* O BOTÃO OCUPA A LARGURA DA COLUNA. Ele é o único botão principal do painel, e
+   um alvo largo é o que o dedo acerta com a bolsa na outra mão. O tamanho da
+   letra é o do "resto" — o que precisa ser grande é o alvo, não o rótulo, e um
+   quarto tamanho de texto aqui é justamente o que o dono reprovou. */
+.au-bancada-botao{
+  flex:1; min-height:64px; font-size:var(--bancada-resto);
+}
+
+/* ── O ENDEREÇO ─────────────────────────────────────────────────────────
+   NOS MODOS AUTOMÁTICOS ELE É CONFERÊNCIA, NÃO LEITURA: quem lê é a máquina. Era
+   o MAIOR elemento desta tela, em fonte de dados e caixa própria — e é metade da
+   queixa do dono. Aqui ele é uma linha discreta, no tamanho do "resto".
+   NO MODO DE COPIAR o `.au-endereco` de sempre volta, porque ali a pessoa
+   realmente copia — e ele fica no degrau do ESTADO, não num quarto tamanho. */
+.au-bancada-endereco{
+  font-family:var(--fonte-dados); font-size:var(--bancada-resto);
+  line-height:1.5; color:var(--muted); word-break:break-all; user-select:all;
+}
+.au-bancada .au-endereco{font-size:var(--bancada-estado); margin-top:0}
+
+/* ── 5. A FILA AO REDOR, discreta ────────────────────────────────────────
+   Ela é só para saber onde se está. A da vez NÃO se distingue só pela cor: ganha
+   fundo, borda e a palavra "agora" escrita na linha. */
+.au-bancada-fila{list-style:none; margin:0; padding:0; display:flex;
+  flex-direction:column; gap:var(--sp-1)}
+.au-bancada-fila li{
+  display:flex; align-items:center; gap:var(--sp-3); flex-wrap:wrap;
+  padding:var(--sp-2) var(--sp-3); border:1px solid transparent;
+  border-radius:var(--radius-md);
+  font-size:var(--bancada-resto); color:var(--muted); overflow-wrap:anywhere;
+}
+.au-bancada-fila li.agora{
+  background:var(--surface2); color:var(--text); font-weight:700;
+  border-color:color-mix(in srgb, var(--accent) 38%, var(--surface));
+}
+
+/* ── A PORTA DE ENTRADA, do lado de fora do modo ─────────────────────────
+   Ela é a única ação principal daquela parte da tela, e mora logo abaixo do
+   seletor de lote: escolher o lote e ir gravar é um gesto só. */
+.au-entrada-bancada{padding:var(--sp-4) 24px 0; max-width:620px}
+.au-entrada-bancada .au-bancada-botao{
+  min-height:56px; width:100%;
+  font-size:max(9px, calc(13px * var(--escala-texto, 1)));
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
    A TELA GRANDE — TUDO O QUE VEM DAQUI ATÉ O `@media` DO CELULAR
    ══════════════════════════════════════════════════════════════════════════
    POR QUE ESTE BLOCO EXISTE. Até 01/09 esta tela não tinha UMA regra
@@ -3030,6 +3681,60 @@ onMounted(() => {
   }
   .au-guia-itens dt{margin-top:0;}
   .au-guia-itens dd{margin:0;}
+
+  /* ── 10. O MODO BANCADA NO COMPUTADOR: DUAS COLUNAS ────────────────────
+     O painel é a tela mais importante da ferramenta e a única usada DE PÉ.
+     Numa coluna só, num monitor de 1440px, ele seria uma faixa à esquerda com
+     metade da tela vazia — a queixa de "espaços vazios" que trouxe esta tarefa.
+     À esquerda, larga, O QUE SE FAZ (a peça, o estado, o progresso, o botão);
+     à direita, estreita, ONDE SE ESTÁ (a fila).
+
+     A coluna da esquerda tem TETO: um estado escrito em 1000px de largura o olho
+     não acompanha na volta da linha — é a mesma razão pela qual `.au-instrucao`
+     e `.au-ajuda` não viraram full-bleed neste arquivo. O teto é do TEXTO, não
+     do painel: a moldura continua indo de ponta a ponta.
+
+     A fila fica GRUDADA no alto (`align-items:start` na grade): esticada, as
+     seis linhas dela se espalhariam pela altura do painel e virariam outro
+     espaço morto. */
+  /* ⚠️ AS TRÊS COLUNAS EXISTEM PARA CENTRALIZAR DE VERDADE. A primeira e a
+     terceira são `1fr` iguais, então o bloco do meio cai no CENTRO da tela — não
+     "na coluna da esquerda". A fila mora dentro da terceira, encostada no começo
+     dela: ela é trilho lateral, não conteúdo.
+
+     ⚠️ E O BLOCO É UM SÓ, CENTRADO NA VERTICAL. As três formas anteriores foram
+     medidas a 1440x900 e todas repetiam a queixa do dono:
+       · painel grudado no alto: 477px de conteúdo e ~420px de vazio embaixo;
+       · caixa do estado esticada: um retângulo de 580px com duas linhas no meio
+         — espaço morto COM moldura em volta, que é pior;
+       · número/estado no alto e botão no pé: um vão de ~450px NO MEIO, separando
+         o que está acontecendo do que se aperta. O olho fazia mil pixels.
+     Agora a leitura acontece num lugar só: número → estado → botão → progresso,
+     tudo colado, no centro óptico. O que sobra vira MARGEM em volta do bloco —
+     respiro, e não buraco dentro do desenho. */
+  .au-bancada{
+    display:grid;
+    /* 720px NÃO É UM NÚMERO REDONDO ESCOLHIDO NO OLHO: é a medida do endereço.
+       Medido no navegador a 1440px — o endereço de um código de 10 caracteres
+       precisa de 648px em `--fonte-dados` a 24px, e com os 48px de recuo da
+       caixa dá 696. Com 660 ele quebrava a URL no meio ("…B4F8S1T / R"), e no
+       modo de copiar é justamente o endereço que a pessoa lê e copia. */
+    grid-template-columns:minmax(0,1fr) minmax(0,720px) minmax(0,1fr);
+    grid-template-rows:auto minmax(0,1fr);
+    column-gap:var(--sp-6); row-gap:var(--sp-5);
+  }
+  .tela-autenticidade:has(.au-bancada){display:flex; flex-direction:column;}
+  .tela-autenticidade:has(.au-bancada) > .au-bancada{flex:1;}
+  .au-bancada-topo{grid-column:1 / -1; grid-row:1; align-self:start;}
+  /* O BLOCO INTEIRO NO CENTRO ÓPTICO. `align-self:center` é o que junta o que
+     estava espalhado; o `gap` menor é o que o mantém junto: estado e ação
+     vizinhos, sem viagem vertical entre eles. */
+  .au-bancada-obra{grid-column:2; grid-row:2; align-self:center; gap:var(--sp-3);}
+  .au-bancada-lado{grid-column:3; grid-row:2; align-self:center; max-width:340px;}
+  /* O botão é o alvo da bancada: ele atravessa o bloco inteiro e tem altura de
+     alvo grande. O rótulo continua no tamanho do "resto" — o que precisa ser
+     grande é o alvo, não a letra. */
+  .au-bancada-botao{min-height:72px;}
 }
 
 /* O `@media` do celular deste bloco fica AQUI, e não no de cima junto com os
@@ -3059,5 +3764,26 @@ onMounted(() => {
   /* Três botões a 375px não cabem lado a lado sem espremer o alvo do dedo: aqui
      cada um ocupa a linha inteira. */
   .au-guia-acoes .au-botao{flex:1 1 100%;}
+
+  /* ── O MODO BANCADA A 375px ───────────────────────────────────────────
+     Vai AQUI, e não no `@media` de cima, porque as regras-base do `.au-bancada`
+     são escritas DEPOIS daquele bloco: com a mesma especificidade, quem vem por
+     último ganha, e lá em cima estes ajustes seriam ignorados em silêncio.
+     Medido no CSS do build antes de escrever esta linha. */
+  .au-bancada{padding-left:16px; padding-right:16px;}
+  /* O NÚMERO DA PEÇA CAI DE 44px PARA 32px — é o MESMO degrau que o `.mc-val`
+     dos painéis de KPI usa no celular, e não um tamanho novo. A 375px, "nº 12 de
+     120" em 44px quebrava em duas linhas e empurrava o estado para fora da
+     vista; o estado é o que a pessoa olha o tempo todo. */
+  .au-bancada{--bancada-peca:max(16px, calc(32px * var(--escala-texto, 1)));}
+  /* AS DUAS SAÍDAS DIVIDEM UMA LINHA SÓ. Uma embaixo da outra elas comiam 100px
+     do alto da tela — o lugar do número da peça. Lado a lado, cada uma fica com
+     167px a 375px: o rótulo quebra em duas linhas quando precisa, e o `min-height`
+     de 40px do alvo de dedo continua valendo (PADRAO item 6). Medido. */
+  .au-bancada-saidas{width:100%;}
+  .au-bancada-saidas .au-bancada-menor{
+    flex:1 1 0; min-width:0; justify-content:center; text-align:center;
+  }
+  .au-entrada-bancada{padding-left:16px; padding-right:16px;}
 }
 </style>
