@@ -375,8 +375,20 @@
             NFC não funciona encostado em metal.
           </p>
 
-          <!-- MODO NFC: só existe onde o navegador grava (Chrome no Android) -->
-          <template v-if="gravaPorNfc">
+          <!-- OS DOIS MODOS QUE GRAVAM A ETIQUETA AQUI MESMO, AGORA: o leitor
+               de mesa (só dentro do programa da janela) e o celular encostado
+               (só no Chrome do Android).
+
+               ELES DIVIDEM O MESMO BLOCO, e diferem só nos botões. Uma cópia
+               deste trecho seria uma SEGUNDA pergunta de sobrescrever para
+               manter — e a que ficasse para trás gravaria por cima de uma
+               bolsa que já tem dono. -->
+          <template v-if="gravaAoVivo">
+            <p v-if="gravaPorMesa" class="au-instrucao">
+              Ponha a etiqueta em cima do leitor de mesa, no meio, e deixe parada.
+              O programa lê a etiqueta ANTES de gravar — se ela já tiver outra peça
+              dentro, ele para e pergunta — e lê de volta depois, para conferir.
+            </p>
             <div class="au-endereco">{{ enderecoDaTag(proxima.codigo) }}</div>
             <p v-if="recadoNfc" class="au-recado-nfc">{{ recadoNfc }}</p>
 
@@ -437,18 +449,35 @@
                  devolveria a MESMA pergunta, e a pessoa acharia que travou -->
             <div v-if="!sobrescrita" class="au-acoes">
               <button class="au-botao" type="button" :disabled="gravando || !podeEditar"
-                      @click="gravarNaEtiqueta">
-                {{ gravando ? 'Encoste a etiqueta…' : 'Gravar nesta etiqueta' }}
+                      @click="gravarAgora">
+                {{ gravando ? textoDeGravando : (gravaPorMesa ? 'Gravar no leitor de mesa' : 'Gravar nesta etiqueta') }}
+              </button>
+              <!-- os dois caminhos de gravar aqui mesmo só aparecem juntos numa
+                   máquina que tem os dois, o que é raro. Cada botão só existe
+                   quando o OUTRO caminho está de fato disponível: botão que não
+                   leva a lugar nenhum é pior que botão que não existe. -->
+              <button v-if="gravaPorMesa && temSuporte()" class="au-botao secundario" type="button"
+                      :disabled="gravando" @click="usarOCelular">
+                Gravar encostando o celular
+              </button>
+              <button v-if="!gravaPorMesa && temLeitorDeMesaAqui" class="au-botao secundario" type="button"
+                      :disabled="gravando" @click="usarOLeitorDeMesa">
+                Gravar pelo leitor de mesa
               </button>
               <!-- travado durante a gravação: o recado (inclusive o "PARE: esta
                    etiqueta já tem OUTRA peça") só existe dentro deste v-if, e
                    trocar de modo no meio o faria sumir -->
               <button class="au-botao secundario" type="button" :disabled="gravando"
-                      @click="gravaPorNfc = false">
+                      @click="usarOAplicativo">
                 Gravar pelo aplicativo
               </button>
             </div>
-            <label class="au-trava">
+            <!-- A TRAVA NÃO APARECE NO LEITOR DE MESA, de propósito: travar mexe
+                 na página 40 e no Capability Container, é irreversível, e o motor
+                 do leitor de mesa NÃO faz isso (é outro módulo, que não existe).
+                 Um interruptor que não trava nada seria uma promessa falsa numa
+                 ação que não tem volta. -->
+            <label v-if="!gravaPorMesa" class="au-trava">
               <input type="checkbox" v-model="travarDepois">
               <span>Travar a etiqueta depois de gravar — <strong>não tem volta</strong></span>
             </label>
@@ -467,8 +496,12 @@
               <!-- `marcarGravada()` com os parênteses: sem eles o @click passaria o
                    evento do clique no lugar do código da peça -->
               <button class="au-botao" type="button" v-if="podeEditar" @click="marcarGravada()">✓ Gravei essa</button>
-              <button v-if="temSuporte()" class="au-botao secundario" type="button" @click="gravaPorNfc = true">
+              <button v-if="temSuporte()" class="au-botao secundario" type="button" @click="usarOCelular">
                 Gravar encostando o celular
+              </button>
+              <button v-if="temLeitorDeMesaAqui" class="au-botao secundario" type="button"
+                      @click="usarOLeitorDeMesa">
+                Gravar pelo leitor de mesa
               </button>
             </div>
           </template>
@@ -1039,6 +1072,21 @@ import PainelDeBusca from './painel-de-busca.vue'
 import { produtosParaEscolher, procurarProduto } from './produtos-do-bling.js'
 import { paginasDoBling, avisoDoErro } from '../../compartilhado/chamada-do-bling.js'
 import { temSuporte, traduzirFalha, criarGravador } from './gravador-nfc.js'
+// O LEITOR DE MESA. `porta-do-gravador-de-mesa.js` é o irmão de `gravador-nfc.js`
+// — a única que fala com `window.gravadorDeMesa`, que só existe dentro do
+// programa da janela (gravador/janela/). Fora dele, `temLeitorDeMesa()` é falso e
+// nada disto aparece na tela.
+import {
+  temLeitorDeMesa,
+  criarGravadorDeMesa,
+  traduzirFalha as traduzirFalhaDoLeitorDeMesa,
+} from './gravador-de-mesa/porta-do-gravador-de-mesa.js'
+// A SEQUÊNCIA — ler antes, planejar em cima do que leu, escrever, ler de volta e
+// conferir, e só então marcar. Mora fora do `.vue` porque `node --test` não
+// compila `.vue`, e o que precisa de prova aqui é justamente o que não se vê
+// olhando a tela: a etiqueta que sai no meio, a que responde bem e não guarda
+// nada, a leitura que falhou.
+import { gravarPeloLeitorDeMesa, escreverEConferir } from './gravador-de-mesa/gravar-pelo-leitor-de-mesa.js'
 
 // A BARRA DE ABAS É UMA SEQUÊNCIA, e não um armário: os três primeiros são
 // PASSOS numerados, na ordem em que se faz — cria o lote, grava as etiquetas,
@@ -1080,6 +1128,31 @@ const textoCopiar = ref('Copiar endereço')
 // Chrome no Android grava NFC pelo navegador; iPhone e computador não. Quem
 // não grava cai no modo de hoje, que continua inteiro logo abaixo.
 const gravaPorNfc = ref(temSuporte())
+
+// O LEITOR DE MESA só existe dentro do programa da janela, que abre ESTA MESMA
+// tela e empresta o ACR122U para ela. Constante, e não `ref`: ou a janela abriu
+// com o programa do outro lado, ou não abriu — isso não muda no meio do turno.
+const temLeitorDeMesaAqui = temLeitorDeMesa()
+// E ONDE ELE EXISTE, ELE É O PREFERIDO. É o caminho automático da bancada: lê a
+// etiqueta antes, monta o plano em cima do que leu, escreve, lê de volta,
+// confere e marca — sem ninguém encostar celular em nada, cinquenta vezes.
+const gravaPorMesa = ref(temLeitorDeMesaAqui)
+// Os DOIS modos que gravam a etiqueta aqui mesmo, agora. O terceiro — o do
+// aplicativo — é de quem não tem nem um nem outro (iPhone, computador sem o
+// programa) e continua inteiro.
+const gravaAoVivo = computed(() => gravaPorMesa.value || gravaPorNfc.value)
+const textoDeGravando = computed(() => (gravaPorMesa.value
+  ? 'Segure a etiqueta no leitor…'
+  : 'Encoste a etiqueta…'))
+
+// TROCAR DE MODO É UM LUGAR SÓ. Mexer nos dois interruptores à mão em cada
+// botão é como nasce o estado impossível — os dois ligados, ou nenhum, com a
+// tela mostrando o bloco errado. E o recado do modo anterior sai junto: ele fala
+// de uma etiqueta que não está mais na história.
+function usarOLeitorDeMesa() { gravaPorMesa.value = true; gravaPorNfc.value = false; recadoNfc.value = '' }
+function usarOCelular() { gravaPorMesa.value = false; gravaPorNfc.value = true; recadoNfc.value = '' }
+function usarOAplicativo() { gravaPorMesa.value = false; gravaPorNfc.value = false }
+
 const travarDepois = ref(false)            // ⚠️ PERMANENTE — nasce desligado
 
 // ── O TUTORIAL ────────────────────────────────────────────────────────────
@@ -1953,6 +2026,70 @@ async function marcarGravada(codigo = proxima.value?.codigo) {
   }
 }
 
+// O BOTÃO É UM SÓ E OS CAMINHOS SÃO DOIS. Quem escolhe é o modo em uso — e a
+// escolha mora aqui, num lugar só, para o template não ficar com regra dentro.
+function gravarAgora() {
+  return gravaPorMesa.value ? gravarNoLeitorDeMesa() : gravarNaEtiqueta()
+}
+
+// ── GRAVAR PELO LEITOR DE MESA ────────────────────────────────────────────
+// A REGRA INTEIRA MORA EM `gravar-pelo-leitor-de-mesa.js`, que se prova com
+// `node --test`: ler antes, montar o plano A PARTIR DO QUE LEU, escrever, ler de
+// volta, conferir, e só então marcar. Aqui só se liga a porta, a peça e a tela.
+//
+// ⚠️ MONTAR O PLANO SEM LER É O ESTRAGO MEDIDO NA BANCADA em 01/09/2026: bytes
+// montados supondo etiqueta de fábrica, gravados numa etiqueta reaproveitada —
+// o leitor respondeu `90 00` doze vezes e a etiqueta ficou com uma mensagem
+// quebrada, ilegível para o celular da cliente.
+async function gravarNoLeitorDeMesa() {
+  const peca = proxima.value
+  if (!peca || gravando.value) return
+  const porta = criarGravadorDeMesa()
+  // sem o programa do outro lado não há leitor: cai para o modo do aplicativo em
+  // vez de deixar um botão que não faz nada
+  if (!porta) { gravaPorMesa.value = false; return }
+
+  gravando.value = true
+  recadoNfc.value = ''
+  try {
+    const r = await gravarPeloLeitorDeMesa({
+      porta,
+      peca,
+      endereco: enderecoDaTag(peca.codigo),
+      // MARCAR É O MESMO CAMINHO DO CELULAR. `marcarGravada` fala com o banco e
+      // só devolve verdadeiro quando o BANCO confirmou — e o `auth.uid()` sai da
+      // sessão de quem entrou NESTA janela. É por isso que o programa não guarda
+      // senha nem chave: quem gravou cada peça fica registrado pela conta dela.
+      //
+      // `peca.codigo` explícito, e não `marcarGravada()`: sem o argumento ela
+      // relê `proxima.value`, que pode ter virado outra peça no meio.
+      marcar: () => marcarGravada(peca.codigo),
+      aoContar: (frase) => { recadoNfc.value = frase },
+    })
+
+    // A ETIQUETA JÁ TEM OUTRA PEÇA: a decisão é de quem está com a bolsa na mão.
+    // A pergunta é a MESMA do caminho do celular, com o nome da bolsa que vai
+    // perder a identidade.
+    if (r.estado === 'outra-peca') {
+      abrirPerguntaDeSobrescrita(peca, r.codigoAntigo)
+      avisarNaTela('falha')
+      return
+    }
+
+    recadoNfc.value = r.frase
+    // `marcarGravada` já acende o sinal nos estados que passaram pelo banco.
+    // Acender de novo aqui daria DOIS sinais para a mesma gravação; não acender
+    // nos outros deixaria a recusa sem sinal nenhum.
+    const passouPeloBanco = ['gravada', 'ja-era-dela', 'gravada-sem-marcar'].includes(r.estado)
+    if (!passouPeloBanco) avisarNaTela('falha')
+  } catch (erro) {
+    recadoNfc.value = traduzirFalhaDoLeitorDeMesa(erro)
+    avisarNaTela('falha')
+  } finally {
+    gravando.value = false
+  }
+}
+
 // A REGRA INTEIRA ESTÁ AQUI: lê antes, grava, lê depois, e só então marca.
 // Marcar porque o `write` não deu erro é marcar no escuro — e no escuro a peça
 // entra como pronta com a etiqueta em branco costurada dentro da bolsa.
@@ -1977,23 +2114,11 @@ async function gravarNaEtiqueta() {
       // A DECISÃO NÃO CABE AQUI DENTRO. Ela vira uma pergunta na tela, com o
       // NOME DA BOLSA que vai perder a identidade, e a gravação física só
       // acontece em `sobrescreverEtiqueta`, depois de o banco confirmar.
-      const codigoAntigo = codigoDoEndereco(antes)
-      const antiga = pecas.value.find((pa) => pa.codigo === codigoAntigo) || null
-      sobrescrita.value = {
-        codigoAntigo,
-        codigoNovo: peca.codigo,
-        // a peça antiga pode não estar nesta tela (lote excluído, banco de
-        // outro ambiente): `descricaoDaPeca` diz isso em vez de inventar modelo
-        descricaoAntiga: descricaoDaPeca(antiga || { codigo: codigoAntigo },
-          antiga ? loteDaPeca(antiga.lote_id) : null),
-        descricaoNova: descricaoDaPeca(peca, loteAtual.value),
-        temGarantia: temGarantia(codigoAntigo),
-      }
-      destinoDaAntiga.value = 'fila'
-      motivoDaSobrescrita.value = ''
-      erroDaSobrescrita.value = ''
-      recadoNfc.value = 'PARE: esta etiqueta já tem OUTRA peça gravada. '
-        + 'Escolha abaixo o que fazer com ela antes de gravar por cima.'
+      // A PERGUNTA É MONTADA EM UM LUGAR SÓ (`abrirPerguntaDeSobrescrita`),
+      // porque os DOIS caminhos que gravam ao vivo — o celular e o leitor de
+      // mesa — chegam aqui. Duas cópias divergiriam, e a que ficasse para trás
+      // perguntaria sobre a bolsa errada antes de apagar a identidade dela.
+      abrirPerguntaDeSobrescrita(peca, codigoDoEndereco(antes))
       // este caminho não passa por `marcarGravada`, então acende o sinal aqui
       avisarNaTela('falha')
       return
@@ -2053,6 +2178,31 @@ const motivoDaSobrescritaObrigatorio = computed(() => motivoObrigatorio({
   temGarantia: sobrescrita.value?.temGarantia, destino: destinoDaAntiga.value,
 }))
 
+// ABRIR A PERGUNTA DE SOBRESCREVER — a MESMA para os dois caminhos que gravam
+// ao vivo. Ela guarda o que foi CONTADO no momento da leitura: os dois códigos,
+// a descrição de cada bolsa e se a antiga tem garantia.
+//
+// A pergunta diz QUAL BOLSA vai perder a identidade — modelo, cor e número na
+// série, não só o código: "K7M4X9QP2R" não é bolsa nenhuma.
+function abrirPerguntaDeSobrescrita(peca, codigoAntigo) {
+  const antiga = pecas.value.find((pa) => pa.codigo === codigoAntigo) || null
+  sobrescrita.value = {
+    codigoAntigo,
+    codigoNovo: peca.codigo,
+    // a peça antiga pode não estar nesta tela (lote excluído, banco de outro
+    // ambiente): `descricaoDaPeca` diz isso em vez de inventar modelo
+    descricaoAntiga: descricaoDaPeca(antiga || { codigo: codigoAntigo },
+      antiga ? loteDaPeca(antiga.lote_id) : null),
+    descricaoNova: descricaoDaPeca(peca, loteAtual.value),
+    temGarantia: temGarantia(codigoAntigo),
+  }
+  destinoDaAntiga.value = 'fila'
+  motivoDaSobrescrita.value = ''
+  erroDaSobrescrita.value = ''
+  recadoNfc.value = 'PARE: esta etiqueta já tem OUTRA peça gravada. '
+    + 'Escolha abaixo o que fazer com ela antes de gravar por cima.'
+}
+
 function desistirDaSobrescrita() {
   sobrescrita.value = null
   motivoDaSobrescrita.value = ''
@@ -2089,8 +2239,11 @@ async function sobrescreverEtiqueta() {
     return
   }
 
-  const gravador = criarGravador()
-  if (!gravador) { gravaPorNfc.value = false; return }
+  // NO MODO DO LEITOR DE MESA quem escreve é o programa da janela, e o navegador
+  // não precisa saber gravar NFC. Sem esta condição a sobrescrita no computador
+  // desistia AQUI, calada, com a pergunta ainda na tela e a pessoa esperando.
+  const gravador = gravaPorMesa.value ? null : criarGravador()
+  if (!gravaPorMesa.value && !gravador) { gravaPorNfc.value = false; return }
 
   gravando.value = true
   // A recarga no fim só acontece se o BANCO tiver mudado. Recarregando sempre,
@@ -2124,17 +2277,41 @@ async function sobrescreverEtiqueta() {
     oBancoMudou = true
     const eraDeCliente = data.tinha_garantia
     sobrescrita.value = null
-    recadoNfc.value = 'Registrado. Encoste a MESMA etiqueta de novo e segure parado…'
-    await gravador.gravar(enderecoDaTag(pedido.codigoNovo))
+    if (gravaPorMesa.value) {
+      // O CAMINHO DO LEITOR DE MESA. `escreverEConferir` lê a etiqueta antes de
+      // montar o plano — de novo, e é preciso: entre o clique e agora a pessoa
+      // pôs a etiqueta no leitor, e pode ser OUTRA. Ele já lê de volta e confere.
+      recadoNfc.value = 'Registrado. Ponha a MESMA etiqueta no leitor e segure parada…'
+      const porta = criarGravadorDeMesa()
+      let escrita = { ok: false, frase: 'O programa do gravador de mesa saiu do ar.' }
+      if (porta) {
+        try {
+          await porta.conectar()
+          escrita = await escreverEConferir({ porta, endereco: enderecoDaTag(pedido.codigoNovo) })
+        } catch (erro) {
+          escrita = { ok: false, frase: traduzirFalhaDoLeitorDeMesa(erro) }
+        } finally {
+          await porta.desconectar()
+        }
+      }
+      if (!escrita.ok) {
+        recadoNfc.value = `${escrita.frase} ${avisoDeMeiaSobrescrita(pedido)}`
+        avisarNaTela('falha')
+        return
+      }
+    } else {
+      recadoNfc.value = 'Registrado. Encoste a MESMA etiqueta de novo e segure parado…'
+      await gravador.gravar(enderecoDaTag(pedido.codigoNovo))
 
-    // 3. LER DEPOIS: a prova de que gravou é a etiqueta devolver
-    const depois = await gravador.lerUmaVez()
-    if (conferirLeitura(depois, pedido.codigoNovo) !== 'confere') {
-      recadoNfc.value = avisoDeMeiaSobrescrita(pedido)
-      avisarNaTela('falha')
-      return
+      // 3. LER DEPOIS: a prova de que gravou é a etiqueta devolver
+      const depois = await gravador.lerUmaVez()
+      if (conferirLeitura(depois, pedido.codigoNovo) !== 'confere') {
+        recadoNfc.value = avisoDeMeiaSobrescrita(pedido)
+        avisarNaTela('falha')
+        return
+      }
+      if (travarDepois.value) await gravador.travar()
     }
-    if (travarDepois.value) await gravador.travar()
 
     recadoNfc.value = `Etiqueta sobrescrita. Agora ela é ${pedido.descricaoNova}.`
       + (destino === 'baixa'

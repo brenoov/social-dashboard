@@ -40,11 +40,18 @@ const pergunta = template.slice(
 
 /* ── A OFERTA ────────────────────────────────────────────────────────────── */
 
+/* ⚠️ A PERGUNTA MUDOU DE CASA em 01/09/2026, e não de conteúdo. Os DOIS caminhos
+ * que gravam ao vivo — o celular encostado e o leitor de mesa — chegam nela, e
+ * duas cópias divergiriam: a que ficasse para trás perguntaria sobre a bolsa
+ * errada antes de apagar a identidade dela. Por isso ela mora em
+ * `abrirPerguntaDeSobrescrita`, e é lá que estes testes olham agora. */
+
 test('a leitura de outra peça passou a OFERECER, em vez de só mandar parar', () => {
   const corpo = corpoDaFuncao('gravarNaEtiqueta');
   const ramo = corpo.slice(corpo.indexOf("if (situacao === 'outra-peca')"),
     corpo.indexOf("if (situacao === 'confere')"));
-  assert.match(ramo, /sobrescrita\.value = \{/, 'o ramo voltou a ser um beco sem saída');
+  assert.match(ramo, /abrirPerguntaDeSobrescrita\(/, 'o ramo voltou a ser um beco sem saída');
+  assert.match(corpoDaFuncao('abrirPerguntaDeSobrescrita'), /sobrescrita\.value = \{/);
   assert.match(ramo, /codigoDoEndereco\(antes\)/,
     'o código da peça antiga sai da própria leitura da etiqueta, não de um palpite');
   // e continua sem gravar nada por conta própria
@@ -55,7 +62,7 @@ test('a leitura de outra peça passou a OFERECER, em vez de só mandar parar', (
 
 test('a pergunta diz QUAL BOLSA vai perder a identidade, não só o código', () => {
   // "K7M4X9QP2R" não é bolsa nenhuma; "Mônaco · Quartz · nº 7" é
-  const corpo = corpoDaFuncao('gravarNaEtiqueta').replace(/\s+/g, ' ');
+  const corpo = corpoDaFuncao('abrirPerguntaDeSobrescrita').replace(/\s+/g, ' ');
   assert.match(corpo, /descricaoAntiga: descricaoDaPeca\(antiga \|\| \{ codigo: codigoAntigo \}/,
     'a descrição sai da conta pura, que já sabe montar modelo · cor · nº');
   assert.match(corpo, /descricaoNova: descricaoDaPeca\(peca, loteAtual\.value\)/);
@@ -66,7 +73,7 @@ test('a pergunta diz QUAL BOLSA vai perder a identidade, não só o código', ()
 test('a peça antiga que a tela não conhece não vira modelo inventado', () => {
   // lote excluído, ou etiqueta de outro ambiente: `descricaoDaPeca` diz que não
   // achou o lote em vez de escrever "undefined · undefined"
-  const corpo = corpoDaFuncao('gravarNaEtiqueta').replace(/\s+/g, ' ');
+  const corpo = corpoDaFuncao('abrirPerguntaDeSobrescrita').replace(/\s+/g, ' ');
   assert.match(corpo, /antiga \? loteDaPeca\(antiga\.lote_id\) : null/);
 });
 
@@ -146,9 +153,12 @@ test('a metade que falhou é CONTADA, com o caminho do conserto', () => {
   assert.match(aviso, /JÁ FOI REGISTRADA/);
   assert.match(aviso, /aba Etiquetas/, 'tem de dizer ONDE se conserta');
   const corpo = corpoDaFuncao('sobrescreverEtiqueta');
-  // os dois caminhos que perdem a etiqueta depois de o banco mudar
-  assert.equal((corpo.match(/avisoDeMeiaSobrescrita\(pedido\)/g) || []).length, 2,
-    'a leitura que não confere E a falha do chip precisam do mesmo aviso');
+  // os caminhos que perdem a etiqueta depois de o banco mudar. Eram dois; com o
+  // leitor de mesa são TRÊS: a leitura que não confere (celular), a falha do
+  // chip (celular) e a escrita que não deu certo no leitor de mesa. Os três
+  // dizem a MESMA coisa, porque o estrago é o mesmo.
+  assert.equal((corpo.match(/avisoDeMeiaSobrescrita\(pedido\)/g) || []).length, 3,
+    'todo caminho que perde a etiqueta depois do banco precisa do mesmo aviso');
 });
 
 test('a recarga só acontece quando o banco mudou', () => {

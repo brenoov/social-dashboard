@@ -1,0 +1,75 @@
+// COMO SE GERA O INSTALADOR DO WINDOWS.
+//
+// ⚠️ NADA AQUI PRECISA DE FERRAMENTA DE COMPILAÇÃO. Decisão do dono, em
+// 01/09/2026: nada se instala na bancada. O Electron vem pronto, e as nossas
+// dependências são JavaScript puro — não há `node-gyp`, não há Visual Studio.
+// Há teste que trava isso (`o-instalador-tem-tudo.test.mjs`).
+//
+// O COMANDO (numa máquina Windows, dentro de `gravador/`):
+//     npm install
+//     npm run empacotar
+//
+// ⚠️ A LISTA DE ARQUIVOS NÃO SE ESCREVE À MÃO DUAS VEZES. `PASTAS_DO_PROGRAMA`
+// é a única lista, e há teste que caminha pelos `import` de verdade a partir de
+// `principal.cjs` e reprova se algum arquivo do programa não estiver aqui. Sem
+// isso, um `import` novo faria o instalador sair sem ele — e o programa morreria
+// só na bancada, na primeira etiqueta, com "Cannot find module".
+//
+// ⚠️ POR QUE O PROGRAMA VAI PARA DENTRO DE UMA PASTA `gravador/`: o motor importa
+// `../src/ferramentas/autenticidade/gravador-de-mesa/ndef-para-ntag213.js` — as
+// páginas da etiqueta saem do tradutor, que é do painel, para não haver duas
+// cópias da mesma faixa de páginas. Empacotando `gravador/` como raiz, esse
+// `../src` cairia fora do pacote. Então a raiz do pacote é a raiz do projeto, com
+// as duas pastas dentro, e o caminho relativo continua valendo lá como aqui.
+const PASTAS_DO_PROGRAMA = {
+  'gravador/janela': [
+    'principal.cjs',
+    'preload.cjs',
+    'abrir-a-janela.js',
+    'atendente-do-leitor.js',
+    'enderecos-permitidos.js',
+  ],
+  gravador: [
+    'leitor-de-mesa.js',
+    'comandos-do-acr122u.js',
+    'ponte-do-powershell.js',
+  ],
+  'src/ferramentas/autenticidade/gravador-de-mesa': [
+    'ndef-para-ntag213.js',
+  ],
+}
+
+const MODULOS_DO_PROGRAMA = Object.entries(PASTAS_DO_PROGRAMA)
+  .flatMap(([pasta, arquivos]) => arquivos.map((a) => `${pasta}/${a}`))
+
+module.exports = {
+  PASTAS_DO_PROGRAMA,
+  MODULOS_DO_PROGRAMA,
+
+  appId: 'com.rbvcompany.gravador-de-etiquetas',
+  productName: 'Gravador de Etiquetas Vessel',
+  // A entrada mora dentro de `gravador/` no pacote — ver a explicação acima.
+  extraMetadata: { main: 'gravador/janela/principal.cjs' },
+  // ⚠️ SEM ASAR, DE PROPÓSITO. O programa é ESM por dentro, e ESM lido de dentro
+  // de um arquivo `.asar` é justamente a parte do Electron que muda de versão
+  // para versão. Aqui os arquivos ficam abertos na pasta do programa — que, de
+  // quebra, é o que permite abrir o script do PowerShell e rodá-lo à mão quando
+  // algo der errado na bancada, que é como este caminho foi provado.
+  asar: false,
+  directories: { output: '../entregas/gravador-de-etiquetas' },
+  files: [
+    'package.json',
+    ...Object.entries(PASTAS_DO_PROGRAMA).map(([pasta, arquivos]) => ({
+      from: `../${pasta}`,
+      to: pasta,
+      filter: arquivos,
+    })),
+  ],
+  win: { target: 'nsis' },
+  nsis: {
+    oneClick: false,
+    perMachine: false,
+    allowToChangeInstallationDirectory: true,
+    shortcutName: 'Gravador de Etiquetas',
+  },
+}

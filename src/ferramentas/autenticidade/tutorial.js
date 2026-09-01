@@ -121,9 +121,15 @@ export const ESTAGIOS = [
 ]
 
 // ── QUEM GRAVA POR ONDE ────────────────────────────────────────────────────
-// `pronto: false` é o que impede a tela de prometer o que não existe. O gravador
-// de mesa ainda não foi comprado, e escrever "use o gravador de mesa" mandaria
-// alguém procurar na bancada uma máquina que não está lá.
+// `pronto` é o que impede a tela de prometer o que não existe — e de negar o que
+// já existe, que é a mesma mentira ao contrário.
+//
+// ⚠️ MUDOU EM 01/09/2026: até esta data o gravador de mesa estava `pronto:false`
+// porque a máquina ainda não tinha sido comprada. Ela foi, e o caminho inteiro
+// foi provado à mão no Windows — conectar, ler, gravar as 12 páginas e o celular
+// abrir o certificado — e agora existe o programa que empresta o leitor para
+// esta tela. Deixar "AINDA NÃO EXISTE" escrito aqui mandaria a bancada ignorar
+// o botão que está na frente dela.
 export const ONDE_SE_GRAVA = [
   {
     chave: 'android',
@@ -142,16 +148,20 @@ export const ONDE_SE_GRAVA = [
   {
     chave: 'computador',
     onde: 'Computador',
-    como: 'Não tem NFC. A tela mostra o endereço para copiar, e a gaveta “Gravador de mesa” baixa a '
-      + 'lista das etiquetas que ainda faltam neste lote.',
+    como: 'O navegador do computador não tem NFC. Com o programa do gravador aberto, a tela oferece '
+      + '“Gravar pelo leitor de mesa”; sem ele, mostra o endereço para copiar, e a gaveta “Gravador '
+      + 'de mesa” baixa a lista das etiquetas que ainda faltam neste lote.',
     pronto: true,
   },
   {
     chave: 'gravador',
     onde: 'Gravador de mesa',
-    como: 'AINDA NÃO EXISTE — a máquina ainda não foi comprada. O que já funciona é a gaveta: baixar a '
-      + 'lista das que faltam e colar de volta o texto que a máquina devolver, para marcar em bloco.',
-    pronto: false,
+    como: 'O leitor ACR122U ligado na USB do computador da bancada. Ele só aparece DENTRO do programa '
+      + 'do gravador: abra o programa (ícone “Gravador de Etiquetas”), entre na Central como sempre, e '
+      + 'o botão “Gravar pelo leitor de mesa” estará ali. Ponha a etiqueta no meio do leitor e clique — '
+      + 'a tela lê antes, grava, lê de volta e confere sozinha. Se o botão não aparecer, a tela foi '
+      + 'aberta pelo navegador comum, e não pelo programa.',
+    pronto: true,
   },
 ]
 
@@ -208,8 +218,11 @@ export const SOCORRO = [
   {
     chave: 'computador-sem-modo',
     sintoma: 'No computador não aparece o modo de encostar',
-    oQueHouve: 'Computador não tem NFC. A tela mostra o modo do aplicativo, que é copiar o endereço.',
-    oQueFazer: 'Grave pelo celular, ou abra a gaveta “Gravador de mesa” e baixe a lista das que faltam. '
+    oQueHouve: 'Computador não tem NFC. A tela mostra o modo do aplicativo, que é copiar o endereço. '
+      + 'O modo do leitor de mesa só existe dentro do programa do gravador — pelo navegador comum ele '
+      + 'não aparece, e não é defeito.',
+    oQueFazer: 'Abra o programa “Gravador de Etiquetas” e entre na Central por ele; ou grave pelo '
+      + 'celular; ou abra a gaveta “Gravador de mesa” e baixe a lista das que faltam. '
       + 'Depois cole de volta o texto que a máquina devolver e confirme — esse é o único caminho que '
       + 'marca peça sem conferir etiqueta, então só use depois de gravar de verdade.',
   },

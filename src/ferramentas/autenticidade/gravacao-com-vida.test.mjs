@@ -91,8 +91,16 @@ test('o ✓ só acende quando o BANCO confirmou', () => {
 test('nenhuma saída de gravarNaEtiqueta fica sem sinal', () => {
   const corpo = corpoDaFuncao('gravarNaEtiqueta');
   // os dois caminhos que NÃO passam por marcarGravada: a etiqueta que já tem
-  // outra peça, e a leitura de volta que não confere
-  const pare = corpo.slice(corpo.indexOf('PARE: esta etiqueta'), corpo.indexOf("if (situacao === 'confere')"));
+  // outra peça, e a leitura de volta que não confere.
+  //
+  // A PERGUNTA MUDOU DE CASA em 01/09/2026: ela é a MESMA para o celular e para
+  // o leitor de mesa, e mora em `abrirPerguntaDeSobrescrita`. O sinal continua
+  // sendo aceso pelo RAMO — é ele que sabe que ninguém marcou peça nenhuma.
+  const pare = corpo.slice(corpo.indexOf("if (situacao === 'outra-peca')"),
+    corpo.indexOf("if (situacao === 'confere')"));
+  assert.match(pare, /abrirPerguntaDeSobrescrita\(/, 'o ramo parou de abrir a pergunta');
+  assert.match(corpoDaFuncao('abrirPerguntaDeSobrescrita'), /PARE: esta etiqueta/,
+    'a pergunta parou de dizer PARE');
   assert.match(pare, /avisarNaTela\('falha'\)/, 'o "PARE" ficou sem sinal');
   const leituraRuim = corpo.slice(corpo.indexOf('não devolveu o endereço certo'));
   assert.match(leituraRuim.slice(0, 260), /avisarNaTela\('falha'\)/,

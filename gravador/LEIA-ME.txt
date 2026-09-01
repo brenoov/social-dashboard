@@ -6,8 +6,14 @@ ACR122U ligado na USB do computador da bancada, grava o endereco da peca dentro
 da etiqueta NTAG213 que vai costurada no forro da bolsa, e registra no sistema
 quem gravou o que.
 
-NAO TEM TELA NENHUMA AQUI. Isto e so o motor: as contas, a porta do leitor e a
-fila. A janela e outro assunto.
+O MOTOR mora aqui na raiz da pasta. A JANELA — o programa que a bancada abre e
+que empresta o leitor para a tela da Central — mora em `janela/`, e tem LEIA-ME
+proprio.
+
+NAO HA TELA NENHUMA ESCRITA AQUI, nem na janela: o que a bancada ve e a tela do
+painel (`/autenticidade`), aberta dentro da janela. Uma segunda tela seria uma
+segunda tela para manter, e a que ficasse para tras contaria outra historia
+sobre as mesmas bolsas.
 
 
 POR QUE ELA MORA FORA DO PAINEL
@@ -50,8 +56,19 @@ fila.js                  Gravar cinquenta, nao uma. Qual e a proxima, o que
                          fazer quando falha, e como retomar depois de o programa
                          fechar.
 
-entrar.js                Login por pessoa. Cada uma entra com a conta dela para
-                         ficar registrado quem gravou cada peca.
+entrar.js                Login por pessoa, por linha de comando.
+
+                         ⚠️ NAO E MAIS USADO. No desenho da janela quem entra e
+                         a PESSOA, na Central, dentro da propria janela — o
+                         `auth.uid()` sai da sessao dela, e o programa nao guarda
+                         senha nem chave nenhuma. Este arquivo fica de pe (ele
+                         serve a quem quiser rodar o motor sozinho, sem janela),
+                         mas nao entra no instalador e nao deve ser usado.
+
+janela/                  O PROGRAMA. Electron, com a tela vinda da Central e o
+                         leitor emprestado por uma superficie estreita. Ver
+                         `janela/LEIA-ME.txt` — e onde estao as travas e o que
+                         a pessoa ve na primeira execucao no Windows.
 
 *.test.mjs               Os testes. `motor-inteiro.test.mjs` liga tudo e grava
                          um lote com uma NTAG213 de mentira que responde aos
@@ -65,7 +82,10 @@ COMO RODAR OS TESTES
     npm install
     npm test
 
-Nenhum teste encosta em etiqueta de verdade nem escreve no banco.
+Rodam os do motor e os da janela, juntos.
+
+Nenhum teste encosta em etiqueta de verdade, nem abre janela, nem escreve no
+banco. O Electron entra por injecao, como a ponte do PowerShell.
 
 
 O QUE ESTA PROVADO, E ONDE
