@@ -2,9 +2,23 @@
   <div class="tela-autenticidade">
     <barra-de-topo voltar="Gestão Interna" titulo="Autenticidade e Garantia" @voltar="voltar" />
 
-    <div class="abas" role="tablist">
-      <button v-for="ab in ABAS" :key="ab.chave" role="tab" type="button"
-              :class="{ on: aba === ab.chave }" @click="aba = ab.chave">{{ ab.rotulo }}</button>
+    <!-- ── O MENU DE ABAS ───────────────────────────────────────────────
+         A BARRA ROLA POR DENTRO, e nunca a página. Com cinco abas, a fileira
+         mede mais que a largura de um celular — e barra que empurra a PÁGINA
+         para os lados desalinha a tela inteira (PADRAO-DA-CENTRAL, item 6:
+         rolagem horizontal na página é ZERO). Medido a 375px.
+         A ATIVA NÃO SE DISTINGUE SÓ PELA COR: ela ganha fundo, borda e o
+         `aria-selected`, que é o que o leitor de tela anuncia. Cor sozinha some
+         para quem não a enxerga.
+         O par `--accent-light` + `--accent-forte` é o do PADRÃO, e vem medido:
+         o accent puro sobre o próprio tom aguado dá 4,42 no tema escuro e
+         reprova. -->
+    <div class="abas-barra">
+      <div class="abas" role="tablist" ref="barraDasAbas">
+        <button v-for="ab in ABAS" :key="ab.chave" role="tab" type="button"
+                :data-aba="ab.chave" :aria-selected="String(aba === ab.chave)"
+                :class="{ on: aba === ab.chave }" @click="aba = ab.chave">{{ ab.rotulo }}</button>
+      </div>
     </div>
 
     <p v-if="carregando" class="au-vazio">Carregando…</p>
@@ -649,6 +663,20 @@ const ABAS = [
 
 const router = useRouter()
 const aba = ref('lotes')
+
+// A ABA ATIVA ENTRA NA VISTA SOZINHA. A barra rola por dentro (ver o CSS de
+// `.abas`), e trocar de aba POR CÓDIGO — o "Gravar as etiquetas deste lote →"
+// leva para a aba Gravar — deixava a aba escolhida fora do pedaço visível da
+// barra no celular: a tela trocava de conteúdo e nenhuma aba parecia acesa.
+// A busca é por `data-aba`, e não pela classe `.on`: a classe só existe depois
+// que o Vue redesenha, e aqui ainda não redesenhou.
+const barraDasAbas = ref(null)
+watch(aba, (qual) => {
+  const alvo = barraDasAbas.value?.querySelector(`[data-aba="${qual}"]`)
+  // `block:'nearest'` para não arrastar a PÁGINA para cima ou para baixo: quem
+  // precisa se mexer é a barra, e só no eixo horizontal.
+  alvo?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' })
+})
 const carregando = ref(true)
 const falha = ref('')
 
@@ -1382,9 +1410,28 @@ onMounted(() => {
 
 <style scoped>
 .tela-autenticidade{min-height:100vh;background:transparent;position:relative;z-index:1;padding-bottom:48px;}
-.abas{display:flex;gap:8px;padding:16px 24px 0;flex-wrap:wrap;}
-.abas button{font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);background:none;border:1px solid var(--border);border-radius:5px;padding:7px 13px;cursor:pointer;transition:all .15s;}
-.abas button.on{color:var(--accent);border-color:var(--accent);}
+/* ── O MENU DE ABAS ────────────────────────────────────────────────────────
+   A barra sublinhada separa a navegação do conteúdo: sem ela as abas flutuavam
+   soltas em cima do primeiro bloco e não se lia como um menu. */
+.abas-barra{border-bottom:1px solid var(--border);}
+/* A FILEIRA ROLA POR DENTRO, e nunca a página. Com cinco abas ela mede mais que
+   a largura de um celular; `flex-wrap:wrap` quebrava a barra em duas linhas e
+   empurrava a tela inteira para baixo, e sem nada ela empurraria a PÁGINA para
+   os lados — que é defeito (PADRAO-DA-CENTRAL, item 6). Medido a 375px. */
+.abas{display:flex;gap:var(--sp-2);padding:var(--sp-4) 24px var(--sp-3);flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+/* A barrinha de rolagem some: ela roubava altura do alvo de toque e aparecia
+   como um risco cinza embaixo das abas no Chrome do computador. */
+.abas::-webkit-scrollbar{display:none;}
+/* 40px de altura de verdade, não de área emprestada: aqui o alvo É o botão, e
+   ele tem espaço de sobra. `flex:none` porque, encolhendo, o nome da aba
+   cortaria — e texto que corta é defeito (PADRAO item 5). */
+.abas button{font-family:var(--fonte-principal);font-size:max(11px, calc(11px * var(--escala-texto, 1)));font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);background:none;border:1px solid var(--border);border-radius:var(--radius-md);padding:0 var(--sp-4);min-height:40px;box-sizing:border-box;display:inline-flex;align-items:center;white-space:nowrap;flex:none;cursor:pointer;transition:color .15s,border-color .15s,background .15s;}
+.abas button:hover{color:var(--text);border-color:var(--accent-mid);}
+/* A ATIVA GANHA FUNDO, BORDA E `aria-selected` — não só cor. O par
+   `--accent-light` + `--accent-forte` é o do PADRÃO e já vem medido (5,96 a
+   7,97 nos dois temas); o accent puro sobre o próprio tom aguado dá 4,42 no
+   tema escuro e reprova por pouco. */
+.abas button.on{color:var(--accent-forte);background:var(--accent-light);border-color:var(--accent);}
 
 .au-vazio,.au-erro,.au-pronto{font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));color:var(--muted);padding:28px 24px;line-height:1.7;max-width:620px;}
 .au-erro{color:var(--red);}
