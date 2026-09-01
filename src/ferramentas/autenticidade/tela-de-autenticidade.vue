@@ -35,9 +35,19 @@
           </div>
           <button class="au-link" type="button" @click="irGravar(l.id)">Gravar as etiquetas deste lote →</button>
 
-          <div v-if="podeEditar" class="au-lote-acoes">
-            <button class="au-link" type="button" @click="abrirEdicao(l)">Editar</button>
-            <button class="au-link" type="button" @click="pedirExcluir(l.id)">Excluir</button>
+          <!-- AS AÇÕES DO LOTE FICAM TODAS NA MESMA LINHA. "Ver as peças" entra
+               aqui e não numa linha própria: duas fileiras de link uma embaixo
+               da outra empurram o cartão seguinte para fora da vista no
+               celular. Editar e Excluir continuam atrás de `podeEditar`. -->
+          <div class="au-lote-acoes">
+            <button class="au-link" type="button" :aria-expanded="String(loteAberto === l.id)"
+                    @click="alternarPecas(l.id)">
+              {{ loteAberto === l.id ? 'Esconder as peças' : 'Ver as peças e os links' }}
+            </button>
+            <template v-if="podeEditar">
+              <button class="au-link" type="button" @click="abrirEdicao(l)">Editar</button>
+              <button class="au-link" type="button" @click="pedirExcluir(l.id)">Excluir</button>
+            </template>
           </div>
 
           <!-- A PERGUNTA DE EXCLUIR MORA NA PRÓPRIA TELA: a caixinha nativa do
@@ -76,6 +86,60 @@
               <button class="au-botao secundario" type="button" @click="editando = null">Cancelar</button>
               <button class="au-botao" type="button" @click="salvarEdicao">Salvar</button>
             </div>
+          </div>
+
+          <div v-if="loteAberto === l.id" class="au-pecas">
+            <div class="au-pecas-topo">
+              <span class="au-pecas-conta">
+                Mostrando {{ pecasVisiveis.length }} de {{ pecasDoLoteAberto.length }} peça(s)
+              </span>
+              <button class="au-botao secundario" type="button" @click="baixarListaDoLote(l)">
+                Baixar a lista inteira
+              </button>
+            </div>
+
+            <p v-if="!pecasDoLoteAberto.length" class="au-aviso-menor">
+              Este lote não tem peça nenhuma.
+            </p>
+
+            <ul v-else class="au-pecas-lista">
+              <li v-for="pc in pecasVisiveis" :key="pc.codigo" class="au-peca">
+                <div class="au-peca-topo">
+                  <span class="au-peca-n">nº {{ pc.numero_na_serie }}</span>
+                  <span class="au-ref au-peca-cod">{{ pc.codigo }}</span>
+                  <span class="selo" :class="estadoDaPeca(pc).selo">{{ estadoDaPeca(pc).rotulo }}</span>
+                </div>
+                <!-- o estado por escrito, nunca só pela cor do selo: gravada
+                     diz QUANDO, e baixada diz POR QUÊ -->
+                <p class="au-peca-estado">
+                  <template v-if="pc.baixada">Baixada — {{ rotuloDoMotivo(pc.baixa_motivo) }}</template>
+                  <template v-else-if="pc.gravada_em">Gravada em {{ dataCurta(pc.gravada_em) }}</template>
+                  <template v-else>Ainda não gravada</template>
+                </p>
+                <!-- o endereço é O QUE VAI DENTRO DA BOLSA: sai de
+                     `enderecoDaTag`, nunca do domínio escrito à mão -->
+                <div class="au-peca-end">{{ enderecoDaTag(pc.codigo) }}</div>
+                <div class="au-peca-links">
+                  <button class="au-link au-peca-botao" type="button"
+                          @click="copiarEnderecoDaPeca(pc.codigo)">
+                    {{ enderecoCopiado === pc.codigo ? 'Copiado!' : 'Copiar endereço' }}
+                  </button>
+                  <!-- abre o que a CLIENTE vê, para conferir na hora. Aba nova
+                       com `rel="noopener"`: sem ele a página aberta ganha uma
+                       alça para esta aqui. -->
+                  <a class="au-link au-peca-botao" :href="enderecoDaTag(pc.codigo)"
+                     target="_blank" rel="noopener">Abrir a página da cliente</a>
+                </div>
+              </li>
+            </ul>
+
+            <!-- 500 peças desenhadas de uma vez travam a tela do celular. O
+                 botão diz quantas ainda faltam: lista que esconde sem avisar é
+                 lista que mente. -->
+            <button v-if="pecasQueFaltamMostrar" class="au-botao secundario" type="button"
+                    @click="mostrarMaisPecas">
+              Mostrar mais {{ Math.min(pecasQueFaltamMostrar, DE_CADA_VEZ) }} (faltam {{ pecasQueFaltamMostrar }})
+            </button>
           </div>
         </div>
       </div>
@@ -117,6 +181,42 @@
             </option>
           </select>
         </label>
+
+        <!-- ── O FAROL DO LOTE ─────────────────────────────────────────────
+             Ele fica FORA do bloco de gravação de propósito: quando a última
+             peça é gravada aquele bloco inteiro some, e com ele sumiria o ✓ da
+             etiqueta que a pessoa acabou de encostar.
+             A BARRA NÃO SUBSTITUI O TEXTO, soma a ele: barra sozinha não diz
+             quantas faltam, e não dá para ler em voz alta na bancada. -->
+        <div class="au-farol">
+          <div class="au-barra" role="progressbar" aria-valuemin="0"
+               :aria-valuenow="progressoDoLoteAtual.gravadas"
+               :aria-valuemax="progressoDoLoteAtual.total"
+               :aria-label="`${progressoDoLoteAtual.texto} etiquetas gravadas neste lote`">
+            <i class="au-barra-cheia" :style="{ width: larguraDoProgresso }"></i>
+          </div>
+          <p class="au-barra-texto">{{ progressoDoLoteAtual.texto }} gravadas neste lote</p>
+
+          <!-- O SINAL DE VIDA. O desenho é para o canto do olho; QUEM DIZ O QUE
+               ACONTECEU É O TEXTO, aqui e no recado grande logo abaixo. Com
+               `prefers-reduced-motion` o movimento sai e este bloco continua
+               inteiro — desligar animação não é desligar informação. -->
+          <div v-if="gravando || sinalDaGravacao" class="au-sinal"
+               :class="'au-sinal-' + estadoDoSinal" role="status">
+            <span v-if="gravando" class="au-anel" aria-hidden="true"></span>
+            <svg v-else-if="sinalDaGravacao === 'ok'" class="au-marca-ok" viewBox="0 0 24 24"
+                 width="30" height="30" aria-hidden="true" fill="none" stroke="currentColor"
+                 stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="4 13 9.5 18.5 20 6" />
+            </svg>
+            <svg v-else class="au-marca-erro" viewBox="0 0 24 24"
+                 width="30" height="30" aria-hidden="true" fill="none" stroke="currentColor"
+                 stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="6" y1="6" x2="18" y2="18" /><line x1="18" y1="6" x2="6" y2="18" />
+            </svg>
+            <span class="au-sinal-texto">{{ textoDoSinal }}</span>
+          </div>
+        </div>
 
         <p v-if="!proxima" class="au-pronto">
           Todas as etiquetas deste lote já foram gravadas. Nada a fazer aqui.
@@ -174,6 +274,27 @@
               </button>
             </div>
           </template>
+
+          <!-- ── A FILA AO REDOR ─────────────────────────────────────────
+               A que acabou de sair e as próximas. A da vez NÃO se distingue só
+               pela cor: ela ganha fundo, borda e o selo escrito "Agora" — cor
+               sozinha some para quem não a enxerga.
+               Com uma peça só na fila a lista não aparece: bloco que mostra
+               apenas a peça que já está na tela logo acima vira paisagem. -->
+          <div v-if="filaAoRedor.length > 1" class="au-fila">
+            <p class="au-fila-titulo">A fila deste lote</p>
+            <ul class="au-fila-lista">
+              <li v-for="pf in filaAoRedor" :key="pf.codigo"
+                  :class="['au-fila-item', { atual: pf.codigo === proxima.codigo }]">
+                <span class="au-fila-n">nº {{ pf.numero_na_serie }}</span>
+                <span class="au-ref au-fila-cod">{{ pf.codigo }}</span>
+                <span class="selo"
+                      :class="pf.codigo === proxima.codigo ? 'selo-info' : estadoDaPeca(pf).selo">
+                  {{ pf.codigo === proxima.codigo ? 'Agora' : estadoDaPeca(pf).rotulo }}
+                </span>
+              </li>
+            </ul>
+          </div>
 
           <!-- OS DOIS CAMINHOS DA PEÇA DA VEZ, lado a lado.
                DAR BAIXA é o caminho de quem NÃO pode excluir: peça gravada pode
@@ -510,7 +631,8 @@ import { hasPermission } from '../../compartilhado/controle-de-login-e-usuario.j
 import { adminToast } from '../../compartilhado/avisos.js'
 import {
   enderecoDaTag, progressoDoLote, proximaPorGravar, linhasDoCsv, resumoDeAlertas,
-  MOTIVOS_DE_BAIXA, fraseDaRecusa,
+  MOTIVOS_DE_BAIXA, fraseDaRecusa, naFila,
+  rotuloDoMotivo, pecasEmOrdem, estadoDaPeca, linhasDaListaDoLote,
 } from './lotes.js'
 import { conferirLeitura, listaParaGravadorDeMesa, codigosNoTextoDoGravador } from './nfc-fila.js'
 import { PASSOS, TELAS_DO_GUIA, passoAtual, guiaJaVisto, marcarGuiaVisto, proximaTelaDoGuia } from './tutorial.js'
@@ -567,6 +689,47 @@ function avancarGuia() {
 }
 const gravando = ref(false)
 const recadoNfc = ref('')
+
+// ── O SINAL DE VIDA DA GRAVAÇÃO ───────────────────────────────────────────
+// Quem grava está de pé na bancada, com a bolsa numa mão e o celular na outra,
+// e precisa entender pelo canto do olho: pulsa enquanto espera a etiqueta, ✓
+// quando confirma, tremor quando falha.
+//
+// MAS A ANIMAÇÃO NUNCA É A ÚNICA FORMA DE SABER. Cada um dos três estados
+// também está ESCRITO — `textoDoSinal` aqui embaixo, e o recado grande logo
+// abaixo dele. Quem desliga animação no sistema (`prefers-reduced-motion`) vê o
+// mesmo ✓ e lê o mesmo texto: sai o movimento, fica o sinal.
+//
+// '' · 'ok' · 'falha' — o 'esperando' não mora aqui, é o próprio `gravando`,
+// senão os dois sairiam de sincronia no dia em que um deles esquecesse de zerar.
+const sinalDaGravacao = ref('')
+let relogioDoSinal = null
+
+function avisarNaTela(sinal) {
+  sinalDaGravacao.value = sinal
+  clearTimeout(relogioDoSinal)
+  // O SINAL SOME SOZINHO. ✓ que fica na tela vira paisagem e, pior, passa a ser
+  // lido como se fosse da PRÓXIMA etiqueta — e aí ele mente. O recado grande
+  // continua na tela: quem some é o desenho, não a informação.
+  relogioDoSinal = setTimeout(() => { sinalDaGravacao.value = '' }, 2600)
+}
+
+const estadoDoSinal = computed(() => (gravando.value ? 'esperando' : sinalDaGravacao.value))
+const textoDoSinal = computed(() => {
+  if (gravando.value) return 'Esperando a etiqueta encostar…'
+  if (sinalDaGravacao.value === 'ok') return 'Peça marcada como gravada.'
+  if (sinalDaGravacao.value === 'falha') return 'Não deu certo. A peça NÃO foi marcada.'
+  return ''
+})
+
+// A BARRA DO LOTE, no lugar do "3 de 20" solto — e COM ele: o texto continua
+// embaixo, porque barra sozinha não diz quantas faltam nem dá para ler em voz
+// alta para quem está do outro lado da bancada.
+const progressoDoLoteAtual = computed(() => progressoDoLote(pecasDoLote(loteEscolhido.value)))
+const larguraDoProgresso = computed(() => {
+  const { gravadas, total } = progressoDoLoteAtual.value
+  return `${total ? Math.round((gravadas / total) * 100) : 0}%`
+})
 const textoDoGravador = ref('')
 const confirmacaoDoGravador = ref(null)  // { reconhecidos, ignorados } enquanto a pergunta está na tela
 
@@ -606,14 +769,79 @@ const loteAtual = computed(() => lotes.value.find((l) => l.id === loteEscolhido.
 const proxima = computed(() => proximaPorGravar(pecasDoLote(loteEscolhido.value)))
 const resumo = computed(() => resumoDeAlertas(alertas.value))
 
+// ── A FILA AO REDOR DA PEÇA DA VEZ ────────────────────────────────────────
+// Quem grava 50 seguidas se perde: a tela mostrava SÓ a peça da vez, e o único
+// jeito de saber onde parou era contar etiqueta na mão. Aqui aparecem a que
+// acabou de sair e as próximas, com a da vez marcada.
+//
+// SÃO POUCAS LINHAS DE PROPÓSITO. A lista inteira do lote é da aba Lotes, e vai
+// a 500: aqui, no meio da gravação, uma lista longa empurraria o botão de gravar
+// para fora da tela do celular — e o botão é o que a pessoa está procurando.
+const QUANTAS_ADIANTE = 4
+const filaAoRedor = computed(() => {
+  const atual = proxima.value
+  if (!atual) return []
+  // A BAIXADA SAI, pela mesma regra da fila de gravação (`naFila`, em lotes.js):
+  // ela não vai virar bolsa, e mostrá-la aqui como "a próxima" mandaria alguém
+  // gravar a etiqueta de uma peça dada como refugo.
+  const lista = pecasEmOrdem(pecasDoLote(loteEscolhido.value)).filter(naFila)
+  const i = lista.findIndex((p) => p.codigo === atual.codigo)
+  if (i === -1) return []
+  // uma para trás — a que acabou de sair — e as próximas
+  return lista.slice(Math.max(0, i - 1), i + 1 + QUANTAS_ADIANTE)
+})
+
 // As baixadas saem da fila de gravação, então precisam de um lugar PRÓPRIO para
 // aparecer: sem esta lista, dar baixa por engano não teria como ser desfeito.
 const baixadasDoLote = computed(() => pecasDoLote(loteEscolhido.value)
   .filter((p) => p.baixada)
   .sort((a, b) => (a.numero_na_serie || 0) - (b.numero_na_serie || 0)))
 
-function rotuloDoMotivo(chave) {
-  return (MOTIVOS_DE_BAIXA.find((m) => m.chave === chave) || {}).rotulo || chave || '—'
+// ── VER AS PEÇAS DE UM LOTE ───────────────────────────────────────────────
+// O buraco que o dono apontou: "não consigo ver os links que já foram gravados
+// em lotes". A tela inteira mostrava UM código — o da próxima peça da fila —, e
+// depois de gravar e costurar ninguém respondia "qual link ficou na bolsa nº 7".
+//
+// UM LOTE ABERTO POR VEZ, pelo mesmo motivo de editar e excluir: duas listas
+// longas abertas ao mesmo tempo empurram o resto da tela para fora da vista.
+const loteAberto = ref(null)
+
+// UM LOTE PODE TER 500 PEÇAS, e desenhar 500 linhas de uma vez trava a tela no
+// celular. Ela abre com um punhado e cresce a pedido — a lista nunca mente
+// sobre o tamanho, porque o botão diz quantas ainda faltam.
+const DE_CADA_VEZ = 50
+const quantasMostrar = ref(DE_CADA_VEZ)
+// qual endereço acabou de ser copiado, para o botão dizer "Copiado!" só nele
+const enderecoCopiado = ref('')
+
+const pecasDoLoteAberto = computed(() => pecasEmOrdem(pecasDoLote(loteAberto.value)))
+const pecasVisiveis = computed(() => pecasDoLoteAberto.value.slice(0, quantasMostrar.value))
+const pecasQueFaltamMostrar = computed(
+  () => Math.max(0, pecasDoLoteAberto.value.length - pecasVisiveis.value.length))
+
+function alternarPecas(id) {
+  loteAberto.value = loteAberto.value === id ? null : id
+  // recomeça do topo: deixar o limite crescido de um lote de 500 faria o lote
+  // seguinte desenhar 500 linhas de uma vez, que é o que este limite evita
+  quantasMostrar.value = DE_CADA_VEZ
+  enderecoCopiado.value = ''
+}
+
+function mostrarMaisPecas() { quantasMostrar.value += DE_CADA_VEZ }
+
+// O MESMO "Copiado!" do modo do aplicativo, mas por peça: com uma frase só para
+// a lista inteira, a pessoa não saberia QUAL endereço foi para a área de
+// transferência — e ia costurar a etiqueta errada achando que conferiu.
+async function copiarEnderecoDaPeca(codigo) {
+  try {
+    await navigator.clipboard.writeText(enderecoDaTag(codigo))
+    enderecoCopiado.value = codigo
+    setTimeout(() => {
+      if (enderecoCopiado.value === codigo) enderecoCopiado.value = ''
+    }, 1800)
+  } catch (e) {
+    adminToast('Não consegui copiar — selecione o endereço na mão', false)
+  }
 }
 
 const registrosFiltrados = computed(() => {
@@ -642,6 +870,9 @@ function dataCurta(valor) {
 // de uma gravação em curso.
 watch(loteEscolhido, () => {
   recadoNfc.value = ''
+  // o ✓ (ou o ✗) do lote anterior sob um lote novo é sinal do lote errado, que
+  // é pior que sinal nenhum — mesmo motivo do recado logo acima
+  sinalDaGravacao.value = ''
   confirmacaoDoGravador.value = null
   baixando.value = false
   excluindoPeca.value = false
@@ -972,15 +1203,20 @@ async function marcarGravada(codigo = proxima.value?.codigo) {
   try {
     const { data, error } = await sbClient.rpc('vessel_marcar_gravada', { p_codigo: codigo })
     if (error) throw error
-    if (!data?.ok) { adminToast('Sem permissão para marcar', false); return false }
+    if (!data?.ok) { adminToast('Sem permissão para marcar', false); avisarNaTela('falha'); return false }
     // atualiza só a peça, sem recarregar tudo: a equipe está gravando em
     // sequência e uma recarga inteira a cada etiqueta trava o ritmo
     const alvo = pecas.value.find((p) => p.codigo === codigo)
     if (alvo) alvo.gravada_em = new Date().toISOString()
     textoCopiar.value = 'Copiar endereço'
+    // O ✓ NASCE AQUI, e não no chamador: este é o único ponto que sabe se o
+    // BANCO confirmou. Acendendo lá em cima, o "Gravei essa" do modo do
+    // aplicativo ficaria sem sinal nenhum — e ele é o modo do iPhone.
+    avisarNaTela('ok')
     return true
   } catch (e) {
     adminToast('Não consegui marcar agora', false)
+    avisarNaTela('falha')
     return false
   }
 }
@@ -1003,6 +1239,8 @@ async function gravarNaEtiqueta() {
     if (situacao === 'outra-peca') {
       recadoNfc.value = 'PARE: esta etiqueta já tem OUTRA peça gravada. '
         + 'Separe ela e pegue uma etiqueta em branco.'
+      // este caminho não passa por `marcarGravada`, então acende o sinal aqui
+      avisarNaTela('falha')
       return
     }
     if (situacao === 'confere') {
@@ -1022,6 +1260,7 @@ async function gravarNaEtiqueta() {
     if (conferirLeitura(depois, peca.codigo) !== 'confere') {
       recadoNfc.value = 'Gravei, mas a etiqueta não devolveu o endereço certo. '
         + 'Não marquei a peça. Encoste de novo.'
+      avisarNaTela('falha')
       return
     }
 
@@ -1032,6 +1271,7 @@ async function gravarNaEtiqueta() {
         + 'como pronta. NÃO pegue outra etiqueta: encoste esta de novo.'
   } catch (erro) {
     recadoNfc.value = traduzirFalha(erro)
+    avisarNaTela('falha')
   } finally {
     gravando.value = false
   }
@@ -1046,6 +1286,29 @@ function baixarListaDoGravador() {
   const a = document.createElement('a')
   a.href = url
   a.download = `etiquetas-${loteAtual.value?.modelo || 'lote'}.txt`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+// A LISTA INTEIRA DO LOTE, para arquivar junto da ordem de produção.
+// Função NOVA, e não um remendo em `baixarListaDoGravador` logo acima: aquela
+// baixa a FILA DO QUE FALTA e alimenta o gravador de mesa — misturar as
+// gravadas nela mandaria a máquina regravar etiqueta que já está dentro de uma
+// bolsa. São duas listas de propósito.
+function baixarListaDoLote(l) {
+  const doLote = pecasDoLote(l.id)
+  if (!doLote.length) { adminToast('Este lote não tem peça nenhuma', false); return }
+  const csv = linhasDaListaDoLote(doLote, { formatarData: dataCurta })
+  // BOM na frente: sem ele o Excel abre "Mônaco" como "MÃ´naco"
+  const blob = new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  // A DATA DE FABRICAÇÃO VAI NO NOME porque dois lotes do MESMO modelo baixavam
+  // com o mesmo nome, e o segundo virava "(1)" na pasta de Downloads — ou pior,
+  // substituía o primeiro. O arquivo é o registro de qual link foi para qual
+  // bolsa: nome repetido aqui é registro de produção perdido.
+  a.download = `lote-${l.modelo || 'sem-modelo'}-${l.fabricado_em || 'sem-data'}-completo.csv`
   a.click()
   URL.revokeObjectURL(url)
 }
@@ -1354,6 +1617,154 @@ onMounted(() => {
 }
 .au-produto:hover, .au-produto:focus-visible{background:var(--surface2)}
 .au-produto strong{font-size:14px; font-weight:600; line-height:1.3}
+/* ── AS PEÇAS DE UM LOTE ──────────────────────────────────────────────────
+   Cor só de token e espaço só da escala (PADRAO-DA-CENTRAL, itens 2 e 7). O
+   bloco reaproveita `.selo` das classes prontas — estado com cor inventada é o
+   que o padrão proíbe, e o selo já vem com contraste medido nos dois temas. */
+.au-pecas{
+  margin-top:var(--sp-3); padding:var(--sp-3);
+  border:1px solid var(--border); border-radius:var(--radius-md);
+  background:var(--surface2);
+}
+.au-pecas-topo{
+  display:flex; align-items:center; justify-content:space-between;
+  gap:var(--sp-3); flex-wrap:wrap;
+}
+.au-pecas-conta{
+  font-family:var(--fonte-principal);
+  font-size:max(9px, calc(12px * var(--escala-texto, 1)));
+  color:var(--muted); overflow-wrap:anywhere;
+}
+/* A LISTA ROLA DENTRO DA PRÓPRIA CAIXA. Um lote pode ter 500 peças: sem esta
+   altura, abrir um lote empurraria os outros lotes para 50 telas abaixo e o
+   cartão viraria a página inteira. `dvh` e nunca `vh` — no celular o `vh` é
+   calculado com a barra de endereço escondida, e o fim fica atrás dela. */
+.au-pecas-lista{
+  list-style:none; margin:var(--sp-3) 0 0; padding:0;
+  max-height:60dvh; overflow-y:auto; overscroll-behavior:contain;
+}
+.au-peca{padding:var(--sp-2) 0; border-bottom:1px solid var(--border)}
+.au-peca:last-child{border-bottom:0}
+.au-peca-topo{display:flex; align-items:center; gap:var(--sp-2); flex-wrap:wrap}
+.au-peca-n{
+  font-family:var(--fonte-principal); font-weight:700;
+  font-size:max(9px, calc(13px * var(--escala-texto, 1)));
+  color:var(--text); white-space:nowrap;
+}
+.au-peca-cod{
+  font-size:max(9px, calc(13px * var(--escala-texto, 1)));
+  color:var(--text); overflow-wrap:anywhere;
+}
+.au-peca-estado{
+  margin:var(--sp-1) 0 0; font-family:var(--fonte-principal);
+  font-size:max(9px, calc(12px * var(--escala-texto, 1)));
+  color:var(--muted); line-height:1.45; overflow-wrap:anywhere;
+}
+/* O endereço é o que se confere letra por letra na hora de costurar: fonte de
+   dados e quebra garantida, como o `.au-endereco` da aba Gravar. */
+.au-peca-end{
+  margin-top:var(--sp-1); font-family:var(--fonte-dados);
+  font-size:max(9px, calc(12px * var(--escala-texto, 1)));
+  line-height:1.5; color:var(--text); word-break:break-all; user-select:all;
+}
+.au-peca-links{display:flex; gap:var(--sp-3); flex-wrap:wrap}
+/* Alvo de dedo de 40px sem virar botão: cresce a área, o texto continua link
+   (PADRAO item 6). O `text-decoration` existe porque um deles é `<a>`. */
+.au-peca-botao{
+  display:inline-flex; align-items:center; min-height:40px; margin-top:0;
+  text-decoration:none;
+}
+.au-pecas > .au-botao{margin-top:var(--sp-3)}
+/* Medido a 375px: o "Gravar as etiquetas deste lote →" saía com 13px de altura
+   — alvo de dedo abaixo de 40px é defeito (PADRAO item 6), e este é o botão
+   principal do cartão. Cresce a área, o texto continua link. É o único `.au-link`
+   filho DIRETO do cartão; os de dentro dos blocos já têm a regra deles. */
+.au-card > .au-link{display:inline-flex; align-items:center; min-height:40px}
+
+/* ── A GRAVAÇÃO COM VIDA ──────────────────────────────────────────────────
+   O botão só trocava de texto para "Encoste a etiqueta…". Quem grava está de pé
+   na bancada, com a bolsa numa mão e o celular na outra: pulsa enquanto espera,
+   ✓ que cresce quando confirma, tremor quando falha.
+   Cor só de token e espaço só da escala (PADRAO-DA-CENTRAL, itens 2 e 7). */
+.au-farol{padding:var(--sp-4) 24px 0; max-width:620px}
+.au-barra{
+  height:8px; border-radius:999px; box-sizing:border-box;
+  background:var(--surface2); border:1px solid var(--border); overflow:hidden;
+}
+.au-barra-cheia{display:block; height:100%; background:var(--accent); transition:width .3s ease}
+.au-barra-texto{
+  margin:var(--sp-2) 0 0; font-family:var(--fonte-principal);
+  font-size:max(9px, calc(12px * var(--escala-texto, 1)));
+  color:var(--muted); overflow-wrap:anywhere;
+}
+/* O bloco do sinal é o desenho do PADRAO para aviso: a cor é o SINAL, e o texto
+   fica em `--text` para ser lido. */
+.au-sinal{
+  display:flex; align-items:center; gap:var(--sp-3);
+  margin-top:var(--sp-3); padding:var(--sp-3);
+  border-radius:var(--radius-md); border:1px solid var(--border);
+  background:var(--surface2); color:var(--text);
+}
+.au-sinal-texto{
+  font-family:var(--fonte-principal);
+  font-size:max(9px, calc(15px * var(--escala-texto, 1)));
+  line-height:1.4; overflow-wrap:anywhere;
+}
+.au-sinal-esperando{border-color:color-mix(in srgb, var(--accent) 38%, var(--surface))}
+.au-sinal-ok{border-color:color-mix(in srgb, var(--green) 38%, var(--surface))}
+.au-sinal-falha{border-color:color-mix(in srgb, var(--red) 38%, var(--surface))}
+/* O ANEL QUE PULSA enquanto a etiqueta não encosta. Ele é DESENHADO mesmo
+   parado: sem animação continua um anel na cor da ação, ao lado do texto. */
+.au-anel{
+  flex:none; width:30px; height:30px; border-radius:50%; box-sizing:border-box;
+  border:3px solid var(--accent);
+  animation:au-pulsa 1.3s ease-in-out infinite;
+}
+.au-marca-ok{flex:none; color:var(--green); animation:au-cresce .35s cubic-bezier(.22,1,.36,1) both}
+.au-marca-erro{flex:none; color:var(--red); animation:au-treme .42s ease-in-out}
+@keyframes au-pulsa{0%,100%{transform:scale(.86); opacity:.55} 50%{transform:scale(1); opacity:1}}
+@keyframes au-cresce{from{transform:scale(.3); opacity:0} to{transform:scale(1); opacity:1}}
+@keyframes au-treme{
+  0%,100%{transform:translateX(0)} 20%{transform:translateX(-5px)}
+  40%{transform:translateX(5px)} 60%{transform:translateX(-3px)} 80%{transform:translateX(3px)}
+}
+/* QUEM DESLIGA ANIMAÇÃO NO SISTEMA COSTUMA TER MOTIVO — e nesses casos o estado
+   aparece sem se mexer, mas APARECE: o anel continua desenhado e opaco, o ✓
+   continua verde e inteiro, o ✗ continua vermelho, a barra continua na medida
+   certa, e o texto continua dizendo o que aconteceu. Sai o movimento, fica o
+   sinal. `animation:none` num `@keyframes` de entrada exige que o estado FINAL
+   já seja o estado de repouso do elemento — por isso o `opacity:1` abaixo. */
+@media (prefers-reduced-motion: reduce){
+  .au-anel, .au-marca-ok, .au-marca-erro{animation:none; opacity:1; transform:none}
+  .au-barra-cheia{transition:none}
+}
+
+/* ── A FILA AO REDOR DA PEÇA DA VEZ ───────────────────────────────────────
+   Cor só de token e espaço só da escala (PADRAO-DA-CENTRAL, itens 2 e 7). */
+.au-fila{margin-top:var(--sp-4)}
+.au-fila-titulo{
+  margin:0 0 var(--sp-2); font-family:var(--fonte-principal);
+  font-size:max(9px, calc(10px * var(--escala-texto, 1)));
+  font-weight:700; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted);
+}
+.au-fila-lista{list-style:none; margin:0; padding:0}
+.au-fila-item{
+  display:flex; align-items:center; gap:var(--sp-2); flex-wrap:wrap;
+  padding:var(--sp-2); border-radius:var(--radius-md);
+  border:1px solid transparent;
+  font-family:var(--fonte-principal); color:var(--muted);
+  font-size:max(9px, calc(13px * var(--escala-texto, 1)));
+  overflow-wrap:anywhere;
+}
+/* A DA VEZ NÃO SE DISTINGUE SÓ PELA COR: ela ganha fundo, borda E o selo escrito
+   "Agora". Quem não enxerga a diferença de cor continua sabendo qual é. */
+.au-fila-item.atual{
+  background:var(--surface2); color:var(--text); font-weight:600;
+  border-color:color-mix(in srgb, var(--accent) 38%, var(--surface));
+}
+.au-fila-n{white-space:nowrap}
+.au-fila-cod{font-size:max(9px, calc(12px * var(--escala-texto, 1)))}
+
 /* O `@media` do celular deste bloco fica AQUI, e não no de cima junto com os
    outros: as regras-base acima têm a mesma especificidade e vêm depois no
    arquivo, então lá em cima elas seriam simplesmente ignoradas a 375px.
@@ -1361,5 +1772,14 @@ onMounted(() => {
 @media (max-width:520px){
   .au-escolha-produto > .au-aviso-menor{padding-left:16px;padding-right:16px;}
   .au-produtos{padding-left:8px;padding-right:8px;}
+  /* Medido a 375px: com o `.au-botao{flex:1}` do celular, "Baixar a lista
+     inteira" disputava a linha com a contagem e saía quebrado em TRÊS linhas.
+     Em coluna cada um tem a sua, e o botão ocupa a largura toda. O `flex:none`
+     é obrigatório: em coluna, o `flex:1` cresceria a ALTURA do botão. */
+  .au-pecas-topo{flex-direction:column; align-items:stretch;}
+  .au-pecas-topo .au-botao{flex:none;}
+  /* mesmo recuo dos outros blocos da tela a 375px. Vai AQUI e não no `@media`
+     de cima porque a regra-base do `.au-farol` vem depois dele. */
+  .au-farol{padding-left:16px; padding-right:16px;}
 }
 </style>

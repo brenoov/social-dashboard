@@ -45,6 +45,14 @@ export const MOTIVOS_DE_BAIXA = [
   { chave: 'etiqueta_perdida', rotulo: 'Etiqueta perdida ou danificada' },
 ]
 
+// O RÓTULO QUE A PESSOA LÊ, a partir da chave que o banco aceita. Ele MORA AQUI,
+// junto da lista, e não na tela: a lista completa do lote (`linhasDaListaDoLote`,
+// mais abaixo) escreve o mesmo motivo que a tela mostra, e rótulo escrito em
+// dois lugares é rótulo que diverge no dia em que um deles muda.
+export function rotuloDoMotivo(chave) {
+  return (MOTIVOS_DE_BAIXA.find((m) => m.chave === chave) || {}).rotulo || chave || '—'
+}
+
 // ── AS FRASES DE RECUSA ────────────────────────────────────────────────────
 // Botão desabilitado calado faz a pessoa achar que a ferramenta está quebrada.
 // Cada recusa do banco vira uma frase que diz POR QUE e O QUE FAZER.
@@ -113,6 +121,60 @@ export function linhasDoCsv(registros) {
   const linhas = (Array.isArray(registros) ? registros : [])
     .map((r) => COLUNAS.map(([campo]) => celula(r[campo])).join(';'))
   return [cabecalho, ...linhas].join('\n')
+}
+
+// ── A LISTA INTEIRA DO LOTE ────────────────────────────────────────────────
+// Depois de gravar e costurar, ninguém consegue responder "qual link ficou na
+// bolsa nº 7". Estas três contas são o que responde.
+
+// AS PEÇAS EM ORDEM DE SÉRIE. O banco não devolve ordenado, e a lista é lida
+// procurando um número: fora de ordem, ninguém acha.
+// O `slice()` antes do `sort` não é enfeite: `sort` ordena NO LUGAR, e ordenar
+// o array que veio da tela mexeria na lista que o Vue está desenhando.
+export function pecasEmOrdem(pecas) {
+  return (Array.isArray(pecas) ? pecas : []).slice()
+    .sort((a, b) => (a.numero_na_serie || 0) - (b.numero_na_serie || 0))
+}
+
+// O ESTADO DE UMA PEÇA, numa palavra só. A ORDEM DAS PERGUNTAS IMPORTA: peça
+// baixada pode ter sido gravada ANTES da baixa, e mostrá-la como "gravada" faria
+// alguém procurar dentro de uma bolsa que foi dada como refugo. A baixa é a
+// última coisa que aconteceu com a peça, então é ela que a tela diz.
+// O selo sai das classes prontas do PADRAO-DA-CENTRAL, nunca de cor à mão.
+export function estadoDaPeca(peca) {
+  const p = peca || {}
+  if (p.baixada) return { chave: 'baixada', rotulo: 'Baixada', selo: 'selo-atencao' }
+  if (p.gravada_em) return { chave: 'gravada', rotulo: 'Gravada', selo: 'selo-ok' }
+  return { chave: 'pendente', rotulo: 'Pendente', selo: 'selo-neutro' }
+}
+
+const COLUNAS_DO_LOTE = ['numero', 'codigo', 'endereco', 'estado', 'gravada em', 'motivo da baixa']
+
+// A LISTA PARA ARQUIVAR JUNTO DA ORDEM DE PRODUÇÃO.
+//
+// ELA NÃO É `listaParaGravadorDeMesa` (nfc-fila.js), e as duas existem de
+// propósito: aquela é a FILA DO QUE FALTA — alimenta a máquina, e por isso tira
+// as gravadas e as baixadas. Esta CONTA A HISTÓRIA — sai com todas as peças, na
+// ordem da série, com endereço e estado, porque quem arquiva precisa saber o que
+// aconteceu com cada número. Juntar as duas numa só faria a máquina regravar
+// etiqueta já gravada.
+//
+// A DATA ENTRA POR PARÂMETRO: formatar data é conta de fuso, e o fuso da Central
+// mora na tela (`dataCurta`, em America/Sao_Paulo). Escrevendo uma segunda aqui,
+// o arquivo sairia com a data de um dia e a tela com a de outro.
+export function linhasDaListaDoLote(pecas, { formatarData = (v) => (v == null ? '' : String(v)) } = {}) {
+  const linhas = pecasEmOrdem(pecas).map((p) => {
+    const estado = estadoDaPeca(p)
+    return [
+      p.numero_na_serie ?? '',
+      p.codigo ?? '',
+      enderecoDaTag(p.codigo),
+      estado.rotulo,
+      p.gravada_em ? formatarData(p.gravada_em) : '',
+      p.baixada ? rotuloDoMotivo(p.baixa_motivo) : '',
+    ].map(celula).join(';')
+  })
+  return [COLUNAS_DO_LOTE.join(';'), ...linhas].join('\n')
 }
 
 export function resumoDeAlertas(alertas) {
