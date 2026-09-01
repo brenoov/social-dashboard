@@ -116,6 +116,37 @@ export function fraseDaRecusa(motivo, dados = {}) {
   }
 }
 
+// ── A SENHA PEDIDA ANTES DE APAGAR ─────────────────────────────────────────
+//
+// ⚠️ O QUE ESTA SENHA É, PARA NINGUÉM SE ENGANAR DEPOIS: ela é FRICÇÃO contra
+// quem senta num computador destravado e sai clicando — e contra o próprio dono
+// apertando "excluir" sem pensar. **Ela NÃO é cofre.** Quem quiser mesmo chamar
+// `vessel_excluir_lote` sem passar por aqui abre o console e chama, e é por isso
+// que quem manda de verdade é o PORTÃO DO BANCO: `is_vessel_admin()` por dentro
+// da função, mais o `revoke`/`grant` de quem pode executá-la. A tela é a porta
+// da frente; a tranca é lá dentro.
+//
+// AS FRASES SÃO PRÓPRIAS, e não as de `frota/assinar-checklist.js`, que responde
+// aos MESMOS códigos da edge `conferir-senha`: as de lá terminam em "o checklist
+// ainda não foi gravado, você vai precisar preencher outra vez", que numa tela de
+// etiqueta é conselho sobre uma coisa que não existe.
+export function fraseDaSenha(codigo) {
+  switch (codigo) {
+    case 'senha_incorreta':
+      return 'Senha incorreta. Nada foi apagado. É a mesma senha com que você entra no aplicativo.'
+    case 'bloqueado':
+      return 'Muitas tentativas com senha errada. Espere dez minutos e tente de novo. Nada foi apagado.'
+    case 'sem_senha':
+      return 'Digite sua senha para confirmar. É a mesma senha com que você entra no aplicativo.'
+    case 'sem_sessao':
+      return 'Seu acesso expirou. Saia e entre de novo no aplicativo. Nada foi apagado.'
+    default:
+      // 'falha_interna', erro de rede, resposta que não deu para ler: todos têm
+      // a mesma orientação honesta — não sabemos, e nada foi apagado.
+      return 'Não consegui conferir sua senha agora. Confira a conexão e tente de novo. Nada foi apagado.'
+  }
+}
+
 const COLUNAS = [
   ['codigo', 'codigo'],
   ['nome', 'nome'],

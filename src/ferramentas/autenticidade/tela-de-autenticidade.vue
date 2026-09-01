@@ -67,19 +67,50 @@
           <!-- A PERGUNTA DE EXCLUIR MORA NA PRÓPRIA TELA: a caixinha nativa do
                navegador é proibida neste projeto e `uiConfirm` não existe aqui — e
                há um teste que reprova até a palavra escrita. Quem recusa de verdade
-               é o banco; a tela só traduz a recusa para português. -->
+               é o banco; a tela só traduz a recusa para português.
+
+               SÃO DUAS PERGUNTAS, E A SEGUNDA NÃO REPETE A PRIMEIRA. A primeira
+               diz o que vai acontecer; a segunda diz o que se PERDE, com o
+               número de peças, e pede a senha. Duas vezes a mesma frase vira um
+               "sim, sim" automático, e o segundo clique não decide nada. -->
           <div v-if="excluindo === l.id" class="au-confirma">
-            <p class="au-confirma-texto">
-              Excluir o lote <strong>{{ l.modelo }}</strong> e as {{ l.quantidade }} etiquetas dele?
-            </p>
-            <p class="au-aviso-menor">
-              Só dá para excluir lote em que nenhuma etiqueta foi gravada. Se alguma já foi,
-              a tela vai dizer quantas.
-            </p>
-            <div class="au-acoes">
-              <button class="au-botao secundario" type="button" @click="excluindo = null">Cancelar</button>
-              <button class="au-botao" type="button" @click="excluirLote(l.id)">Sim, excluir</button>
-            </div>
+            <template v-if="etapaDeExcluir === 1">
+              <p class="au-confirma-texto">
+                Excluir o lote <strong>{{ l.modelo }}</strong> e as {{ l.quantidade }} etiquetas dele?
+              </p>
+              <p class="au-aviso-menor">
+                Só dá para excluir lote em que nenhuma etiqueta foi gravada. Se alguma já foi,
+                a tela vai dizer quantas.
+              </p>
+              <div class="au-acoes">
+                <button class="au-botao secundario" type="button" @click="fecharExcluir">Cancelar</button>
+                <button class="au-botao" type="button" @click="etapaDeExcluir = 2">Continuar</button>
+              </div>
+            </template>
+
+            <template v-else>
+              <p class="au-confirma-texto">
+                Tem certeza? Somem para sempre os <strong>{{ pecasDoLote(l.id).length }} código(s)</strong>
+                deste lote, o endereço que cada um abre e a lista de produção dele. Não dá para
+                desfazer: quem encostar o celular numa etiqueta apagada passa a ler
+                “este código não consta”.
+              </p>
+              <!-- A SENHA É FRICÇÃO, NÃO COFRE — ver `fraseDaSenha`, em lotes.js.
+                   Ela segura o clique sem pensar e quem senta no computador
+                   destravado. Quem manda de verdade é o portão do banco. -->
+              <label class="au-campo"><span class="au-rot">Sua senha</span>
+                <input v-model="senhaDaExclusao" type="password" autocomplete="current-password"
+                       :disabled="exclusaoDeLoteEmVoo" @keydown.enter.prevent="excluirLote(l.id)"></label>
+              <p class="au-aviso-menor">É a mesma senha com que você entra no aplicativo.</p>
+              <p v-if="erroDaSenha" class="au-recusa">{{ erroDaSenha }}</p>
+              <div class="au-acoes">
+                <button class="au-botao secundario" type="button" @click="fecharExcluir">Cancelar</button>
+                <button class="au-botao" type="button" :disabled="exclusaoDeLoteEmVoo"
+                        @click="excluirLote(l.id)">
+                  {{ exclusaoDeLoteEmVoo ? 'Conferindo…' : 'Excluir para sempre' }}
+                </button>
+              </div>
+            </template>
           </div>
 
           <div v-if="editando === l.id" class="au-edicao">
@@ -645,7 +676,7 @@ import { hasPermission } from '../../compartilhado/controle-de-login-e-usuario.j
 import { adminToast } from '../../compartilhado/avisos.js'
 import {
   enderecoDaTag, progressoDoLote, proximaPorGravar, linhasDoCsv, resumoDeAlertas,
-  MOTIVOS_DE_BAIXA, fraseDaRecusa, naFila,
+  MOTIVOS_DE_BAIXA, fraseDaRecusa, fraseDaSenha, naFila,
   rotuloDoMotivo, pecasEmOrdem, estadoDaPeca, linhasDaListaDoLote,
 } from './lotes.js'
 import { conferirLeitura, listaParaGravadorDeMesa, codigosNoTextoDoGravador } from './nfc-fila.js'
@@ -769,6 +800,19 @@ const novo = reactive({ modelo: '', cor: '', sku: '', quantidade: 20, fabricado_
 const editando = ref(null)    // o lote com o formulário de editar aberto, ou null
 const excluindo = ref(null)   // o lote com a pergunta de excluir na tela, ou null
 const edicao = reactive({ modelo: '', cor: '', sku: '', fabricado_em: '', quantidade: 1 })
+
+// ── AS DUAS PERGUNTAS DE EXCLUIR, E A SENHA ───────────────────────────────
+// 1 = "vai excluir o lote?"  ·  2 = o que se PERDE, com o número de peças, e a
+// senha. A segunda NÃO repete a primeira de propósito: duas vezes a mesma frase
+// vira um "sim, sim" automático e o segundo clique não decide nada.
+const etapaDeExcluir = ref(1)
+// ⚠️ A SENHA NUNCA SOBREVIVE À AÇÃO. Ela é apagada no `finally` de
+// `excluirLote`, ao cancelar e ao trocar de lote — e NUNCA vai para
+// `localStorage`, nem para o banco, nem para lugar nenhum além do corpo da
+// chamada à edge que a confere.
+const senhaDaExclusao = ref('')
+const erroDaSenha = ref('')
+const exclusaoDeLoteEmVoo = ref(false)
 
 // A PERGUNTA DE DAR BAIXA, na aba Gravar. Ela é da peça da vez, então basta um
 // sim/não: só existe uma peça da vez. O motivo nasce em "Extraviada" porque é o
@@ -1097,7 +1141,10 @@ async function gerarLote() {
 }
 
 function abrirEdicao(l) {
-  excluindo.value = null
+  // `fecharExcluir()` e não `excluindo.value = null`: abrir o editor com a
+  // pergunta de excluir pela metade deixaria a senha digitada viva na memória
+  // da tela, esperando o próximo clique.
+  fecharExcluir()
   editando.value = l.id
   edicao.modelo = l.modelo || ''
   edicao.cor = l.cor || ''
@@ -1109,6 +1156,53 @@ function abrirEdicao(l) {
 function pedirExcluir(id) {
   editando.value = null
   excluindo.value = id
+  // toda pergunta recomeça da primeira etapa, com o campo de senha limpo: uma
+  // pergunta que abre já na etapa 2, com a senha de antes escrita, é um clique
+  // de distância de apagar o lote errado
+  etapaDeExcluir.value = 1
+  senhaDaExclusao.value = ''
+  erroDaSenha.value = ''
+}
+
+function fecharExcluir() {
+  excluindo.value = null
+  etapaDeExcluir.value = 1
+  // a senha sai da memória junto com a pergunta
+  senhaDaExclusao.value = ''
+  erroDaSenha.value = ''
+}
+
+// ── CONFERIR A SENHA DE QUEM ESTÁ LOGADO, NO SERVIDOR ─────────────────────
+//
+// PASSA PELA EDGE `conferir-senha`, e NÃO por `sbClient.auth.signInWithPassword`
+// aqui na tela. O motivo está escrito no cabeçalho da própria edge e já custou
+// caro na Frota: o único jeito de conferir senha pelo cliente é o
+// `signInWithPassword`, e ele TROCA A SESSÃO — token novo, com a pergunta e o
+// lote pela metade na tela. A edge descobre quem é a pessoa pelo TOKEN (nunca
+// por e-mail vindo do cliente, senão isto vira um oráculo para testar senha dos
+// outros), refaz o login num cliente isolado que morre com a função, e devolve
+// só sim ou não. Ela também conta as tentativas e bloqueia por dez minutos.
+//
+// ⚠️ ISTO É FRICÇÃO, NÃO COFRE. Ver o comentário de `fraseDaSenha` em lotes.js:
+// quem manda de verdade é `is_vessel_admin()` por dentro da função do banco.
+async function conferirASenha(senha) {
+  if (!senha) return { ok: false, erro: 'sem_senha' }
+  try {
+    const { data, error } = await sbClient.functions.invoke('conferir-senha', { body: { senha } })
+    if (error) {
+      // A edge responde 429 (bloqueado), 401 (sem sessão) e 400 (sem senha) FORA
+      // do 2xx, e o supabase-js transforma isso em `error` com `data` NULO. Lendo
+      // o motivo só do `data`, "bloqueado por dez minutos" apareceria como
+      // "senha incorreta" e a pessoa tentaria de novo sem parar.
+      const detalhe = await error.context?.json?.().catch(() => null)
+      return { ok: false, erro: detalhe?.erro || 'falha_interna' }
+    }
+    if (!data?.ok) return { ok: false, erro: data?.erro || 'falha_interna' }
+    return { ok: true }
+  } catch (e) {
+    // falha em conferir é senha RECUSADA, nunca senha concedida por acidente
+    return { ok: false, erro: 'falha_interna' }
+  }
 }
 
 // `sbClient.rpc` NÃO ESTOURA: devolve `{ data, error }`. `error` é falha de rede
@@ -1135,13 +1229,34 @@ async function salvarEdicao() {
 // QUEM RECUSA É O BANCO, NÃO A TELA. Lote com etiqueta já gravada não se exclui:
 // a página da cliente passaria a dizer "não consta" e uma bolsa original
 // pareceria falsa. A tela só traduz a recusa, com o número que o banco devolveu.
+//
+// A SENHA VEM ANTES DA PRIMEIRA ESCRITA, e o erro dela é DIFERENTE do erro da
+// exclusão: senha errada não apagou nada e se resolve ali mesmo, no campo, sem
+// fechar a pergunta. Recusa do banco fecha a pergunta, porque apertar de novo
+// traria a mesma resposta.
 async function excluirLote(id) {
-  const { data, error } = await sbClient.rpc('vessel_excluir_lote', { p_lote: id })
-  if (error) { adminToast('Não consegui excluir agora', false); return }
-  if (!data?.ok) { excluindo.value = null; adminToast(fraseDaRecusa(data?.motivo, data), false); return }
-  excluindo.value = null
-  await carregar()
-  adminToast(`Lote excluído, com ${data.excluidas} etiqueta(s).`)
+  if (exclusaoDeLoteEmVoo.value) return
+  const senha = senhaDaExclusao.value
+  erroDaSenha.value = ''
+  if (!senha) { erroDaSenha.value = fraseDaSenha('sem_senha'); return }
+  exclusaoDeLoteEmVoo.value = true
+  try {
+    const conferida = await conferirASenha(senha)
+    if (!conferida.ok) { erroDaSenha.value = fraseDaSenha(conferida.erro); return }
+
+    const { data, error } = await sbClient.rpc('vessel_excluir_lote', { p_lote: id })
+    if (error) { adminToast('Não consegui excluir agora', false); return }
+    if (!data?.ok) { fecharExcluir(); adminToast(fraseDaRecusa(data?.motivo, data), false); return }
+    fecharExcluir()
+    await carregar()
+    adminToast(`Lote excluído, com ${data.excluidas} etiqueta(s).`)
+  } finally {
+    exclusaoDeLoteEmVoo.value = false
+    // ⚠️ A SENHA NÃO SOBREVIVE À AÇÃO, em nenhum caminho — nem no que deu certo,
+    // nem no que falhou. Ela nunca esteve em `localStorage` e não fica na
+    // memória da tela esperando o próximo clique.
+    senhaDaExclusao.value = ''
+  }
 }
 
 // DAR BAIXA É O CAMINHO DE QUEM NÃO PODE EXCLUIR. Peça gravada pode estar
@@ -1624,6 +1739,24 @@ onMounted(() => {
 /* O recuo lateral ja vem do bloco: sem isto o seletor de motivo sai 24px mais
    para dentro que o resto da caixa — mesmo motivo do `.au-edicao .au-campo`. */
 .au-confirma .au-campo{padding:var(--sp-2) 0 0; max-width:none}
+/* 16px no campo nao e estetica: abaixo disso o iOS da zoom ao focar e a tela
+   salta na cara de quem esta digitando a senha. A regra-base do `.au-campo
+   input` desta tela e de 14px — sem esta linha o campo de senha nascia com ela.
+   40px de altura porque dedo nao acerta menos que isso. */
+.au-confirma input{min-height:40px; box-sizing:border-box; font-size:max(16px, calc(16px * var(--escala-texto, 1)))}
+/* A RECUSA DA SENHA. Segue o desenho de aviso do PADRAO-DA-CENTRAL: a cor e o
+   SINAL, o texto fica em `--text` para ser lido. O `--red` como letra sobre o
+   fundo desta caixa mede 4,50 no tema escuro — passa raspando, e "por pouco"
+   continua sendo por pouco. */
+.au-recusa{
+  margin:var(--sp-2) 0 0; padding:var(--sp-2) var(--sp-3);
+  border-radius:var(--radius-md);
+  background:color-mix(in srgb, var(--red) 12%, var(--surface));
+  border:1px solid color-mix(in srgb, var(--red) 38%, var(--surface));
+  color:var(--text); font-family:var(--fonte-principal);
+  font-size:max(9px, calc(13px * var(--escala-texto, 1)));
+  line-height:1.45; overflow-wrap:anywhere;
+}
 /* A lista das baixadas vive FORA do `.au-gravacao`, entao carrega o proprio
    recuo. O `@media` la em cima passa este bloco para 16px junto com os outros. */
 .au-baixadas-lote{padding:0 24px; max-width:620px}

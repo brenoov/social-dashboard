@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   enderecoDaTag, progressoDoLote, proximaPorGravar, linhasDoCsv, resumoDeAlertas,
-  MOTIVOS_DE_BAIXA, fraseDaRecusa,
+  MOTIVOS_DE_BAIXA, fraseDaRecusa, fraseDaSenha,
   rotuloDoMotivo, pecasEmOrdem, estadoDaPeca, linhasDaListaDoLote,
 } from './lotes.js'
 
@@ -296,4 +296,39 @@ test('linhasDaListaDoLote: ponto-e-virgula no motivo nao quebra a coluna', () =>
     { codigo: 'A1B2C3', numero_na_serie: 1, baixada: true, baixa_motivo: 'sumiu; voltou' },
   ])
   assert.ok(csv.includes('"sumiu; voltou"'))
+})
+
+/* ── A SENHA PEDIDA ANTES DE APAGAR ────────────────────────────────────────
+ * Ela e FRICCAO, nao cofre: quem manda de verdade e o portao do banco. O que
+ * estes testes seguram e a HONESTIDADE das frases — depois de digitar a senha
+ * errada, a pessoa precisa saber que nada foi apagado, senao ela vai procurar o
+ * lote que continua la achando que sumiu. */
+
+test('fraseDaSenha: cada recusa da edge vira frase em portugues, sem codigo cru', () => {
+  const codigos = ['senha_incorreta', 'bloqueado', 'sem_senha', 'sem_sessao', 'falha_interna']
+  for (const c of codigos) {
+    const f = fraseDaSenha(c)
+    assert.ok(f.length > 20, `a frase de ${c} ficou curta demais para explicar`)
+    assert.doesNotMatch(f, /_/, `a frase de ${c} vazou o codigo cru do banco`)
+  }
+})
+
+test('fraseDaSenha: toda recusa diz que NADA foi apagado', () => {
+  // esta e a parte que a pessoa precisa ler: sem ela, quem errou a senha fica
+  // sem saber se o lote foi embora ou nao — e a tela nunca mente.
+  for (const c of ['senha_incorreta', 'bloqueado', 'sem_sessao', 'falha_interna']) {
+    assert.match(fraseDaSenha(c), /nada foi apagado/i, `a frase de ${c} nao diz o que sobrou`)
+  }
+})
+
+test('fraseDaSenha: senha errada e bloqueio sao frases DIFERENTES', () => {
+  // "bloqueado por dez minutos" lido como "senha incorreta" faz a pessoa tentar
+  // sem parar, e cada tentativa estica o bloqueio
+  assert.notEqual(fraseDaSenha('senha_incorreta'), fraseDaSenha('bloqueado'))
+  assert.match(fraseDaSenha('bloqueado'), /dez minutos/)
+})
+
+test('fraseDaSenha: codigo desconhecido nao vira frase vazia', () => {
+  assert.ok(fraseDaSenha('coisa_que_ninguem_conhece').length > 20)
+  assert.ok(fraseDaSenha(undefined).length > 20)
 })
