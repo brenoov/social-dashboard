@@ -173,6 +173,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { estado, hasPermission, carregarPerfil } from '../../compartilhado/controle-de-login-e-usuario.js'
+import { podeVerGestaoInterna } from '../gestao-interna/chaves-da-gestao-interna.js'
 
 const router = useRouter()
 
@@ -203,7 +204,11 @@ const podeFrota = computed(() => hasPermission('frota', 'ver'))
 // .vue:33) e a tela abria normalmente. O que faltava era só a porta daqui, e
 // sem ela não existe caminho de clique nenhum até o checklist do dia — o ícone
 // instalado abre em `/`, que é esta tela.
-const podeGestaoInterna = computed(() => podeAcessos.value || podePatrimonio.value || podeFrota.value)
+// A LISTA NÃO MORA MAIS AQUI. Ela envelheceu duas vezes — a Frota em 19/08 e a
+// Autenticidade em 01/09 — e as duas vezes o sintoma foi o mesmo: pessoa com a
+// permissão concedida lendo "você não tem acesso a nenhuma ferramenta".
+// Ver `gestao-interna/chaves-da-gestao-interna.js`.
+const podeGestaoInterna = computed(() => podeVerGestaoInterna(hasPermission))
 const podeClaudeStatus = computed(() => hasPermission('claude.status', 'ver'))
 // O 3D era o único cartão sem porteiro. Agora segue a mesma chave dos outros.
 const podeEscritorio3D = computed(() => hasPermission('escritorio3d', 'ver'))
