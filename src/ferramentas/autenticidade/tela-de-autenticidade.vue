@@ -182,6 +182,42 @@
           </select>
         </label>
 
+        <!-- ── O FAROL DO LOTE ─────────────────────────────────────────────
+             Ele fica FORA do bloco de gravação de propósito: quando a última
+             peça é gravada aquele bloco inteiro some, e com ele sumiria o ✓ da
+             etiqueta que a pessoa acabou de encostar.
+             A BARRA NÃO SUBSTITUI O TEXTO, soma a ele: barra sozinha não diz
+             quantas faltam, e não dá para ler em voz alta na bancada. -->
+        <div class="au-farol">
+          <div class="au-barra" role="progressbar" aria-valuemin="0"
+               :aria-valuenow="progressoDoLoteAtual.gravadas"
+               :aria-valuemax="progressoDoLoteAtual.total"
+               :aria-label="`${progressoDoLoteAtual.texto} etiquetas gravadas neste lote`">
+            <i class="au-barra-cheia" :style="{ width: larguraDoProgresso }"></i>
+          </div>
+          <p class="au-barra-texto">{{ progressoDoLoteAtual.texto }} gravadas neste lote</p>
+
+          <!-- O SINAL DE VIDA. O desenho é para o canto do olho; QUEM DIZ O QUE
+               ACONTECEU É O TEXTO, aqui e no recado grande logo abaixo. Com
+               `prefers-reduced-motion` o movimento sai e este bloco continua
+               inteiro — desligar animação não é desligar informação. -->
+          <div v-if="gravando || sinalDaGravacao" class="au-sinal"
+               :class="'au-sinal-' + estadoDoSinal" role="status">
+            <span v-if="gravando" class="au-anel" aria-hidden="true"></span>
+            <svg v-else-if="sinalDaGravacao === 'ok'" class="au-marca-ok" viewBox="0 0 24 24"
+                 width="30" height="30" aria-hidden="true" fill="none" stroke="currentColor"
+                 stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="4 13 9.5 18.5 20 6" />
+            </svg>
+            <svg v-else class="au-marca-erro" viewBox="0 0 24 24"
+                 width="30" height="30" aria-hidden="true" fill="none" stroke="currentColor"
+                 stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="6" y1="6" x2="18" y2="18" /><line x1="18" y1="6" x2="6" y2="18" />
+            </svg>
+            <span class="au-sinal-texto">{{ textoDoSinal }}</span>
+          </div>
+        </div>
+
         <p v-if="!proxima" class="au-pronto">
           Todas as etiquetas deste lote já foram gravadas. Nada a fazer aqui.
         </p>
@@ -632,6 +668,47 @@ function avancarGuia() {
 }
 const gravando = ref(false)
 const recadoNfc = ref('')
+
+// ── O SINAL DE VIDA DA GRAVAÇÃO ───────────────────────────────────────────
+// Quem grava está de pé na bancada, com a bolsa numa mão e o celular na outra,
+// e precisa entender pelo canto do olho: pulsa enquanto espera a etiqueta, ✓
+// quando confirma, tremor quando falha.
+//
+// MAS A ANIMAÇÃO NUNCA É A ÚNICA FORMA DE SABER. Cada um dos três estados
+// também está ESCRITO — `textoDoSinal` aqui embaixo, e o recado grande logo
+// abaixo dele. Quem desliga animação no sistema (`prefers-reduced-motion`) vê o
+// mesmo ✓ e lê o mesmo texto: sai o movimento, fica o sinal.
+//
+// '' · 'ok' · 'falha' — o 'esperando' não mora aqui, é o próprio `gravando`,
+// senão os dois sairiam de sincronia no dia em que um deles esquecesse de zerar.
+const sinalDaGravacao = ref('')
+let relogioDoSinal = null
+
+function avisarNaTela(sinal) {
+  sinalDaGravacao.value = sinal
+  clearTimeout(relogioDoSinal)
+  // O SINAL SOME SOZINHO. ✓ que fica na tela vira paisagem e, pior, passa a ser
+  // lido como se fosse da PRÓXIMA etiqueta — e aí ele mente. O recado grande
+  // continua na tela: quem some é o desenho, não a informação.
+  relogioDoSinal = setTimeout(() => { sinalDaGravacao.value = '' }, 2600)
+}
+
+const estadoDoSinal = computed(() => (gravando.value ? 'esperando' : sinalDaGravacao.value))
+const textoDoSinal = computed(() => {
+  if (gravando.value) return 'Esperando a etiqueta encostar…'
+  if (sinalDaGravacao.value === 'ok') return 'Peça marcada como gravada.'
+  if (sinalDaGravacao.value === 'falha') return 'Não deu certo. A peça NÃO foi marcada.'
+  return ''
+})
+
+// A BARRA DO LOTE, no lugar do "3 de 20" solto — e COM ele: o texto continua
+// embaixo, porque barra sozinha não diz quantas faltam nem dá para ler em voz
+// alta para quem está do outro lado da bancada.
+const progressoDoLoteAtual = computed(() => progressoDoLote(pecasDoLote(loteEscolhido.value)))
+const larguraDoProgresso = computed(() => {
+  const { gravadas, total } = progressoDoLoteAtual.value
+  return `${total ? Math.round((gravadas / total) * 100) : 0}%`
+})
 const textoDoGravador = ref('')
 const confirmacaoDoGravador = ref(null)  // { reconhecidos, ignorados } enquanto a pergunta está na tela
 
@@ -750,6 +827,9 @@ function dataCurta(valor) {
 // de uma gravação em curso.
 watch(loteEscolhido, () => {
   recadoNfc.value = ''
+  // o ✓ (ou o ✗) do lote anterior sob um lote novo é sinal do lote errado, que
+  // é pior que sinal nenhum — mesmo motivo do recado logo acima
+  sinalDaGravacao.value = ''
   confirmacaoDoGravador.value = null
   baixando.value = false
   excluindoPeca.value = false
@@ -1080,15 +1160,20 @@ async function marcarGravada(codigo = proxima.value?.codigo) {
   try {
     const { data, error } = await sbClient.rpc('vessel_marcar_gravada', { p_codigo: codigo })
     if (error) throw error
-    if (!data?.ok) { adminToast('Sem permissão para marcar', false); return false }
+    if (!data?.ok) { adminToast('Sem permissão para marcar', false); avisarNaTela('falha'); return false }
     // atualiza só a peça, sem recarregar tudo: a equipe está gravando em
     // sequência e uma recarga inteira a cada etiqueta trava o ritmo
     const alvo = pecas.value.find((p) => p.codigo === codigo)
     if (alvo) alvo.gravada_em = new Date().toISOString()
     textoCopiar.value = 'Copiar endereço'
+    // O ✓ NASCE AQUI, e não no chamador: este é o único ponto que sabe se o
+    // BANCO confirmou. Acendendo lá em cima, o "Gravei essa" do modo do
+    // aplicativo ficaria sem sinal nenhum — e ele é o modo do iPhone.
+    avisarNaTela('ok')
     return true
   } catch (e) {
     adminToast('Não consegui marcar agora', false)
+    avisarNaTela('falha')
     return false
   }
 }
@@ -1111,6 +1196,8 @@ async function gravarNaEtiqueta() {
     if (situacao === 'outra-peca') {
       recadoNfc.value = 'PARE: esta etiqueta já tem OUTRA peça gravada. '
         + 'Separe ela e pegue uma etiqueta em branco.'
+      // este caminho não passa por `marcarGravada`, então acende o sinal aqui
+      avisarNaTela('falha')
       return
     }
     if (situacao === 'confere') {
@@ -1130,6 +1217,7 @@ async function gravarNaEtiqueta() {
     if (conferirLeitura(depois, peca.codigo) !== 'confere') {
       recadoNfc.value = 'Gravei, mas a etiqueta não devolveu o endereço certo. '
         + 'Não marquei a peça. Encoste de novo.'
+      avisarNaTela('falha')
       return
     }
 
@@ -1140,6 +1228,7 @@ async function gravarNaEtiqueta() {
         + 'como pronta. NÃO pegue outra etiqueta: encoste esta de novo.'
   } catch (erro) {
     recadoNfc.value = traduzirFalha(erro)
+    avisarNaTela('falha')
   } finally {
     gravando.value = false
   }
@@ -1545,6 +1634,64 @@ onMounted(() => {
    filho DIRETO do cartão; os de dentro dos blocos já têm a regra deles. */
 .au-card > .au-link{display:inline-flex; align-items:center; min-height:40px}
 
+/* ── A GRAVAÇÃO COM VIDA ──────────────────────────────────────────────────
+   O botão só trocava de texto para "Encoste a etiqueta…". Quem grava está de pé
+   na bancada, com a bolsa numa mão e o celular na outra: pulsa enquanto espera,
+   ✓ que cresce quando confirma, tremor quando falha.
+   Cor só de token e espaço só da escala (PADRAO-DA-CENTRAL, itens 2 e 7). */
+.au-farol{padding:var(--sp-4) 24px 0; max-width:620px}
+.au-barra{
+  height:8px; border-radius:999px; box-sizing:border-box;
+  background:var(--surface2); border:1px solid var(--border); overflow:hidden;
+}
+.au-barra-cheia{display:block; height:100%; background:var(--accent); transition:width .3s ease}
+.au-barra-texto{
+  margin:var(--sp-2) 0 0; font-family:var(--fonte-principal);
+  font-size:max(9px, calc(12px * var(--escala-texto, 1)));
+  color:var(--muted); overflow-wrap:anywhere;
+}
+/* O bloco do sinal é o desenho do PADRAO para aviso: a cor é o SINAL, e o texto
+   fica em `--text` para ser lido. */
+.au-sinal{
+  display:flex; align-items:center; gap:var(--sp-3);
+  margin-top:var(--sp-3); padding:var(--sp-3);
+  border-radius:var(--radius-md); border:1px solid var(--border);
+  background:var(--surface2); color:var(--text);
+}
+.au-sinal-texto{
+  font-family:var(--fonte-principal);
+  font-size:max(9px, calc(15px * var(--escala-texto, 1)));
+  line-height:1.4; overflow-wrap:anywhere;
+}
+.au-sinal-esperando{border-color:color-mix(in srgb, var(--accent) 38%, var(--surface))}
+.au-sinal-ok{border-color:color-mix(in srgb, var(--green) 38%, var(--surface))}
+.au-sinal-falha{border-color:color-mix(in srgb, var(--red) 38%, var(--surface))}
+/* O ANEL QUE PULSA enquanto a etiqueta não encosta. Ele é DESENHADO mesmo
+   parado: sem animação continua um anel na cor da ação, ao lado do texto. */
+.au-anel{
+  flex:none; width:30px; height:30px; border-radius:50%; box-sizing:border-box;
+  border:3px solid var(--accent);
+  animation:au-pulsa 1.3s ease-in-out infinite;
+}
+.au-marca-ok{flex:none; color:var(--green); animation:au-cresce .35s cubic-bezier(.22,1,.36,1) both}
+.au-marca-erro{flex:none; color:var(--red); animation:au-treme .42s ease-in-out}
+@keyframes au-pulsa{0%,100%{transform:scale(.86); opacity:.55} 50%{transform:scale(1); opacity:1}}
+@keyframes au-cresce{from{transform:scale(.3); opacity:0} to{transform:scale(1); opacity:1}}
+@keyframes au-treme{
+  0%,100%{transform:translateX(0)} 20%{transform:translateX(-5px)}
+  40%{transform:translateX(5px)} 60%{transform:translateX(-3px)} 80%{transform:translateX(3px)}
+}
+/* QUEM DESLIGA ANIMAÇÃO NO SISTEMA COSTUMA TER MOTIVO — e nesses casos o estado
+   aparece sem se mexer, mas APARECE: o anel continua desenhado e opaco, o ✓
+   continua verde e inteiro, o ✗ continua vermelho, a barra continua na medida
+   certa, e o texto continua dizendo o que aconteceu. Sai o movimento, fica o
+   sinal. `animation:none` num `@keyframes` de entrada exige que o estado FINAL
+   já seja o estado de repouso do elemento — por isso o `opacity:1` abaixo. */
+@media (prefers-reduced-motion: reduce){
+  .au-anel, .au-marca-ok, .au-marca-erro{animation:none; opacity:1; transform:none}
+  .au-barra-cheia{transition:none}
+}
+
 /* O `@media` do celular deste bloco fica AQUI, e não no de cima junto com os
    outros: as regras-base acima têm a mesma especificidade e vêm depois no
    arquivo, então lá em cima elas seriam simplesmente ignoradas a 375px.
@@ -1558,5 +1705,8 @@ onMounted(() => {
      é obrigatório: em coluna, o `flex:1` cresceria a ALTURA do botão. */
   .au-pecas-topo{flex-direction:column; align-items:stretch;}
   .au-pecas-topo .au-botao{flex:none;}
+  /* mesmo recuo dos outros blocos da tela a 375px. Vai AQUI e não no `@media`
+     de cima porque a regra-base do `.au-farol` vem depois dele. */
+  .au-farol{padding-left:16px; padding-right:16px;}
 }
 </style>
