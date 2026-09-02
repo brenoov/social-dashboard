@@ -2762,6 +2762,32 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* ══════════════════════════════════════════════════════════════════════════
+   O TAMANHO DE TEXTO SAI DA ESCALA, NUNCA DE UM NÚMERO ESCRITO À MÃO
+   ══════════════════════════════════════════════════════════════════════════
+   Esta tela tinha QUINZE tamanhos distintos — 10 · 11 · 12 · 12,5 · 13 · 13,5 ·
+   14 · 15 · 16 · 17 · 19 · 26px, mais os três do modo bancada. Doze deles entre
+   10 e 26 pixels, vários separados por MEIO PIXEL. O dono reclamou dela três
+   vezes, com estas palavras: "vários tamanhos de fonte, uma bosta, confuso".
+   Meio pixel de diferença o olho não lê como hierarquia: lê como bagunça.
+
+   Agora são CINCO degraus, e eles moram em `src/estilos/estilos-globais.css`
+   junto dos outros tokens — não aqui, porque escala de uma tela só é como se
+   chega a quinze tamanhos:
+
+     --texto-etiqueta (11px)  rótulo em maiúsculas, cabeçalho de coluna, botão
+     --texto-corpo    (13px)  o texto comum: parágrafo, linha de lista, célula
+     --texto-campo    (16px)  campo de formulário, e o que se lê de pé
+     --texto-titulo   (20px)  título de caixa, e o endereço que se confere
+     --texto-numero   (32px)  o número da peça no modo bancada
+
+   `--texto-campo` NUNCA desce de 16px: abaixo disso o iOS dá zoom ao focar e a
+   tela salta na cara de quem digita (PADRAO-DA-CENTRAL, item 6).
+
+   NENHUMA regra deste arquivo escreve `font-size` de outro jeito, e há teste
+   que reprova número solto (`escala-de-texto.test.mjs`). Precisa de um degrau
+   que não existe? Ele entra na escala, em globais, com o motivo escrito — não
+   aqui, e nunca "só desta vez". */
 .tela-autenticidade{min-height:100vh;background:transparent;position:relative;z-index:1;padding-bottom:48px;}
 /* ── O MENU DE ABAS ────────────────────────────────────────────────────────
    AQUI NÃO HÁ REGRA DE `.abas` NENHUMA, E É DE PROPÓSITO.
@@ -2787,24 +2813,24 @@ onMounted(() => {
    texto secundário — e não uma barra desenhada, que viraria mais uma linha
    brigando com o sublinhado da aba ativa. Ele é enfeite de leitura, então sai
    da árvore de acessibilidade (`aria-hidden`) e não recebe toque. */
-.au-abas-sep{align-self:center;padding:0 var(--sp-1);color:var(--muted);font-size:max(9px, calc(13px * var(--escala-texto, 1)));user-select:none;pointer-events:none;}
+.au-abas-sep{align-self:center;padding:0 var(--sp-1);color:var(--muted);font-size:var(--texto-etiqueta);user-select:none;pointer-events:none;}
 
 /* A AJUDA CURTA DA ABA, logo abaixo da barra. Ela fica sempre à vista: guia
    único ninguém reabre. Texto secundário, largura de leitura. */
-.au-ajuda{font-family:var(--fonte-principal);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));color:var(--muted);line-height:1.6;padding:var(--sp-3) 24px 0;max-width:680px;overflow-wrap:anywhere;}
+.au-ajuda{font-family:var(--fonte-principal);font-size:var(--texto-corpo);color:var(--muted);line-height:1.6;padding:var(--sp-3) 24px 0;max-width:680px;overflow-wrap:anywhere;}
 
-.au-vazio,.au-erro,.au-pronto{font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));color:var(--muted);padding:28px 24px;line-height:1.7;max-width:620px;}
+.au-vazio,.au-erro,.au-pronto{font-family:var(--fonte-principal);font-size:var(--texto-corpo);color:var(--muted);padding:28px 24px;line-height:1.7;max-width:620px;}
 .au-erro{color:var(--red);}
 .au-pronto{color:var(--accent);}
-.au-instrucao{font-family:var(--fonte-principal);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));color:var(--muted);line-height:1.7;padding:16px 24px 0;max-width:620px;}
-.au-secao{font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text);padding:24px 24px 4px;}
+.au-instrucao{font-family:var(--fonte-principal);font-size:var(--texto-corpo);color:var(--muted);line-height:1.7;padding:16px 24px 0;max-width:620px;}
+.au-secao{font-family:var(--fonte-principal);font-size:var(--texto-etiqueta);font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text);padding:24px 24px 4px;}
 
 .au-topo-acao{display:flex;gap:10px;align-items:center;padding:18px 24px 0;flex-wrap:wrap;}
 /* Medido a 375px NESTA rodada: o campo de busca da aba Garantias saía com 37px
    de altura e 13px de fonte — abaixo dos 40px de alvo de dedo e dos 16px abaixo
    dos quais o iOS dá zoom ao focar. Ele é anterior a esta entrega e nunca tinha
    sido medido; o painel de busca das outras três abas já nasce nos 40/16. */
-.au-busca{flex:1;min-width:180px;box-sizing:border-box;min-height:40px;font-family:var(--fonte-principal);font-size:max(16px, calc(16px * var(--escala-texto, 1)));padding:9px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);}
+.au-busca{flex:1;min-width:180px;box-sizing:border-box;min-height:40px;font-family:var(--fonte-principal);font-size:var(--texto-campo);padding:9px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);}
 
 /* 40px DE ALTURA NA REGRA-BASE, e não em cada bloco. Ela já estava repetida em
    quatro lugares (`.au-gravacao .au-botao`, `.au-card .au-botao`, o guia e as
@@ -2812,7 +2838,7 @@ onMounted(() => {
    desta tela precisava lembrar de repetir, e o de agora não lembrou: o "Entendi"
    do aviso de garantia e o "Mostrar mais" da aba Etiquetas nasceram com 37px.
    Dedo não acerta menos que 40 (PADRAO item 6). */
-.au-botao{font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--sobre-cor);background:var(--accent);border:1px solid var(--accent);border-radius:6px;padding:10px 16px;min-height:40px;box-sizing:border-box;cursor:pointer;}
+.au-botao{font-family:var(--fonte-principal);font-size:var(--texto-etiqueta);font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--sobre-cor);background:var(--accent);border:1px solid var(--accent);border-radius:6px;padding:10px 16px;min-height:40px;box-sizing:border-box;cursor:pointer;}
 .au-botao[disabled]{opacity:.6;cursor:default;}
 /* O LINK DESABILITADO PRECISA PARECER DESABILITADO. `.au-link[disabled]` não
    existia: o "Desfazer" das baixadas fica `:disabled` durante a chamada e
@@ -2826,25 +2852,28 @@ onMounted(() => {
 .au-card{border:1px solid var(--border);border-radius:8px;background:var(--surface);padding:14px 16px;}
 .au-card.alerta{border-color:var(--orange);}
 .au-card-topo{display:flex;justify-content:space-between;align-items:baseline;gap:12px;}
-.au-modelo{font-family:var(--fonte-principal);font-size:max(9px, calc(14px * var(--escala-texto, 1)));font-weight:600;color:var(--text);}
-.au-progresso{font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));color:var(--accent);white-space:nowrap;}
-.au-card-linha{display:flex;gap:14px;flex-wrap:wrap;margin-top:6px;font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));color:var(--muted);}
+.au-modelo{font-family:var(--fonte-principal);font-size:var(--texto-campo);font-weight:600;color:var(--text);}
+.au-progresso{font-family:var(--fonte-principal);font-size:var(--texto-corpo);color:var(--accent);white-space:nowrap;}
+.au-card-linha{display:flex;gap:14px;flex-wrap:wrap;margin-top:6px;font-family:var(--fonte-principal);font-size:var(--texto-corpo);color:var(--muted);}
 .au-ref{font-family:var(--fonte-dados);}
-.au-link{margin-top:10px;font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));font-weight:600;color:var(--accent);background:none;border:none;padding:0;cursor:pointer;}
+.au-link{margin-top:10px;font-family:var(--fonte-principal);font-size:var(--texto-corpo);font-weight:600;color:var(--accent);background:none;border:none;padding:0;cursor:pointer;}
 
 .au-campo{display:block;padding:16px 24px 0;max-width:520px;}
-.au-rot{display:block;font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
-.au-campo input,.au-campo select{width:100%;font-family:var(--fonte-principal);font-size:max(9px, calc(14px * var(--escala-texto, 1)));padding:9px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);}
+.au-rot{display:block;font-family:var(--fonte-principal);font-size:var(--texto-etiqueta);font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
+.au-campo input,.au-campo select{width:100%;font-family:var(--fonte-principal);font-size:var(--texto-campo);padding:9px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);}
 /* Medido a 375px: o seletor de lote saía com 39,5px de altura e 14px de fonte
    — abaixo dos 40px de alvo de dedo e dos 16px abaixo dos quais o iOS dá zoom
-   ao focar. É o único `select` desta tela. */
-.au-campo select{min-height:40px;box-sizing:border-box;font-size:max(16px, calc(16px * var(--escala-texto, 1)));}
+   ao focar. É o único `select` desta tela.
+   O TAMANHO SAIU DAQUI, e não foi perdido: a regra de cima agora usa
+   `--texto-campo`, o degrau que NUNCA desce de 16px. Repetir o número aqui era
+   justamente o jeito de escrever tamanho no olho que a escala veio tirar. */
+.au-campo select{min-height:40px;box-sizing:border-box;}
 
 .au-gravacao{padding:8px 24px 0;max-width:620px;}
-.au-passo{font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);padding-top:18px;}
+.au-passo{font-family:var(--fonte-principal);font-size:var(--texto-etiqueta);font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);padding-top:18px;}
 /* O endereço é o que a pessoa vai conferir letra por letra na hora de gravar:
    fonte de dados, tamanho grande e quebra garantida em tela de celular. */
-.au-endereco{font-family:var(--fonte-dados);font-size:max(16px, calc(17px * var(--escala-texto, 1)));line-height:1.6;color:var(--text);background:var(--surface);border:1px solid var(--accent);border-radius:8px;padding:16px;margin-top:14px;word-break:break-all;user-select:all;}
+.au-endereco{font-family:var(--fonte-dados);font-size:var(--texto-titulo);line-height:1.6;color:var(--text);background:var(--surface);border:1px solid var(--accent);border-radius:8px;padding:16px;margin-top:14px;word-break:break-all;user-select:all;}
 .au-acoes{display:flex;gap:10px;padding:16px 24px 0;flex-wrap:wrap;}
 .au-gravacao .au-acoes{padding-left:0;padding-right:0;}
 /* Mesmo motivo do `.au-acoes` logo acima: dentro do bloco de gravação o
@@ -2858,32 +2887,32 @@ onMounted(() => {
 /* O recado da gravação é o que a pessoa lê de pé, com o celular numa mão e a
    etiqueta na outra: corpo grande e contraste alto nos DOIS temas.
    Os tokens são --surface2 e --text (src/estilos/estilos-globais.css). */
-.au-recado-nfc{margin:12px 0 0;padding:10px 12px;border-radius:var(--radius-md);background:var(--surface2);color:var(--text);font-family:var(--fonte-principal);font-size:max(9px, calc(15px * var(--escala-texto, 1)));line-height:1.45;overflow-wrap:anywhere;}
+.au-recado-nfc{margin:12px 0 0;padding:10px 12px;border-radius:var(--radius-md);background:var(--surface2);color:var(--text);font-family:var(--fonte-principal);font-size:var(--texto-campo);line-height:1.45;overflow-wrap:anywhere;}
 /* O alvo do dedo é a linha inteira, não o quadradinho: min-height 40px. */
-.au-trava{display:flex;gap:8px;align-items:center;min-height:40px;margin-top:14px;font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));line-height:1.5;color:var(--text);cursor:pointer;}
+.au-trava{display:flex;gap:8px;align-items:center;min-height:40px;margin-top:14px;font-family:var(--fonte-principal);font-size:var(--texto-corpo);line-height:1.5;color:var(--text);cursor:pointer;}
 .au-trava input{width:20px;height:20px;flex-shrink:0;}
 .au-mesa{margin-top:22px;}
 /* Bloco de aviso pelo desenho do PADRAO-DA-CENTRAL: a cor é o sinal, o texto é
    para ler — por isso o `--text` e não o `--orange` na letra. */
 .au-confirma{margin-top:10px;padding:12px 14px;border-radius:var(--radius-md);background:color-mix(in srgb, var(--orange) 10%, var(--surface));border:1px solid color-mix(in srgb, var(--orange) 38%, var(--surface));}
-.au-confirma-texto{font-family:var(--fonte-principal);font-size:max(9px, calc(14px * var(--escala-texto, 1)));line-height:1.5;color:var(--text);overflow-wrap:anywhere;}
+.au-confirma-texto{font-family:var(--fonte-principal);font-size:var(--texto-campo);line-height:1.5;color:var(--text);overflow-wrap:anywhere;}
 .au-confirma .au-acoes{padding:12px 0 0;}
 /* `display:flex` no <summary> APAGA o triângulo que o Chrome desenha sozinho, e
    sem ele nada dizia que a gaveta abre. O marcador nativo sai de cena nos dois
    motores (`list-style` no padrão, `::-webkit-details-marker` no WebKit velho) e
    a seta vira o SVG do template, que gira ao abrir e existe igual em todo
    navegador. */
-.au-mesa summary{display:flex;align-items:center;gap:8px;min-height:40px;cursor:pointer;font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));font-weight:600;color:var(--text);list-style:none;}
+.au-mesa summary{display:flex;align-items:center;gap:8px;min-height:40px;cursor:pointer;font-family:var(--fonte-principal);font-size:var(--texto-corpo);font-weight:600;color:var(--text);list-style:none;}
 .au-mesa summary::-webkit-details-marker{display:none;}
 .au-seta{flex-shrink:0;color:var(--accent);transition:transform .15s;}
 .au-mesa[open] > summary .au-seta{transform:rotate(90deg);}
 /* 16px no campo não é estética: abaixo disso o iOS dá zoom ao focar e a tela
    salta na cara de quem está digitando. */
-.au-colar{display:block;width:100%;min-height:90px;margin:10px 0;box-sizing:border-box;font-family:var(--fonte-principal);font-size:max(16px, calc(16px * var(--escala-texto, 1)));line-height:1.5;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface);color:var(--text);}
+.au-colar{display:block;width:100%;min-height:90px;margin:10px 0;box-sizing:border-box;font-family:var(--fonte-principal);font-size:var(--texto-campo);line-height:1.5;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface);color:var(--text);}
 
 .au-fundo{position:fixed;inset:0;background:rgba(15,15,15,.55);display:flex;align-items:center;justify-content:center;padding:20px;z-index:50;}
 .au-folha{background:var(--surface);border:1px solid var(--border);border-radius:10px;max-width:520px;width:100%;max-height:90dvh;overflow-y:auto;padding:22px 0;}
-.au-folha h2{font-family:var(--fonte-principal);font-size:max(16px, calc(16px * var(--escala-texto, 1)));font-weight:600;color:var(--text);padding:0 24px;}
+.au-folha h2{font-family:var(--fonte-principal);font-size:var(--texto-titulo);font-weight:600;color:var(--text);padding:0 24px;}
 .au-folha .au-erro{padding:12px 24px 0;}
 
 @media (max-width:520px){
@@ -2913,14 +2942,14 @@ onMounted(() => {
 .au-passo-n{
   flex:none; width:22px; height:22px; border-radius:50%;
   display:flex; align-items:center; justify-content:center;
-  font-size:12px; font-weight:600;
+  font-size:var(--texto-etiqueta); font-weight:600;
   border:1px solid var(--border); background:var(--surface);
 }
 .au-passo-item.agora .au-passo-n{background:var(--accent); border-color:var(--accent); color:var(--bg)}
 .au-passo-item.feito .au-passo-n{opacity:.55}
 .au-passo-txt{display:flex; flex-direction:column; gap:2px; min-width:0}
-.au-passo-txt strong{font-size:14px; font-weight:600}
-.au-passo-resumo{font-size:13px; line-height:1.45; color:var(--muted)}
+.au-passo-txt strong{font-size:var(--texto-campo); font-weight:600}
+.au-passo-resumo{font-size:var(--texto-corpo); line-height:1.45; color:var(--muted)}
 .au-rever{margin:0 0 var(--sp-2)}
 /* O link de rever media 13px de altura — medido a 375px. Alvo de toque abaixo
    de 40px e defeito (PADRAO item 3), e este e usado com o celular na mao. Ganha
@@ -2954,23 +2983,23 @@ onMounted(() => {
   background:var(--surface); color:var(--text);
   overscroll-behavior:contain; touch-action:pan-y;
 }
-.au-guia-conta{margin:0 0 var(--sp-1); font-size:12px; color:var(--muted); letter-spacing:.06em}
-.au-guia-titulo{margin:0 0 var(--sp-2); font-size:19px; line-height:1.25}
+.au-guia-conta{margin:0 0 var(--sp-1); font-size:var(--texto-etiqueta); color:var(--muted); letter-spacing:.06em}
+.au-guia-titulo{margin:0 0 var(--sp-2); font-size:var(--texto-titulo); line-height:1.25}
 /* O cabeçalho e os botões não rolam junto: quem está no meio de uma tela longa
    precisa do "Continuar" na mão o tempo todo. */
 .au-guia-miolo{flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch}
-.au-guia-texto{margin:0 0 var(--sp-3); font-size:15px; line-height:1.55}
+.au-guia-texto{margin:0 0 var(--sp-3); font-size:var(--texto-campo); line-height:1.55}
 /* OS ITENS SÃO O QUE SEPARA GUIA DE BANCADA DE TELA DE TEXTO: o rótulo se acha
    com o olho, de pé, com o celular na mão. `<dl>` porque é isso que eles são —
    um termo e a explicação dele. */
 .au-guia-itens{margin:0 0 var(--sp-3)}
 .au-guia-itens dt{
   margin-top:var(--sp-3); font-family:var(--fonte-principal);
-  font-size:max(9px, calc(13px * var(--escala-texto, 1)));
+  font-size:var(--texto-corpo);
   font-weight:700; color:var(--text); overflow-wrap:anywhere;
 }
 .au-guia-itens dd{
-  margin:var(--sp-1) 0 0; font-size:max(9px, calc(13.5px * var(--escala-texto, 1)));
+  margin:var(--sp-1) 0 0; font-size:var(--texto-corpo);
   line-height:1.5; color:var(--muted); overflow-wrap:anywhere;
 }
 /* os botoes embaixo e lado a lado; a 375px eles empilham em vez de encolher,
@@ -2998,13 +3027,13 @@ onMounted(() => {
 .au-edicao .au-acoes{padding:var(--sp-3) 0 0}
 /* 16px no campo nao e estetica: abaixo disso o iOS da zoom ao focar e a tela
    salta na cara de quem esta digitando. */
-.au-edicao input{min-height:40px; box-sizing:border-box; font-size:max(16px, calc(16px * var(--escala-texto, 1)))}
+.au-edicao input{min-height:40px; box-sizing:border-box; font-size:var(--texto-campo)}
 /* Os botoes destes dois blocos vivem dentro do cartao do lote; sem isto saem
    com 35,5px de altura, como os da gaveta do gravador saiam. */
 .au-card .au-botao{min-height:40px; box-sizing:border-box}
 .au-aviso-menor{
   margin:var(--sp-2) 0 0; font-family:var(--fonte-principal);
-  font-size:max(9px, calc(13px * var(--escala-texto, 1)));
+  font-size:var(--texto-corpo);
   line-height:1.45; color:var(--muted); overflow-wrap:anywhere;
 }
 /* ── DAR BAIXA E DESFAZER ─────────────────────────────────────────────────
@@ -3028,11 +3057,13 @@ onMounted(() => {
    escuro, 5,87 → 9,0 no claro. Vale para as CINCO perguntas desta tela, não só
    para as novas. */
 .au-confirma .au-botao.secundario{color:var(--accent-forte)}
-/* 16px no campo nao e estetica: abaixo disso o iOS da zoom ao focar e a tela
-   salta na cara de quem esta digitando a senha. A regra-base do `.au-campo
-   input` desta tela e de 14px — sem esta linha o campo de senha nascia com ela.
+/* `--texto-campo` NUNCA desce de 16px, e isso nao e estetica: abaixo disso o
+   iOS da zoom ao focar e a tela salta na cara de quem esta digitando a senha.
+   O campo de senha nao mora dentro de um `.au-campo`, entao a regra-base dos
+   campos nao o alcanca — ate 01/09 ele nascia com os 14px do `.au-campo input`
+   e esta linha existia para consertar isso com o numero escrito a mao.
    40px de altura porque dedo nao acerta menos que isso. */
-.au-confirma input{min-height:40px; box-sizing:border-box; font-size:max(16px, calc(16px * var(--escala-texto, 1)))}
+.au-confirma input{min-height:40px; box-sizing:border-box; font-size:var(--texto-campo)}
 /* A RECUSA DA SENHA. Segue o desenho de aviso do PADRAO-DA-CENTRAL: a cor e o
    SINAL, o texto fica em `--text` para ser lido. O `--red` como letra sobre o
    fundo desta caixa mede 4,50 no tema escuro — passa raspando, e "por pouco"
@@ -3043,7 +3074,7 @@ onMounted(() => {
   background:color-mix(in srgb, var(--red) 12%, var(--surface));
   border:1px solid color-mix(in srgb, var(--red) 38%, var(--surface));
   color:var(--text); font-family:var(--fonte-principal);
-  font-size:max(9px, calc(13px * var(--escala-texto, 1)));
+  font-size:var(--texto-corpo);
   line-height:1.45; overflow-wrap:anywhere;
 }
 /* A lista das baixadas vive FORA do `.au-gravacao`, entao carrega o proprio
@@ -3058,7 +3089,7 @@ onMounted(() => {
   display:flex; justify-content:space-between; align-items:center;
   gap:var(--sp-2); padding:var(--sp-1) 0;
   font-family:var(--fonte-principal); color:var(--text);
-  font-size:max(9px, calc(14px * var(--escala-texto, 1)));
+  font-size:var(--texto-campo);
   overflow-wrap:anywhere;
   border-bottom:1px solid var(--border);
 }
@@ -3089,7 +3120,7 @@ onMounted(() => {
   background:none; border:0; cursor:pointer; color:var(--text); font:inherit;
 }
 .au-produto:hover, .au-produto:focus-visible{background:var(--surface2)}
-.au-produto strong{font-size:14px; font-weight:600; line-height:1.3}
+.au-produto strong{font-size:var(--texto-campo); font-weight:600; line-height:1.3}
 /* ── AS PEÇAS DE UM LOTE ──────────────────────────────────────────────────
    Cor só de token e espaço só da escala (PADRAO-DA-CENTRAL, itens 2 e 7). O
    bloco reaproveita `.selo` das classes prontas — estado com cor inventada é o
@@ -3105,7 +3136,7 @@ onMounted(() => {
 }
 .au-pecas-conta{
   font-family:var(--fonte-principal);
-  font-size:max(9px, calc(12px * var(--escala-texto, 1)));
+  font-size:var(--texto-corpo);
   color:var(--muted); overflow-wrap:anywhere;
 }
 /* A LISTA ROLA DENTRO DA PRÓPRIA CAIXA. Um lote pode ter 500 peças: sem esta
@@ -3121,23 +3152,23 @@ onMounted(() => {
 .au-peca-topo{display:flex; align-items:center; gap:var(--sp-2); flex-wrap:wrap}
 .au-peca-n{
   font-family:var(--fonte-principal); font-weight:700;
-  font-size:max(9px, calc(13px * var(--escala-texto, 1)));
+  font-size:var(--texto-corpo);
   color:var(--text); white-space:nowrap;
 }
 .au-peca-cod{
-  font-size:max(9px, calc(13px * var(--escala-texto, 1)));
+  font-size:var(--texto-corpo);
   color:var(--text); overflow-wrap:anywhere;
 }
 .au-peca-estado{
   margin:var(--sp-1) 0 0; font-family:var(--fonte-principal);
-  font-size:max(9px, calc(12px * var(--escala-texto, 1)));
+  font-size:var(--texto-corpo);
   color:var(--muted); line-height:1.45; overflow-wrap:anywhere;
 }
 /* O endereço é o que se confere letra por letra na hora de costurar: fonte de
    dados e quebra garantida, como o `.au-endereco` da aba Gravar. */
 .au-peca-end{
   margin-top:var(--sp-1); font-family:var(--fonte-dados);
-  font-size:max(9px, calc(12px * var(--escala-texto, 1)));
+  font-size:var(--texto-corpo);
   line-height:1.5; color:var(--text); word-break:break-all; user-select:all;
 }
 .au-peca-links{display:flex; gap:var(--sp-3); flex-wrap:wrap}
@@ -3167,7 +3198,7 @@ onMounted(() => {
 .au-barra-cheia{display:block; height:100%; background:var(--accent); transition:width .3s ease}
 .au-barra-texto{
   margin:var(--sp-2) 0 0; font-family:var(--fonte-principal);
-  font-size:max(9px, calc(12px * var(--escala-texto, 1)));
+  font-size:var(--texto-corpo);
   color:var(--muted); overflow-wrap:anywhere;
 }
 /* O bloco do sinal é o desenho do PADRAO para aviso: a cor é o SINAL, e o texto
@@ -3180,7 +3211,7 @@ onMounted(() => {
 }
 .au-sinal-texto{
   font-family:var(--fonte-principal);
-  font-size:max(9px, calc(15px * var(--escala-texto, 1)));
+  font-size:var(--texto-campo);
   line-height:1.4; overflow-wrap:anywhere;
 }
 .au-sinal-esperando{border-color:color-mix(in srgb, var(--accent) 38%, var(--surface))}
@@ -3217,7 +3248,7 @@ onMounted(() => {
 .au-fila{margin-top:var(--sp-4)}
 .au-fila-titulo{
   margin:0 0 var(--sp-2); font-family:var(--fonte-principal);
-  font-size:max(9px, calc(10px * var(--escala-texto, 1)));
+  font-size:var(--texto-etiqueta);
   font-weight:700; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted);
 }
 .au-fila-lista{list-style:none; margin:0; padding:0}
@@ -3226,7 +3257,7 @@ onMounted(() => {
   padding:var(--sp-2); border-radius:var(--radius-md);
   border:1px solid transparent;
   font-family:var(--fonte-principal); color:var(--muted);
-  font-size:max(9px, calc(13px * var(--escala-texto, 1)));
+  font-size:var(--texto-corpo);
   overflow-wrap:anywhere;
 }
 /* A DA VEZ NÃO SE DISTINGUE SÓ PELA COR: ela ganha fundo, borda E o selo escrito
@@ -3236,7 +3267,7 @@ onMounted(() => {
   border-color:color-mix(in srgb, var(--accent) 38%, var(--surface));
 }
 .au-fila-n{white-space:nowrap}
-.au-fila-cod{font-size:max(9px, calc(12px * var(--escala-texto, 1)))}
+.au-fila-cod{font-size:var(--texto-corpo)}
 
 /* ── O CABEÇALHO DE TABELA NÃO EXISTE NO CELULAR ──────────────────────────
    No celular a forma certa é o cartão: cada linha se lê sozinha, com o rótulo
@@ -3254,17 +3285,18 @@ onMounted(() => {
    outros, espaços vazios, não centralizados". As três queixas viraram três
    regras, e elas estão escritas em CSS aqui embaixo:
 
-   1. TRÊS TAMANHOS DE TEXTO, E TRÊS SÓ. Eles moram nas três variáveis abaixo, e
-      NENHUMA regra deste bloco escreve `font-size` de outro jeito — é por isso
-      que dá para contar os tamanhos lendo o CSS, e é isso que o teste conta.
-      Os três degraus já existiam na casa, e nenhum foi inventado:
-        · 44px é o número grande de `.mc-val` (estilos-globais.css), o mesmo dos
-          painéis de KPI — o maior número que a Central desenha. No celular ele
-          cai para 32px, que é o degrau que o próprio `.mc-val` usa lá;
-        · 24px é o `.logo-area h1` do cabeçalho da Central;
-        · 13px é o corpo de texto desta tela inteira.
-      O `max(…)` com `--escala-texto` é o mesmo de todo o resto: quem aumenta a
-      letra do sistema continua mandando aqui.
+   1. TRÊS TAMANHOS DE TEXTO, E TRÊS SÓ — e desde 01/09/2026 eles são três
+      degraus da ESCALA DA CASA, não três variáveis desta tela:
+        · `--texto-numero` — o número da peça, o maior elemento do painel;
+        · `--texto-titulo` — o estado, e o endereço no modo de copiar;
+        · `--texto-corpo`  — todo o resto.
+      NENHUMA regra deste bloco escreve `font-size` de outro jeito, e é por isso
+      que dá para contar os tamanhos lendo o CSS — é isso que o teste conta.
+      As três variáveis próprias (`--bancada-peca`, `--bancada-estado`,
+      `--bancada-resto`) SAÍRAM: eram uma escala particular, de uma tela só, e
+      escala particular é como a Central chegou a 15 tamanhos numa tela.
+      O `max(…)` com `--escala-texto` continua dentro de cada degrau, em
+      `estilos-globais.css`: quem aumenta a letra do sistema continua mandando.
 
    2. NADA DE ESPAÇO MORTO. O painel é UMA coluna, com um recuo só, e cada bloco
       encostado no de cima pelo `gap` da escala. Não há grade de duas colunas
@@ -3277,11 +3309,6 @@ onMounted(() => {
    (`--bancada-cor`) que a classe do `tom` troca. A cor é o SINAL; o texto é a
    informação, e por isso ele fica sempre em `--text`. */
 .au-bancada{
-  /* OS TRÊS TAMANHOS. Se um quarto aparecer aqui, o desenho voltou a ser o que o
-     dono reprovou — e há teste que reprova junto. */
-  --bancada-peca:   max(16px, calc(44px * var(--escala-texto, 1)));
-  --bancada-estado: max(16px, calc(24px * var(--escala-texto, 1)));
-  --bancada-resto:  max(9px,  calc(13px * var(--escala-texto, 1)));
   --bancada-cor: var(--border);
   display:flex; flex-direction:column; gap:var(--sp-4);
   padding:var(--sp-4) 24px var(--sp-8);
@@ -3311,7 +3338,7 @@ onMounted(() => {
   padding-bottom:var(--sp-3); border-bottom:1px solid var(--border);
 }
 .au-bancada-onde{
-  font-size:var(--bancada-resto); line-height:1.45;
+  font-size:var(--texto-corpo); line-height:1.45;
   color:var(--muted); overflow-wrap:anywhere;
 }
 .au-bancada-onde strong{color:var(--text); font-weight:700}
@@ -3324,14 +3351,14 @@ onMounted(() => {
 .au-bancada-menor{
   display:inline-flex; align-items:center; min-height:40px; box-sizing:border-box;
   padding:0 var(--sp-3);
-  font-family:var(--fonte-principal); font-size:var(--bancada-resto); font-weight:600;
+  font-family:var(--fonte-principal); font-size:var(--texto-corpo); font-weight:600;
   color:var(--accent-forte); background:transparent;
   border:1px solid var(--border); border-radius:var(--radius-md); cursor:pointer;
 }
 
 /* ── 1. QUAL PEÇA É AGORA — o maior elemento da tela ─────────────────────── */
 .au-bancada-peca{
-  font-family:var(--fonte-dados); font-size:var(--bancada-peca);
+  font-family:var(--fonte-dados); font-size:var(--texto-numero);
   font-weight:600; line-height:1.05; letter-spacing:-.01em;
   color:var(--text); font-variant-numeric:tabular-nums; overflow-wrap:anywhere;
 }
@@ -3346,20 +3373,20 @@ onMounted(() => {
   box-shadow:inset 4px 0 0 var(--bancada-cor);
 }
 .au-bancada-titulo{
-  font-size:var(--bancada-estado); font-weight:700; line-height:1.2;
+  font-size:var(--texto-titulo); font-weight:700; line-height:1.2;
   color:var(--text); overflow-wrap:anywhere;
 }
 /* O DETALHE É O QUE FAZER. Ele fica no tamanho do "resto", mas em `--text` e não
    em `--muted`: numa bancada, "separe esta etiqueta" não é texto secundário. */
 .au-bancada-detalhe{
-  margin-top:var(--sp-2); font-size:var(--bancada-resto); line-height:1.5;
+  margin-top:var(--sp-2); font-size:var(--texto-corpo); line-height:1.5;
   color:var(--text); overflow-wrap:anywhere;
 }
 
 /* ── 3. O PROGRESSO ─────────────────────────────────────────────────────── */
 .au-bancada-progresso{display:flex; flex-direction:column; gap:var(--sp-2)}
 .au-bancada-conta{
-  font-size:var(--bancada-resto); color:var(--muted); overflow-wrap:anywhere;
+  font-size:var(--texto-corpo); color:var(--muted); overflow-wrap:anywhere;
 }
 
 /* ── 4. A ÚNICA AÇÃO PRINCIPAL ──────────────────────────────────────────── */
@@ -3369,7 +3396,7 @@ onMounted(() => {
    letra é o do "resto" — o que precisa ser grande é o alvo, não o rótulo, e um
    quarto tamanho de texto aqui é justamente o que o dono reprovou. */
 .au-bancada-botao{
-  flex:1; min-height:64px; font-size:var(--bancada-resto);
+  flex:1; min-height:64px; font-size:var(--texto-corpo);
 }
 
 /* ── O ENDEREÇO ─────────────────────────────────────────────────────────
@@ -3379,10 +3406,10 @@ onMounted(() => {
    NO MODO DE COPIAR o `.au-endereco` de sempre volta, porque ali a pessoa
    realmente copia — e ele fica no degrau do ESTADO, não num quarto tamanho. */
 .au-bancada-endereco{
-  font-family:var(--fonte-dados); font-size:var(--bancada-resto);
+  font-family:var(--fonte-dados); font-size:var(--texto-corpo);
   line-height:1.5; color:var(--muted); word-break:break-all; user-select:all;
 }
-.au-bancada .au-endereco{font-size:var(--bancada-estado); margin-top:0}
+.au-bancada .au-endereco{font-size:var(--texto-titulo); margin-top:0}
 
 /* ── 5. A FILA AO REDOR, discreta ────────────────────────────────────────
    Ela é só para saber onde se está. A da vez NÃO se distingue só pela cor: ganha
@@ -3393,7 +3420,7 @@ onMounted(() => {
   display:flex; align-items:center; gap:var(--sp-3); flex-wrap:wrap;
   padding:var(--sp-2) var(--sp-3); border:1px solid transparent;
   border-radius:var(--radius-md);
-  font-size:var(--bancada-resto); color:var(--muted); overflow-wrap:anywhere;
+  font-size:var(--texto-corpo); color:var(--muted); overflow-wrap:anywhere;
 }
 .au-bancada-fila li.agora{
   background:var(--surface2); color:var(--text); font-weight:700;
@@ -3406,7 +3433,7 @@ onMounted(() => {
 .au-entrada-bancada{padding:var(--sp-4) 24px 0; max-width:620px}
 .au-entrada-bancada .au-bancada-botao{
   min-height:56px; width:100%;
-  font-size:max(9px, calc(13px * var(--escala-texto, 1)));
+  font-size:var(--texto-corpo);
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -3498,11 +3525,15 @@ onMounted(() => {
   .au-gravacao > .au-fila{grid-column:1; grid-row:2 / -1; margin-top:var(--sp-3);}
 
   /* O ENDEREÇO É O QUE SE CONFERE ANTES DE ENCOSTAR, e no computador ele é
-     lido a um braço de distância da tela. Cresce de 17px para 26px e ganha ar.
-     `max()` com o mesmo `--escala-texto` do resto: quem aumenta a letra do
-     sistema continua mandando aqui. */
+     lido a um braço de distância da tela: aqui ele ganha AR — recuo maior e
+     mais entrelinha.
+     O TAMANHO NÃO MUDA MAIS AQUI, e isso é a escala funcionando. Ele era 17px
+     no celular e 26px no computador — dois números, escolhidos no olho, e o 26
+     era um dos quinze desta tela. Agora ele é `--texto-titulo` (20px) nas duas
+     larguras: MAIOR do que era no celular, que é onde ele mais se lê de pé, e
+     um degrau da escala em vez de um número só dele. Um sexto degrau só para
+     esta linha era exatamente o que esta entrega veio tirar. */
   .au-endereco{
-    font-size:max(20px, calc(26px * var(--escala-texto, 1)));
     padding:var(--sp-5); margin-top:var(--sp-4); line-height:1.45;
   }
 
@@ -3572,7 +3603,7 @@ onMounted(() => {
     border-radius:var(--card-radius) var(--card-radius) 0 0;
     background:var(--surface2);
     font-family:var(--fonte-principal);
-    font-size:max(9px, calc(10px * var(--escala-texto, 1)));
+    font-size:var(--texto-etiqueta);
     font-weight:700; letter-spacing:1.5px; text-transform:uppercase;
     color:var(--muted); overflow-wrap:anywhere;
   }
@@ -3644,7 +3675,7 @@ onMounted(() => {
     padding:var(--sp-2) var(--sp-3);
     background:var(--surface2); border-bottom:1px solid var(--border);
     font-family:var(--fonte-principal);
-    font-size:max(9px, calc(10px * var(--escala-texto, 1)));
+    font-size:var(--texto-etiqueta);
     font-weight:700; letter-spacing:1.5px; text-transform:uppercase;
     color:var(--muted); overflow-wrap:anywhere;
   }
@@ -3771,11 +3802,12 @@ onMounted(() => {
      último ganha, e lá em cima estes ajustes seriam ignorados em silêncio.
      Medido no CSS do build antes de escrever esta linha. */
   .au-bancada{padding-left:16px; padding-right:16px;}
-  /* O NÚMERO DA PEÇA CAI DE 44px PARA 32px — é o MESMO degrau que o `.mc-val`
-     dos painéis de KPI usa no celular, e não um tamanho novo. A 375px, "nº 12 de
-     120" em 44px quebrava em duas linhas e empurrava o estado para fora da
-     vista; o estado é o que a pessoa olha o tempo todo. */
-  .au-bancada{--bancada-peca:max(16px, calc(32px * var(--escala-texto, 1)));}
+  /* O NÚMERO DA PEÇA NÃO PRECISA MAIS ENCOLHER AQUI. Ele era 44px no computador
+     e caía para 32px a 375px, porque em 44px o "nº 12 de 120" quebrava em duas
+     linhas e empurrava o estado — o que a pessoa olha o tempo todo — para fora
+     da vista. O degrau `--texto-numero` da escala JÁ é 32px, nas duas larguras:
+     a regra de celular deixou de ter o que consertar e saiu. Medido a 375px
+     depois de sair: uma linha só, e o estado continua na primeira tela. */
   /* AS DUAS SAÍDAS DIVIDEM UMA LINHA SÓ. Uma embaixo da outra elas comiam 100px
      do alto da tela — o lugar do número da peça. Lado a lado, cada uma fica com
      167px a 375px: o rótulo quebra em duas linhas quando precisa, e o `min-height`

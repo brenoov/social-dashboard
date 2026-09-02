@@ -162,7 +162,12 @@ function limpar() {
 </template>
 
 <style scoped>
-/* Cor só de token e espaço só da escala (PADRAO-DA-CENTRAL, itens 2 e 7). */
+/* Cor só de token, espaço só da escala e TAMANHO DE TEXTO só da escala
+   (PADRAO-DA-CENTRAL, itens 2 e 7). Os cinco degraus moram em
+   `src/estilos/estilos-globais.css`; aqui o painel usa três deles:
+   `--texto-etiqueta` no rótulo, `--texto-corpo` no resto e `--texto-campo` nos
+   campos, que é o degrau que nunca desce de 16px. Número solto reprova no
+   `escala-de-texto.test.mjs`. */
 .pb-caixa{
   margin:var(--sp-3) 24px 0; padding:var(--sp-3);
   border:1px solid var(--border); border-radius:var(--radius-md);
@@ -172,15 +177,16 @@ function limpar() {
 .pb-busca{margin-bottom:var(--sp-3)}
 .pb-rot{
   font-family:var(--fonte-principal);
-  font-size:max(9px, calc(10px * var(--escala-texto, 1)));
+  font-size:var(--texto-etiqueta);
   font-weight:700; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted);
 }
-/* 16px no campo não é estética: abaixo disso o iOS dá zoom ao focar e a tela
-   salta na cara de quem está digitando. 40px porque dedo não acerta menos. */
+/* `--texto-campo` é o degrau que NUNCA desce de 16px, e isso não é estética:
+   abaixo disso o iOS dá zoom ao focar e a tela salta na cara de quem está
+   digitando. 40px porque dedo não acerta menos. */
 .pb-campo input, .pb-campo select{
   width:100%; box-sizing:border-box; min-height:40px; padding:var(--sp-2) var(--sp-3);
   font-family:var(--fonte-principal);
-  font-size:max(16px, calc(16px * var(--escala-texto, 1)));
+  font-size:var(--texto-campo);
   border:1px solid var(--border); border-radius:var(--radius-md);
   background:var(--surface); color:var(--text);
 }
@@ -193,7 +199,7 @@ function limpar() {
   display:inline-flex; align-items:center; cursor:pointer;
   background:transparent; border:1px solid var(--border); border-radius:var(--radius-md);
   font-family:var(--fonte-principal);
-  font-size:max(9px, calc(12px * var(--escala-texto, 1)));
+  font-size:var(--texto-corpo);
   font-weight:600; color:var(--muted); white-space:nowrap;
 }
 .pb-chip:hover{color:var(--text); border-color:var(--accent-mid)}
@@ -203,7 +209,7 @@ function limpar() {
 .pb-mais summary{
   display:flex; align-items:center; gap:var(--sp-2); min-height:40px; cursor:pointer;
   list-style:none; font-family:var(--fonte-principal);
-  font-size:max(9px, calc(12px * var(--escala-texto, 1)));
+  font-size:var(--texto-corpo);
   font-weight:600; color:var(--text); flex-wrap:wrap;
 }
 .pb-mais summary::-webkit-details-marker{display:none}
@@ -221,7 +227,7 @@ function limpar() {
   display:flex; align-items:center; justify-content:space-between; gap:var(--sp-3);
   flex-wrap:wrap; margin:var(--sp-3) 0 0;
   font-family:var(--fonte-principal);
-  font-size:max(9px, calc(12px * var(--escala-texto, 1)));
+  font-size:var(--texto-corpo);
   color:var(--muted); overflow-wrap:anywhere;
 }
 /* Alvo de dedo de 40px sem virar botão: cresce a área, o texto continua link
@@ -231,7 +237,7 @@ function limpar() {
   display:inline-flex; align-items:center; min-height:40px; padding:0;
   background:none; border:none; cursor:pointer;
   font-family:var(--fonte-principal);
-  font-size:max(9px, calc(11px * var(--escala-texto, 1)));
+  font-size:var(--texto-corpo);
   font-weight:600; color:var(--accent-forte);
 }
 

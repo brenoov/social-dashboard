@@ -210,7 +210,11 @@ test('todo alvo do painel nasce com 40px, e todo campo com 16px', () => {
   const campo = painelEstilo.match(/\.pb-campo input, \.pb-campo select\{([^}]*)\}/);
   assert.ok(campo, 'a regra-base dos campos do painel sumiu');
   assert.match(campo[1], /min-height:40px/);
-  assert.match(campo[1], /font-size:max\(16px/, 'abaixo de 16px o iOS dá zoom ao focar');
+  // O NÚMERO SAIU DAQUI, e não foi perdido: o tamanho vem do degrau
+  // `--texto-campo` da escala da casa, cujo PISO é 16px — e há teste que
+  // reprova se alguém baixar esse piso (`escala-de-texto.test.mjs`).
+  assert.match(campo[1], /font-size:var\(--texto-campo\)/,
+    'abaixo de 16px o iOS dá zoom ao focar');
   assert.match(painelEstilo, /\.pb-chip\{[^}]*min-height:40px/);
   assert.match(painelEstilo, /\.pb-limpar\{[^}]*min-height:40px/);
 });
