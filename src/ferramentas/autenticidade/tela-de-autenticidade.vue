@@ -392,14 +392,36 @@
             </div>
           </div>
 
-          <!-- ── A OBRA: o que se faz ────────────────────────────────────────
-               A ORDEM AQUI É A ORDEM DE TAMANHO, e ela é o desenho:
-                 1. QUAL PEÇA É AGORA — o maior elemento, legível de pé, a um metro
-                 2. O ESTADO, com os anéis e o texto — é o que se olha o tempo todo
-                 3. UMA ação principal, colada no estado
-                 4. O progresso, uma vez só
-               A fila fica AO LADO (terceira coluna no computador), porque é
-               trilho lateral e não conteúdo. -->
+          <!-- ── AS DUAS COLUNAS: o que ACONTECE, e o que VOCÊ FAZ ───────────
+               ══════════════════════════════════════════════════════════════
+               O DESENHO É DO DONO, com estas palavras: "na aba gravar no
+               computador ainda não está usando toda a lateral, acredito que se
+               você fizer duas colunas, de um lado a animação de gravação e na
+               direita o link e os botões".
+
+               ESQUERDA — O QUE ESTÁ ACONTECENDO (`.au-bancada-obra`):
+                 1. QUAL PEÇA É AGORA — o número, legível de pé, a um metro
+                 2. O ESTADO: os anéis grandes e o mesmo estado por escrito
+               DIREITA — O QUE VOCÊ FAZ (`.au-bancada-comandos`):
+                 3. o endereço da peça
+                 4. UMA ação principal, e a secundária ao lado dela
+                 5. o progresso do lote, uma vez só
+               A fila do lote vira uma FAIXA embaixo das duas — ver o porquê
+               medido, junto do `@media (min-width:900px)` lá no estilo.
+
+               ⚠️ A ORDEM DO HTML NÃO MUDOU, e isso é o que segura o celular.
+               Empilhado, sai exatamente a sequência de hoje: peça → estado →
+               endereço → ação → progresso → fila. As duas caixas novas são
+               `flex` em coluna com o MESMO `gap` do painel, então nem o
+               espaçamento muda: medido a 375px antes e depois, os dois lados
+               batem pixel a pixel. Quem separa as colunas é só o
+               `@media (min-width:900px)`.
+               O QUE MUDOU DE ENDEREÇO (PADRÃO item 8): nada saiu da tela — o
+               endereço, os dois botões e o progresso trocaram de caixa (da obra
+               para os comandos) e, no computador, de lado (da coluna da
+               esquerda para a da direita). A fila desceu da coluna estreita da
+               direita para a faixa embaixo. Nenhum texto, nenhum botão e nenhum
+               dado foi removido. -->
           <div class="au-bancada-obra">
 
             <!-- 1. QUAL PEÇA É AGORA. O maior elemento da tela, e o único desse
@@ -446,6 +468,15 @@
                 <p class="au-bancada-detalhe">{{ estadoDaBancadaAgora.detalhe }}</p>
               </div>
             </div>
+          </div>
+
+          <!-- ── A COLUNA DA DIREITA: O QUE VOCÊ FAZ ─────────────────────────
+               O endereço, os dois botões e o progresso. Ela NÃO tem `v-if`
+               nenhum, pelo mesmo motivo que a obra não tem: ao gravar a última
+               peça `proxima` vira nulo, e uma coluna que sumisse nesse instante
+               levaria junto o ✓ da etiqueta que a pessoa acabou de encostar e a
+               barra que diz que o lote fechou. -->
+          <div class="au-bancada-comandos">
 
             <!-- O ENDEREÇO GRANDE, E SÓ NO MODO DE COPIAR. Ali a pessoa REALMENTE
                  copia — então ele é selecionável, fica no degrau do ESTADO (nunca
@@ -494,15 +525,21 @@
             </div>
           </div>
 
-          <!-- ── A FILA AO REDOR ─────────────────────────────────────────────
+          <!-- ── A FILA DO LOTE ──────────────────────────────────────────────
                A que acabou de sair e as próximas. ELA É UMA SÓ: até esta entrega
                havia DUAS listas de fila escritas neste arquivo, uma para o modo
                bancada e outra para fora dele, e duas cópias divergem.
                A da vez NÃO se distingue só pela cor: ela ganha fundo, borda e o
                selo escrito "Agora".
                Com uma peça só a lista não aparece: um bloco que mostra apenas a
-               peça que já está em letra garrafal logo acima vira paisagem. -->
-          <div v-if="filaAoRedor.length > 1" class="au-bancada-lado">
+               peça que já está em letra garrafal logo acima vira paisagem.
+
+               ⚠️ A CLASSE MUDOU DE `au-bancada-lado` PARA `au-bancada-fila`, e
+               a troca é honestidade: ela não é mais o trilho LATERAL de uma
+               terceira coluna estreita — no computador ela é a FAIXA embaixo
+               das duas colunas. Nome que diz o lugar errado é o que faz o
+               próximo leitor procurar uma coluna que não existe. -->
+          <div v-if="filaAoRedor.length > 1" class="au-bancada-fila">
             <p class="au-fila-titulo">A fila deste lote</p>
             <ul class="au-fila-lista">
               <li v-for="pf in filaAoRedor" :key="pf.codigo"
@@ -3249,15 +3286,20 @@ onMounted(() => {
 .au-bancada-ok{--bancada-cor:var(--green)}
 .au-bancada-erro{--bancada-cor:var(--red)}
 .au-bancada > *{margin:0}
-/* AS DUAS COLUNAS. No celular são duas pilhas, uma embaixo da outra, na ordem em
-   que se lê; no computador (`@media (min-width:900px)`) elas ficam lado a lado.
+/* AS TRÊS CAIXAS DO PAINEL — e no celular elas NÃO são caixas de nada.
+   `.au-bancada-obra` (o que acontece), `.au-bancada-comandos` (o que você faz) e
+   `.au-bancada-fila` (onde você está no lote). No celular as três são pilhas
+   simples, uma embaixo da outra, com o MESMO `gap:var(--sp-4)` do painel em
+   volta — por isso empilhar as três dá exatamente a mesma sequência e o mesmo
+   espaçamento de quando tudo morava numa caixa só. Quem as separa em colunas é
+   só o `@media (min-width:900px)`.
    `min-width:0` porque filho de grade nasce com largura mínima do conteúdo, e
    sem isto o endereço em fonte de dados empurraria a coluna e a página ganharia
    rolagem para os lados. */
-.au-bancada-obra, .au-bancada-lado{
+.au-bancada-obra, .au-bancada-comandos, .au-bancada-fila{
   display:flex; flex-direction:column; gap:var(--sp-4); min-width:0;
 }
-.au-bancada-obra > *, .au-bancada-lado > *{margin:0}
+.au-bancada-obra > *, .au-bancada-comandos > *, .au-bancada-fila > *{margin:0}
 
 /* ── 0. O ALTO: qual lote, por onde se grava, e o guia ─────────────────────
    Ele não é conteúdo, e o desenho diz isso: tudo aqui está no tamanho do
@@ -3797,99 +3839,186 @@ onMounted(() => {
   .au-guia-itens dt{margin-top:0;}
   .au-guia-itens dd{margin:0;}
 
-  /* ── 7. A BANCADA NO COMPUTADOR: UM BLOCO CENTRADO ─────────────────────
+  /* ── 7. A BANCADA NO COMPUTADOR: DUAS COLUNAS GRANDES ──────────────────
      Esta é a tela mais importante da ferramenta e a única usada DE PÉ: a pessoa
      está com a bolsa numa mão e o celular na outra.
 
-     ⚠️ SÃO DUAS COLUNAS, E ELAS OCUPAM A LARGURA — não há mais coluna de
-     margem. A forma anterior tinha QUATRO colunas: duas de conteúdo (obra 720px
-     e fila 340px) e duas de `1fr` iguais nas pontas, que centravam o grupo.
-     Centrava mesmo — medido a 1440px: 174px de margem de cada lado, simétricos.
-     E o dono olhou e disse que "o painel de trabalho ocupa a metade esquerda, a
-     fila fica numa coluna estreita e sobra faixa à direita".
+     ⚠️ O DESENHO É DO DONO, e são estas as palavras dele: "na aba gravar no
+     computador ainda não está usando toda a lateral, acredito que se você fizer
+     duas colunas, de um lado a animação de gravação e na direita o link e os
+     botões". É a SEXTA vez que ele reclama desta aba.
 
-     Ele está certo, e a conta explica: o grupo usava 1092 de 1440 (75,8%), a
-     obra sozinha ia até 62% da tela e a fila era uma tira de 340px encostada num
-     vão de 174px. Simetria não é aproveitamento. Agora obra e fila DIVIDEM a
-     largura — a fila com teto de 420px, a obra com o que sobra — e o recuo é o
-     mesmo 24px do resto da ferramenta (PADRÃO item 7: tela é full-bleed).
-     Medido depois: 940 + 420 de 1440, ou 96,7% da largura, sem faixa nenhuma.
+     POR QUE AS ENTREGAS ANTERIORES NÃO CONVENCERAM, medido a 1440px na tela
+     renderizada, no commit anterior a este:
+       · a largura aproveitada já estava boa — 1392 de 1440 (96,7%);
+       · mas a divisão era obra 942px + fila 418px, e a fila é uma LISTA de
+         linhas curtas: uma coluna de 418px para "nº 5 · código · Pendente";
+       · e a obra de 942px tinha tudo empilhado numa pilha só, então o vazio
+         mudou de lugar em vez de sumir. O MAIOR VAZIO CONTÍNUO do painel era de
+         1224 × 72px, a faixa à direita do "nº 5 de 12", e o botão de 360px
+         morava numa coluna de 942 com 582px de nada ao lado.
+     Aproveitar a largura não é esticar a moldura: é ter DUAS coisas para pôr
+     lado a lado. Agora há.
 
-     A CENTRALIZAÇÃO QUE IMPORTAVA NÃO SE PERDEU: era a VERTICAL, e ela continua
-     no `align-self:center` com o teto de altura logo abaixo. A horizontal deixou
-     de fazer sentido quando o conteúdo passou a ocupar a largura toda.
+     ESQUERDA — O QUE ESTÁ ACONTECENDO. O número da peça e o bloco de estado,
+     com os anéis GRANDES (200px, contra 104) no alto dele. É o elemento que se
+     vê de longe, de pé na bancada, e é o que o dono chamou de "a animação de
+     gravação".
+     DIREITA — O QUE VOCÊ FAZ. O endereço, o botão principal, o botão secundário
+     e o progresso do lote. É o "link e os botões" do pedido.
 
-     ⚠️ E O BLOCO É UM SÓ, CENTRADO NA VERTICAL. As formas anteriores foram
-     medidas a 1440x900 e todas repetiam a queixa do dono:
-       · painel grudado no alto: 477px de conteúdo e ~420px de vazio embaixo;
-       · caixa do estado esticada: um retângulo de 580px com duas linhas no meio
-         — espaço morto COM moldura em volta, que é pior;
-       · número/estado no alto e botão no pé: um vão de ~450px NO MEIO,
-         separando o que está acontecendo do que se aperta.
-     Agora a leitura acontece num lugar só: número → estado → botão → progresso,
-     tudo colado, no centro óptico. O que sobra vira MARGEM em volta do bloco —
-     respiro, e não buraco dentro do desenho. */
+     AS DUAS COLUNAS ENCHEM A LARGURA, e os números são medidos:
+       · a da direita é `min(680px, 47%)` — 654,2px a 1440. QUEM MANDOU NESSE
+         NÚMERO FOI O ENDEREÇO, e não o gosto: "https://vesselbrasil.com.br/
+         verify/K7M4X05QP2" mede 541,9px em `--fonte-dados` no degrau
+         `--texto-titulo`, e com os 32px de recuo da caixa e a moldura pede 576.
+         A primeira tentativa desta entrega deu 556,8 à coluna e o endereço saiu
+         QUEBRADO no meio do código ("…K7M4X05Q / P2") — é justamente ele que a
+         pessoa lê e copia no modo do aplicativo, e código partido em duas
+         linhas é o defeito que a versão anterior desta tela já tinha pago.
+         A segunda tentativa deu 44%, que a 1440 são 612,5: cabia, com 2,5px de
+         folga — folga que uma fonte de reserva come inteira. Com 47% sobram 620
+         de espaço útil contra os 542 do endereço, e ele continua numa linha só
+         até 1280px de tela. O botão principal (teto de 360px, pedido do dono) e
+         a secundária "Copiar endereço" dividem a mesma linha dentro dela;
+       · a da esquerda fica com o resto: 705,8px a 1440. É onde moram os anéis
+         de 200px e as duas frases do estado. ELA É SEMPRE A MAIOR DAS DUAS, em
+         qualquer largura: com 47% para a direita, a esquerda fica com 53% menos
+         o `gap`, e isso só empataria numa tela de 581px — que já é celular, e lá
+         não há colunas.
+
+     ⚠️ ABAIXO DE 1280px O ENDEREÇO VOLTA A QUEBRAR EM DUAS LINHAS, e é o menor
+     dos males, medido: para caber a 1180px a coluna da direita precisaria de
+     610 dos 1132 disponíveis, ou seja ficaria MAIOR que a do trabalho — que é
+     exatamente o defeito que derrubou a primeira forma deste painel. A quebra
+     não perde nada: a caixa é `user-select:all`, então um clique continua
+     selecionando o endereço inteiro, e o "Copiar endereço" ao lado nunca
+     dependeu de o texto caber.
+
+     SOMADAS COM O `gap` DE 32: 1392 de 1440, os mesmos 96,7% de antes — só que
+     agora divididos entre duas colunas que têm o que mostrar, e nenhuma delas é
+     uma tira: 705,8 e 654,2 são as duas grandes que o dono pediu.
+
+     ⚠️ A FILA DESCEU PARA UMA FAIXA, E NÃO SUMIU (PADRÃO item 8). Três colunas
+     a 1440 dariam ~437px cada, e o bloco de estado com os anéis grandes mais a
+     frase de socorro não cabe em 437 — foi medir para ver: a frase de 'erro'
+     tem 150 caracteres. A fila, ao contrário, é feita de SEIS linhas curtas:
+     em faixa ela usa os 1392px inteiros com seis fichas lado a lado, em vez de
+     empilhar seis linhas numa tira de 418px de largura. Ela continua dizendo o
+     mesmo:
+     a que saiu, a da vez marcada com "Agora", e as quatro seguintes.
+
+     A CENTRALIZAÇÃO QUE IMPORTA CONTINUA SENDO A VERTICAL — `align-self:center`
+     com o teto de altura logo abaixo. */
   .au-bancada{
     display:grid;
-    /* A OBRA FICA COM O QUE SOBRA, e a fila tem teto de 420px. Os dois números
-       são medidos, não escolhidos:
-         · 420px é o que a fila precisa para a linha inteira caber sem quebrar —
-           "nº 12", o código de 10 caracteres em fonte de dados e o selo escrito.
-           Mais que isso vira espaço morto ao lado de linhas curtas;
-         · a obra fica com 940px a 1440px, e o piso que importa é o do ENDEREÇO:
-           um código de 10 caracteres precisa de 648px em `--fonte-dados` a 24px,
-           e com os 48px de recuo da caixa dá 696. Com 660 ele quebrava a URL no
-           meio ("…B4F8S1T / R"), e no modo de copiar é justamente o endereço que
-           a pessoa lê e copia. 940 passa folgado; a antiga era 720. */
-    /* ⚠️ `min(420px, 30%)` E NÃO `420px` FIXO: com a coluna travada em 420, a
-       1024px a obra ficava com 524px e a 900px com 400 — a fila passava a ser
-       MAIS LARGA que o trabalho. Medido. Com os 30% ela encolhe junto: 420 a
-       1440px, 246 a 900px, e nunca passa dos 420 num monitor grande, onde
-       sobrar largura numa lista de linhas curtas é só espaço morto. */
-    grid-template-columns:minmax(0,1fr) minmax(0,min(420px, 30%));
-    grid-template-rows:auto minmax(0,1fr) auto;
+    /* ⚠️ `min(680px, 47%)` E NÃO `680px` FIXO, pelo mesmo motivo que a forma
+       anterior usava `min(420px, 30%)`: com a coluna travada em pixel, a 900px
+       de tela a coluna da direita ficaria com 680 e a do trabalho com 140 — a
+       lateral MAIS LARGA que o trabalho. Com os 47% as duas encolhem juntas:
+       654,2 a 1440px, 400,4 a 900px, e a da esquerda nunca fica menor. O teto
+       em pixel só entra a partir de 1495px de tela, e é ele que impede a coluna
+       da ação de virar uma faixa de 900px num monitor grande para segurar um
+       botão de 360. */
+    grid-template-columns:minmax(0,1fr) minmax(0,min(680px, 47%));
+    /* SÓ DUAS LINHAS DECLARADAS. A faixa da fila (linha 3) e a pergunta de
+       sobrescrever (linha 4) entram como linhas IMPLÍCITAS, e é de propósito:
+       linha declarada que fica vazia continua gerando `row-gap`, e isso é 24px
+       de nada no pé do painel toda vez que a pergunta não está na tela. */
+    grid-template-rows:auto minmax(0,1fr);
     column-gap:var(--sp-6); row-gap:var(--sp-5);
     /* O TETO DE ALTURA É O QUE DÁ SENTIDO AO `align-self:center`. Sem ele a
        grade teria a altura do conteúdo e "centrar" não centraria nada. Não é a
-       tela inteira de propósito: a gaveta "Mais opções" fica logo abaixo, e um
-       painel de 100dvh a empurraria para fora da vista. */
-    /* O TETO DE ALTURA vem MEDIDO, não escolhido: a 1440x900 o conteúdo do
-       painel ocupa ~350px, e sem um piso ele ficava colado no alto com 225px de
-       nada embaixo da gaveta. Com 560 a leitura fica no centro óptico e a gaveta
-       "Mais opções" encosta no pé da primeira tela — que é onde ela deve estar:
-       à mão, sem rolar, e sem competir. */
-    min-height:min(62dvh, 560px);
+       tela inteira de propósito: a faixa da fila e a gaveta "Mais opções" ficam
+       logo abaixo, e um painel de 100dvh as empurraria para fora da vista.
+       ELE ENCOLHEU DE 560 PARA 460 NESTA ENTREGA, e a conta é a razão: a faixa
+       da fila passou a ocupar uma linha inteira embaixo das colunas, e com os
+       560 antigos a gaveta "Mais opções" saía da primeira tela a 1440x900. */
+    min-height:min(52dvh, 460px);
     padding:var(--sp-5) 24px 0;
   }
   /* O ALTO E A GAVETA COMEÇAM E ACABAM NA MESMA LINHA VERTICAL DO BLOCO.
      Soltos, o seletor de lote encostava na borda esquerda da tela e o "?" na
      direita, enquanto o painel ficava centrado 150px para dentro — três
      alinhamentos diferentes na mesma tela. Com as duas colunas ocupando a
-     largura, a linha vertical do bloco É a da página: o `max-width` que a forma
-     centrada precisava sumiu junto com as colunas de margem. */
+     largura, a linha vertical do bloco É a da página. */
   .au-mais{max-width:none; margin-left:24px; margin-right:24px;}
   .au-bancada-topo{grid-column:1 / -1; grid-row:1; align-self:start;}
-  /* O BLOCO INTEIRO NO CENTRO ÓPTICO — na VERTICAL, que é a que importa aqui.
-     `align-self:center` é o que junta o que estava espalhado; o `gap` menor é o
-     que o mantém junto: estado e ação vizinhos, sem viagem vertical entre eles. */
+  /* AS DUAS COLUNAS, no centro óptico VERTICAL da faixa que sobra.
+     O NÚMERO DA PEÇA COLA NO BLOCO DE ESTADO — `--sp-3` e não `--sp-4`. Ele é o
+     título daquele bloco, não um terceiro assunto, e cada pixel que ele ganha de
+     folga vira faixa vazia ao lado dele, que é o defeito que esta entrega veio
+     desfazer. */
   .au-bancada-obra{grid-column:1; grid-row:2; align-self:center; gap:var(--sp-3);}
-  .au-bancada-lado{grid-column:2; grid-row:2; align-self:center;}
-  /* O SELO DA FILA ENCOSTA NA DIREITA. Com a coluna em 420px, os três pedaços da
-     linha ficavam amontoados à esquerda e sobrava um vão no fim; encostado, o
-     estado de cada peça vira uma coluna que o olho desce. */
-  .au-bancada-lado .au-fila-item .selo{margin-left:auto;}
+  /* A COLUNA DA AÇÃO RESPIRA MAIS QUE A DO CELULAR — `--sp-6` no lugar de
+     `--sp-4`, e o motivo é medido, não estético. Ela tem três assuntos (o
+     endereço, os botões, o progresso) e é MAIS BAIXA que a coluna da esquerda,
+     que carrega os anéis de 200px. Centrada, a diferença de altura vira vão
+     acima e abaixo dela: com `--sp-4` o maior vazio contínuo do painel media
+     664 × 96px; com `--sp-6` a coluna cresce 32px e o vazio cai junto. O espaço
+     que sobrava virou respiro entre os três blocos. */
+  .au-bancada-comandos{grid-column:2; grid-row:2; align-self:center; gap:var(--sp-6);}
   .au-bancada-topo > *:last-child{margin-left:auto;}
+
+  /* ── O BLOCO DE ESTADO VIRA UMA COLUNA, E A ANIMAÇÃO CRESCE ────────────
+     No celular os anéis ficam ao LADO do texto, porque ali a largura é o
+     recurso escasso. No computador o escasso é a distância: quem está de pé a
+     um metro da tela lê o movimento antes de ler a palavra. Então os anéis
+     sobem para o alto do bloco, com 200px em vez de 104, e o texto fica embaixo
+     deles — os dois centrados, que é como um painel de máquina se lê.
+     O texto tem teto de largura: uma frase de socorro com 150 caracteres numa
+     linha de 658px o olho perde na volta. */
+  .au-bancada-estado{
+    flex-direction:column; align-items:center; text-align:center;
+    gap:var(--sp-4); padding:var(--sp-5);
+  }
+  .au-aneis-caixa{width:200px; height:200px;}
+  .au-bancada-dito{max-width:520px;}
+  /* O NÚMERO DA PEÇA acompanha o eixo do bloco de estado: solto à esquerda de
+     uma coluna de 706px, ele ficava longe do que ele nomeia. */
+  .au-bancada-peca{text-align:center;}
+
+  /* ── A FILA, EM FAIXA ──────────────────────────────────────────────────
+     A lista vira uma fileira de fichas de largura igual, todas com moldura. A
+     DA VEZ CONTINUA SE DISTINGUINDO POR QUATRO COISAS, e nenhuma delas é só a
+     cor: fundo próprio, moldura na cor de ação, negrito e o selo escrito
+     "Agora". A moldura das outras é o que separa uma ficha da vizinha — em
+     linha, sem moldura, seis linhas curtas viram uma sopa de palavras. */
+  .au-bancada-fila{
+    grid-column:1 / -1; grid-row:3; gap:var(--sp-3);
+    padding-top:var(--sp-4); border-top:1px solid var(--border);
+  }
+  .au-bancada-fila .au-fila-lista{flex-direction:row; flex-wrap:wrap; gap:var(--sp-2);}
+  /* `flex:1 1 auto` e não um piso em pixel. MEDIDO: com `flex:1 1 200px` as seis
+     fichas saíam com 225px cada e o selo "Pendente" (66px) não cabia na mesma
+     linha do código — três das seis quebravam em duas linhas e as outras três
+     não, e a faixa ficava serrilhada. Com `auto`, cada ficha nasce do tamanho do
+     que ela tem dentro e o que sobra da faixa é dividido entre elas: as seis
+     ficam numa linha só, cada uma com uma linha só. Quando não couberem, o
+     `flex-wrap` desce as que sobram — sem espremer código nenhum. */
+  .au-bancada-fila .au-fila-item{flex:1 1 auto; border-color:var(--border);}
+  /* O SELO ENCOSTA NA DIREITA DA FICHA: o estado de cada peça vira uma coluna
+     que o olho desce, em vez de três pedaços amontoados à esquerda. */
+  .au-bancada-fila .au-fila-item .selo{margin-left:auto;}
+
   /* A pergunta de sobrescrever atravessa as duas colunas: ela tem dois
      seletores e um motivo, e numa coluna estreita é onde o dedo erra o botão. */
-  .au-sobrescrita{grid-column:1 / -1; grid-row:3;}
+  .au-sobrescrita{grid-column:1 / -1; grid-row:4;}
   /* ⚠️ O BOTÃO TEM TETO DE LARGURA, E ISSO É O PEDIDO DO DONO: "botão grande é
      bom na bancada, mas botão que atravessa meia tela vira faixa, não botão".
      Medido antes: com `flex:1 1 200px` ele esticava para a coluna inteira — 720
-     de 1440px, exatamente meia tela. Agora ele fica em 360px (25% da tela),
-     com os mesmos 72px de altura: o que precisa ser grande é o ALVO, e a altura
-     é que dá o alvo. `flex:0 1 360px` e não `width`, para no celular a
-     regra-base (`flex:1 1 200px`, largura toda) continuar valendo. */
+     de 1440px, exatamente meia tela. Agora ele fica em 360px, com os mesmos
+     72px de altura: o que precisa ser grande é o ALVO, e a altura é que dá o
+     alvo. `flex:0 1 360px` e não `width`, para no celular a regra-base
+     (`flex:1 1 200px`, largura toda) continuar valendo.
+     E A COLUNA DA DIREITA FOI MEDIDA PARA ELE: 360 + `gap` + a secundária dá
+     527 numa coluna de 557 — o teto do botão deixou de ser um vão de 582px ao
+     lado, como era quando ele morava numa coluna de 942. */
   .au-bancada-botao{flex:0 1 360px; min-height:72px;}
+  /* A SECUNDÁRIA ABSORVE O QUE SOBRA DA LINHA. Sem isto restava uma tira de
+     ~30px no fim da linha do botão — pouco, mas é exatamente o tipo de sobra
+     que o dono enxerga. */
+  .au-bancada-comandos .au-bancada-menor{flex:1 1 auto; justify-content:center;}
   /* A frase de "não há nada por gravar" e a gaveta acompanham o recuo do
      painel, para tudo começar na mesma linha vertical. */
   .au-mais{margin-top:var(--sp-4);}

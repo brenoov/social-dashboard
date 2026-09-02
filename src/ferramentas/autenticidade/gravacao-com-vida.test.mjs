@@ -232,8 +232,17 @@ test('o progresso fica FORA do que some quando o lote acaba', () => {
   // inteiro atrás de `v-if="proxima"`, e ele levava junto o ✓ da etiqueta que a
   // pessoa acabou de encostar. Agora a obra da bancada não tem condição nenhuma:
   // com a fila acabada ela mostra o lote fechado, no lugar de sumir.
+  //
+  // ⚠️ O PROGRESSO MUDOU DE CAIXA EM 02/09/2026, e não de condição. O painel
+  // virou DUAS colunas a pedido do dono, e o progresso foi para a da direita
+  // (`.au-bancada-comandos`, "o que você faz"), junto do endereço e dos botões.
+  // O que este teste guarda é o mesmo de antes, e agora nas DUAS caixas:
+  // nenhuma delas pode ganhar um `v-if`, senão a última etiqueta gravada leva
+  // junto o ✓ e a barra que diz que o lote fechou.
   assert.match(template, /<div class="au-bancada-obra">/,
     'a obra da bancada ganhou um `v-if` — com a fila acabada ela sumiria inteira');
+  assert.match(template, /<div class="au-bancada-comandos">/,
+    'a coluna da ação ganhou um `v-if` — com a fila acabada ela sumiria inteira');
   const obra = template.slice(template.indexOf('<div class="au-bancada-obra">'));
   const progresso = obra.indexOf('class="au-bancada-progresso"');
   assert.ok(progresso > 0, 'sumiu o bloco do progresso');

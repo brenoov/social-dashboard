@@ -425,23 +425,43 @@ test('o endereço deixa de ser o maior elemento nos modos automáticos', () => {
   assert.match(template, /modoDaBancada === 'copiar'/);
 });
 
-test('o painel do computador OCUPA a largura, e a obra é sempre mais larga que a fila', () => {
-  // ⚠️ ESTE TESTE TROCOU DE REGRA EM 02/09/2026, e a troca veio do dono.
+test('o painel do computador é DUAS COLUNAS que enchem a largura', () => {
+  // ⚠️ ESTE TESTE TROCOU DE REGRA DUAS VEZES, e as duas vieram do dono.
   //
-  // ELE EXIGIA QUATRO COLUNAS: obra 720px, fila 340px e duas de `1fr` iguais nas
-  // pontas, que centravam o grupo. Centrava mesmo — medido a 1440px, 174px de
-  // margem de cada lado, simétricos. E o dono olhou a tela e disse que "o painel
-  // de trabalho ocupa a metade esquerda, a fila fica numa coluna estreita e
-  // sobra faixa à direita". A conta dá razão a ele: o grupo usava 1092 de 1440
-  // (75,8%) e a fila era uma tira de 340px encostada num vão de 174px. Simetria
-  // não é aproveitamento.
+  // 1ª FORMA — QUATRO COLUNAS: obra 720px, fila 340px e duas de `1fr` iguais
+  // nas pontas, que centravam o grupo. Centrava mesmo (174px de margem de cada
+  // lado, simétricos) e o dono disse que "o painel de trabalho ocupa a metade
+  // esquerda, a fila fica numa coluna estreita e sobra faixa à direita". O
+  // grupo usava 1092 de 1440 (75,8%). Simetria não é aproveitamento.
   //
-  // O QUE ESTE TESTE GUARDA AGORA, e são as duas coisas que quebram calado:
+  // 2ª FORMA — obra `1fr` + fila `min(420px, 30%)`. A largura passou a 96,7%,
+  // e mesmo assim o dono voltou: "na aba gravar no computador ainda não está
+  // usando toda a lateral, acredito que se você fizer duas colunas, de um lado
+  // a animação de gravação e na direita o link e os botões". A conta dá razão a
+  // ele: a coluna da direita era uma LISTA de linhas curtas, e a da esquerda
+  // tinha tudo empilhado — o maior vazio contínuo do painel media 1224 × 72px,
+  // a faixa à direita do "nº 5 de 12", e o botão de 360px morava numa coluna de
+  // 942 com 582px de nada ao lado. A largura estava ocupada por moldura, não
+  // por conteúdo.
+  //
+  // 3ª FORMA, esta: ESQUERDA o que acontece (número + anéis grandes + estado),
+  // DIREITA o que você faz (endereço + botões + progresso), e a fila numa FAIXA
+  // embaixo das duas.
+  //
+  // O QUE ESTE TESTE GUARDA, e são as três coisas que quebram calado:
   //   1. não voltar a haver coluna de MARGEM — as duas colunas são de conteúdo,
   //      e o recuo é o mesmo 24px do resto da ferramenta (PADRÃO item 7);
-  //   2. a fila não passar da obra. Com a coluna travada em `420px`, a 1024px a
-  //      obra ficava com 524 e a 900px com 400: a lista lateral ficava MAIS
-  //      LARGA que o trabalho. Medido. O `min(420px, 30%)` é o conserto.
+  //   2. a coluna da ação não passar da do trabalho. Travada em `680px`, a
+  //      900px de tela ela ficaria com 680 e o trabalho com 140 — a lateral
+  //      MAIS LARGA que o trabalho, que foi o defeito da 1ª forma. O
+  //      `min(680px, 47%)` é o conserto: 654,2 a 1440px, 400,4 a 900px, e a do
+  //      trabalho sempre maior. E os 47% não são gosto: o endereço da peça mede
+  //      541,9px em `--fonte-dados` no degrau `--texto-titulo`, e com o recuo da
+  //      caixa pede 576 para não quebrar no meio do código — que é o que a
+  //      pessoa lê e copia. Com 44% ele cabia com 2,5px de folga, que uma fonte
+  //      de reserva come inteira; com 47% sobram 78;
+  //   3. a fila continuar existindo, atravessada, e não voltar a ser a terceira
+  //      coluna estreita.
   //
   // A centralização que importava continua: é a VERTICAL, no `align-self:center`
   // com o teto de altura — e ela tem teste próprio logo abaixo.
@@ -452,10 +472,31 @@ test('o painel do computador OCUPA a largura, e a obra é sempre mais larga que 
   assert.match(grande, /\.au-bancada\{\s*display:grid;/);
   const colunas = grande.match(/\.au-bancada\{[^}]*grid-template-columns:([^;]+);/);
   assert.ok(colunas, 'sumiu o `grid-template-columns` da bancada');
-  assert.equal(colunas[1].trim(), 'minmax(0,1fr) minmax(0,min(420px, 30%))',
-    'a bancada voltou a ter coluna de margem, ou a fila voltou a ter largura fixa');
+  assert.equal(colunas[1].trim(), 'minmax(0,1fr) minmax(0,min(680px, 47%))',
+    'a bancada voltou a ter coluna de margem, ou a coluna da ação voltou a ter largura fixa');
   assert.match(grande, /\.au-bancada-obra\{grid-column:1; grid-row:2; align-self:center;/);
-  assert.match(grande, /\.au-bancada-lado\{grid-column:2; grid-row:2; align-self:center;/);
+  assert.match(grande, /\.au-bancada-comandos\{grid-column:2; grid-row:2; align-self:center;/);
+  assert.match(grande, /\.au-bancada-fila\{[^}]*grid-column:1 \/ -1/,
+    'a fila voltou a ser uma coluna estreita: ela é a faixa embaixo das duas');
+});
+
+test('os anéis crescem no computador — é o que se vê de longe, de pé', () => {
+  // O pedido do dono foi "de um lado a animação de gravação", e animação que se
+  // vê de longe não é a mesma de 104px que cabe ao lado do texto num celular.
+  // No computador ela sobe para o alto do bloco de estado e dobra de tamanho.
+  const grande = estilo.slice(
+    estilo.indexOf('@media (min-width:900px){'),
+    estilo.lastIndexOf('@media (max-width:520px){'),
+  );
+  assert.match(grande, /\.au-aneis-caixa\{width:200px; height:200px;\}/,
+    'os anéis voltaram ao tamanho de celular no computador');
+  assert.match(grande, /\.au-bancada-estado\{\s*flex-direction:column;/,
+    'o bloco de estado voltou a pôr os anéis ao lado do texto no computador');
+  // e no celular NADA disso vale: lá a largura é o recurso escasso, e os anéis
+  // ficam ao lado do texto, com 72px
+  const celular = estilo.slice(estilo.lastIndexOf('@media (max-width:520px){'));
+  assert.match(celular, /\.au-aneis-caixa\{width:72px; height:72px;\}/,
+    'o ajuste de celular dos anéis sumiu');
 });
 
 test('o botão da bancada tem teto de largura — botão que atravessa meia tela vira faixa', () => {

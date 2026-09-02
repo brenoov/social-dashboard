@@ -106,9 +106,15 @@ test('a fila com UMA peça só não aparece', () => {
   // é que a fila deixou de ser escrita DUAS vezes neste arquivo. Havia uma lista
   // para o "modo bancada" e outra para fora dele — duas cópias da mesma coisa,
   // e a que ficasse para trás mostraria a fila errada. Com a aba virando a
-  // bancada, sobrou UMA, e ela é o trilho lateral do painel: por isso carrega o
-  // nome da coluna em que mora.
-  assert.match(template, /v-if="filaAoRedor\.length > 1" class="au-bancada-lado"/);
+  // bancada, sobrou UMA.
+  //
+  // E MUDOU DE NOVO, PARA `au-bancada-fila`, quando o dono pediu duas colunas
+  // grandes ("de um lado a animação de gravação e na direita o link e os
+  // botões"). Com duas colunas de conteúdo não há terceira: a fila desceu para
+  // uma FAIXA embaixo delas, atravessada. Ela não é mais o trilho LATERAL de
+  // coluna nenhuma, e nome que aponta para um lugar que não existe é o que faz
+  // o próximo leitor procurar uma coluna que ninguém desenhou.
+  assert.match(template, /v-if="filaAoRedor\.length > 1" class="au-bancada-fila"/);
   assert.equal((template.match(/v-for="pf in filaAoRedor"/g) || []).length, 1,
     'a fila voltou a ser desenhada em dois lugares — a que ficar para trás mente');
 });

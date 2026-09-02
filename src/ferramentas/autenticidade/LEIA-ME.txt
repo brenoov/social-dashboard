@@ -36,11 +36,31 @@ cinco itens ela quebra em duas linhas no celular — igual as irmas fariam.
 
 2 GRAVAR   E A BANCADA. Nao ha modo para entrar: escolheu o lote, trabalha.
            Um seletor compacto de lote no alto e, logo abaixo, o painel de
-           trabalho — qual peca e agora (o maior elemento da tela), o estado com
-           os aneis e o texto, UM botao, o progresso, e a fila ao lado.
+           trabalho.
            Existe por um motivo pratico: 20 etiquetas sao fisicamente
            identicas, e sem essa tela e questao de tempo ate alguem gravar a
            mesma duas vezes e pular outra.
+
+           NO COMPUTADOR SAO DUAS COLUNAS (a partir de 900px de largura), e o
+           desenho e do dono: "de um lado a animacao de gravacao e na direita o
+           link e os botoes".
+             ESQUERDA, o que esta acontecendo: qual peca e agora e o bloco de
+             estado, com os aneis GRANDES (200px) no alto dele e o mesmo estado
+             por escrito embaixo. E o que se ve de longe, de pe na bancada.
+             DIREITA, o que voce faz: o endereco da peca, o botao principal, o
+             secundario e o progresso do lote.
+             EMBAIXO DAS DUAS, atravessada, a faixa com a fila do lote — a que
+             saiu, a da vez marcada com "Agora" e as quatro seguintes.
+           Medido a 1440px: 705,8 + 654,2 de 1440, ou 96,7% da largura, sem
+           faixa vazia de lado nenhum. A coluna da direita e `min(680px, 47%)`
+           porque o endereco pede 576px para nao quebrar no meio do codigo — que
+           e justamente o que a pessoa le e copia no modo do aplicativo.
+
+           NO CELULAR TUDO EMPILHA, na mesma ordem: peca, estado, endereco,
+           botoes, progresso, fila. A ordem do HTML e essa, e as colunas sao so
+           um `@media (min-width:900px)` — por isso o celular saiu IDENTICO ao
+           que era antes das colunas, conferido pixel a pixel a 375px nos dois
+           temas.
 
            SEM BUSCA, SEM FILTROS, SEM PARAGRAFOS. Ate 01/09/2026 vinham OITO
            blocos antes da area de trabalho — um paragrafo de explicacao, os
