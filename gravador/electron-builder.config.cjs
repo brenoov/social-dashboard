@@ -21,30 +21,11 @@
 // cópias da mesma faixa de páginas. Empacotando `gravador/` como raiz, esse
 // `../src` cairia fora do pacote. Então a raiz do pacote é a raiz do projeto, com
 // as duas pastas dentro, e o caminho relativo continua valendo lá como aqui.
-const PASTAS_DO_PROGRAMA = {
-  'gravador/janela': [
-    'principal.cjs',
-    'preload.cjs',
-    'abrir-a-janela.js',
-    'atendente-do-leitor.js',
-    'enderecos-permitidos.js',
-  ],
-  gravador: [
-    'leitor-de-mesa.js',
-    'comandos-do-acr122u.js',
-    'ponte-do-powershell.js',
-  ],
-  'src/ferramentas/autenticidade/gravador-de-mesa': [
-    'ndef-para-ntag213.js',
-  ],
-}
+// A lista mora fora: o empacotador VALIDA este objeto e recusa chave que nao
+// conhece. Ver `janela/modulos-do-programa.cjs` para a historia inteira.
+const PASTAS_DO_PROGRAMA = require('./janela/pastas-do-programa.cjs')
 
-const MODULOS_DO_PROGRAMA = Object.entries(PASTAS_DO_PROGRAMA)
-  .flatMap(([pasta, arquivos]) => arquivos.map((a) => `${pasta}/${a}`))
-
-module.exports = {
-  PASTAS_DO_PROGRAMA,
-  MODULOS_DO_PROGRAMA,
+const configuracao = {
 
   appId: 'com.rbvcompany.gravador-de-etiquetas',
   productName: 'Gravador de Etiquetas Vessel',
@@ -73,3 +54,5 @@ module.exports = {
     shortcutName: 'Gravador de Etiquetas',
   },
 }
+
+module.exports = configuracao

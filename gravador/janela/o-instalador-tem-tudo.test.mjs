@@ -14,6 +14,10 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve, relative, sep } from 'node:path'
 import configuracao from '../electron-builder.config.cjs'
+// A lista saiu de dentro da configuracao: o empacotador VALIDA aquele objeto e
+// recusa chave que nao conhece — nem escondida como nao-enumeravel ela passa.
+// Ver `modulos-do-programa.cjs`.
+import { MODULOS_DO_PROGRAMA, PASTAS_DO_PROGRAMA } from './modulos-do-programa.cjs'
 import pacote from '../package.json' with { type: 'json' }
 
 const AQUI = dirname(fileURLToPath(import.meta.url))
@@ -43,7 +47,7 @@ function tudoQueOProgramaImporta() {
 }
 
 test('a lista do empacotador cobre TODO arquivo que o programa importa', () => {
-  const declarados = new Set(configuracao.MODULOS_DO_PROGRAMA)
+  const declarados = new Set(MODULOS_DO_PROGRAMA)
   const faltando = [...tudoQueOProgramaImporta()].filter((m) => !declarados.has(m))
   assert.deepEqual(faltando, [],
     'estes arquivos são importados e não entram no instalador — o programa morreria '
@@ -53,23 +57,23 @@ test('a lista do empacotador cobre TODO arquivo que o programa importa', () => {
 test('a lista do empacotador não carrega arquivo que ninguém importa', () => {
   // lista que só cresce vira lista que ninguém lê, e um dia esconde o que falta
   const usados = tudoQueOProgramaImporta()
-  const sobrando = configuracao.MODULOS_DO_PROGRAMA.filter((m) => !usados.has(m))
+  const sobrando = MODULOS_DO_PROGRAMA.filter((m) => !usados.has(m))
   assert.deepEqual(sobrando, [])
 })
 
 test('a entrada do pacote é a que existe de verdade', () => {
   assert.equal(configuracao.extraMetadata.main, 'gravador/janela/principal.cjs')
-  assert.ok(configuracao.MODULOS_DO_PROGRAMA.includes(configuracao.extraMetadata.main))
+  assert.ok(MODULOS_DO_PROGRAMA.includes(configuracao.extraMetadata.main))
 })
 
 test('o preload entra no pacote — sem ele a tela não acha o leitor', () => {
   // e o defeito seria silencioso: a tela simplesmente não mostraria o modo de
   // mesa, e a bancada acharia que o programa "não funciona"
-  assert.ok(configuracao.MODULOS_DO_PROGRAMA.includes('gravador/janela/preload.cjs'))
+  assert.ok(MODULOS_DO_PROGRAMA.includes('gravador/janela/preload.cjs'))
 })
 
 test('nenhum arquivo de teste entra no instalador', () => {
-  for (const modulo of configuracao.MODULOS_DO_PROGRAMA) {
+  for (const modulo of MODULOS_DO_PROGRAMA) {
     assert.doesNotMatch(modulo, /\.test\./, `${modulo} é teste e não vai para a bancada`)
   }
 })
