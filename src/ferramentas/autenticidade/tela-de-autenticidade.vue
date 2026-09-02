@@ -3627,12 +3627,23 @@ onMounted(() => {
      Esta é a tela mais importante da ferramenta e a única usada DE PÉ: a pessoa
      está com a bolsa numa mão e o celular na outra.
 
-     ⚠️ SÃO QUATRO COLUNAS, E AS DE FORA SÃO `1fr` IGUAIS: é isso, e só isso,
-     que põe o conjunto no CENTRO da tela. Com TRÊS colunas — a fila dividindo a
-     terceira com a margem — quem ficava centrado era só a obra, e a fila pendia
-     para fora dela: MEDIDO a 1440px, sobravam 336px de margem à esquerda e 72px
-     à direita. Isso não é centralização, é um bloco empurrado. Agora a fila tem
-     coluna própria, e o que se centra é o GRUPO: obra + fila.
+     ⚠️ SÃO DUAS COLUNAS, E ELAS OCUPAM A LARGURA — não há mais coluna de
+     margem. A forma anterior tinha QUATRO colunas: duas de conteúdo (obra 720px
+     e fila 340px) e duas de `1fr` iguais nas pontas, que centravam o grupo.
+     Centrava mesmo — medido a 1440px: 174px de margem de cada lado, simétricos.
+     E o dono olhou e disse que "o painel de trabalho ocupa a metade esquerda, a
+     fila fica numa coluna estreita e sobra faixa à direita".
+
+     Ele está certo, e a conta explica: o grupo usava 1092 de 1440 (75,8%), a
+     obra sozinha ia até 62% da tela e a fila era uma tira de 340px encostada num
+     vão de 174px. Simetria não é aproveitamento. Agora obra e fila DIVIDEM a
+     largura — a fila com teto de 420px, a obra com o que sobra — e o recuo é o
+     mesmo 24px do resto da ferramenta (PADRÃO item 7: tela é full-bleed).
+     Medido depois: 940 + 420 de 1440, ou 96,7% da largura, sem faixa nenhuma.
+
+     A CENTRALIZAÇÃO QUE IMPORTAVA NÃO SE PERDEU: era a VERTICAL, e ela continua
+     no `align-self:center` com o teto de altura logo abaixo. A horizontal deixou
+     de fazer sentido quando o conteúdo passou a ocupar a largura toda.
 
      ⚠️ E O BLOCO É UM SÓ, CENTRADO NA VERTICAL. As formas anteriores foram
      medidas a 1440x900 e todas repetiam a queixa do dono:
@@ -3646,12 +3657,22 @@ onMounted(() => {
      respiro, e não buraco dentro do desenho. */
   .au-bancada{
     display:grid;
-    /* 720px NÃO É UM NÚMERO REDONDO ESCOLHIDO NO OLHO: é a medida do endereço.
-       Medido no navegador a 1440px — o endereço de um código de 10 caracteres
-       precisa de 648px em `--fonte-dados` a 24px, e com os 48px de recuo da
-       caixa dá 696. Com 660 ele quebrava a URL no meio ("…B4F8S1T / R"), e no
-       modo de copiar é justamente o endereço que a pessoa lê e copia. */
-    grid-template-columns:minmax(0,1fr) minmax(0,720px) minmax(0,340px) minmax(0,1fr);
+    /* A OBRA FICA COM O QUE SOBRA, e a fila tem teto de 420px. Os dois números
+       são medidos, não escolhidos:
+         · 420px é o que a fila precisa para a linha inteira caber sem quebrar —
+           "nº 12", o código de 10 caracteres em fonte de dados e o selo escrito.
+           Mais que isso vira espaço morto ao lado de linhas curtas;
+         · a obra fica com 940px a 1440px, e o piso que importa é o do ENDEREÇO:
+           um código de 10 caracteres precisa de 648px em `--fonte-dados` a 24px,
+           e com os 48px de recuo da caixa dá 696. Com 660 ele quebrava a URL no
+           meio ("…B4F8S1T / R"), e no modo de copiar é justamente o endereço que
+           a pessoa lê e copia. 940 passa folgado; a antiga era 720. */
+    /* ⚠️ `min(420px, 30%)` E NÃO `420px` FIXO: com a coluna travada em 420, a
+       1024px a obra ficava com 524px e a 900px com 400 — a fila passava a ser
+       MAIS LARGA que o trabalho. Medido. Com os 30% ela encolhe junto: 420 a
+       1440px, 246 a 900px, e nunca passa dos 420 num monitor grande, onde
+       sobrar largura numa lista de linhas curtas é só espaço morto. */
+    grid-template-columns:minmax(0,1fr) minmax(0,min(420px, 30%));
     grid-template-rows:auto minmax(0,1fr) auto;
     column-gap:var(--sp-6); row-gap:var(--sp-5);
     /* O TETO DE ALTURA É O QUE DÁ SENTIDO AO `align-self:center`. Sem ele a
@@ -3669,25 +3690,32 @@ onMounted(() => {
   /* O ALTO E A GAVETA COMEÇAM E ACABAM NA MESMA LINHA VERTICAL DO BLOCO.
      Soltos, o seletor de lote encostava na borda esquerda da tela e o "?" na
      direita, enquanto o painel ficava centrado 150px para dentro — três
-     alinhamentos diferentes na mesma tela. A medida não é escolhida: é a
-     largura do GRUPO (a obra + o vão + a fila). */
-  .au-bancada-topo, .au-mais{
-    width:100%; max-width:calc(720px + var(--sp-6) + 340px);
-    margin-left:auto; margin-right:auto;
-  }
-  .au-bancada-topo{grid-column:1 / -1; grid-row:1; align-self:start; justify-self:center;}
-  /* O BLOCO INTEIRO NO CENTRO ÓPTICO. `align-self:center` é o que junta o que
-     estava espalhado; o `gap` menor é o que o mantém junto: estado e ação
-     vizinhos, sem viagem vertical entre eles. */
-  .au-bancada-obra{grid-column:2; grid-row:2; align-self:center; gap:var(--sp-3);}
-  .au-bancada-lado{grid-column:3; grid-row:2; align-self:center; max-width:340px;}
+     alinhamentos diferentes na mesma tela. Com as duas colunas ocupando a
+     largura, a linha vertical do bloco É a da página: o `max-width` que a forma
+     centrada precisava sumiu junto com as colunas de margem. */
+  .au-mais{max-width:none; margin-left:24px; margin-right:24px;}
+  .au-bancada-topo{grid-column:1 / -1; grid-row:1; align-self:start;}
+  /* O BLOCO INTEIRO NO CENTRO ÓPTICO — na VERTICAL, que é a que importa aqui.
+     `align-self:center` é o que junta o que estava espalhado; o `gap` menor é o
+     que o mantém junto: estado e ação vizinhos, sem viagem vertical entre eles. */
+  .au-bancada-obra{grid-column:1; grid-row:2; align-self:center; gap:var(--sp-3);}
+  .au-bancada-lado{grid-column:2; grid-row:2; align-self:center;}
+  /* O SELO DA FILA ENCOSTA NA DIREITA. Com a coluna em 420px, os três pedaços da
+     linha ficavam amontoados à esquerda e sobrava um vão no fim; encostado, o
+     estado de cada peça vira uma coluna que o olho desce. */
+  .au-bancada-lado .au-fila-item .selo{margin-left:auto;}
   .au-bancada-topo > *:last-child{margin-left:auto;}
-  /* A pergunta de sobrescrever atravessa as três colunas: ela tem dois
+  /* A pergunta de sobrescrever atravessa as duas colunas: ela tem dois
      seletores e um motivo, e numa coluna estreita é onde o dedo erra o botão. */
   .au-sobrescrita{grid-column:1 / -1; grid-row:3;}
-  /* O botão é o alvo da bancada: ele atravessa o bloco inteiro e tem altura de
-     alvo grande. O rótulo continua no tamanho do "resto". */
-  .au-bancada-botao{min-height:72px;}
+  /* ⚠️ O BOTÃO TEM TETO DE LARGURA, E ISSO É O PEDIDO DO DONO: "botão grande é
+     bom na bancada, mas botão que atravessa meia tela vira faixa, não botão".
+     Medido antes: com `flex:1 1 200px` ele esticava para a coluna inteira — 720
+     de 1440px, exatamente meia tela. Agora ele fica em 360px (25% da tela),
+     com os mesmos 72px de altura: o que precisa ser grande é o ALVO, e a altura
+     é que dá o alvo. `flex:0 1 360px` e não `width`, para no celular a
+     regra-base (`flex:1 1 200px`, largura toda) continuar valendo. */
+  .au-bancada-botao{flex:0 1 360px; min-height:72px;}
   /* A frase de "não há nada por gravar" e a gaveta acompanham o recuo do
      painel, para tudo começar na mesma linha vertical. */
   .au-mais{margin-top:var(--sp-4);}

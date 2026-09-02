@@ -381,26 +381,61 @@ test('o endereço deixa de ser o maior elemento nos modos automáticos', () => {
   assert.match(template, /modoDaBancada === 'copiar'/);
 });
 
-test('o painel do computador é UM bloco centrado, e não uma faixa num canto', () => {
-  // "espaços vazios" e "não centralizados" foram as queixas, nestas palavras.
-  // A primeira e a terceira coluna são `1fr` IGUAIS: é isso, e só isso, que põe
-  // o bloco no centro da tela em vez de na coluna da esquerda. E o
-  // `align-self:center` é o que junta o que estava espalhado na vertical.
+test('o painel do computador OCUPA a largura, e a obra é sempre mais larga que a fila', () => {
+  // ⚠️ ESTE TESTE TROCOU DE REGRA EM 02/09/2026, e a troca veio do dono.
+  //
+  // ELE EXIGIA QUATRO COLUNAS: obra 720px, fila 340px e duas de `1fr` iguais nas
+  // pontas, que centravam o grupo. Centrava mesmo — medido a 1440px, 174px de
+  // margem de cada lado, simétricos. E o dono olhou a tela e disse que "o painel
+  // de trabalho ocupa a metade esquerda, a fila fica numa coluna estreita e
+  // sobra faixa à direita". A conta dá razão a ele: o grupo usava 1092 de 1440
+  // (75,8%) e a fila era uma tira de 340px encostada num vão de 174px. Simetria
+  // não é aproveitamento.
+  //
+  // O QUE ESTE TESTE GUARDA AGORA, e são as duas coisas que quebram calado:
+  //   1. não voltar a haver coluna de MARGEM — as duas colunas são de conteúdo,
+  //      e o recuo é o mesmo 24px do resto da ferramenta (PADRÃO item 7);
+  //   2. a fila não passar da obra. Com a coluna travada em `420px`, a 1024px a
+  //      obra ficava com 524 e a 900px com 400: a lista lateral ficava MAIS
+  //      LARGA que o trabalho. Medido. O `min(420px, 30%)` é o conserto.
+  //
+  // A centralização que importava continua: é a VERTICAL, no `align-self:center`
+  // com o teto de altura — e ela tem teste próprio logo abaixo.
   const grande = estilo.slice(
     estilo.indexOf('@media (min-width:900px){'),
     estilo.lastIndexOf('@media (max-width:520px){'),
   );
   assert.match(grande, /\.au-bancada\{\s*display:grid;/);
-  // ⚠️ ERAM TRÊS COLUNAS, E SÃO QUATRO DESDE 01/09/2026. Com três — a fila
-  // dividindo a terceira com a margem — quem ficava centrado era só a obra, e a
-  // fila pendia para fora dela: medido a 1440px, sobravam 336px de margem à
-  // esquerda e 72px à direita. A regra continua a mesma, e é ela que este teste
-  // guarda: as colunas DE FORA são `1fr` iguais. O que mudou é que a fila ganhou
-  // coluna própria, para o que se centra ser o GRUPO (obra + fila).
-  assert.match(grande, /grid-template-columns:minmax\(0,1fr\) minmax\(0,720px\) minmax\(0,340px\) minmax\(0,1fr\);/,
-    'as colunas de fora têm de ser iguais, senão o bloco sai do centro');
-  assert.match(grande, /\.au-bancada-obra\{grid-column:2; grid-row:2; align-self:center;/);
-  assert.match(grande, /\.au-bancada-lado\{grid-column:3; grid-row:2; align-self:center;/);
+  const colunas = grande.match(/\.au-bancada\{[^}]*grid-template-columns:([^;]+);/);
+  assert.ok(colunas, 'sumiu o `grid-template-columns` da bancada');
+  assert.equal(colunas[1].trim(), 'minmax(0,1fr) minmax(0,min(420px, 30%))',
+    'a bancada voltou a ter coluna de margem, ou a fila voltou a ter largura fixa');
+  assert.match(grande, /\.au-bancada-obra\{grid-column:1; grid-row:2; align-self:center;/);
+  assert.match(grande, /\.au-bancada-lado\{grid-column:2; grid-row:2; align-self:center;/);
+});
+
+test('o botão da bancada tem teto de largura — botão que atravessa meia tela vira faixa', () => {
+  // Medido a 1440px antes desta entrega: com `flex:1 1 200px` ele esticava para
+  // a coluna inteira, 720 de 1440 — exatamente meia tela. O dono: "o botão
+  // principal está enorme, largura de meia tela para uma ação".
+  //
+  // O QUE NÃO PODE VOLTAR JUNTO: o alvo. O que precisa ser grande numa bancada
+  // é a ÁREA que o dedo acerta com a bolsa na outra mão, e quem dá isso é a
+  // ALTURA. Por isso os 72px continuam aqui, do lado do teto de largura.
+  const grande = estilo.slice(
+    estilo.indexOf('@media (min-width:900px){'),
+    estilo.lastIndexOf('@media (max-width:520px){'),
+  );
+  const regra = grande.match(/\.au-bancada-botao\{([^}]*)\}/);
+  assert.ok(regra, 'sumiu a regra do botão na tela grande');
+  assert.match(regra[1], /flex:0 1 360px/,
+    'o botão voltou a esticar para a coluna inteira');
+  assert.match(regra[1], /min-height:72px/,
+    'o alvo da bancada tem de continuar alto: é a altura que o dedo acerta');
+  // e no celular ele continua ocupando a largura, que lá é o certo
+  const base = estilo.slice(0, estilo.indexOf('@media (min-width:900px){'));
+  assert.match(base, /\.au-bancada-botao\{\s*flex:1 1 200px;/,
+    'a regra-base do botão mudou: no celular ele tem de ocupar a largura toda');
 });
 
 test('o estado e a ação são VIZINHOS na ordem da tela', () => {
