@@ -189,6 +189,11 @@ import { adminToast } from './compartilhado/avisos.js'
 // Gestão de Tráfego. Fica na MOLDURA, e não em cada tela, pelo mesmo motivo
 // do aviso de versão nova: um observador só, ligado uma vez, vale pra todas.
 import { observarModaisLegados, fecharTodosOsModaisLegadosAoTrocarDeRota } from './compartilhado/observar-modais-legados.js'
+// Mantém a aba ATIVA dentro da vista na barra global `.abas`, que desde
+// 02/09/2026 rola por dentro no celular em vez de quebrar em duas linhas. Fica
+// aqui pelo mesmo motivo do observador acima: um só, ligado uma vez, vale para
+// as quatro telas que usam a classe — e para a quinta que vier.
+import { observarAbaAtiva } from './compartilhado/aba-ativa-a-vista.js'
 
 const router = useRouter()
 
@@ -450,6 +455,7 @@ onMounted(() => {
   if (pushSuportado()) registrarSW().catch(() => {})
   avaliarPush()
   observarModaisLegados()
+  observarAbaAtiva()
 })
 // estado.user pode chegar depois do boot (sessão assíncrona) -> reavaliar.
 watch(() => estado.user?.id, avaliarPush)

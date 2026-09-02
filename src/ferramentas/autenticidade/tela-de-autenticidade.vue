@@ -2875,7 +2875,7 @@ onMounted(() => {
    texto secundário — e não uma barra desenhada, que viraria mais uma linha
    brigando com o sublinhado da aba ativa. Ele é enfeite de leitura, então sai
    da árvore de acessibilidade (`aria-hidden`) e não recebe toque. */
-.au-abas-sep{align-self:center;padding:0 var(--sp-1);color:var(--muted);font-size:var(--texto-etiqueta);user-select:none;pointer-events:none;}
+.au-abas-sep{flex:0 0 auto;align-self:center;padding:0 var(--sp-1);color:var(--muted);font-size:var(--texto-etiqueta);user-select:none;pointer-events:none;}
 
 /* A AJUDA CURTA DA ABA, logo abaixo da barra. Ela fica sempre à vista nas
    quatro abas de consulta e de lista: guia único ninguém reabre.
