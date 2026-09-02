@@ -392,11 +392,16 @@
           <div class="au-bancada-obra">
 
             <!-- 1. QUAL PEÇA É AGORA. O maior elemento da tela, e o único desse
-                 tamanho. Com a fila acabada ele mostra o lote fechado, em vez de
-                 sumir: bloco que some no fim leva junto o ✓ da última etiqueta. -->
-            <p class="au-bancada-peca">
-              <template v-if="proxima">nº {{ proxima.numero_na_serie }} de {{ loteAtual?.quantidade }}</template>
-              <template v-else>{{ progressoDoLoteAtual.texto }}</template>
+                 tamanho. ELE NÃO É O PROGRESSO: é qual peça está na mão agora.
+                 COM A FILA ACABADA ELE SAI, e quem vira o elemento dominante é o
+                 estado — "Lote pronto", em verde, com o ✓ desenhado. Antes ele
+                 mostrava aqui o "6 de 20" do lote, que é exatamente o que a
+                 barra logo abaixo já diz: era a segunda cópia do progresso na
+                 mesma tela, e repetição é metade da confusão que o dono
+                 reclamou. O bloco de trabalho não some junto: ele nunca teve
+                 `v-if`, então o ✓ da última etiqueta continua na tela. -->
+            <p v-if="proxima" class="au-bancada-peca">
+              nº {{ proxima.numero_na_serie }} de {{ loteAtual?.quantidade }}
             </p>
 
             <!-- 2. O ESTADO. A COR E O MOVIMENTO SÃO O SINAL, O TEXTO É A
@@ -1266,9 +1271,11 @@ const gravaPorMesa = ref(temLeitorDeMesaAqui)
 // aplicativo — é de quem não tem nem um nem outro (iPhone, computador sem o
 // programa) e continua inteiro.
 const gravaAoVivo = computed(() => gravaPorMesa.value || gravaPorNfc.value)
-const textoDeGravando = computed(() => (gravaPorMesa.value
-  ? 'Segure a etiqueta no leitor…'
-  : 'Encoste a etiqueta…'))
+// O RÓTULO DO BOTÃO NÃO MORA MAIS AQUI. Ele era um `computed` desta tela
+// ("Segure a etiqueta no leitor…" / "Encoste a etiqueta…") escrito ao lado de um
+// ternário no template, e o mesmo par de frases já existia — provado — em
+// `acaoDaBancada`, no módulo. Duas cópias da mesma frase é como uma delas fica
+// para trás: agora o botão desenha o que a conta pura mandou, e só.
 
 // TROCAR DE MODO É UM LUGAR SÓ. Mexer nos dois interruptores à mão em cada
 // botão é como nasce o estado impossível — os dois ligados, ou nenhum, com a

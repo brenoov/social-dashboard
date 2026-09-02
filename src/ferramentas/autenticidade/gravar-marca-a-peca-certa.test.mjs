@@ -130,13 +130,21 @@ test('marcarGravada devolve sim ou não em todos os caminhos', () => {
   }
 });
 
-test('no template, marcarGravada vai com parênteses', () => {
-  // sem os parênteses o @click passa o MouseEvent no lugar do código da peça
+test('marcarGravada nunca é chamada sem parênteses', () => {
+  // sem os parênteses o @click passaria o MouseEvent no lugar do código da peça.
+  //
+  // ELE SAIU DO TEMPLATE em 01/09/2026: o "✓ Gravei essa" era um dos SEIS
+  // botões do mesmo peso da aba Gravar, e virou o botão principal único da
+  // bancada — o mesmo botão que grava no leitor e no celular. Quem escolhe o
+  // caminho é a conta pura (`acaoDaBancada`), e a tela só obedece. Então a
+  // chamada mora agora em `tocarNaBancada`, e é lá que os parênteses importam.
   assert.doesNotMatch(
     template, /@click="marcarGravada"/,
     '@click="marcarGravada" entrega o evento do clique como código da peça',
   );
-  assert.match(template, /@click="marcarGravada\(\)"/);
+  const corpo = corpoDaFuncao('tocarNaBancada').replace(/\/\/[^\n]*/g, '');
+  assert.match(corpo, /if \(chave === 'marcar'\) \{ marcarGravada\(\); return \}/,
+    'o caminho do modo do aplicativo tem de chamar marcarGravada COM parênteses');
 });
 
 test('o seletor de lote trava enquanto grava', () => {

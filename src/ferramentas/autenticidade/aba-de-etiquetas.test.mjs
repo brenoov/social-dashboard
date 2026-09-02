@@ -252,12 +252,17 @@ test('a tela NÃO reescreve a barra de abas: ela usa a `.abas` global', () => {
 });
 
 test('a barra é a global, com botões simples e a classe `on` na ativa', () => {
-  // O `v-if="!naBancada"` é o modo bancada, e NÃO um override: a barra continua
-  // sendo a `.abas` global — mesma classe, mesmo `role`, sem uma regra local de
-  // CSS. Ela só sai da tela enquanto se grava de pé, e volta inteira no "Sair do
-  // modo bancada". Ver `modo-bancada.test.mjs`.
-  assert.match(template, /<div v-if="!naBancada" class="abas" role="tablist">/,
+  // MUDOU EM 01/09/2026: a barra tinha um `v-if="!naBancada"` — ela sumia
+  // enquanto se gravava de pé, porque a aba Gravar entrava num "modo bancada"
+  // que tomava a tela. Esse modo era um remendo, e o dono reclamou da aba quatro
+  // vezes: agora a aba Gravar JÁ É a bancada, não há modo para entrar nem para
+  // sair, e a barra não tem mais por que sumir. Ela volta a ser exatamente o que
+  // as telas irmãs têm: `<div class="abas" role="tablist">`, sem condição
+  // nenhuma e sem uma regra local de CSS.
+  assert.match(template, /<div class="abas" role="tablist">/,
     'a barra global é `<div class="abas" role="tablist">`, como na Frota');
+  assert.doesNotMatch(template, /class="abas"[^>]*v-if|v-if=[^>]*class="abas"/,
+    'a barra de abas voltou a sumir em alguma condição — ela é a mesma das irmãs, sempre');
   assert.match(template, /:class="\{ on: aba === ab\.chave \}"/,
     'a ativa se marca com a classe `on`, que é o que a `.abas` global pinta');
   // o `aria-selected` é melhoria de verdade e não muda a aparência: o
