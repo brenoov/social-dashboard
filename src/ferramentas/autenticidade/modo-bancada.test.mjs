@@ -269,28 +269,32 @@ test('nada do que sai do modo bancada fica inalcançável (PADRAO item 8)', () =
 const cssDaBancada = estilo.slice(estilo.indexOf('.au-bancada{'));
 
 test('TRÊS tamanhos de texto no modo bancada, e três só', () => {
-  // "texto maiores que outros" foi a queixa. Os três degraus moram em três
-  // variáveis, e nenhuma regra do modo escreve `font-size` de outro jeito: é
-  // por isso que dá para contar lendo o CSS.
+  // "texto maiores que outros" foi a queixa, e a regra continua a mesma: três
+  // degraus, e nenhuma regra do modo escreve `font-size` de outro jeito — é por
+  // isso que dá para contar lendo o CSS.
+  //
+  // O QUE MUDOU EM 01/09/2026: os três degraus deixaram de ser variáveis DESTA
+  // TELA (`--bancada-peca`, `--bancada-estado`, `--bancada-resto`) e passaram a
+  // ser degraus da escala da casa, em `estilos-globais.css`. O desenho é o
+  // mesmo; o que saiu foi a escala particular — que é como a Central chegou a
+  // quinze tamanhos numa tela só.
+  const DA_CASA = ['var(--texto-numero)', 'var(--texto-titulo)', 'var(--texto-corpo)'];
   const declaracoes = [...cssDaBancada.matchAll(/\.au-(bancada|entrada-bancada)[^{}]*\{[^}]*\}/g)]
     .flatMap((m) => [...m[0].matchAll(/font-size:\s*([^;}]+)/g)].map((f) => f[1].trim()));
-  const semVariavel = declaracoes.filter((d) => !d.startsWith('var(--bancada-'));
-  assert.deepEqual(semVariavel.map((d) => d.replace(/\s+/g, ' ')), [
-    // a porta de ENTRADA vive fora do painel, onde as três variáveis não valem:
-    // ela usa o mesmo 13px do "resto"
-    'max(9px, calc(13px * var(--escala-texto, 1)))',
-  ], 'apareceu um tamanho de texto fora dos três degraus do modo bancada');
+  const forasteiros = declaracoes.filter((d) => !DA_CASA.includes(d));
+  assert.deepEqual(forasteiros, [],
+    'apareceu um tamanho de texto fora dos três degraus do modo bancada');
 
-  const degraus = [...cssDaBancada.matchAll(/--bancada-(peca|estado|resto):\s*([^;]+);/g)]
-    .map((m) => m[2].replace(/\s+/g, ' '));
-  // três degraus, mais o degrau de celular do número da peça (o mesmo papel,
-  // noutra largura — é o que o `.mc-val` da casa já faz)
-  assert.deepEqual(degraus, [
-    'max(16px, calc(44px * var(--escala-texto, 1)))',
-    'max(16px, calc(24px * var(--escala-texto, 1)))',
-    'max(9px, calc(13px * var(--escala-texto, 1)))',
-    'max(16px, calc(32px * var(--escala-texto, 1)))',
-  ]);
+  // e os três continuam sendo TRÊS: um quarto papel aqui é o desenho que o dono
+  // reprovou voltando
+  assert.equal(new Set(declaracoes).size, 3,
+    `o painel usa ${new Set(declaracoes).size} tamanhos: ${[...new Set(declaracoes)].join(', ')}`);
+
+  // a escala particular não pode voltar por uma porta lateral
+  for (const velho of ['--bancada-peca', '--bancada-estado', '--bancada-resto']) {
+    assert.doesNotMatch(cssDaBancada, new RegExp(velho),
+      `${velho} voltou: o modo bancada usa os degraus da casa`);
+  }
 });
 
 test('a cor de estado do painel sai de token, nunca de hex', () => {
@@ -324,9 +328,9 @@ test('o endereço deixa de ser o maior elemento nos modos automáticos', () => {
   // ali ele é CONFERÊNCIA, não leitura: quem lê é a máquina. Só no modo de
   // copiar ele volta a ser grande e selecionável.
   assert.match(cssDaBancada,
-    /\.au-bancada-endereco\{[^}]*font-size:var\(--bancada-resto\)/);
+    /\.au-bancada-endereco\{[^}]*font-size:var\(--texto-corpo\)/);
   assert.match(cssDaBancada,
-    /\.au-bancada \.au-endereco\{font-size:var\(--bancada-estado\)/);
+    /\.au-bancada \.au-endereco\{font-size:var\(--texto-titulo\)/);
   assert.match(template, /modoDaBancada === 'copiar'/);
 });
 

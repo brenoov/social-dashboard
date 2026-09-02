@@ -4,6 +4,52 @@
     --gutter:16px;            /* margem lateral segura (cresce no desktop, ver @media no fim) */
     --container-max:1280px;   /* largura máxima do conteúdo */
     --card-radius:12px; --card-pad:var(--sp-4); --card-gap:var(--sp-3); --card-min:260px;
+
+    /* ── ESCALA DE TEXTO — CINCO DEGRAUS, E CINCO SÓ ─────────────────────────
+       POR QUE ELA EXISTE. Até 01/09/2026 a Central não tinha escala de texto
+       nenhuma: cada tela escolheu número no olho, ao longo de meses. Contado no
+       CSS, uma tela por uma tela:
+         · Autenticidade e Garantia .... 15 tamanhos distintos
+           (10 · 11 · 12 · 12,5 · 13 · 13,5 · 14 · 15 · 16 · 17 · 19 · 26px,
+            mais os três do modo bancada)
+         · Frota ........................ 12
+         · Patrimônio ................... 16
+         · Gestão à Vista ............... 26
+         · Controle de Acessos .......... 28
+       (contado em 01/09/2026, um `font-size` por vez, no CSS de cada tela.)
+
+       Doze tamanhos entre 10 e 26 pixels numa tela só, VÁRIOS separados por
+       meio pixel. O dono reclamou dela três vezes, com estas palavras: "vários
+       tamanhos de fonte, uma bosta, confuso". Não é implicância — meio pixel de
+       diferença o olho não lê como hierarquia, lê como bagunça.
+
+       A REGRA É A MESMA DA COR: quem escreve `13.5px` está escolhendo no olho,
+       como quem escreve `#f2f2f2`. Tamanho sai de token, nunca de número solto.
+
+       OS NOMES DIZEM O PAPEL, NÃO O TAMANHO. `--texto-corpo` continua certo se
+       um dia o corpo virar 14px; `--texto-13` viraria mentira no mesmo dia.
+
+       CADA DEGRAU RESPEITA `--escala-texto`, que é o ajuste de acessibilidade
+       do usuário (o zoom de letra da moldura), e cada um tem um PISO para o
+       texto não sumir quando a pessoa reduz a escala. É o mesmo formato
+       `max(piso, calc(Npx * var(--escala-texto, 1)))` das 1.571 declarações que
+       já existiam.
+
+       O DEGRAU DO CAMPO NUNCA DESCE DE 16px, e isso não é estética: abaixo de
+       16px o iOS dá zoom sozinho ao focar e a tela salta na cara de quem está
+       digitando (PADRAO-DA-CENTRAL, item 6). Por isso o piso dele é 16px, e
+       não um número menor. */
+    /* rótulo em maiúsculas, cabeçalho de coluna, texto de botão de ação */
+    --texto-etiqueta: max(9px,  calc(11px * var(--escala-texto, 1)));
+    /* o texto comum da tela: parágrafo, linha de lista, célula de tabela */
+    --texto-corpo:    max(10px, calc(13px * var(--escala-texto, 1)));
+    /* campo de formulário (NUNCA abaixo de 16px) e o que se lê de pé:
+       o nome da coisa, o recado da máquina, o aviso antes de uma ação */
+    --texto-campo:    max(16px, calc(16px * var(--escala-texto, 1)));
+    /* título de caixa, e o dado que se confere letra por letra */
+    --texto-titulo:   max(16px, calc(20px * var(--escala-texto, 1)));
+    /* o número que se lê de longe, de pé, na bancada */
+    --texto-numero:   max(20px, calc(32px * var(--escala-texto, 1)));
     /* Faixa que o avatar flutuante do perfil ocupa no canto superior direito:
        40px do avatar + 18px de afastamento da borda + 6px de folga. Nenhuma
        topbar pode escrever aqui — ver a regra [class$="topbar"]::after. */
