@@ -106,20 +106,52 @@ test('cada tabela tem tantas colunas no CSS quantas palavras no cabeçalho', () 
   }
 });
 
-/* ── 4. O 900px É O MESMO NOS TRÊS LUGARES ────────────────────────────────── */
+/* ── 4. O PERÍODO EXATO FICA FECHADO EM TODA LARGURA ──────────────────────── */
 
-test('a gaveta do período abre no MESMO ponto em que o CSS muda de forma', () => {
-  // `<details>` fechado esconde o conteúdo pelo motor do navegador, e nenhuma
-  // regra de CSS reabre: quem abre é o atributo `open`. Por isso o painel lê o
-  // ponto de quebra por `matchMedia` — e os dois números têm de andar juntos,
-  // senão a gaveta abre numa largura em que o painel ainda está empilhado.
-  const daConsulta = painel.match(/matchMedia\('\(min-width:\s*(\d+)px\)'\)/);
-  assert.ok(daConsulta, 'sumiu o `matchMedia` que abre a gaveta no computador');
-  assert.equal(daConsulta[1], '900',
-    'o `matchMedia` do painel saiu de sincronia com o `@media (min-width:900px)` do estilo');
-  assert.match(painel, /:open="gavetaAberta \|\| telaLarga"/,
-    'a gaveta tem de continuar abrindo sozinha nas duas condições: recorte de data à mão '
-    + '(celular) e tela grande');
+/* ⚠️ ESTE TESTE MUDOU DE LADO EM 02/09/2026, e o motivo é uma decisão de
+ * desenho, não um detalhe de implementação.
+ *
+ * O QUE ELE EXIGIA ANTES: que a gaveta do período exato NASCESSE ABERTA no
+ * computador — por `matchMedia('(min-width: 900px)')` no script, casado com o
+ * `@media` do estilo. O argumento era que numa tela larga esconder duas datas
+ * atrás de um clique é só um clique a mais.
+ *
+ * POR QUE ACABOU: aberta de graça, ela era um dos QUATRO andares que deixavam a
+ * busca com 235px de altura a 1440px — mais alta que o cartão de um lote, que
+ * tem 202px. O dono olhou a tela e disse "o card de pesquisa está feio em todas
+ * as abas que existem o mesmo", e pediu que o que é raro ficasse "fora do
+ * caminho até ser pedido". Escrever duas datas à mão é o caso raro: quem quer
+ * "esta semana" aperta o atalho.
+ *
+ * O QUE ESTE TESTE GUARDA AGORA: que a gaveta NÃO abre por largura de tela, e
+ * que ela CONTINUA abrindo sozinha quando o recorte é de datas escritas à mão —
+ * filtro ligado escondido é filtro que a pessoa não entende por que corta a
+ * lista. Sem esta segunda metade, o conserto de um vira o defeito do outro. */
+test('a gaveta do período não abre por largura de tela — só pelo recorte à mão', () => {
+  // a CHAMADA, não a palavra: o comentário do painel conta por que ela saiu, e
+  // procurar só por "matchMedia" acusaria a própria explicação
+  assert.doesNotMatch(painel, /window\.matchMedia\(|\bmatchMedia\(/,
+    'o painel voltou a ler a largura da tela para abrir a gaveta: o período exato é o caso '
+    + 'RARO e fica fechado em qualquer largura');
+  assert.match(painel, /:open="gavetaAberta"/,
+    'a gaveta tem de continuar abrindo sozinha quando o recorte é de datas escritas à mão');
+  const i = painel.indexOf('const gavetaAberta = computed(');
+  assert.notEqual(i, -1, 'sumiu a conta que abre a gaveta sozinha');
+  assert.match(painel.slice(i, painel.indexOf('\n', i)),
+    /\(props\.filtro\.de \|\| props\.filtro\.ate\) && !props\.filtro\.atalho/,
+    'a gaveta abre quando há data à mão e NENHUM atalho aceso');
+});
+
+test('a busca não tem mais caixa: nem fundo, nem moldura', () => {
+  // A caixa era o que fazia a ferramenta de apoio pesar mais que o conteúdo que
+  // ela filtra. O recuo de 24px continua, para os controles nascerem na mesma
+  // linha vertical da lista.
+  const raiz = cssPainel.match(/\.pb-barra\{([^}]*)\}/);
+  assert.ok(raiz, 'sumiu a regra-base da barra de busca');
+  assert.doesNotMatch(raiz[1], /background|border\s*:/,
+    'a busca ganhou fundo ou moldura de novo — era exatamente isso que o dono chamou de feio');
+  assert.match(raiz[1], /margin:var\(--sp-3\) 24px 0/,
+    'o recuo tem de ser o mesmo 24px do resto da tela');
 });
 
 /* ── 5. O CELULAR NÃO PODE SER TOCADO POR ESTAS REGRAS ────────────────────── */
