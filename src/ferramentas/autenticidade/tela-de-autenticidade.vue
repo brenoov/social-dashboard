@@ -110,7 +110,14 @@
             <span>{{ l.quantidade }} {{ l.quantidade === 1 ? 'peça' : 'peças' }}</span>
             <span>{{ dataCurta(l.fabricado_em) }}</span>
           </div>
-          <button class="au-link" type="button" @click="irGravar(l.id)">Gravar as etiquetas deste lote →</button>
+          <!-- A AÇÃO PRINCIPAL DO CARTÃO, e a única com desenho de botão. As
+               outras três — ver as peças, editar, excluir — continuam links, e é
+               essa diferença que diz qual delas a tela quer que você faça
+               (PADRÃO item 3: uma ação principal por bloco). Como link, ela tinha
+               exatamente o mesmo peso das outras três, e quatro do mesmo peso é o
+               mesmo que nenhuma. -->
+          <button class="au-botao secundario au-card-acao" type="button"
+                  @click="irGravar(l.id)">Gravar as etiquetas deste lote →</button>
 
           <!-- AS AÇÕES DO LOTE FICAM TODAS NA MESMA LINHA. "Ver as peças" entra
                aqui e não numa linha própria: duas fileiras de link uma embaixo
@@ -659,31 +666,41 @@
                  Travados durante a gravação: o estado (inclusive o "PARE: esta
                  etiqueta já tem OUTRA peça") fala do jeito em uso, e trocar no
                  meio o faria falar de uma etiqueta que não está mais na história. -->
-            <p class="au-mais-titulo">Por onde gravar</p>
-            <div class="au-acoes">
-              <button v-if="!gravaPorMesa && temLeitorDeMesaAqui" class="au-botao secundario" type="button"
-                      :disabled="gravando" @click="usarOLeitorDeMesa">
-                Gravar pelo leitor de mesa
-              </button>
-              <button v-if="!gravaPorNfc && temSuporte()" class="au-botao secundario" type="button"
-                      :disabled="gravando" @click="usarOCelular">
-                Gravar encostando o celular
-              </button>
-              <button v-if="gravaAoVivo" class="au-botao secundario" type="button"
-                      :disabled="gravando" @click="usarOAplicativo">
-                Gravar pelo aplicativo
-              </button>
-            </div>
+            <!-- O TÍTULO SÓ APARECE COM ALGUM BOTÃO EMBAIXO. Nesta máquina pode não
+                 haver caminho nenhum para trocar (um computador sem o programa e
+                 sem NFC no navegador), e um título sozinho é uma pergunta sem
+                 resposta: "por onde gravar" com nada abaixo faz a pessoa procurar
+                 um botão que não existe. Medido na tela, a 1440px. -->
+            <template v-if="temLeitorDeMesaAqui || temSuporte() || gravaAoVivo">
+              <p class="au-mais-titulo">Por onde gravar</p>
+              <div class="au-acoes">
+                <button v-if="!gravaPorMesa && temLeitorDeMesaAqui" class="au-botao secundario" type="button"
+                        :disabled="gravando" @click="usarOLeitorDeMesa">
+                  Gravar pelo leitor de mesa
+                </button>
+                <button v-if="!gravaPorNfc && temSuporte()" class="au-botao secundario" type="button"
+                        :disabled="gravando" @click="usarOCelular">
+                  Gravar encostando o celular
+                </button>
+                <button v-if="gravaAoVivo" class="au-botao secundario" type="button"
+                        :disabled="gravando" @click="usarOAplicativo">
+                  Gravar pelo aplicativo
+                </button>
+              </div>
+            </template>
             <!-- A TRAVA NÃO APARECE NO LEITOR DE MESA, de propósito: travar mexe
                  na página 40 e no Capability Container, é irreversível, e o motor
                  do leitor de mesa NÃO faz isso (é outro módulo, que não existe).
                  Um interruptor que não trava nada seria uma promessa falsa numa
                  ação que não tem volta.
                  O alvo do dedo é a linha inteira, não o quadradinho. -->
-            <label v-if="!gravaPorMesa" class="au-trava">
-              <input type="checkbox" v-model="travarDepois">
-              <span>Travar a etiqueta depois de gravar — <strong>não tem volta</strong></span>
-            </label>
+            <template v-if="!gravaPorMesa">
+              <p class="au-mais-titulo">A trava da etiqueta</p>
+              <label class="au-trava">
+                <input type="checkbox" v-model="travarDepois">
+                <span>Travar a etiqueta depois de gravar — <strong>não tem volta</strong></span>
+              </label>
+            </template>
 
             <!-- ── O GRAVADOR DE MESA: a mesma fila, de ida e de volta ─────── -->
             <p class="au-mais-titulo">Gravador de mesa</p>
@@ -758,10 +775,16 @@
          o `v-else` do fim — a aba Alertas inteira — passaria a ser desenhado
          embaixo das outras abas. Já aconteceu nesta tela, em 30/08. -->
     <template v-else-if="aba === 'etiquetas'">
+      <!-- ⚠️ ESTE PARÁGRAFO ENCOLHEU, e o que saiu dele não se perdeu: a primeira
+           metade ("apagar a gravação devolve a peça para a fila, e nem o código
+           nem a garantia de ninguém são apagados") já está escrita, quase com as
+           mesmas palavras, na ajuda da aba logo acima — que sai de
+           `AJUDA_DA_ABA` e é a mesma frase nas cinco abas. Duas frases dizendo o
+           mesmo, uma embaixo da outra, é metade do que o dono chamou de confuso.
+           O que sobrou é a única coisa que a ajuda NÃO diz, e é a mais cara. -->
       <p class="au-instrucao">
-        Aqui se conserta o que já foi gravado. Apagar a gravação devolve a peça para a fila
-        e <strong>não apaga o código nem a garantia de ninguém</strong> — mas a etiqueta continua
-        costurada dentro da bolsa, e alguém vai precisar achá-la.
+        A etiqueta apagada <strong>continua costurada dentro da bolsa</strong>, e alguém vai
+        precisar achá-la.
       </p>
 
       <!-- O AVISO DA GARANTIA FICA NA TELA, e não só no recado que some: uma
@@ -942,10 +965,14 @@
 
     <!-- ── ALERTAS ──────────────────────────────────────────────────────── -->
     <template v-else>
+      <!-- ⚠️ MESMO CORTE DA ABA ETIQUETAS: a segunda metade deste parágrafo
+           ("o que denuncia a cópia é o mesmo código lido de muitos aparelhos, ou
+           alguém tentando adivinhar códigos") é exatamente o que a ajuda da aba
+           logo acima já lista. Sobrou o PORQUÊ, que é o que a ajuda não diz — e é
+           ele que explica por que esta aba existe. -->
       <p class="au-instrucao">
-        A etiqueta guarda um endereço, e endereço se copia — por isso a etiqueta sozinha
-        não impede falsificação. O que denuncia a cópia é o mesmo código sendo lido de
-        muitos aparelhos diferentes, ou alguém tentando adivinhar códigos.
+        A etiqueta guarda um endereço, e endereço se copia: por isso a etiqueta sozinha
+        não impede falsificação. Quem denuncia a cópia é esta lista.
       </p>
 
       <p v-if="resumo.limpo" class="au-pronto">
@@ -2965,9 +2992,11 @@ onMounted(() => {
   text-decoration:none;
 }
 .au-pecas > .au-botao{margin-top:var(--sp-3)}
-/* Medido a 375px: o "Gravar as etiquetas deste lote →" saía com 13px de altura
-   — alvo de dedo abaixo de 40px é defeito (PADRAO item 6), e este é o botão
-   principal do cartão. Cresce a área, o texto continua link. */
+/* A AÇÃO PRINCIPAL DO CARTÃO. Ela era um `.au-link` com 13px de altura — alvo de
+   dedo abaixo de 40px é defeito (PADRAO item 6) — e, pior, tinha o MESMO peso
+   visual das outras três ações do cartão. Agora é o botão comum do PADRÃO: borda
+   e fundo transparente, nunca cinza. */
+.au-card-acao{display:inline-flex; align-items:center; margin-top:var(--sp-3)}
 .au-card > .au-link{display:inline-flex; align-items:center; min-height:40px}
 
 /* ── OS DOIS MODAIS ────────────────────────────────────────────────────────
@@ -3155,6 +3184,15 @@ onMounted(() => {
   border:1px solid color-mix(in srgb, var(--bancada-cor) 38%, var(--surface));
   box-shadow:inset 4px 0 0 var(--bancada-cor);
 }
+/* ⚠️ "GRAVANDO" ESQUENTA A CAIXA INTEIRA, e não só os anéis. O `tom` da conta
+   pura é 'agindo' para "encoste a etiqueta" E para "gravando…" — é a mesma
+   família de estado, e mexer nisso seria reescrever a decisão que se prova no
+   módulo. A diferença entre os dois é de DESENHO: um é "pode encostar", o outro
+   é "NÃO tire agora". Sem esta linha a caixa ficava azul com os anéis laranja
+   dentro — duas cores discordando sobre o mesmo estado, medido na tela.
+   `:has()` é suportado desde o Safari 15.4 e já é usado neste arquivo; sem ele a
+   caixa fica azul e os anéis continuam contando a diferença. */
+.au-bancada-estado:has(.au-aneis-gravando){--bancada-cor:var(--orange)}
 .au-bancada-dito{min-width:0}
 .au-bancada-titulo{
   font-size:var(--texto-titulo); font-weight:700; line-height:1.2;
@@ -3281,16 +3319,25 @@ onMounted(() => {
    `animation:none` num `@keyframes` de entrada deixaria o elemento no estado
    INICIAL dele — que é `opacity:0`, ou seja, invisível. Por isso a opacidade é
    devolvida à mão aqui. Sai o movimento, fica o sinal. */
+/* ⚠️ O `!important` AQUI NÃO É PREGUIÇA, E FOI MEDIDO. Sem ele este bloco não
+   desligava nada: as regras de estado têm DUAS classes no seletor
+   (`.au-aneis-gravando .au-anel-2`) e a de desligar tinha uma
+   (`.au-aneis circle`) — quem tem mais especificidade ganha, esteja onde
+   estiver no arquivo. Medido no navegador com `prefers-reduced-motion: reduce`
+   ligado: `animationName` continuava `au-onda`, e a animação rodava inteira para
+   quem pediu ao sistema para não ver movimento. O defeito não aparece no CSS
+   lido de cima a baixo, e nenhum navegador reclama. Há teste que exige o
+   `!important` justamente por isso. */
 @media (prefers-reduced-motion: reduce){
-  .au-aneis, .au-aneis circle, .au-aneis polyline{animation:none; transform:none}
-  .au-aneis-esperando .au-anel-1, .au-aneis-gravando .au-anel-1{opacity:.28}
-  .au-aneis-esperando .au-anel-2, .au-aneis-gravando .au-anel-2{opacity:.5}
-  .au-aneis-esperando .au-anel-3, .au-aneis-gravando .au-anel-3{opacity:.78}
-  .au-aneis-esperando .au-anel-nucleo, .au-aneis-gravando .au-anel-nucleo{opacity:1}
+  .au-aneis, .au-aneis circle, .au-aneis polyline{animation:none!important; transform:none!important}
+  .au-aneis-esperando .au-anel-1, .au-aneis-gravando .au-anel-1{opacity:.28!important}
+  .au-aneis-esperando .au-anel-2, .au-aneis-gravando .au-anel-2{opacity:.5!important}
+  .au-aneis-esperando .au-anel-3, .au-aneis-gravando .au-anel-3{opacity:.78!important}
+  .au-aneis-esperando .au-anel-nucleo, .au-aneis-gravando .au-anel-nucleo{opacity:1!important}
   .au-aneis-ok .au-anel-2, .au-aneis-ok .au-anel-3, .au-aneis-ok .au-anel-nucleo,
-  .au-aneis-fim .au-anel-2, .au-aneis-fim .au-anel-3, .au-aneis-fim .au-anel-nucleo{opacity:0}
-  .au-aneis-ok .au-anel-visto, .au-aneis-fim .au-anel-visto{opacity:1}
-  .au-barra-cheia{transition:none}
+  .au-aneis-fim .au-anel-2, .au-aneis-fim .au-anel-3, .au-aneis-fim .au-anel-nucleo{opacity:0!important}
+  .au-aneis-ok .au-anel-visto, .au-aneis-fim .au-anel-visto{opacity:1!important}
+  .au-barra-cheia{transition:none!important}
 }
 
 /* ── 3. A ÚNICA AÇÃO PRINCIPAL ─────────────────────────────────────────────
@@ -3412,7 +3459,7 @@ onMounted(() => {
 
   /* ── 1. FULL-BLEED: CAI O TETO DE LARGURA ──────────────────────────────
      O recuo continua sendo 24px, o mesmo da Frota e do Patrimônio. */
-  .au-lista, .au-mais{max-width:none;}
+  .au-lista{max-width:none;}
 
   /* A PROSA NÃO ACOMPANHA, E É DE PROPÓSITO. `.au-ajuda`, `.au-instrucao`,
      `.au-vazio`, `.au-erro` e `.au-pronto` são frases para LER, e linha de
@@ -3580,10 +3627,12 @@ onMounted(() => {
      Esta é a tela mais importante da ferramenta e a única usada DE PÉ: a pessoa
      está com a bolsa numa mão e o celular na outra.
 
-     ⚠️ AS TRÊS COLUNAS EXISTEM PARA CENTRALIZAR DE VERDADE. A primeira e a
-     terceira são `1fr` iguais, então o bloco do meio cai no CENTRO da tela — não
-     "na coluna da esquerda". A fila mora dentro da terceira, encostada no começo
-     dela: ela é trilho lateral, não conteúdo.
+     ⚠️ SÃO QUATRO COLUNAS, E AS DE FORA SÃO `1fr` IGUAIS: é isso, e só isso,
+     que põe o conjunto no CENTRO da tela. Com TRÊS colunas — a fila dividindo a
+     terceira com a margem — quem ficava centrado era só a obra, e a fila pendia
+     para fora dela: MEDIDO a 1440px, sobravam 336px de margem à esquerda e 72px
+     à direita. Isso não é centralização, é um bloco empurrado. Agora a fila tem
+     coluna própria, e o que se centra é o GRUPO: obra + fila.
 
      ⚠️ E O BLOCO É UM SÓ, CENTRADO NA VERTICAL. As formas anteriores foram
      medidas a 1440x900 e todas repetiam a queixa do dono:
@@ -3602,22 +3651,37 @@ onMounted(() => {
        precisa de 648px em `--fonte-dados` a 24px, e com os 48px de recuo da
        caixa dá 696. Com 660 ele quebrava a URL no meio ("…B4F8S1T / R"), e no
        modo de copiar é justamente o endereço que a pessoa lê e copia. */
-    grid-template-columns:minmax(0,1fr) minmax(0,720px) minmax(0,1fr);
+    grid-template-columns:minmax(0,1fr) minmax(0,720px) minmax(0,340px) minmax(0,1fr);
     grid-template-rows:auto minmax(0,1fr) auto;
     column-gap:var(--sp-6); row-gap:var(--sp-5);
     /* O TETO DE ALTURA É O QUE DÁ SENTIDO AO `align-self:center`. Sem ele a
        grade teria a altura do conteúdo e "centrar" não centraria nada. Não é a
        tela inteira de propósito: a gaveta "Mais opções" fica logo abaixo, e um
        painel de 100dvh a empurraria para fora da vista. */
-    min-height:min(54dvh, 520px);
+    /* O TETO DE ALTURA vem MEDIDO, não escolhido: a 1440x900 o conteúdo do
+       painel ocupa ~350px, e sem um piso ele ficava colado no alto com 225px de
+       nada embaixo da gaveta. Com 560 a leitura fica no centro óptico e a gaveta
+       "Mais opções" encosta no pé da primeira tela — que é onde ela deve estar:
+       à mão, sem rolar, e sem competir. */
+    min-height:min(62dvh, 560px);
     padding:var(--sp-5) 24px 0;
   }
-  .au-bancada-topo{grid-column:1 / -1; grid-row:1; align-self:start;}
+  /* O ALTO E A GAVETA COMEÇAM E ACABAM NA MESMA LINHA VERTICAL DO BLOCO.
+     Soltos, o seletor de lote encostava na borda esquerda da tela e o "?" na
+     direita, enquanto o painel ficava centrado 150px para dentro — três
+     alinhamentos diferentes na mesma tela. A medida não é escolhida: é a
+     largura do GRUPO (a obra + o vão + a fila). */
+  .au-bancada-topo, .au-mais{
+    width:100%; max-width:calc(720px + var(--sp-6) + 340px);
+    margin-left:auto; margin-right:auto;
+  }
+  .au-bancada-topo{grid-column:1 / -1; grid-row:1; align-self:start; justify-self:center;}
   /* O BLOCO INTEIRO NO CENTRO ÓPTICO. `align-self:center` é o que junta o que
      estava espalhado; o `gap` menor é o que o mantém junto: estado e ação
      vizinhos, sem viagem vertical entre eles. */
   .au-bancada-obra{grid-column:2; grid-row:2; align-self:center; gap:var(--sp-3);}
   .au-bancada-lado{grid-column:3; grid-row:2; align-self:center; max-width:340px;}
+  .au-bancada-topo > *:last-child{margin-left:auto;}
   /* A pergunta de sobrescrever atravessa as três colunas: ela tem dois
      seletores e um motivo, e numa coluna estreita é onde o dedo erra o botão. */
   .au-sobrescrita{grid-column:1 / -1; grid-row:3;}

@@ -391,7 +391,13 @@ test('o painel do computador é UM bloco centrado, e não uma faixa num canto', 
     estilo.lastIndexOf('@media (max-width:520px){'),
   );
   assert.match(grande, /\.au-bancada\{\s*display:grid;/);
-  assert.match(grande, /grid-template-columns:minmax\(0,1fr\) minmax\(0,720px\) minmax\(0,1fr\);/,
+  // ⚠️ ERAM TRÊS COLUNAS, E SÃO QUATRO DESDE 01/09/2026. Com três — a fila
+  // dividindo a terceira com a margem — quem ficava centrado era só a obra, e a
+  // fila pendia para fora dela: medido a 1440px, sobravam 336px de margem à
+  // esquerda e 72px à direita. A regra continua a mesma, e é ela que este teste
+  // guarda: as colunas DE FORA são `1fr` iguais. O que mudou é que a fila ganhou
+  // coluna própria, para o que se centra ser o GRUPO (obra + fila).
+  assert.match(grande, /grid-template-columns:minmax\(0,1fr\) minmax\(0,720px\) minmax\(0,340px\) minmax\(0,1fr\);/,
     'as colunas de fora têm de ser iguais, senão o bloco sai do centro');
   assert.match(grande, /\.au-bancada-obra\{grid-column:2; grid-row:2; align-self:center;/);
   assert.match(grande, /\.au-bancada-lado\{grid-column:3; grid-row:2; align-self:center;/);

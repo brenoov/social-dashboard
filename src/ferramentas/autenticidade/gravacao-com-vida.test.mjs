@@ -66,6 +66,20 @@ test('TODA animação desta tela é desligada por prefers-reduced-motion', () =>
     'quase nenhuma regra animada encontrada — o teste perdeu o alvo de novo',
   );
   assert.deepEqual(soltas, [], 'anima e não é desligada com movimento reduzido: ' + soltas.join(' | '));
+
+  /* ⚠️ E DESLIGAR TEM DE GANHAR A DISPUTA. Citar a classe no bloco não basta:
+   * as regras de estado têm DUAS classes no seletor
+   * (`.au-aneis-gravando .au-anel-2`) e a de desligar tinha UMA
+   * (`.au-aneis circle`). Quem tem mais especificidade ganha, esteja onde
+   * estiver no arquivo — e o bloco inteiro virava enfeite. Medido no navegador
+   * com `prefers-reduced-motion: reduce` ligado, em 01/09/2026: `animationName`
+   * continuava `au-onda`. O `!important` é o único jeito de não depender de
+   * contar classe a cada regra nova. */
+  for (const m of dentro.matchAll(/(animation|transition|transform|opacity):\s*([^;}]+)/g)) {
+    assert.match(m[2], /!important/,
+      `\`${m[0].trim()}\` sem \`!important\`: a regra de estado tem mais classes no `
+      + 'seletor e ganha desta, e o bloco de movimento reduzido não desliga nada');
+  }
 });
 
 test('os quatro estados dos anéis continuam DISTINGUÍVEIS sem movimento', () => {
@@ -79,7 +93,7 @@ test('os quatro estados dos anéis continuam DISTINGUÍVEIS sem movimento', () =
       `o estado ${estado} some quando o movimento é desligado`);
   }
   // o ✓ do "gravou" tem de voltar VISÍVEL: o keyframes dele começa em opacity 0
-  assert.match(dentro, /\.au-aneis-ok \.au-anel-visto[^{]*\{opacity:1\}/,
+  assert.match(dentro, /\.au-aneis-ok \.au-anel-visto[^{]*\{opacity:1!important\}/,
     'sem devolver a opacidade, o ✓ fica invisível para quem desligou animação');
   // e cada estado tem uma cor de TOKEN própria, que é o que se lê parado
   for (const [estado, token] of [

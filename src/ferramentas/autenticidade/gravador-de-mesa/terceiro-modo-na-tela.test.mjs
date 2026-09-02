@@ -233,9 +233,16 @@ test('o interruptor de travar a etiqueta some no modo do leitor de mesa', () => 
   // travar mexe na página 40 e no Capability Container, é irreversível, e o
   // motor do leitor de mesa não faz isso. Um interruptor que não trava nada
   // seria uma promessa falsa numa ação que não tem volta.
+  //
+  // A CONDIÇÃO SUBIU UM NÍVEL em 01/09/2026: o interruptor ganhou um título de
+  // seção ("A trava da etiqueta"), e título sozinho sem o interruptor embaixo
+  // seria um cabeçalho apontando para o nada. Os dois entram e saem juntos, num
+  // `<template v-if>` em volta — mesma condição, mesmo comportamento.
   const onde = template.indexOf('class="au-trava"')
   assert.notEqual(onde, -1, 'sumiu o interruptor da trava')
-  assert.match(template.slice(template.lastIndexOf('<label', onde), onde), /v-if="!gravaPorMesa"/)
+  const antes = template.slice(0, onde)
+  assert.match(antes.slice(antes.lastIndexOf('<template v-if=')), /^<template v-if="!gravaPorMesa">/,
+    'a trava tem de continuar atrás de `!gravaPorMesa`, com o título dela')
 })
 
 /* ── O PADRÃO DA CENTRAL ──────────────────────────────────────────────────── */
