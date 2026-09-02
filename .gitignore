@@ -99,3 +99,8 @@ docs/tutorial-motorista/
 # Vercel le o .gitignore, entao um `vercel --prod` daqui tentava subir 140 MB
 # de worktrees e abortava o upload. Aqui vale para todo mundo.
 /arvores/
+
+# O PACOTE GERADO DO GRAVADOR — 106 MB, e ele NASCE de novo a cada empacotamento.
+# Sem esta linha, um `git add .` distraído joga o Electron inteiro no
+# repositório, que é público, e nao ha como tirar do historico depois.
+entregas/
