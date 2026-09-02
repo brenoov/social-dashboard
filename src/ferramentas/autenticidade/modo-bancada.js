@@ -1,4 +1,15 @@
-// O MODO BANCADA — a conta pura do que a tela DIZ enquanto se grava.
+// A BANCADA — a conta pura do que a tela DIZ enquanto se grava.
+//
+// ⚠️ O NOME DESTE ARQUIVO FALA DE UM "MODO" QUE NÃO EXISTE MAIS, e ele fica: o
+// nome é referência em teste, em import e em meia dúzia de comentários, e trocar
+// tudo por estética é ruído no histórico. O que mudou em 01/09/2026 é que a aba
+// Gravar VIROU a bancada — não há interruptor para ligar, nem para desligar. As
+// contas que este arquivo faz continuam as mesmas e continuam sendo as certas:
+// qual estado sai de qual fase, qual frase sai de cada estado, e qual é a única
+// ação. `podeEntrarNaBancada`, `bancadaLembrada`, `lembrarBancada` e
+// `precisaSairDaBancada` gateavam e lembravam AQUELE interruptor, e por isso a
+// tela não as chama mais — elas ficam aqui, com os testes delas, para quem
+// apagar apagar as duas coisas de propósito e não de passagem.
 //
 // ── POR QUE ESTE ARQUIVO EXISTE ────────────────────────────────────────────
 // O dono usou a aba Gravar de pé, na bancada, e disse: "ta muito ruim o layout
