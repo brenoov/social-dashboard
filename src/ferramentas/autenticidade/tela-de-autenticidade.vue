@@ -587,7 +587,7 @@
              ou link. O único botão principal desta aba é o de gravar, lá em
              cima. As perguntas que abrem aqui dentro têm o botão principal
              DELAS, porque cada pergunta é um bloco com uma decisão só. -->
-        <details class="au-mesa au-mais">
+        <details class="au-mais au-mais-da-bancada">
           <!-- A seta é desenhada aqui porque `display:flex` no <summary> apaga o
                triângulo que o Chrome desenha sozinho — e o triângulo era a única
                pista de que esta gaveta abre. Em SVG, nunca emoji. -->
@@ -706,35 +706,32 @@
               </label>
             </template>
 
-            <!-- ── O GRAVADOR DE MESA: a mesma fila, de ida e de volta ─────── -->
-            <p class="au-mais-titulo">Gravador de mesa</p>
-            <div class="au-acoes">
-              <button class="au-botao secundario" type="button" @click="baixarListaDoGravador">
-                Baixar a lista das que faltam
-              </button>
-            </div>
-            <textarea v-model="textoDoGravador" class="au-colar"
-                      placeholder="Cole aqui o que o gravador devolveu"></textarea>
-            <div v-if="podeEditar && !confirmacaoDoGravador" class="au-acoes">
-              <button class="au-botao secundario" type="button"
-                      @click="pedirParaMarcarPeloGravador">
-                Marcar as gravadas
-              </button>
-            </div>
-            <div v-if="podeEditar && confirmacaoDoGravador" class="au-confirma">
-              <p class="au-confirma-texto">
-                Marcar {{ confirmacaoDoGravador.reconhecidos.length }} peça(s) como gravadas?
-                Isso não confere etiqueta nenhuma — só use depois de gravar de verdade
-                no gravador de mesa.
-              </p>
-              <div class="au-acoes">
-                <button class="au-botao secundario" type="button"
-                        @click="confirmacaoDoGravador = null">Cancelar</button>
-                <button class="au-botao" type="button" @click="marcarPeloGravador">
-                  Sim, marcar
-                </button>
-              </div>
-            </div>
+            <!-- ══════════════════════════════════════════════════════════════
+                 A GAVETA "GRAVADOR DE MESA" SAIU DAQUI (02/09/2026)
+                 ══════════════════════════════════════════════════════════════
+                 O dono perguntou se ela ainda fazia sentido. Metade não fazia.
+
+                 · "Baixar a lista das que faltam" — SAIU DA FERRAMENTA, e é o
+                   único pedaço desta entrega que sai de verdade. Ele nasceu
+                   quando não existia programa de gravação: o jeito de alimentar
+                   a máquina era um .txt com os endereços que faltavam. Hoje há
+                   três caminhos melhores e escritos logo acima, em "Por onde
+                   gravar" (leitor de mesa, celular, copiar), e a lista em
+                   arquivo já existe COMPLETA e mais informativa na aba 1 Lotes:
+                   "Baixar a lista inteira", dentro de "Ver as peças e os
+                   links", que sai em CSV com número, código, estado e endereço
+                   de TODAS as peças. Nada ficou inalcançável.
+
+                 · O CAMPO DE COLAR O RETORNO — NÃO saiu: mudou de casa, para a
+                   aba 3 Etiquetas, logo abaixo do seletor de lote. Ele marca
+                   cinquenta peças de uma vez a partir de um log, e sem o
+                   programa instalado é o único jeito de fazer isso sem
+                   cinquenta cliques. O motivo da mudança é que ele NUNCA foi da
+                   bancada: quem está com a etiqueta na mão grava uma por vez,
+                   e colar um log é conserto em bloco — que é o assunto da aba
+                   Etiquetas. Lá ele ganhou de graça o que aqui não tinha:
+                   funciona com "Todos os lotes", e não só com o lote da
+                   bancada. -->
 
             <!-- ── QUAIS LOTES O SELETOR OFERECE ─────────────────────────────
                  A ÚNICA COISA QUE A BUSCA DESTA ABA FAZIA E A DA ABA LOTES NÃO
@@ -810,6 +807,64 @@
           </option>
         </select>
       </label>
+
+      <!-- ══════════════════════════════════════════════════════════════════
+           MARCAR EM BLOCO PELO GRAVADOR DE MESA — chegou aqui em 02/09/2026
+           ══════════════════════════════════════════════════════════════════
+           ELE MORAVA NA ABA GRAVAR, dentro de "Mais opções deste lote", ao lado
+           de um botão de baixar lista que esta entrega apagou. Veio para cá
+           porque nunca foi da bancada: lá se grava UMA peça por vez, com a
+           etiqueta na mão; colar um log do gravador de mesa é conserto EM
+           BLOCO, e conserto em bloco é o assunto desta aba — a mesma que apaga
+           uma gravação. As duas são a mesma decisão, em direções opostas.
+
+           ELE FICA LOGO ABAIXO DO SELETOR DE LOTE porque é dele que sai o
+           recorte, e isso é ganho: na bancada ele só conferia contra o lote da
+           bancada; aqui, com "Todos os lotes", ele confere contra a ferramenta
+           inteira — quem colou o log de duas fornadas juntas não precisa mais
+           colar duas vezes.
+
+           A GAVETA NASCE FECHADA. É uma ação rara e destrutiva à sua maneira
+           (marca sem conferir etiqueta nenhuma), e ação rara não ocupa espaço
+           de tela para sempre — é a mesma regra do "Mais opções deste lote". -->
+      <details class="au-mais au-marcar-bloco">
+        <summary>
+          <svg class="au-seta" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"
+               fill="none" stroke="currentColor" stroke-width="2.4"
+               stroke-linecap="round" stroke-linejoin="round"><polyline points="9 5 16 12 9 19" /></svg>
+          <span>Marcar várias de uma vez, pelo gravador de mesa</span>
+        </summary>
+        <div class="au-mais-miolo">
+          <p class="au-aviso-menor">
+            Cole o que o gravador de mesa devolveu — arquivo, planilha ou log solto, tanto
+            faz o formato. A tela procura os códigos lá dentro e confere contra
+            <strong>{{ escopoDeMarcarEmBloco }}</strong>.
+          </p>
+          <textarea v-model="textoDoGravador" class="au-colar"
+                    aria-label="Cole aqui o que o gravador devolveu"
+                    placeholder="Cole aqui o que o gravador devolveu"></textarea>
+          <div v-if="podeEditar && !confirmacaoDoGravador" class="au-acoes">
+            <button class="au-botao secundario" type="button"
+                    @click="pedirParaMarcarPeloGravador">
+              Marcar as gravadas
+            </button>
+          </div>
+          <div v-if="podeEditar && confirmacaoDoGravador" class="au-confirma">
+            <p class="au-confirma-texto">
+              Marcar {{ confirmacaoDoGravador.reconhecidos.length }} peça(s) como gravadas?
+              Isso não confere etiqueta nenhuma — só use depois de gravar de verdade
+              no gravador de mesa.
+            </p>
+            <div class="au-acoes">
+              <button class="au-botao secundario" type="button"
+                      @click="confirmacaoDoGravador = null">Cancelar</button>
+              <button class="au-botao" type="button" @click="marcarPeloGravador">
+                Sim, marcar
+              </button>
+            </div>
+          </div>
+        </div>
+      </details>
 
       <!-- ── A BUSCA ─────────────────────────────────────────────────────
            A aba abre nos ÚLTIMOS 30 DIAS, e o resto fica atrás da busca: quem
@@ -1199,7 +1254,12 @@ import {
   codigosComGarantia, etiquetasGravadas, motivoObrigatorio, descricaoDaPeca,
 } from './lotes.js'
 import {
-  conferirLeitura, codigoDoEndereco, listaParaGravadorDeMesa, codigosNoTextoDoGravador,
+  // ⚠️ `listaParaGravadorDeMesa` NÃO entra mais aqui, e não é esquecimento: o
+  // botão "Baixar a lista das que faltam" saiu da ferramenta em 02/09/2026 (o
+  // porquê está escrito na gaveta da aba Gravar e em `baixarListaDoLote`). A
+  // função continua em `nfc-fila.js`, com os testes dela — importar sem chamar
+  // deixaria um aviso de `unused` e esconderia a decisão.
+  conferirLeitura, codigoDoEndereco, codigosNoTextoDoGravador,
 } from './nfc-fila.js'
 // `PASSOS` e `passoAtual` NÃO entram mais aqui, e isso não é esquecimento: a
 // lista dos três passos (Criar / Gravar / Conferir) era o bloco 2 dos OITO que
@@ -1657,6 +1717,22 @@ function mostrarMaisPecas() { quantasMostrar.value += DE_CADA_VEZ }
 // `vessel_desmarcar_gravada` aceita.
 const loteDaEtiqueta = ref('')
 const quantasEtiquetas = ref(DE_CADA_VEZ)
+
+// ── O RECORTE DE "MARCAR VÁRIAS DE UMA VEZ" ────────────────────────────────
+// Quando a gaveta chegou aqui vinda da aba Gravar, ela deixou de ter um lote
+// obrigatório: o seletor desta aba abre em "Todos os lotes". Isso é ganho, e
+// não folga — o log do gravador de mesa pode ter duas fornadas juntas, e antes
+// a pessoa tinha de colar duas vezes.
+//
+// O QUE NÃO MUDOU: só entra código que EXISTE como peça. `codigosNoTextoDoGravador`
+// confere contra esta lista, então lixo no texto continua não virando marcação.
+const pecasDeMarcarEmBloco = computed(
+  () => (loteDaEtiqueta.value ? pecasDoLote(loteDaEtiqueta.value) : pecas.value))
+// A frase que a gaveta mostra, para a pessoa saber contra o que está conferindo
+// ANTES de apertar — e não depois, no aviso.
+const escopoDeMarcarEmBloco = computed(() => (loteDaEtiqueta.value
+  ? `as ${pecasDeMarcarEmBloco.value.length} peça(s) deste lote`
+  : `as ${pecasDeMarcarEmBloco.value.length} peça(s) de todos os lotes`))
 
 // A pergunta aberta, ou null. Guarda a peça CONTADA no momento do clique
 // (código, descrição e se tinha garantia): com a lista recarregando por baixo,
@@ -2623,24 +2699,24 @@ function avisoDeMeiaSobrescrita(pedido) {
     + 'peça — ela volta para a fila — e grave esta MESMA etiqueta de novo.'
 }
 
-// ── O GRAVADOR DE MESA: a mesma fila, de ida e de volta ────────────────────
+// ── O GRAVADOR DE MESA: só a volta ─────────────────────────────────────────
+//
+// ⚠️ A IDA ACABOU EM 02/09/2026. `baixarListaDoGravador` escrevia um .txt com
+// os endereços que faltavam, para alimentar a máquina — e ela nasceu quando não
+// existia programa de gravação nenhum. Hoje há três caminhos melhores ("Por
+// onde gravar", na aba Gravar) e a lista em arquivo já existe COMPLETA logo
+// aqui embaixo, em `baixarListaDoLote`, que a aba Lotes oferece como "Baixar a
+// lista inteira" e sai com todas as peças, o estado e o endereço de cada uma.
+// Duas listas para o mesmo dedo era uma a mais.
+//
+// `listaParaGravadorDeMesa`, em `nfc-fila.js`, CONTINUA LÁ com os testes dela.
+// Está sem chamador de propósito, e não por esquecimento: ela é a única cópia
+// da regra "a fila do que falta são as não gravadas e não baixadas", e quem for
+// apagá-la tem de apagar os testes junto — de propósito, não de passagem.
 
-function baixarListaDoGravador() {
-  const lista = listaParaGravadorDeMesa(pecasDoLote(loteEscolhido.value))
-  if (!lista) { adminToast('Não falta nenhuma etiqueta neste lote', false); return }
-  const url = URL.createObjectURL(new Blob([lista], { type: 'text/plain;charset=utf-8' }))
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `etiquetas-${loteAtual.value?.modelo || 'lote'}.txt`
-  a.click()
-  URL.revokeObjectURL(url)
-}
-
-// A LISTA INTEIRA DO LOTE, para arquivar junto da ordem de produção.
-// Função NOVA, e não um remendo em `baixarListaDoGravador` logo acima: aquela
-// baixa a FILA DO QUE FALTA e alimenta o gravador de mesa — misturar as
-// gravadas nela mandaria a máquina regravar etiqueta que já está dentro de uma
-// bolsa. São duas listas de propósito.
+// A LISTA INTEIRA DO LOTE, para arquivar junto da ordem de produção. Ela é
+// também, desde 02/09/2026, o ÚNICO caminho para ter os endereços em arquivo:
+// sai com TODAS as peças, e não só com a fila do que falta.
 function baixarListaDoLote(l) {
   const doLote = pecasDoLote(l.id)
   if (!doLote.length) { adminToast('Este lote não tem peça nenhuma', false); return }
@@ -2666,9 +2742,10 @@ function baixarListaDoLote(l) {
 // uma pergunta que diz o número e diz o que NÃO foi conferido.
 function pedirParaMarcarPeloGravador() {
   const { reconhecidos, ignorados } = codigosNoTextoDoGravador(
-    textoDoGravador.value, pecasDoLote(loteEscolhido.value))
+    textoDoGravador.value, pecasDeMarcarEmBloco.value)
   if (!reconhecidos.length) {
-    adminToast('Não achei nenhum código deste lote no texto colado', false)
+    adminToast(`Não achei nenhum código ${loteDaEtiqueta.value ? 'deste lote' : 'da ferramenta'} `
+      + 'no texto colado', false)
     return
   }
   // guarda o que foi contado: é exatamente isso que a pergunta promete marcar,
@@ -2700,8 +2777,15 @@ async function marcarPeloGravador() {
       + '— confira sua permissão e tente de novo.', false)
     return
   }
+  // O AVISO DIZ O QUE OS IGNORADOS SÃO, e isso depende do recorte: com um lote
+  // escolhido eles são códigos de OUTRO lote (normalmente o arquivo errado);
+  // com "Todos os lotes" eles não são de peça nenhuma da ferramenta, que é
+  // outra história e pede outra conferência. Uma frase só para os dois casos
+  // mandaria a pessoa procurar o defeito no lugar errado.
   adminToast(ignorados.length
-    ? `${reconhecidos.length} marcadas. ${ignorados.length} código(s) de OUTRO lote foram ignorados — confira se o arquivo é deste lote.`
+    ? `${reconhecidos.length} marcadas. ${ignorados.length} código(s) ${loteDaEtiqueta.value
+      ? 'de OUTRO lote foram ignorados — confira se o arquivo é deste lote.'
+      : 'não constam em peça nenhuma e foram ignorados — confira se o arquivo é desta ferramenta.'}`
     : `${reconhecidos.length} etiqueta(s) marcadas como gravadas.`)
 }
 
@@ -2853,10 +2937,19 @@ onMounted(() => {
    motores (`list-style` no padrão, `::-webkit-details-marker` no WebKit velho) e
    a seta vira o SVG do template, que gira ao abrir e existe igual em todo
    navegador. */
-.au-mesa summary{display:flex;align-items:center;gap:8px;min-height:40px;cursor:pointer;font-family:var(--fonte-principal);font-size:var(--texto-corpo);font-weight:600;color:var(--text);list-style:none;}
-.au-mesa summary::-webkit-details-marker{display:none;}
+/* ⚠️ ESTAS TRÊS REGRAS ERAM `.au-mesa`, E VIRARAM `.au-mais` EM 02/09/2026.
+   `au-mesa` era o resto do nome do bloco "gravador de mesa", que já tinha virado
+   a gaveta genérica das ações raras — e nesta entrega o gravador de mesa saiu de
+   lá de vez. Classe cujo nome não diz mais o que ela faz é a que alguém
+   "conserta" errado depois. `.au-mais` é a gaveta, e agora são DUAS na
+   ferramenta: "Mais opções deste lote", na aba Gravar, e "Marcar várias de uma
+   vez", na aba Etiquetas — as duas com o mesmo desenho, pela mesma regra.
+   `display:flex` no <summary> apaga o marcador nativo nos dois motores, e a
+   seta vira o SVG do template. 40px de alvo. */
+.au-mais summary{display:flex;align-items:center;gap:8px;min-height:40px;cursor:pointer;font-family:var(--fonte-principal);font-size:var(--texto-corpo);font-weight:600;color:var(--text);list-style:none;}
+.au-mais summary::-webkit-details-marker{display:none;}
 .au-seta{flex-shrink:0;color:var(--accent);transition:transform .15s;}
-.au-mesa[open] > summary .au-seta{transform:rotate(90deg);}
+.au-mais[open] > summary .au-seta{transform:rotate(90deg);}
 /* 16px no campo não é estética: abaixo disso o iOS dá zoom ao focar e a tela
    salta na cara de quem está digitando. */
 .au-colar{display:block;width:100%;min-height:90px;margin:10px 0;box-sizing:border-box;font-family:var(--fonte-principal);font-size:var(--texto-campo);line-height:1.5;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface);color:var(--text);}

@@ -119,12 +119,19 @@ test('quem só pode ver não ganha o botão que apaga', () => {
 test('são duas perguntas, e a segunda não repete a primeira', () => {
   assert.match(aba, /v-if="etapaDeApagar === 1"/);
   assert.match(aba, /<template v-else>/);
-  const textos = [...aba.matchAll(/class="au-confirma-texto">([^]*?)<\/p>/g)]
+  /* ⚠️ AS DUAS PERGUNTAS SE ACHAM PELO BLOCO DELAS, e não por contagem.
+   * Este teste lia `textos[1]` e `textos[2]` da aba inteira, contando com o
+   * aviso da garantia ser o de índice 0. Em 02/09/2026 chegou aqui uma terceira
+   * caixa de `au-confirma-texto` — a de "marcar várias de uma vez pelo gravador
+   * de mesa", que veio da aba Gravar — e a contagem passou a apontar para a
+   * pergunta errada. Contagem de irmãos quebra toda vez que um irmão nasce. */
+  const apagar = aba.slice(aba.indexOf('v-if="apagando?.codigo === pc.codigo"'));
+  assert.ok(apagar, 'sumiu o bloco das duas perguntas de apagar a gravação');
+  const textos = [...apagar.matchAll(/class="au-confirma-texto">([^]*?)<\/p>/g)]
     .map((m) => m[1].replace(/\s+/g, ' ').trim());
-  // o primeiro é o aviso da garantia, que fica fora do par de perguntas
-  assert.ok(textos.length >= 3, 'faltou uma das perguntas');
-  assert.notEqual(textos[1], textos[2], 'a segunda pergunta repete a primeira');
-  assert.match(textos[2], /continua costurada dentro de uma bolsa/,
+  assert.ok(textos.length >= 2, 'faltou uma das perguntas');
+  assert.notEqual(textos[0], textos[1], 'a segunda pergunta repete a primeira');
+  assert.match(textos[1], /continua costurada dentro de uma bolsa/,
     'a segunda pergunta tem de dizer o que sobra no mundo depois de apagar');
 });
 
@@ -307,4 +314,84 @@ test('o botão secundário das perguntas não reprova no tema escuro', () => {
   // escuro — reprova por pouco, e "por pouco" continua sendo reprovado.
   // Medido com o CSS do build: 4,46 → 6,02 no escuro e 5,87 → 7,91 no claro.
   assert.match(estilo, /\.au-confirma \.au-botao\.secundario\{color:var\(--accent-forte\)\}/);
+});
+
+/* ── MARCAR VÁRIAS DE UMA VEZ, PELO GRAVADOR DE MESA ─────────────────────────
+ *
+ * ⚠️ ISTO CHEGOU AQUI EM 02/09/2026, VINDO DA ABA GRAVAR, e o PADRÃO item 8
+ * manda dizer onde cada coisa foi parar. O dono perguntou se a gaveta "Gravador
+ * de mesa" da bancada ainda fazia sentido; a resposta foi que METADE não fazia:
+ *
+ *   · o botão "Baixar a lista das que faltam" SAIU DA FERRAMENTA — nasceu
+ *     quando não existia programa de gravação, e hoje a lista em arquivo existe
+ *     mais completa na aba Lotes ("Baixar a lista inteira", em CSV, com todas as
+ *     peças). Quem guarda esse endereço é `modo-bancada.test.mjs`;
+ *   · o CAMPO DE COLAR O RETORNO ficou, e é o que estes testes guardam. Ele
+ *     marca cinquenta peças de uma vez a partir de um log, e sem o programa
+ *     instalado é o único jeito de fazer isso sem cinquenta cliques. Não é
+ *     redundante com caminho nenhum.
+ *
+ * POR QUE AQUI, e não na bancada: lá se grava UMA peça por vez, com a etiqueta
+ * na mão. Colar um log é conserto EM BLOCO — que é o assunto desta aba, a mesma
+ * que apaga uma gravação. As duas são a mesma decisão em direções opostas. */
+
+test('o campo de colar o retorno do gravador mora nesta aba, e numa gaveta fechada', () => {
+  assert.match(aba, /<details class="au-mais au-marcar-bloco">/,
+    'sumiu a gaveta de marcar em bloco — sem ela, marcar cinquenta peças volta a ser '
+    + 'cinquenta cliques');
+  assert.match(aba, /v-model="textoDoGravador"[^]{0,200}class="au-colar"/,
+    'sumiu o campo de colar o que o gravador de mesa devolveu');
+  assert.match(aba, /@click="pedirParaMarcarPeloGravador"/,
+    'o botão tem de abrir a pergunta, nunca marcar direto');
+  // ela nasce FECHADA: é ação rara, e ação rara não ocupa espaço de tela para
+  // sempre. `<details>` sem `open` é fechado.
+  assert.doesNotMatch(aba, /<details class="au-mais au-marcar-bloco"[^>]*\bopen\b/,
+    'a gaveta de marcar em bloco nasce aberta: ela é rara e destrutiva à sua maneira');
+});
+
+test('e ele saiu MESMO da aba Gravar — não ficou uma cópia nas duas', () => {
+  // duas cópias do mesmo bloco divergem, e a que ficar para trás passa a marcar
+  // peça por uma regra que a outra já não usa
+  const gravar = template.slice(
+    template.indexOf(`<template v-else-if="aba === 'gravar'">`),
+    template.indexOf(`<template v-else-if="aba === 'etiquetas'">`),
+  ).replace(/<!--[^]*?-->/g, '');
+  assert.doesNotMatch(gravar, /textoDoGravador|class="au-colar"|pedirParaMarcarPeloGravador/,
+    'o campo de colar continua na bancada: ou ele mudou de casa, ou ficou nas duas');
+});
+
+test('o recorte da marcação em bloco sai do seletor de lote desta aba', () => {
+  // GANHO DA MUDANÇA: na bancada ele só conferia contra o lote da bancada. Aqui
+  // o seletor abre em "Todos os lotes", e quem colou o log de duas fornadas
+  // juntas não precisa mais colar duas vezes.
+  const i = script.indexOf('const pecasDeMarcarEmBloco = computed(');
+  assert.notEqual(i, -1, 'sumiu o recorte da marcação em bloco');
+  const corpo = script.slice(i, script.indexOf('\n//', i)).replace(/\s+/g, ' ');
+  assert.match(corpo, /loteDaEtiqueta\.value \? pecasDoLote\(loteDaEtiqueta\.value\) : pecas\.value/,
+    'o recorte tem de seguir o seletor desta aba, e cair em TODAS as peças quando não há lote');
+  assert.match(corpoDaFuncao('pedirParaMarcarPeloGravador'),
+    /codigosNoTextoDoGravador\(\s*textoDoGravador\.value, pecasDeMarcarEmBloco\.value\)/,
+    'a conferência tem de usar o recorte desta aba, e não o lote da bancada');
+});
+
+test('a tela diz contra o que está conferindo ANTES de a pessoa apertar', () => {
+  // e não só depois, no aviso: marcar peça sem conferir etiqueta nenhuma é o
+  // caminho mais perigoso desta ferramenta (PADRAO item 9 — a tela nunca mente)
+  assert.match(aba, /\{\{ escopoDeMarcarEmBloco \}\}/);
+  const i = script.indexOf('const escopoDeMarcarEmBloco = computed(');
+  assert.notEqual(i, -1, 'sumiu a frase que diz o recorte');
+  const corpo = script.slice(i, script.indexOf('))', i)).replace(/\s+/g, ' ');
+  assert.match(corpo, /deste lote/);
+  assert.match(corpo, /de todos os lotes/);
+  assert.match(aba, /Isso não confere etiqueta nenhuma/,
+    'este é o único caminho que marca sem conferir etiqueta, e tem de dizer isso');
+});
+
+test('o aviso dos ignorados diz coisa diferente em cada recorte', () => {
+  // com um lote escolhido, código ignorado é de OUTRO lote (arquivo errado);
+  // com "Todos os lotes", ele não é de peça nenhuma. Uma frase só para os dois
+  // mandaria a pessoa procurar o defeito no lugar errado.
+  const corpo = corpoDaFuncao('marcarPeloGravador').replace(/\s+/g, ' ');
+  assert.match(corpo, /de OUTRO lote foram ignorados/);
+  assert.match(corpo, /não constam em peça nenhuma e foram ignorados/);
 });

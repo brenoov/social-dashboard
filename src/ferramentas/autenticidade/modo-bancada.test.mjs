@@ -34,11 +34,18 @@ const estilo = fonte.slice(fonte.indexOf('<style scoped>'));
  * ela saiu. Procurar o nome no arquivo inteiro acharia a própria explicação, e é
  * assim que nasce defeito falso. */
 const codigo = script.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
-/** A gaveta "Mais opções deste lote", do miolo dela até o fecho do `<details>`. */
+/** A gaveta "Mais opções deste lote", do miolo dela até o fecho do `<details>`.
+ *
+ * ⚠️ OS COMENTÁRIOS DE HTML SAEM ANTES, e isso não é asseio: em 02/09/2026 o
+ * comentário que explica por que o botão "Baixar a lista das que faltam" foi
+ * apagado CITA o rótulo dele entre aspas — e o teste de PADRÃO item 8 logo
+ * abaixo procura rótulo por `includes()`. Sem esta linha, ele encontraria o
+ * botão dentro da própria explicação de que o botão não existe mais, e passaria
+ * verde para sempre. */
 const gaveta = (() => {
   const i = template.indexOf('class="au-mais-miolo"');
   assert.notEqual(i, -1, 'sumiu a gaveta das ações raras');
-  return template.slice(i, template.indexOf('</details>', i));
+  return template.slice(i, template.indexOf('</details>', i)).replace(/<!--[^]*?-->/g, '');
 })();
 
 /** O corpo de uma função do `<script setup>`, por contagem de chaves. */
@@ -281,15 +288,52 @@ test('nada do que saiu da frente da bancada ficou inalcançável (PADRAO item 8)
   assert.match(template, /<span>Mais opções deste lote<\/span>/, 'sumiu o ponto de acesso');
   assert.match(template, /@click="abrirGuia"/, 'o guia ficou sem chamador');
   for (const marca of [
-    'Dar baixa nesta peça', 'Excluir esta peça', 'Gravador de mesa',
+    'Dar baixa nesta peça', 'Excluir esta peça',
     'Gravar pelo aplicativo', 'Gravar pelo leitor de mesa', 'Gravar encostando o celular',
-    'Travar a etiqueta depois de gravar', 'Baixar a lista das que faltam',
-    'Marcar as gravadas', 'Mostrar também os lotes encerrados', 'Desfazer',
+    'Travar a etiqueta depois de gravar',
+    'Mostrar também os lotes encerrados', 'Desfazer',
   ]) {
     assert.ok(gaveta.includes(marca), `"${marca}" sumiu da gaveta — e da ferramenta`);
   }
+  /* ⚠️ TRÊS RÓTULOS SAÍRAM DESTA LISTA EM 02/09/2026, e o item 8 do PADRÃO
+   * continua valendo — por isso eles não sumiram do teste, mudaram de asserção.
+   * O dono perguntou se a gaveta "Gravador de mesa" ainda fazia sentido, e a
+   * resposta foi que metade não fazia:
+   *   · "Baixar a lista das que faltam" SAIU DA FERRAMENTA. É a única coisa que
+   *     esta entrega apaga de verdade. Ela nasceu quando não existia programa de
+   *     gravação nenhum; hoje há três caminhos melhores (os três "Gravar pelo…"
+   *     acima, que continuam nesta lista) e uma lista em arquivo mais completa
+   *     na aba Lotes — "Baixar a lista inteira", em CSV, com TODAS as peças. As
+   *     duas asserções abaixo guardam esse endereço: se o botão da aba Lotes
+   *     sumir um dia, ninguém mais tem os endereços em arquivo;
+   *   · o campo de colar o retorno e o "Marcar as gravadas" MUDARAM DE CASA,
+   *     para a aba Etiquetas — colar um log é conserto EM BLOCO, e nunca foi da
+   *     bancada. O teste de endereço deles está em `aba-de-etiquetas.test.mjs`. */
+  for (const foi of ['Baixar a lista das que faltam', 'Marcar as gravadas', 'Cole aqui o que o gravador']) {
+    assert.ok(!gaveta.includes(foi),
+      `"${foi}" voltou para a gaveta da bancada — ela é para gravar UMA peça por vez`);
+  }
+  assert.match(template, /@click="baixarListaDoLote\(l\)"[^]{0,80}Baixar a lista inteira/,
+    'sumiu o "Baixar a lista inteira" da aba Lotes, que é o endereço para onde a lista em '
+    + 'arquivo foi — sem ele, os endereços em arquivo ficam inalcançáveis');
+  assert.doesNotMatch(script, /function baixarListaDoGravador\(/,
+    'a lista "das que faltam" voltou: são duas listas para o mesmo dedo, e a da aba Lotes '
+    + 'sai mais completa');
   // e a gaveta é UMA: duas gavetas é o mesmo problema em ponto menor
-  assert.equal((template.match(/<details class="au-mesa/g) || []).length, 1,
+  /* ⚠️ A CONTA MUDOU DE ESCOPO EM 02/09/2026, e a regra continua a mesma.
+   * Ela contava `<details class="au-mesa` no TEMPLATE INTEIRO, porque a única
+   * gaveta da ferramenta era esta. Agora há uma segunda, na aba Etiquetas —
+   * "Marcar várias de uma vez pelo gravador de mesa", que veio daqui. A regra
+   * que importa nunca foi "uma gaveta na ferramenta": é UMA gaveta NA BANCADA,
+   * porque duas portas de ação rara na mesma tela é o mesmo problema em ponto
+   * menor. Por isso a conta agora é dentro da aba Gravar.
+   * (`au-mesa` também deixou de existir: era o resto do nome do bloco "gravador
+   * de mesa", que saiu daqui nesta entrega. A classe é `au-mais`.) */
+  const abaGravar = template.slice(
+    template.indexOf(`<template v-else-if="aba === 'gravar'">`),
+    template.indexOf(`<template v-else-if="aba === 'etiquetas'">`),
+  );
+  assert.equal((abaGravar.match(/<details class="au-mais/g) || []).length, 1,
     'voltou a haver mais de uma gaveta na aba Gravar');
 });
 

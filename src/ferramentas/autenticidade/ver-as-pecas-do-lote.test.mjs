@@ -76,22 +76,31 @@ test('abrir OUTRO lote recomeça o limite do zero', () => {
   assert.match(ate, /quantasMostrar\.value = DE_CADA_VEZ/);
 });
 
-/* AS DUAS LISTAS SÃO DUAS DE PROPÓSITO.
- * `listaParaGravadorDeMesa` é a FILA DO QUE FALTA: alimenta o gravador de mesa,
- * e por isso tira as gravadas e as baixadas. `linhasDaListaDoLote` CONTA A
- * HISTÓRIA: sai com todas as peças, para arquivar junto da ordem de produção.
- * Juntar as duas numa só faria a máquina regravar etiqueta que já está costurada
- * dentro de uma bolsa. */
-test('a lista do gravador continua sendo só o que FALTA', () => {
+/* ERAM DUAS LISTAS, E FICOU UMA (02/09/2026).
+ *
+ * `listaParaGravadorDeMesa` é a FILA DO QUE FALTA — tira as gravadas e as
+ * baixadas — e alimentava o botão "Baixar a lista das que faltam", na gaveta da
+ * aba Gravar. `linhasDaListaDoLote` CONTA A HISTÓRIA: sai com TODAS as peças,
+ * para arquivar junto da ordem de produção.
+ *
+ * O dono perguntou se aquela gaveta ainda fazia sentido. O botão não fazia: ele
+ * nasceu quando não existia programa de gravação, e hoje há três caminhos
+ * melhores e uma lista em arquivo mais completa — esta segunda, que a aba Lotes
+ * oferece como "Baixar a lista inteira". Duas listas para o mesmo dedo era uma
+ * a mais, e a que saiu era a que sabia MENOS.
+ *
+ * A FUNÇÃO PURA CONTINUA EM `nfc-fila.js`, com os testes dela, e este teste
+ * continua guardando a regra dela — ela é a única cópia de "a fila do que falta
+ * são as não gravadas e não baixadas", e quem for apagá-la tem de apagar as
+ * duas coisas de propósito, e não de passagem. */
+test('a fila do que falta continua sendo só o que FALTA, mesmo sem chamador na tela', () => {
   const nfc = readFileSync(new URL('./nfc-fila.js', import.meta.url), 'utf8');
   const corpo = nfc.slice(nfc.indexOf('export function listaParaGravadorDeMesa'));
   assert.match(corpo.slice(0, corpo.indexOf('\n}')), /naFila\(p\) && !p\.gravada_em/,
-    'a lista do gravador de mesa não pode passar a incluir as já gravadas');
-  assert.match(
-    script.slice(script.indexOf('function baixarListaDoGravador')),
-    /listaParaGravadorDeMesa\(pecasDoLote\(loteEscolhido\.value\)\)/,
-    'o botão "as que faltam" continua bebendo da fila do gravador',
-  );
+    'a fila do gravador de mesa não pode passar a incluir as já gravadas');
+  assert.doesNotMatch(script, /listaParaGravadorDeMesa\(/,
+    'a tela voltou a chamar a fila do que falta: a lista em arquivo é a da aba Lotes, que '
+    + 'sai com todas as peças');
 });
 
 test('a lista inteira do lote sai por uma função PRÓPRIA, com a data da tela', () => {
