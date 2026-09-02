@@ -32,11 +32,20 @@ function corpoDaFuncao(nome) {
   throw new Error(`não achei o fim de ${nome}`);
 }
 
-/** A pergunta, no template. */
-const pergunta = template.slice(
-  template.indexOf('<div v-if="sobrescrita" class="au-confirma">'),
-  template.indexOf('<div v-if="!sobrescrita" class="au-acoes">'),
-);
+/** A pergunta, no template.
+ *
+ * ⚠️ AS DUAS ÂNCORAS MUDARAM EM 01/09/2026, e nenhuma linha da pergunta mudou
+ * com elas. A aba Gravar virou a bancada, e a pergunta passou a ser desenhada
+ * DENTRO dela, atravessando as três colunas do painel — daí a classe
+ * `au-sobrescrita` ao lado de `au-confirma`, que é só a posição na grade.
+ * A fileira de botões que some enquanto a pergunta está aberta também mudou de
+ * nome: ela é a ação da bancada (`au-bancada-acao`), e não mais uma linha de
+ * `au-acoes` solta no meio de uma coluna. */
+const pergunta = (() => {
+  const i = template.indexOf('<div v-if="sobrescrita" class="au-confirma au-sobrescrita">');
+  assert.notEqual(i, -1, 'a pergunta de sobrescrever sumiu do template');
+  return template.slice(i, template.indexOf('</section>', i));
+})();
 
 /* ── A OFERTA ────────────────────────────────────────────────────────────── */
 
@@ -198,7 +207,7 @@ test('trocar de lote e trocar a peça da vez apagam a pergunta', () => {
 test('os botões normais somem enquanto a pergunta está na tela', () => {
   // "Gravar nesta etiqueta" ali do lado leria a MESMA etiqueta de novo e
   // devolveria a MESMA pergunta, e a pessoa acharia que travou
-  assert.match(template, /<div v-if="!sobrescrita" class="au-acoes">/);
+  assert.match(template, /<div v-if="!sobrescrita" class="au-bancada-acao">/);
   assert.match(pergunta, /@click="desistirDaSobrescrita"/, 'tem de dar para dizer não');
   assert.match(corpoDaFuncao('desistirDaSobrescrita'), /sobrescrita\.value = null/);
   assert.match(corpoDaFuncao('desistirDaSobrescrita'), /Não sobrescrevi nada/,

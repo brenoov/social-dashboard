@@ -1,4 +1,15 @@
-// O MODO BANCADA — a conta pura do que a tela DIZ enquanto se grava.
+// A BANCADA — a conta pura do que a tela DIZ enquanto se grava.
+//
+// ⚠️ O NOME DESTE ARQUIVO FALA DE UM "MODO" QUE NÃO EXISTE MAIS, e ele fica: o
+// nome é referência em teste, em import e em meia dúzia de comentários, e trocar
+// tudo por estética é ruído no histórico. O que mudou em 01/09/2026 é que a aba
+// Gravar VIROU a bancada — não há interruptor para ligar, nem para desligar. As
+// contas que este arquivo faz continuam as mesmas e continuam sendo as certas:
+// qual estado sai de qual fase, qual frase sai de cada estado, e qual é a única
+// ação. `podeEntrarNaBancada`, `bancadaLembrada`, `lembrarBancada` e
+// `precisaSairDaBancada` gateavam e lembravam AQUELE interruptor, e por isso a
+// tela não as chama mais — elas ficam aqui, com os testes delas, para quem
+// apagar apagar as duas coisas de propósito e não de passagem.
 //
 // ── POR QUE ESTE ARQUIVO EXISTE ────────────────────────────────────────────
 // O dono usou a aba Gravar de pé, na bancada, e disse: "ta muito ruim o layout
@@ -114,8 +125,12 @@ export function estadoDaBancada({ fase = 'parado', modo = 'copiar', recado = '' 
       chave,
       tom: 'ok',
       titulo: 'Lote pronto',
+      // ⚠️ ESTA FRASE MUDOU EM 01/09/2026, e só ela. Ela mandava "sair do modo
+      // bancada" — e o modo deixou de existir: a aba Gravar VIROU a bancada.
+      // Frase que manda apertar um botão que não está mais na tela é a tela
+      // mentindo, e é o tipo de resto que fica anos depois de a tela mudar.
       detalhe: dito || 'Todas as etiquetas deste lote já foram gravadas. Não há mais nada a '
-        + 'fazer aqui: saia do modo bancada para escolher outro lote.',
+        + 'fazer aqui: escolha outro lote no alto da tela, ou abra a aba 1 Lotes.',
     }
   }
   if (chave === 'esperando') {
@@ -177,7 +192,11 @@ export function estadoDaBancada({ fase = 'parado', modo = 'copiar', recado = '' 
 export function acaoDaBancada({ fase = 'parado', modo = 'copiar' } = {}) {
   const jeito = MODOS.includes(modo) ? modo : 'copiar'
   if (fase === 'fim') {
-    return { chave: 'sair', rotulo: 'Sair do modo bancada', ocupado: false }
+    // O RÓTULO MUDOU JUNTO COM A FRASE ACIMA, e a `chave` NÃO: quem lê a chave
+    // 'sair' continua sabendo que este é o botão de "acabou aqui". O que ele faz
+    // é decisão da tela — hoje ela leva para a aba 1 Lotes, que é onde se
+    // escolhe lote. Antes ele desligava o modo bancada, que não existe mais.
+    return { chave: 'sair', rotulo: 'Escolher outro lote', ocupado: false }
   }
   // OCUPADO É BOTÃO TRAVADO, e não botão sumido: quem está esperando a etiqueta
   // encostar precisa continuar vendo onde o botão está. Botão que some no meio

@@ -28,24 +28,60 @@ function abaDe(chave, ateChave) {
   return template.slice(ini, fim);
 }
 
-/* ── O PAINEL É UM SÓ, NAS TRÊS ABAS ─────────────────────────────────────── */
+/* ── O PAINEL É UM SÓ, NAS DUAS ABAS QUE PROCURAM ENTRE MUITOS ───────────── */
 
-test('as três abas do caminho usam o MESMO painel de busca', () => {
-  // busca escrita três vezes é busca que diverge: a aba que ficasse para trás
-  // passaria a esconder dado que as outras acham
+/* ⚠️ ERAM TRÊS ABAS, E VIRARAM DUAS EM 01/09/2026. O painel saiu da aba Gravar,
+ * e isso é o coração do redesenho que o dono pediu pela quarta vez: naquela aba
+ * se escolhe UM lote, e o painel inteiro — busca, sete atalhos de data, período
+ * exato e seletor de estado — comia 260px de altura que quem grava nunca usa. Ele
+ * era o bloco 4 dos OITO que vinham antes da área de trabalho.
+ *
+ * NADA SE PERDEU (PADRÃO item 8): procurar entre muitos lotes é o propósito da
+ * aba 1 Lotes, e de lá o "Gravar as etiquetas deste lote →" traz para a bancada
+ * com o lote já escolhido. A ÚNICA coisa que o painel da aba Gravar fazia e o da
+ * aba Lotes não faz — trazer lote ENCERRADO de volta para o seletor, que é o
+ * único caminho para desfazer uma baixa num lote fechado — virou um interruptor
+ * escrito, e o teste logo abaixo o guarda. */
+test('as duas abas que procuram entre muitos usam o MESMO painel de busca', () => {
+  // busca escrita duas vezes é busca que diverge: a aba que ficasse para trás
+  // passaria a esconder dado que a outra acha
   for (const [chave, filtro] of [
-    ['lotes', 'filtroDeLotes'], ['gravar', 'filtroDeGravar'], ['etiquetas', 'filtroDeEtiquetas'],
+    ['lotes', 'filtroDeLotes'], ['etiquetas', 'filtroDeEtiquetas'],
   ]) {
-    const bloco = abaDe(chave, chave === 'etiquetas' ? 'registros' : null);
+    const bloco = abaDe(chave, chave === 'etiquetas' ? 'registros' : 'gravar');
     assert.match(bloco, new RegExp(`<PainelDeBusca[^>]*v-model:filtro="${filtro}"`),
       `a aba ${chave} não tem o painel de busca`);
   }
   assert.match(script, /import PainelDeBusca from '\.\/painel-de-busca\.vue'/);
 });
 
+test('a aba Gravar NÃO tem busca, nem filtro, nem parágrafo de ajuda', () => {
+  // ela é a bancada: um seletor compacto de lote no alto e o painel de trabalho
+  // logo abaixo. "Sem busca, sem filtros, sem parágrafos, sem modo para entrar"
+  // foi o pedido, com estas palavras.
+  const aba = abaDe('gravar', 'etiquetas');
+  assert.doesNotMatch(aba, /<PainelDeBusca/, 'a busca voltou para a bancada');
+  assert.doesNotMatch(aba, /class="au-ajuda"/, 'o parágrafo de ajuda voltou para a bancada');
+  assert.doesNotMatch(aba, /class="au-passos"/, 'os três passos voltaram — a barra de abas já é a sequência');
+});
+
+test('o único poder que a busca dali tinha continua alcançável', () => {
+  // o seletor da aba Gravar só oferece lote com peça POR GRAVAR. Sem uma porta
+  // para os encerrados, desfazer uma baixa num lote já fechado ficaria
+  // inalcançável — a lista das baixadas mora nesta aba.
+  const aba = abaDe('gravar', 'etiquetas');
+  assert.match(aba, /@change="mostrarEncerrados\(\$event\.target\.checked\)"/,
+    'sumiu o interruptor que traz os lotes encerrados de volta');
+  assert.match(aba, /Mostrar também os lotes encerrados/);
+  const corpo = script.slice(script.indexOf('function mostrarEncerrados('));
+  assert.match(corpo.slice(0, corpo.indexOf('\n}')).replace(/\s+/g, ' '),
+    /estado: ligado \? 'todos' : 'por_gravar'/,
+    'o interruptor tem de escrever o MESMO estado que `lotesDoSeletor` lê');
+});
+
 test('cada aba busca por data, por texto e por estado', () => {
   const usos = [...template.matchAll(/<PainelDeBusca[^]*?\/>/g)].map((m) => m[0]);
-  assert.equal(usos.length, 3, 'esperava o painel nas três abas do caminho');
+  assert.equal(usos.length, 2, 'esperava o painel nas duas abas que procuram entre muitos');
   for (const uso of usos) {
     assert.match(uso, /:atalhos="ATALHOS_DE_DATA"/, 'sem atalho, ninguém filtra por data');
     assert.match(uso, /:estados="/);
@@ -59,12 +95,15 @@ test('cada aba busca por data, por texto e por estado', () => {
 test('a dica de cada campo cita o CÓDIGO DA PEÇA', () => {
   // quem está com a etiqueta na mão tem o código, e não o modelo
   const dicas = [...template.matchAll(/dica="([^"]+)"/g)].map((m) => m[1]);
-  assert.equal(dicas.length, 3);
+  assert.equal(dicas.length, 2);
   for (const d of dicas) assert.match(d, /código/i, `a dica "${d}" não diz que dá para buscar por código`);
 });
 
-test('as três contagens dizem "N de M", e cada uma com a palavra certa', () => {
-  for (const nome of ['contagemDeLotes', 'contagemDoSeletor', 'contagemDeEtiquetas']) {
+/* ERAM TRÊS CONTAGENS, E SÃO DUAS: `contagemDoSeletor` existia para o painel de
+ * busca da aba Gravar, e a frase "N de M lotes" só faz sentido em lista
+ * RECORTADA por busca. Sem busca naquela aba, ela não contava recorte nenhum. */
+test('as duas contagens dizem "N de M", e cada uma com a palavra certa', () => {
+  for (const nome of ['contagemDeLotes', 'contagemDeEtiquetas']) {
     const i = script.indexOf(`const ${nome} = computed(`);
     assert.notEqual(i, -1, `${nome} sumiu`);
     const corpo = script.slice(i, script.indexOf('\n\n', i)).replace(/\s+/g, ' ');
@@ -232,10 +271,10 @@ test('o @media do celular é a ÚLTIMA coisa do CSS do painel', () => {
 /* ── A AJUDA DENTRO DE CADA ABA ──────────────────────────────────────────── */
 
 test('a ajuda da aba fica na tela, e sai do tutorial', () => {
-  // O `v-if="!naBancada"` é o modo bancada: o painel de máquina não tem parágrafo
-  // de ajuda permanente — ele vira o "?" que abre o guia inteiro. Fora do modo,
-  // a ajuda continua sempre à vista, que é o que este teste guarda.
-  assert.match(template, /<p v-if="!naBancada" class="au-ajuda">\{\{ AJUDA_DA_ABA\[aba\] \}\}<\/p>/);
+  // Em QUATRO das cinco abas. Na Gravar não: ali a tela é uma bancada, e quem
+  // grava a terceira etiqueta não lê parágrafo — a instrução vai para o guia,
+  // atrás do "?". "Nada de parágrafo explicando botão" foi o pedido.
+  assert.match(template, /<p v-if="aba !== 'gravar'" class="au-ajuda">\{\{ AJUDA_DA_ABA\[aba\] \}\}<\/p>/);
   assert.match(script, /AJUDA_DA_ABA,/, 'a ajuda não pode ser reescrita na tela');
 });
 
@@ -267,7 +306,15 @@ test('o miolo do guia rola DENTRO da caixa, e a caixa tem teto de altura', () =>
   assert.match(estilo, /\.au-guia-miolo\{[^}]*overscroll-behavior:contain/);
 });
 
-test('o botão de rever o guia diz que o socorro está lá dentro', () => {
-  // guia que a pessoa não sabe que existe é guia que ninguém reabre
-  assert.match(template, /Rever o guia de bancada[^<]*deu errado, e agora/);
+test('o botão do guia diz que o socorro está lá dentro', () => {
+  // guia que a pessoa não sabe que existe é guia que ninguém reabre.
+  //
+  // ELE ERA UM LINK DE UMA LINHA E MEIA no alto da aba Gravar — o bloco 3 dos
+  // oito que vinham antes da área de trabalho. Virou um alvo pequeno com o
+  // ícone e a palavra "Guia", e a frase inteira continua onde ela é lida por
+  // quem precisa dela: no `title` (o mouse parado em cima) e no `aria-label` (o
+  // leitor de tela). O texto não se perdeu; ele parou de ocupar o melhor
+  // espaço da tela toda vez, para sempre.
+  assert.match(template, /title="Guia de bancada[^"]*deu errado, e agora[^"]*"/);
+  assert.match(template, /aria-label="Guia de bancada[^"]*deu errado, e agora[^"]*"/);
 });

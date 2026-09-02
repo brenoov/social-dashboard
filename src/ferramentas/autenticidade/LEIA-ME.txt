@@ -34,14 +34,30 @@ cinco itens ela quebra em duas linhas no celular — igual as irmas fariam.
            pagina que a CLIENTE ve. E de la que sai "Baixar a lista inteira",
            a planilha para arquivar junto da ordem de producao.
 
-2 GRAVAR   Mostra UMA etiqueta por vez, com o endereco em letra grande, botao de
-           copiar e "Gravei essa". Existe por um motivo pratico: 20 etiquetas
-           sao fisicamente identicas, e sem essa tela e questao de tempo ate
-           alguem gravar a mesma duas vezes e pular outra.
-           Ao redor dela aparece A FILA — a peca que acabou de sair e as
-           proximas, com a da vez marcada —, uma barra de progresso do lote e o
-           sinal de vida da gravacao (anel pulsando enquanto espera a etiqueta,
-           check quando o banco confirma, tremor quando falha).
+2 GRAVAR   E A BANCADA. Nao ha modo para entrar: escolheu o lote, trabalha.
+           Um seletor compacto de lote no alto e, logo abaixo, o painel de
+           trabalho — qual peca e agora (o maior elemento da tela), o estado com
+           os aneis e o texto, UM botao, o progresso, e a fila ao lado.
+           Existe por um motivo pratico: 20 etiquetas sao fisicamente
+           identicas, e sem essa tela e questao de tempo ate alguem gravar a
+           mesma duas vezes e pular outra.
+
+           SEM BUSCA, SEM FILTROS, SEM PARAGRAFOS. Ate 01/09/2026 vinham OITO
+           blocos antes da area de trabalho — um paragrafo de explicacao, os
+           tres passos, o link do guia, o painel de busca inteiro, o seletor, o
+           botao "Entrar no modo bancada", um paragrafo explicando esse botao e
+           a barra de progresso. A area de trabalho comecava a dois tercos da
+           pagina, e o progresso aparecia TRES vezes. O dono reclamou quatro
+           vezes; da quarta, o pedido foi refazer o layout do zero.
+           O "modo bancada" era um remendo: se a aba precisa de um modo para
+           ficar usavel, a aba deveria SER aquilo. Agora ela e.
+
+           AS ACOES RARAS FICAM ATRAS DE UM PONTO SO, "Mais opcoes deste lote":
+           dar baixa, excluir a peca, trocar o jeito de gravar, a trava
+           permanente, a lista para o gravador de mesa, quais lotes o seletor
+           oferece e as pecas baixadas com o "Desfazer". Antes eram seis links
+           do MESMO peso soltos na tela, e seis do mesmo peso e o mesmo que
+           nenhuma acao principal.
 
 3 ETIQUETAS
            O desfazer da aba Gravar: apagar uma gravacao feita errado, com duas
@@ -97,16 +113,24 @@ lote para "em andamento" sozinho, sem ninguem precisar destravar nada.
   aba Gravar     o seletor so oferece lote com peca POR GRAVAR. Duas excecoes,
                  e as duas para a tela nao mentir: o lote ESCOLHIDO nunca sai
                  (ao gravar a ultima peca ele encerra na hora, e o seletor
-                 ficaria em branco com o check ainda na tela), e o estado
-                 "Todos, inclusive encerrados" traz os outros de volta — e o
-                 unico caminho para DESFAZER uma baixa num lote encerrado;
+                 ficaria em branco com o check ainda na tela), e o interruptor
+                 "Mostrar tambem os lotes encerrados" — dentro de "Mais opcoes
+                 deste lote" — traz os outros de volta, e e o unico caminho para
+                 DESFAZER uma baixa num lote encerrado. Ele e um interruptor
+                 escrito, e nao um painel de filtros: o painel inteiro numa aba
+                 onde se escolhe UM lote eram 260px de altura que quem grava
+                 nunca usa;
   aba Etiquetas  abre nos ULTIMOS 30 DIAS, e o resto vem no "Qualquer data" ou
                  no "Limpar a busca".
 
-A BUSCA E A MESMA NAS TRES: por data (com atalhos — hoje, 7 dias, 30 dias, este
-mes, este ano — e o periodo exato numa gaveta), por modelo, por cor, por
-referencia, pelo CODIGO DE UMA PECA e por estado. Sem acento e sem caixa, e cada
-palavra digitada pode estar num campo diferente ("monaco quartz" acha o lote).
+A BUSCA E A MESMA NAS DUAS ABAS QUE PROCURAM ENTRE MUITOS — Lotes e Etiquetas:
+por data (com atalhos — hoje, 7 dias, 30 dias, este mes, este ano — e o periodo
+exato numa gaveta), por modelo, por cor, por referencia, pelo CODIGO DE UMA PECA
+e por estado. Sem acento e sem caixa, e cada palavra digitada pode estar num
+campo diferente ("monaco quartz" acha o lote).
+A aba Gravar NAO tem busca: ali se escolhe UM lote, e quem procura entre muitos
+faz isso na aba 1 Lotes — de la, "Gravar as etiquetas deste lote" traz para a
+bancada com o lote ja escolhido.
 
 O CODIGO DA PECA ACHA O LOTE DELA: quem esta com a etiqueta na mao tem o codigo,
 e nao o modelo — esse caminho nao existia em lugar nenhum da tela.
@@ -119,8 +143,10 @@ O GUIA DE BANCADA
 
 `tutorial.js` guarda cinco coisas, todas testadas:
 
-  PASSOS         o passo a passo curto que fica na aba Gravar. O numero dele e
-                 o MESMO numero da aba — duas numeracoes seriam duas verdades;
+  PASSOS        (NAO E MAIS DESENHADO NA TELA, desde 01/09/2026: a barra de abas
+                 ja e a mesma sequencia, com os mesmos numeros, e duas
+                 numeracoes seriam duas verdades. O modulo continua, com os
+                 testes dele, e o texto por extenso vive nos ESTAGIOS);
   AJUDA_DA_ABA   uma ou duas linhas DENTRO de cada aba, sempre a vista. Guia
                  unico ninguem reabre: quem cai na aba Alertas seis meses depois
                  nao vai procurar um guia para entender aquela lista. Aba nova
@@ -135,17 +161,19 @@ O GUIA DE BANCADA
                  mandaria alguem procurar na bancada uma coisa que nao esta la.
 
 O guia abre sozinho na primeira visita (o "ja vi" mora no aparelho, nunca no
-banco) e volta pelo botao "Rever o guia de bancada" da aba Gravar.
+banco) e volta pelo "?" do alto da bancada — um alvo pequeno, com a frase
+inteira no `title` e no `aria-label`. Ele era um link de uma linha e meia
+ocupando o melhor espaco da tela toda vez, para sempre.
 
 OS ARQUIVOS
 ===========
 
 tela-de-autenticidade.vue  a tela inteira, com as cinco abas
-painel-de-busca.vue        o bloco de busca das abas Lotes, Gravar e Etiquetas.
-                           E um componente porque busca escrita tres vezes e
-                           busca que diverge — a aba que ficasse para tras
-                           passaria a esconder dado que as outras acham. Ele nao
-                           filtra nada: so devolve o que a pessoa pediu.
+painel-de-busca.vue        o bloco de busca das abas Lotes e Etiquetas. E um
+                           componente porque busca escrita duas vezes e busca
+                           que diverge — a aba que ficasse para tras passaria a
+                           esconder dado que a outra acha. Ele nao filtra nada:
+                           so devolve o que a pessoa pediu.
 busca-e-arquivamento.js    as contas do arquivamento e da busca (estado do lote,
                            atalhos de data no fuso de Sao Paulo, os filtros das
                            tres abas, a frase "N de M"). Testadas sem navegador
@@ -280,10 +308,31 @@ data de um dia e a tela com a de outro.
 A ANIMACAO NUNCA E O UNICO AVISO
 ================================
 
-A aba Gravar se mexe: anel pulsando, check que cresce, tremor na falha. Mas
-`@media (prefers-reduced-motion: reduce)` desliga o movimento — e nesses casos o
-estado tem de APARECER sem se mexer. Por isso cada estado tambem esta ESCRITO,
-no `textoDoSinal` e no recado grande logo abaixo dele.
+A bancada se mexe, e o movimento CONTA o que esta acontecendo: aneis
+concentricos, em CSS e SVG puros, so com `transform` e `opacity` (a maquina vai
+gravar 50 seguidas).
+
+  esperando  largos, lentos, calmos ................. "encoste"
+  gravando   aceleram e apertam, a cor esquenta ..... "nao tire"
+  gravou     colapsam e viram um check que cresce ... "pode tirar"
+  erro       travam, tremem, cor de recusa .......... "para"
+
+Mas `@media (prefers-reduced-motion: reduce)` desliga o movimento — e nesses
+casos os quatro estados tem de APARECER sem se mexer, e DISTINGUIVEIS: a cor do
+anel (token), o nucleo vazio em "encoste" e cheio em "nao tire" e em "para", e o
+check desenhado em "pode tirar". Por isso cada estado tambem esta ESCRITO, no
+titulo e no detalhe que saem de `estadoDaBancada` — a conta pura.
+
+⚠️ O BLOCO DE MOVIMENTO REDUZIDO PRECISA DE `!important`, e isso foi medido: as
+regras de estado tem DUAS classes no seletor (`.au-aneis-gravando .au-anel-2`) e
+a de desligar tinha UMA (`.au-aneis circle`). Quem tem mais especificidade
+ganha, esteja onde estiver no arquivo — e o bloco inteiro virava enfeite, sem
+erro nenhum. Ha teste que exige o `!important`.
+
+⚠️ NADA PISCA MAIS DE 3 VEZES POR SEGUNDO — e gatilho de convulsao
+fotossensivel. Contado: em "gravando", o mais rapido, cada anel acende uma vez a
+cada 1,2s e sao tres defasados em 0,4s: 2,5 acendimentos por segundo. O tremor
+do erro roda UMA vez e para. Ha teste que le as duracoes do proprio CSS.
 
 Ha teste que varre o CSS da tela, junta toda classe que anima e reprova a que
 nao estiver desligada naquele bloco (gravacao-com-vida.test.mjs). Animacao nova
@@ -324,8 +373,9 @@ peca: apagar uma peca "nao gravada" com garantia apagava A GARANTIA DA CLIENTE,
 calado. Motivo da recusa: `tem_garantia`. Aqui nao ha conselho a dar — diferente
 do `esta_gravada`, nao existe "de baixa em vez disso".
 
-A ABA GRAVAR OFERECE OS DOIS CAMINHOS para a peca da vez: "Dar baixa nesta peca"
-e "Excluir esta peca". O excluir so aparece para peca nao gravada — para a nao
+A ABA GRAVAR OFERECE OS DOIS CAMINHOS para a peca da vez, dentro de "Mais
+opcoes deste lote": "Dar baixa nesta peca" e "Excluir esta peca". O excluir so
+aparece para peca nao gravada — para a nao
 gravada o certo quase sempre e excluir, e encher o lote de baixa no lugar disso
 suja o historico do que nunca existiu.
 

@@ -49,6 +49,12 @@ test('e ONDE ELE EXISTE, ele é o preferido: nasce ligado', () => {
 test('fora da janela do programa, nada do modo novo aparece na tela', () => {
   // `temLeitorDeMesaAqui` é falso no navegador comum, e todo botão que leva ao
   // modo novo está atrás dele. Botão que não faz nada é pior que botão nenhum.
+  //
+  // ⚠️ ERAM DOIS BOTÕES, E É UM DESDE 01/09/2026. Trocar o jeito de gravar
+  // aparecia duas vezes porque a aba tinha dois blocos de gravação — um para os
+  // modos ao vivo e outro para o do aplicativo. A aba virou a bancada: há UM
+  // painel, e trocar de jeito de gravar é decisão de ANTES, que mora atrás do
+  // "Mais opções deste lote". O jeito EM USO continua escrito no alto do painel.
   let de = 0
   let quantos = 0
   for (;;) {
@@ -60,16 +66,22 @@ test('fora da janela do programa, nada do modo novo aparece na tela', () => {
     assert.match(atributos, /v-if="[^"]*temLeitorDeMesaAqui/,
       'este botão apareceria num navegador comum, onde ele não faz nada')
   }
-  assert.equal(quantos, 2, 'a porta de entrada tem de existir nos DOIS outros modos')
+  assert.equal(quantos, 1, 'a porta de entrada do leitor de mesa sumiu, ou virou duas de novo')
 })
 
 test('o botão de gravar diz o que vai acontecer em cada modo', () => {
   // "Gravar nesta etiqueta" com o leitor na mesa faria a pessoa procurar onde
-  // encostar o celular
-  assert.match(template,
-    /\{\{ gravando \? textoDeGravando : \(gravaPorMesa \? 'Gravar no leitor de mesa' : 'Gravar nesta etiqueta'\) \}\}/)
-  assert.match(script, /const textoDeGravando = computed\(/)
-  assert.match(script, /Segure a etiqueta no leitor…/, 'o texto de espera do leitor de mesa sumiu')
+  // encostar o celular.
+  //
+  // ⚠️ O RÓTULO MUDOU DE CASA, e não de conteúdo. Ele era um ternário no
+  // template mais um `textoDeGravando` desta tela — e o MESMO par de frases já
+  // existia, provado, em `acaoDaBancada`. Duas cópias da mesma frase é como uma
+  // delas fica para trás. Agora o botão desenha o que a conta pura mandou, e
+  // quem guarda as frases é `modo-bancada.test.mjs`.
+  assert.match(template, /\{\{ acaoDaBancadaAgora\.rotulo \}\}/,
+    'o botão parou de desenhar o rótulo que a conta pura decidiu')
+  assert.doesNotMatch(script, /const textoDeGravando = computed\(/,
+    'voltou uma segunda cópia do rótulo dentro da tela')
 })
 
 /* ── OS TRÊS MODOS, E NENHUM ESTADO IMPOSSÍVEL ────────────────────────────── */
@@ -124,7 +136,12 @@ test('trocar de modo fica travado durante a gravação', () => {
 /* ── A LIGAÇÃO COM A SEQUÊNCIA QUE SE PROVA ───────────────────────────────── */
 
 test('um botão só, e quem escolhe o caminho é o modo em uso', () => {
-  assert.match(template, /@click="gravarAgora"/)
+  // O @click do template virou `tocarNaBancada`: ele é a ÚNICA ação principal da
+  // bancada, e a `chave` que a conta pura devolveu é quem diz se aquele toque
+  // grava, marca ou manda escolher outro lote. `gravarAgora` continua sendo quem
+  // separa os dois caminhos de gravação — um lugar só, como sempre foi.
+  assert.match(template, /@click="tocarNaBancada"/)
+  assert.match(corpoDaFuncao('tocarNaBancada').replace(/\/\/[^\n]*/g, ''), /gravarAgora\(\)/)
   const corpo = corpoDaFuncao('gravarAgora').replace(/\s+/g, ' ')
   assert.match(corpo, /gravaPorMesa\.value \? gravarNoLeitorDeMesa\(\) : gravarNaEtiqueta\(\)/)
 })
@@ -216,9 +233,16 @@ test('o interruptor de travar a etiqueta some no modo do leitor de mesa', () => 
   // travar mexe na página 40 e no Capability Container, é irreversível, e o
   // motor do leitor de mesa não faz isso. Um interruptor que não trava nada
   // seria uma promessa falsa numa ação que não tem volta.
+  //
+  // A CONDIÇÃO SUBIU UM NÍVEL em 01/09/2026: o interruptor ganhou um título de
+  // seção ("A trava da etiqueta"), e título sozinho sem o interruptor embaixo
+  // seria um cabeçalho apontando para o nada. Os dois entram e saem juntos, num
+  // `<template v-if>` em volta — mesma condição, mesmo comportamento.
   const onde = template.indexOf('class="au-trava"')
   assert.notEqual(onde, -1, 'sumiu o interruptor da trava')
-  assert.match(template.slice(template.lastIndexOf('<label', onde), onde), /v-if="!gravaPorMesa"/)
+  const antes = template.slice(0, onde)
+  assert.match(antes.slice(antes.lastIndexOf('<template v-if=')), /^<template v-if="!gravaPorMesa">/,
+    'a trava tem de continuar atrás de `!gravaPorMesa`, com o título dela')
 })
 
 /* ── O PADRÃO DA CENTRAL ──────────────────────────────────────────────────── */
@@ -240,10 +264,17 @@ test('os botões novos usam a classe da tela, sem `style` solto e com 40px de al
 })
 
 test('nenhum hex de cor novo entrou com o modo novo', () => {
-  // PADRAO-DA-CENTRAL item 2: só token. O modo novo não trouxe estilo nenhum —
-  // ele reaproveita `.au-instrucao`, `.au-endereco`, `.au-recado-nfc` e
-  // `.au-botao`, que já estão medidos nos dois temas.
-  for (const classe of ['au-instrucao', 'au-endereco', 'au-recado-nfc', 'au-botao']) {
+  // PADRAO-DA-CENTRAL item 2: só token. O modo do leitor de mesa não trouxe
+  // estilo nenhum — ele reaproveita as classes da tela, que já estão medidas
+  // nos dois temas.
+  //
+  // `.au-recado-nfc` SAIU DA LISTA em 01/09/2026: o recado da gravação tinha um
+  // bloco só dele, logo acima do bloco de estado que dizia a MESMA coisa em
+  // outras palavras. Ele agora é o `detalhe` do estado — mesmo texto, mesmo
+  // `recadoNfc`, um lugar só.
+  for (const classe of ['au-endereco', 'au-botao', 'au-bancada-detalhe']) {
     assert.ok(estilo.includes(`.${classe}`), `a classe .${classe} sumiu do estilo`)
   }
+  const semComentario = estilo.replace(/\/\*[^]*?\*\//g, '')
+  assert.doesNotMatch(semComentario, /#[0-9a-fA-F]{3,8}\b/, 'hex de cor na tela')
 })

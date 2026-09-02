@@ -29,6 +29,17 @@ const fonte = readFileSync(new URL('./tela-de-autenticidade.vue', import.meta.ur
 const template = fonte.slice(0, fonte.indexOf('<script setup>'));
 const script = fonte.slice(fonte.indexOf('<script setup>'), fonte.indexOf('</script>'));
 const estilo = fonte.slice(fonte.indexOf('<style scoped>'));
+/* SEM OS COMENTÁRIOS. Eles CITAM os nomes velhos por escrito, de propósito —
+ * é assim que a explicação de por que uma coisa saiu fica junto do lugar de onde
+ * ela saiu. Procurar o nome no arquivo inteiro acharia a própria explicação, e é
+ * assim que nasce defeito falso. */
+const codigo = script.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+/** A gaveta "Mais opções deste lote", do miolo dela até o fecho do `<details>`. */
+const gaveta = (() => {
+  const i = template.indexOf('class="au-mais-miolo"');
+  assert.notEqual(i, -1, 'sumiu a gaveta das ações raras');
+  return template.slice(i, template.indexOf('</details>', i));
+})();
 
 /** O corpo de uma função do `<script setup>`, por contagem de chaves. */
 function corpoDaFuncao(nome) {
@@ -192,12 +203,23 @@ test('a escolha do modo fica lembrada, e o depósito quebrado não derruba a tel
 
 /* ── 4. A LIGAÇÃO COM A TELA ──────────────────────────────────────────────── */
 
+/* ⚠️ ERAM SETE NOMES, E SÃO TRÊS DESDE 01/09/2026. Não é código que sumiu: é o
+ * MODO que sumiu. `podeEntrarNaBancada`, `bancadaLembrada` e `lembrarBancada`
+ * gateavam e lembravam um interruptor que ligava este desenho por cima do outro
+ * — e o dono reclamou da aba assim quatro vezes. A aba Gravar VIROU a bancada:
+ * escolheu o lote, trabalha. `precisaSairDaBancada` também saiu, porque ela
+ * tirava a tela do modo quando a pergunta de sobrescrever aparecia, e agora essa
+ * pergunta nasce dentro da própria bancada, na largura inteira do painel.
+ * As quatro continuam no módulo, com os testes delas logo acima — quem apagar
+ * apaga as duas coisas de propósito, e não de passagem. */
 test('a tela chama a conta pura, e não reescreve nenhuma frase', () => {
   assert.match(script, /from '\.\/modo-bancada\.js'/, 'a tela não importa o módulo');
-  for (const nome of ['estadoDaBancada', 'acaoDaBancada', 'podeEntrarNaBancada',
-    'precisaSairDaBancada', 'bancadaLembrada', 'lembrarBancada', 'nomeDoModo']) {
+  for (const nome of ['estadoDaBancada', 'acaoDaBancada', 'nomeDoModo']) {
     assert.match(script, new RegExp(`\\b${nome}\\b`), `a tela não usa ${nome}`);
   }
+  // e o modo NÃO pode voltar por uma porta lateral: nada de interruptor
+  assert.doesNotMatch(codigo, /\bmodoBancada\b|\bnaBancada\b|\bentrarNaBancada\b|\bsairDaBancada\b/,
+    'voltou um modo para entrar — se a aba precisa de um modo, a aba deveria SER aquilo');
   // as frases de estado moram no módulo, que se prova. Uma cópia no `.vue` não
   // teria teste nenhum — `node --test` não compila `.vue`.
   for (const frase of ['Encoste a etiqueta', 'Gravando…', 'Deu erro']) {
@@ -240,27 +262,35 @@ test('a fase vem pelo segundo argumento do `aoContar`, não de ler a frase', () 
   assert.match(script, /aoContar: \(frase, fase\) =>/);
 });
 
-test('a pergunta de sobrescrever tira a tela do modo, no lugar em que ela nasce', () => {
-  assert.match(corpoDaFuncao('abrirPerguntaDeSobrescrita'),
-    /precisaSairDaBancada\(\{ sobrescrita: sobrescrita\.value \}\)/);
+test('a pergunta de sobrescrever nasce DENTRO da bancada, na largura inteira', () => {
+  // ela tinha de tirar a tela do modo porque não cabia num painel de máquina.
+  // Sem modo nenhum, ela é desenhada onde a pessoa já está olhando — e o botão
+  // de gravar sai de cena enquanto ela está na tela, senão "Gravar nesta
+  // etiqueta" ali do lado leria a MESMA etiqueta e devolveria a MESMA pergunta.
+  assert.match(template, /<div v-if="sobrescrita" class="au-confirma au-sobrescrita">/);
+  assert.match(template, /<div v-if="!sobrescrita" class="au-bancada-acao">/);
+  const grande = estilo.slice(estilo.indexOf('@media (min-width:900px){'));
+  assert.match(grande, /\.au-sobrescrita\{grid-column:1 \/ -1/,
+    'espremida numa coluna, a pergunta mais perigosa da ferramenta é onde o dedo erra o botão');
 });
 
-test('nada do que sai do modo bancada fica inalcançável (PADRAO item 8)', () => {
-  // cada coisa que some do painel continua existindo FORA dele, e a porta de
-  // volta é uma só e está sempre à vista
-  assert.match(template, /@click="sairDaBancada"/, 'sumiu a porta de saída');
-  assert.match(template, /@click="entrarNaBancada"/, 'sumiu a porta de entrada');
+test('nada do que saiu da frente da bancada ficou inalcançável (PADRAO item 8)', () => {
+  // As ações raras saíram da FRENTE, não da ferramenta: elas moram atrás de UM
+  // ponto de acesso discreto — "Mais opções deste lote". Antes eram seis links
+  // do mesmo peso soltos na tela, e seis do mesmo peso é o mesmo que nenhum.
+  assert.match(template, /<span>Mais opções deste lote<\/span>/, 'sumiu o ponto de acesso');
   assert.match(template, /@click="abrirGuia"/, 'o guia ficou sem chamador');
-  // o que some do painel é desenhado no `v-else` — a tela de hoje, inteira
   for (const marca of [
     'Dar baixa nesta peça', 'Excluir esta peça', 'Gravador de mesa',
     'Gravar pelo aplicativo', 'Gravar pelo leitor de mesa', 'Gravar encostando o celular',
-    'Travar a etiqueta depois de gravar',
+    'Travar a etiqueta depois de gravar', 'Baixar a lista das que faltam',
+    'Marcar as gravadas', 'Mostrar também os lotes encerrados', 'Desfazer',
   ]) {
-    assert.ok(template.includes(marca), `"${marca}" sumiu da ferramenta inteira`);
+    assert.ok(gaveta.includes(marca), `"${marca}" sumiu da gaveta — e da ferramenta`);
   }
-  // e a barra de abas volta com ela
-  assert.match(template, /<div v-if="!naBancada" class="abas"/);
+  // e a gaveta é UMA: duas gavetas é o mesmo problema em ponto menor
+  assert.equal((template.match(/<details class="au-mesa/g) || []).length, 1,
+    'voltou a haver mais de uma gaveta na aba Gravar');
 });
 
 /* ── 5. AS REGRAS DE DESENHO QUE O DONO PEDIU ─────────────────────────────── */
@@ -310,18 +340,35 @@ test('a cor NUNCA é o único aviso', () => {
   assert.match(template, /<p class="au-bancada-titulo">\{\{ estadoDaBancadaAgora\.titulo \}\}<\/p>/);
   assert.match(template, /<p class="au-bancada-detalhe">\{\{ estadoDaBancadaAgora\.detalhe \}\}<\/p>/);
   // e a peça da vez na fila não se distingue só pelo fundo: a palavra "agora"
-  assert.match(template, /'agora' : estadoDaPeca\(pf\)\.rotulo/);
+  // (com A maiúsculo: a fila era desenhada DUAS vezes neste arquivo, uma para o
+  // modo e outra para fora dele, com dois selos diferentes para a mesma coisa.
+  // Sobrou uma, e ela usa o selo escrito das classes prontas.)
+  assert.match(template, /'Agora' : estadoDaPeca\(pf\)\.rotulo/);
 });
 
-test('UMA ação principal no painel, e um botão só a carrega', () => {
-  const painel = template.slice(
-    template.indexOf('<section v-if="naBancada"'),
-    template.indexOf('</section>'),
+test('UMA ação principal na obra, e um botão só a carrega', () => {
+  // O RECORTE MUDOU em 01/09/2026: ele ia do `<section>` até o `</section>`, e
+  // ali dentro passou a viver também a pergunta de sobrescrever, que é um bloco
+  // com a decisão DELA e o botão principal DELA. O que este teste guarda é a
+  // obra — o número, o estado, a ação e o progresso —, que é onde a pessoa fica
+  // olhando enquanto grava cinquenta etiquetas.
+  const obra = template.slice(
+    template.indexOf('<div class="au-bancada-obra">'),
+    template.indexOf('<div v-if="filaAoRedor.length > 1"'),
   );
-  const principais = (painel.match(/class="au-botao/g) || []).length;
+  const principais = (obra.match(/class="au-botao/g) || []).length;
   assert.equal(principais, 1,
-    'o painel voltou a ter mais de uma ação principal — duas competindo é o mesmo que nenhuma');
-  assert.match(painel, /@click="tocarNaBancada"/);
+    'a obra voltou a ter mais de uma ação principal — duas competindo é o mesmo que nenhuma');
+  assert.match(obra, /@click="tocarNaBancada"/);
+  // e a gaveta das ações raras não tem NENHUM botão principal SOLTO: tudo lá
+  // fora das perguntas é secundário ou link. Cada pergunta que abre lá dentro é
+  // um bloco com UMA decisão, e o botão principal dela é o "sim" daquela
+  // decisão — é o mesmo desenho das outras quatro perguntas desta tela.
+  const semPerguntas = gaveta.replace(/<div v-if="[^"]*" class="au-confirma">[^]*?<\/div>\s*<\/div>/g, '');
+  const soltos = [...semPerguntas.matchAll(/class="au-botao"[^>]*>\s*([^<]{3,40})/g)]
+    .map((m) => m[1].trim().replace(/\s+/g, ' '));
+  assert.deepEqual(soltos, [],
+    'botão principal solto na gaveta das ações raras: ' + soltos.join(' | '));
 });
 
 test('o endereço deixa de ser o maior elemento nos modos automáticos', () => {
@@ -344,7 +391,13 @@ test('o painel do computador é UM bloco centrado, e não uma faixa num canto', 
     estilo.lastIndexOf('@media (max-width:520px){'),
   );
   assert.match(grande, /\.au-bancada\{\s*display:grid;/);
-  assert.match(grande, /grid-template-columns:minmax\(0,1fr\) minmax\(0,720px\) minmax\(0,1fr\);/,
+  // ⚠️ ERAM TRÊS COLUNAS, E SÃO QUATRO DESDE 01/09/2026. Com três — a fila
+  // dividindo a terceira com a margem — quem ficava centrado era só a obra, e a
+  // fila pendia para fora dela: medido a 1440px, sobravam 336px de margem à
+  // esquerda e 72px à direita. A regra continua a mesma, e é ela que este teste
+  // guarda: as colunas DE FORA são `1fr` iguais. O que mudou é que a fila ganhou
+  // coluna própria, para o que se centra ser o GRUPO (obra + fila).
+  assert.match(grande, /grid-template-columns:minmax\(0,1fr\) minmax\(0,720px\) minmax\(0,340px\) minmax\(0,1fr\);/,
     'as colunas de fora têm de ser iguais, senão o bloco sai do centro');
   assert.match(grande, /\.au-bancada-obra\{grid-column:2; grid-row:2; align-self:center;/);
   assert.match(grande, /\.au-bancada-lado\{grid-column:3; grid-row:2; align-self:center;/);
