@@ -3868,36 +3868,59 @@ onMounted(() => {
      e o progresso do lote. É o "link e os botões" do pedido.
 
      AS DUAS COLUNAS ENCHEM A LARGURA, e os números são medidos:
-       · a da direita é `min(560px, 40%)` — 556,8px a 1440. Ela é o tamanho da
-         AÇÃO: o botão principal tem teto de 360px (ver logo abaixo, é pedido do
-         dono), a secundária "Copiar endereço" pede ~155, e com o `gap` dá 527.
-         Uma coluna de 557 acomoda os dois na mesma linha e sobra quase nada. Um
-         teto em pixel além disso só viraria espaço morto num monitor grande;
-         os 40% são o que a faz encolher junto em telas menores, para ela nunca
-         ficar mais larga que o trabalho;
-       · a da esquerda fica com o resto: 803,2px a 1440. É onde moram os anéis
-         de 200px e as duas frases do estado.
-     Somadas com o `gap` de 32: 1392 de 1440, os mesmos 96,7% — só que agora
-     divididos entre duas colunas que têm o que mostrar.
+       · a da direita é `min(680px, 47%)` — 654,2px a 1440. QUEM MANDOU NESSE
+         NÚMERO FOI O ENDEREÇO, e não o gosto: "https://vesselbrasil.com.br/
+         verify/K7M4X05QP2" mede 541,9px em `--fonte-dados` no degrau
+         `--texto-titulo`, e com os 32px de recuo da caixa e a moldura pede 576.
+         A primeira tentativa desta entrega deu 556,8 à coluna e o endereço saiu
+         QUEBRADO no meio do código ("…K7M4X05Q / P2") — é justamente ele que a
+         pessoa lê e copia no modo do aplicativo, e código partido em duas
+         linhas é o defeito que a versão anterior desta tela já tinha pago.
+         A segunda tentativa deu 44%, que a 1440 são 612,5: cabia, com 2,5px de
+         folga — folga que uma fonte de reserva come inteira. Com 47% sobram 620
+         de espaço útil contra os 542 do endereço, e ele continua numa linha só
+         até 1280px de tela. O botão principal (teto de 360px, pedido do dono) e
+         a secundária "Copiar endereço" dividem a mesma linha dentro dela;
+       · a da esquerda fica com o resto: 705,8px a 1440. É onde moram os anéis
+         de 200px e as duas frases do estado. ELA É SEMPRE A MAIOR DAS DUAS, em
+         qualquer largura: com 47% para a direita, a esquerda fica com 53% menos
+         o `gap`, e isso só empataria numa tela de 581px — que já é celular, e lá
+         não há colunas.
+
+     ⚠️ ABAIXO DE 1280px O ENDEREÇO VOLTA A QUEBRAR EM DUAS LINHAS, e é o menor
+     dos males, medido: para caber a 1180px a coluna da direita precisaria de
+     610 dos 1132 disponíveis, ou seja ficaria MAIOR que a do trabalho — que é
+     exatamente o defeito que derrubou a primeira forma deste painel. A quebra
+     não perde nada: a caixa é `user-select:all`, então um clique continua
+     selecionando o endereço inteiro, e o "Copiar endereço" ao lado nunca
+     dependeu de o texto caber.
+
+     SOMADAS COM O `gap` DE 32: 1392 de 1440, os mesmos 96,7% de antes — só que
+     agora divididos entre duas colunas que têm o que mostrar, e nenhuma delas é
+     uma tira: 705,8 e 654,2 são as duas grandes que o dono pediu.
 
      ⚠️ A FILA DESCEU PARA UMA FAIXA, E NÃO SUMIU (PADRÃO item 8). Três colunas
      a 1440 dariam ~437px cada, e o bloco de estado com os anéis grandes mais a
      frase de socorro não cabe em 437 — foi medir para ver: a frase de 'erro'
      tem 150 caracteres. A fila, ao contrário, é feita de SEIS linhas curtas:
      em faixa ela usa os 1392px inteiros com seis fichas lado a lado, em vez de
-     empilhar seis linhas de 418px numa tira alta. Ela continua dizendo o mesmo:
+     empilhar seis linhas numa tira de 418px de largura. Ela continua dizendo o
+     mesmo:
      a que saiu, a da vez marcada com "Agora", e as quatro seguintes.
 
      A CENTRALIZAÇÃO QUE IMPORTA CONTINUA SENDO A VERTICAL — `align-self:center`
      com o teto de altura logo abaixo. */
   .au-bancada{
     display:grid;
-    /* ⚠️ `min(560px, 40%)` E NÃO `560px` FIXO, pelo mesmo motivo que a forma
+    /* ⚠️ `min(680px, 47%)` E NÃO `680px` FIXO, pelo mesmo motivo que a forma
        anterior usava `min(420px, 30%)`: com a coluna travada em pixel, a 900px
-       de tela a coluna da direita ficaria com 560 e a do trabalho com 260 — a
-       lateral MAIS LARGA que o trabalho. Com os 40% as duas encolhem juntas:
-       556,8 a 1440px, 340,8 a 900px, e a da esquerda nunca fica menor. */
-    grid-template-columns:minmax(0,1fr) minmax(0,min(560px, 40%));
+       de tela a coluna da direita ficaria com 680 e a do trabalho com 140 — a
+       lateral MAIS LARGA que o trabalho. Com os 47% as duas encolhem juntas:
+       654,2 a 1440px, 400,4 a 900px, e a da esquerda nunca fica menor. O teto
+       em pixel só entra a partir de 1495px de tela, e é ele que impede a coluna
+       da ação de virar uma faixa de 900px num monitor grande para segurar um
+       botão de 360. */
+    grid-template-columns:minmax(0,1fr) minmax(0,min(680px, 47%));
     /* SÓ DUAS LINHAS DECLARADAS. A faixa da fila (linha 3) e a pergunta de
        sobrescrever (linha 4) entram como linhas IMPLÍCITAS, e é de propósito:
        linha declarada que fica vazia continua gerando `row-gap`, e isso é 24px
@@ -3921,9 +3944,20 @@ onMounted(() => {
      largura, a linha vertical do bloco É a da página. */
   .au-mais{max-width:none; margin-left:24px; margin-right:24px;}
   .au-bancada-topo{grid-column:1 / -1; grid-row:1; align-self:start;}
-  /* AS DUAS COLUNAS, no centro óptico VERTICAL da faixa que sobra. */
-  .au-bancada-obra{grid-column:1; grid-row:2; align-self:center; gap:var(--sp-4);}
-  .au-bancada-comandos{grid-column:2; grid-row:2; align-self:center; gap:var(--sp-4);}
+  /* AS DUAS COLUNAS, no centro óptico VERTICAL da faixa que sobra.
+     O NÚMERO DA PEÇA COLA NO BLOCO DE ESTADO — `--sp-3` e não `--sp-4`. Ele é o
+     título daquele bloco, não um terceiro assunto, e cada pixel que ele ganha de
+     folga vira faixa vazia ao lado dele, que é o defeito que esta entrega veio
+     desfazer. */
+  .au-bancada-obra{grid-column:1; grid-row:2; align-self:center; gap:var(--sp-3);}
+  /* A COLUNA DA AÇÃO RESPIRA MAIS QUE A DO CELULAR — `--sp-6` no lugar de
+     `--sp-4`, e o motivo é medido, não estético. Ela tem três assuntos (o
+     endereço, os botões, o progresso) e é MAIS BAIXA que a coluna da esquerda,
+     que carrega os anéis de 200px. Centrada, a diferença de altura vira vão
+     acima e abaixo dela: com `--sp-4` o maior vazio contínuo do painel media
+     664 × 96px; com `--sp-6` a coluna cresce 32px e o vazio cai junto. O espaço
+     que sobrava virou respiro entre os três blocos. */
+  .au-bancada-comandos{grid-column:2; grid-row:2; align-self:center; gap:var(--sp-6);}
   .au-bancada-topo > *:last-child{margin-left:auto;}
 
   /* ── O BLOCO DE ESTADO VIRA UMA COLUNA, E A ANIMAÇÃO CRESCE ────────────
@@ -3932,8 +3966,8 @@ onMounted(() => {
      um metro da tela lê o movimento antes de ler a palavra. Então os anéis
      sobem para o alto do bloco, com 200px em vez de 104, e o texto fica embaixo
      deles — os dois centrados, que é como um painel de máquina se lê.
-     O texto tem teto de largura: uma frase de socorro com 150 caracteres em
-     linha de 760px o olho perde na volta. */
+     O texto tem teto de largura: uma frase de socorro com 150 caracteres numa
+     linha de 658px o olho perde na volta. */
   .au-bancada-estado{
     flex-direction:column; align-items:center; text-align:center;
     gap:var(--sp-4); padding:var(--sp-5);
@@ -3941,7 +3975,7 @@ onMounted(() => {
   .au-aneis-caixa{width:200px; height:200px;}
   .au-bancada-dito{max-width:520px;}
   /* O NÚMERO DA PEÇA acompanha o eixo do bloco de estado: solto à esquerda de
-     uma coluna de 800px, ele ficava a meio metro do que ele nomeia. */
+     uma coluna de 706px, ele ficava longe do que ele nomeia. */
   .au-bancada-peca{text-align:center;}
 
   /* ── A FILA, EM FAIXA ──────────────────────────────────────────────────
@@ -3955,10 +3989,14 @@ onMounted(() => {
     padding-top:var(--sp-4); border-top:1px solid var(--border);
   }
   .au-bancada-fila .au-fila-lista{flex-direction:row; flex-wrap:wrap; gap:var(--sp-2);}
-  /* `flex:1 1 200px` e não largura fixa: com seis peças elas dividem a faixa em
-     seis; com duas, as duas dividem a faixa em duas. O piso de 200px é o que
-     faz a última quebrar para a linha de baixo em vez de espremer o código. */
-  .au-bancada-fila .au-fila-item{flex:1 1 200px; border-color:var(--border);}
+  /* `flex:1 1 auto` e não um piso em pixel. MEDIDO: com `flex:1 1 200px` as seis
+     fichas saíam com 225px cada e o selo "Pendente" (66px) não cabia na mesma
+     linha do código — três das seis quebravam em duas linhas e as outras três
+     não, e a faixa ficava serrilhada. Com `auto`, cada ficha nasce do tamanho do
+     que ela tem dentro e o que sobra da faixa é dividido entre elas: as seis
+     ficam numa linha só, cada uma com uma linha só. Quando não couberem, o
+     `flex-wrap` desce as que sobram — sem espremer código nenhum. */
+  .au-bancada-fila .au-fila-item{flex:1 1 auto; border-color:var(--border);}
   /* O SELO ENCOSTA NA DIREITA DA FICHA: o estado de cada peça vira uma coluna
      que o olho desce, em vez de três pedaços amontoados à esquerda. */
   .au-bancada-fila .au-fila-item .selo{margin-left:auto;}

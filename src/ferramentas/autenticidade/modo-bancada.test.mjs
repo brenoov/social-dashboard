@@ -451,10 +451,15 @@ test('o painel do computador é DUAS COLUNAS que enchem a largura', () => {
   // O QUE ESTE TESTE GUARDA, e são as três coisas que quebram calado:
   //   1. não voltar a haver coluna de MARGEM — as duas colunas são de conteúdo,
   //      e o recuo é o mesmo 24px do resto da ferramenta (PADRÃO item 7);
-  //   2. a coluna da ação não passar da do trabalho. Travada em `560px`, a
-  //      900px de tela ela ficaria com 560 e o trabalho com 260 — a lateral
+  //   2. a coluna da ação não passar da do trabalho. Travada em `680px`, a
+  //      900px de tela ela ficaria com 680 e o trabalho com 140 — a lateral
   //      MAIS LARGA que o trabalho, que foi o defeito da 1ª forma. O
-  //      `min(560px, 40%)` é o conserto: 556,8 a 1440px, 340,8 a 900px;
+  //      `min(680px, 47%)` é o conserto: 654,2 a 1440px, 400,4 a 900px, e a do
+  //      trabalho sempre maior. E os 47% não são gosto: o endereço da peça mede
+  //      541,9px em `--fonte-dados` no degrau `--texto-titulo`, e com o recuo da
+  //      caixa pede 576 para não quebrar no meio do código — que é o que a
+  //      pessoa lê e copia. Com 44% ele cabia com 2,5px de folga, que uma fonte
+  //      de reserva come inteira; com 47% sobram 78;
   //   3. a fila continuar existindo, atravessada, e não voltar a ser a terceira
   //      coluna estreita.
   //
@@ -467,7 +472,7 @@ test('o painel do computador é DUAS COLUNAS que enchem a largura', () => {
   assert.match(grande, /\.au-bancada\{\s*display:grid;/);
   const colunas = grande.match(/\.au-bancada\{[^}]*grid-template-columns:([^;]+);/);
   assert.ok(colunas, 'sumiu o `grid-template-columns` da bancada');
-  assert.equal(colunas[1].trim(), 'minmax(0,1fr) minmax(0,min(560px, 40%))',
+  assert.equal(colunas[1].trim(), 'minmax(0,1fr) minmax(0,min(680px, 47%))',
     'a bancada voltou a ter coluna de margem, ou a coluna da ação voltou a ter largura fixa');
   assert.match(grande, /\.au-bancada-obra\{grid-column:1; grid-row:2; align-self:center;/);
   assert.match(grande, /\.au-bancada-comandos\{grid-column:2; grid-row:2; align-self:center;/);
