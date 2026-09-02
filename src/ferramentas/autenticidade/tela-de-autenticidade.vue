@@ -95,7 +95,11 @@
            (min-width)` do fim do arquivo: no celular ela não pinta nada, e a
            coluna única de hoje fica exatamente como está. -->
       <div class="au-lista au-grade-de-lotes">
-        <div v-for="l in lotesVisiveis" :key="l.id" class="au-card">
+        <!-- `data-lote` é o gancho de `trazerOLoteParaAVista`: quando o cartão
+             abre, ele sobe para a primeira linha da grade (o `order:-1` do CSS)
+             e a tela rola até ele. Sem o atributo, a rolagem não tem como achar
+             o cartão certo entre seis iguais. -->
+        <div v-for="l in lotesVisiveis" :key="l.id" class="au-card" :data-lote="l.id">
           <div class="au-card-topo">
             <span class="au-modelo">{{ l.modelo }}</span>
             <span class="au-progresso">{{ progressoDoLote(pecasDoLote(l.id)).texto }} gravadas</span>
@@ -583,7 +587,7 @@
              ou link. O único botão principal desta aba é o de gravar, lá em
              cima. As perguntas que abrem aqui dentro têm o botão principal
              DELAS, porque cada pergunta é um bloco com uma decisão só. -->
-        <details class="au-mesa au-mais">
+        <details class="au-mais au-mais-da-bancada">
           <!-- A seta é desenhada aqui porque `display:flex` no <summary> apaga o
                triângulo que o Chrome desenha sozinho — e o triângulo era a única
                pista de que esta gaveta abre. Em SVG, nunca emoji. -->
@@ -702,35 +706,32 @@
               </label>
             </template>
 
-            <!-- ── O GRAVADOR DE MESA: a mesma fila, de ida e de volta ─────── -->
-            <p class="au-mais-titulo">Gravador de mesa</p>
-            <div class="au-acoes">
-              <button class="au-botao secundario" type="button" @click="baixarListaDoGravador">
-                Baixar a lista das que faltam
-              </button>
-            </div>
-            <textarea v-model="textoDoGravador" class="au-colar"
-                      placeholder="Cole aqui o que o gravador devolveu"></textarea>
-            <div v-if="podeEditar && !confirmacaoDoGravador" class="au-acoes">
-              <button class="au-botao secundario" type="button"
-                      @click="pedirParaMarcarPeloGravador">
-                Marcar as gravadas
-              </button>
-            </div>
-            <div v-if="podeEditar && confirmacaoDoGravador" class="au-confirma">
-              <p class="au-confirma-texto">
-                Marcar {{ confirmacaoDoGravador.reconhecidos.length }} peça(s) como gravadas?
-                Isso não confere etiqueta nenhuma — só use depois de gravar de verdade
-                no gravador de mesa.
-              </p>
-              <div class="au-acoes">
-                <button class="au-botao secundario" type="button"
-                        @click="confirmacaoDoGravador = null">Cancelar</button>
-                <button class="au-botao" type="button" @click="marcarPeloGravador">
-                  Sim, marcar
-                </button>
-              </div>
-            </div>
+            <!-- ══════════════════════════════════════════════════════════════
+                 A GAVETA "GRAVADOR DE MESA" SAIU DAQUI (02/09/2026)
+                 ══════════════════════════════════════════════════════════════
+                 O dono perguntou se ela ainda fazia sentido. Metade não fazia.
+
+                 · "Baixar a lista das que faltam" — SAIU DA FERRAMENTA, e é o
+                   único pedaço desta entrega que sai de verdade. Ele nasceu
+                   quando não existia programa de gravação: o jeito de alimentar
+                   a máquina era um .txt com os endereços que faltavam. Hoje há
+                   três caminhos melhores e escritos logo acima, em "Por onde
+                   gravar" (leitor de mesa, celular, copiar), e a lista em
+                   arquivo já existe COMPLETA e mais informativa na aba 1 Lotes:
+                   "Baixar a lista inteira", dentro de "Ver as peças e os
+                   links", que sai em CSV com número, código, estado e endereço
+                   de TODAS as peças. Nada ficou inalcançável.
+
+                 · O CAMPO DE COLAR O RETORNO — NÃO saiu: mudou de casa, para a
+                   aba 3 Etiquetas, logo abaixo do seletor de lote. Ele marca
+                   cinquenta peças de uma vez a partir de um log, e sem o
+                   programa instalado é o único jeito de fazer isso sem
+                   cinquenta cliques. O motivo da mudança é que ele NUNCA foi da
+                   bancada: quem está com a etiqueta na mão grava uma por vez,
+                   e colar um log é conserto em bloco — que é o assunto da aba
+                   Etiquetas. Lá ele ganhou de graça o que aqui não tinha:
+                   funciona com "Todos os lotes", e não só com o lote da
+                   bancada. -->
 
             <!-- ── QUAIS LOTES O SELETOR OFERECE ─────────────────────────────
                  A ÚNICA COISA QUE A BUSCA DESTA ABA FAZIA E A DA ABA LOTES NÃO
@@ -806,6 +807,64 @@
           </option>
         </select>
       </label>
+
+      <!-- ══════════════════════════════════════════════════════════════════
+           MARCAR EM BLOCO PELO GRAVADOR DE MESA — chegou aqui em 02/09/2026
+           ══════════════════════════════════════════════════════════════════
+           ELE MORAVA NA ABA GRAVAR, dentro de "Mais opções deste lote", ao lado
+           de um botão de baixar lista que esta entrega apagou. Veio para cá
+           porque nunca foi da bancada: lá se grava UMA peça por vez, com a
+           etiqueta na mão; colar um log do gravador de mesa é conserto EM
+           BLOCO, e conserto em bloco é o assunto desta aba — a mesma que apaga
+           uma gravação. As duas são a mesma decisão, em direções opostas.
+
+           ELE FICA LOGO ABAIXO DO SELETOR DE LOTE porque é dele que sai o
+           recorte, e isso é ganho: na bancada ele só conferia contra o lote da
+           bancada; aqui, com "Todos os lotes", ele confere contra a ferramenta
+           inteira — quem colou o log de duas fornadas juntas não precisa mais
+           colar duas vezes.
+
+           A GAVETA NASCE FECHADA. É uma ação rara e destrutiva à sua maneira
+           (marca sem conferir etiqueta nenhuma), e ação rara não ocupa espaço
+           de tela para sempre — é a mesma regra do "Mais opções deste lote". -->
+      <details class="au-mais au-marcar-bloco">
+        <summary>
+          <svg class="au-seta" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"
+               fill="none" stroke="currentColor" stroke-width="2.4"
+               stroke-linecap="round" stroke-linejoin="round"><polyline points="9 5 16 12 9 19" /></svg>
+          <span>Marcar várias de uma vez, pelo gravador de mesa</span>
+        </summary>
+        <div class="au-mais-miolo">
+          <p class="au-aviso-menor">
+            Cole o que o gravador de mesa devolveu — arquivo, planilha ou log solto, tanto
+            faz o formato. A tela procura os códigos lá dentro e confere contra
+            <strong>{{ escopoDeMarcarEmBloco }}</strong>.
+          </p>
+          <textarea v-model="textoDoGravador" class="au-colar"
+                    aria-label="Cole aqui o que o gravador devolveu"
+                    placeholder="Cole aqui o que o gravador devolveu"></textarea>
+          <div v-if="podeEditar && !confirmacaoDoGravador" class="au-acoes">
+            <button class="au-botao secundario" type="button"
+                    @click="pedirParaMarcarPeloGravador">
+              Marcar as gravadas
+            </button>
+          </div>
+          <div v-if="podeEditar && confirmacaoDoGravador" class="au-confirma">
+            <p class="au-confirma-texto">
+              Marcar {{ confirmacaoDoGravador.reconhecidos.length }} peça(s) como gravadas?
+              Isso não confere etiqueta nenhuma — só use depois de gravar de verdade
+              no gravador de mesa.
+            </p>
+            <div class="au-acoes">
+              <button class="au-botao secundario" type="button"
+                      @click="confirmacaoDoGravador = null">Cancelar</button>
+              <button class="au-botao" type="button" @click="marcarPeloGravador">
+                Sim, marcar
+              </button>
+            </div>
+          </div>
+        </div>
+      </details>
 
       <!-- ── A BUSCA ─────────────────────────────────────────────────────
            A aba abre nos ÚLTIMOS 30 DIAS, e o resto fica atrás da busca: quem
@@ -1182,7 +1241,7 @@
  * porque a garantia de "nenhum código repetido" é da chave primária. Ver
  * db/migrations/2026-08-05-vessel-painel.sql.
  */
-import { ref, reactive, computed, watch, onMounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import BarraDeTopo from '../../compartilhado/barra-de-topo.vue'
 import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
@@ -1195,7 +1254,12 @@ import {
   codigosComGarantia, etiquetasGravadas, motivoObrigatorio, descricaoDaPeca,
 } from './lotes.js'
 import {
-  conferirLeitura, codigoDoEndereco, listaParaGravadorDeMesa, codigosNoTextoDoGravador,
+  // ⚠️ `listaParaGravadorDeMesa` NÃO entra mais aqui, e não é esquecimento: o
+  // botão "Baixar a lista das que faltam" saiu da ferramenta em 02/09/2026 (o
+  // porquê está escrito na gaveta da aba Gravar e em `baixarListaDoLote`). A
+  // função continua em `nfc-fila.js`, com os testes dela — importar sem chamar
+  // deixaria um aviso de `unused` e esconderia a decisão.
+  conferirLeitura, codigoDoEndereco, codigosNoTextoDoGravador,
 } from './nfc-fila.js'
 // `PASSOS` e `passoAtual` NÃO entram mais aqui, e isso não é esquecimento: a
 // lista dos três passos (Criar / Gravar / Conferir) era o bloco 2 dos OITO que
@@ -1619,12 +1683,28 @@ const pecasVisiveis = computed(() => pecasDoLoteAberto.value.slice(0, quantasMos
 const pecasQueFaltamMostrar = computed(
   () => Math.max(0, pecasDoLoteAberto.value.length - pecasVisiveis.value.length))
 
+// O CARTÃO ABERTO SOBE PARA A PRIMEIRA LINHA DA GRADE (o `order:-1` do CSS da
+// tela grande, que é o conserto do buraco que ficava na fileira dele). Sem esta
+// rolagem, abrir um lote da terceira fileira o mandaria para cima da vista e a
+// pessoa acharia que o cartão sumiu.
+//
+// `block:'nearest'` de propósito: ele só rola o quanto for preciso para o
+// cartão caber na tela, e NÃO faz nada quando ele já está visível — que é
+// exatamente o caso do celular, onde não há grade e nada se move de lugar.
+async function trazerOLoteParaAVista(id) {
+  await nextTick()
+  document.querySelector(`.au-grade-de-lotes > [data-lote="${id}"]`)
+    ?.scrollIntoView({ block: 'nearest' })
+}
+
 function alternarPecas(id) {
-  loteAberto.value = loteAberto.value === id ? null : id
+  const abrindo = loteAberto.value !== id
+  loteAberto.value = abrindo ? id : null
   // recomeça do topo: deixar o limite crescido de um lote de 500 faria o lote
   // seguinte desenhar 500 linhas de uma vez, que é o que este limite evita
   quantasMostrar.value = DE_CADA_VEZ
   enderecoCopiado.value = ''
+  if (abrindo) trazerOLoteParaAVista(id)
 }
 
 function mostrarMaisPecas() { quantasMostrar.value += DE_CADA_VEZ }
@@ -1637,6 +1717,22 @@ function mostrarMaisPecas() { quantasMostrar.value += DE_CADA_VEZ }
 // `vessel_desmarcar_gravada` aceita.
 const loteDaEtiqueta = ref('')
 const quantasEtiquetas = ref(DE_CADA_VEZ)
+
+// ── O RECORTE DE "MARCAR VÁRIAS DE UMA VEZ" ────────────────────────────────
+// Quando a gaveta chegou aqui vinda da aba Gravar, ela deixou de ter um lote
+// obrigatório: o seletor desta aba abre em "Todos os lotes". Isso é ganho, e
+// não folga — o log do gravador de mesa pode ter duas fornadas juntas, e antes
+// a pessoa tinha de colar duas vezes.
+//
+// O QUE NÃO MUDOU: só entra código que EXISTE como peça. `codigosNoTextoDoGravador`
+// confere contra esta lista, então lixo no texto continua não virando marcação.
+const pecasDeMarcarEmBloco = computed(
+  () => (loteDaEtiqueta.value ? pecasDoLote(loteDaEtiqueta.value) : pecas.value))
+// A frase que a gaveta mostra, para a pessoa saber contra o que está conferindo
+// ANTES de apertar — e não depois, no aviso.
+const escopoDeMarcarEmBloco = computed(() => (loteDaEtiqueta.value
+  ? `as ${pecasDeMarcarEmBloco.value.length} peça(s) deste lote`
+  : `as ${pecasDeMarcarEmBloco.value.length} peça(s) de todos os lotes`))
 
 // A pergunta aberta, ou null. Guarda a peça CONTADA no momento do clique
 // (código, descrição e se tinha garantia): com a lista recarregando por baixo,
@@ -2041,6 +2137,8 @@ function abrirEdicao(l) {
   edicao.sku = l.sku || ''
   edicao.fabricado_em = l.fabricado_em || ''
   edicao.quantidade = l.quantidade || 1
+  // o cartão em edição também vira faixa e sobe para a primeira linha
+  trazerOLoteParaAVista(l.id)
 }
 
 function pedirExcluir(id) {
@@ -2052,6 +2150,9 @@ function pedirExcluir(id) {
   etapaDeExcluir.value = 1
   senhaDaExclusao.value = ''
   erroDaSenha.value = ''
+  // e o cartão com a pergunta aberta idem: perder de vista a pergunta que se
+  // acabou de abrir é pior aqui do que em qualquer outro lugar desta tela
+  trazerOLoteParaAVista(id)
 }
 
 function fecharExcluir() {
@@ -2598,24 +2699,24 @@ function avisoDeMeiaSobrescrita(pedido) {
     + 'peça — ela volta para a fila — e grave esta MESMA etiqueta de novo.'
 }
 
-// ── O GRAVADOR DE MESA: a mesma fila, de ida e de volta ────────────────────
+// ── O GRAVADOR DE MESA: só a volta ─────────────────────────────────────────
+//
+// ⚠️ A IDA ACABOU EM 02/09/2026. `baixarListaDoGravador` escrevia um .txt com
+// os endereços que faltavam, para alimentar a máquina — e ela nasceu quando não
+// existia programa de gravação nenhum. Hoje há três caminhos melhores ("Por
+// onde gravar", na aba Gravar) e a lista em arquivo já existe COMPLETA logo
+// aqui embaixo, em `baixarListaDoLote`, que a aba Lotes oferece como "Baixar a
+// lista inteira" e sai com todas as peças, o estado e o endereço de cada uma.
+// Duas listas para o mesmo dedo era uma a mais.
+//
+// `listaParaGravadorDeMesa`, em `nfc-fila.js`, CONTINUA LÁ com os testes dela.
+// Está sem chamador de propósito, e não por esquecimento: ela é a única cópia
+// da regra "a fila do que falta são as não gravadas e não baixadas", e quem for
+// apagá-la tem de apagar os testes junto — de propósito, não de passagem.
 
-function baixarListaDoGravador() {
-  const lista = listaParaGravadorDeMesa(pecasDoLote(loteEscolhido.value))
-  if (!lista) { adminToast('Não falta nenhuma etiqueta neste lote', false); return }
-  const url = URL.createObjectURL(new Blob([lista], { type: 'text/plain;charset=utf-8' }))
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `etiquetas-${loteAtual.value?.modelo || 'lote'}.txt`
-  a.click()
-  URL.revokeObjectURL(url)
-}
-
-// A LISTA INTEIRA DO LOTE, para arquivar junto da ordem de produção.
-// Função NOVA, e não um remendo em `baixarListaDoGravador` logo acima: aquela
-// baixa a FILA DO QUE FALTA e alimenta o gravador de mesa — misturar as
-// gravadas nela mandaria a máquina regravar etiqueta que já está dentro de uma
-// bolsa. São duas listas de propósito.
+// A LISTA INTEIRA DO LOTE, para arquivar junto da ordem de produção. Ela é
+// também, desde 02/09/2026, o ÚNICO caminho para ter os endereços em arquivo:
+// sai com TODAS as peças, e não só com a fila do que falta.
 function baixarListaDoLote(l) {
   const doLote = pecasDoLote(l.id)
   if (!doLote.length) { adminToast('Este lote não tem peça nenhuma', false); return }
@@ -2641,9 +2742,10 @@ function baixarListaDoLote(l) {
 // uma pergunta que diz o número e diz o que NÃO foi conferido.
 function pedirParaMarcarPeloGravador() {
   const { reconhecidos, ignorados } = codigosNoTextoDoGravador(
-    textoDoGravador.value, pecasDoLote(loteEscolhido.value))
+    textoDoGravador.value, pecasDeMarcarEmBloco.value)
   if (!reconhecidos.length) {
-    adminToast('Não achei nenhum código deste lote no texto colado', false)
+    adminToast(`Não achei nenhum código ${loteDaEtiqueta.value ? 'deste lote' : 'da ferramenta'} `
+      + 'no texto colado', false)
     return
   }
   // guarda o que foi contado: é exatamente isso que a pergunta promete marcar,
@@ -2675,8 +2777,15 @@ async function marcarPeloGravador() {
       + '— confira sua permissão e tente de novo.', false)
     return
   }
+  // O AVISO DIZ O QUE OS IGNORADOS SÃO, e isso depende do recorte: com um lote
+  // escolhido eles são códigos de OUTRO lote (normalmente o arquivo errado);
+  // com "Todos os lotes" eles não são de peça nenhuma da ferramenta, que é
+  // outra história e pede outra conferência. Uma frase só para os dois casos
+  // mandaria a pessoa procurar o defeito no lugar errado.
   adminToast(ignorados.length
-    ? `${reconhecidos.length} marcadas. ${ignorados.length} código(s) de OUTRO lote foram ignorados — confira se o arquivo é deste lote.`
+    ? `${reconhecidos.length} marcadas. ${ignorados.length} código(s) ${loteDaEtiqueta.value
+      ? 'de OUTRO lote foram ignorados — confira se o arquivo é deste lote.'
+      : 'não constam em peça nenhuma e foram ignorados — confira se o arquivo é desta ferramenta.'}`
     : `${reconhecidos.length} etiqueta(s) marcadas como gravadas.`)
 }
 
@@ -2766,7 +2875,7 @@ onMounted(() => {
    texto secundário — e não uma barra desenhada, que viraria mais uma linha
    brigando com o sublinhado da aba ativa. Ele é enfeite de leitura, então sai
    da árvore de acessibilidade (`aria-hidden`) e não recebe toque. */
-.au-abas-sep{align-self:center;padding:0 var(--sp-1);color:var(--muted);font-size:var(--texto-etiqueta);user-select:none;pointer-events:none;}
+.au-abas-sep{flex:0 0 auto;align-self:center;padding:0 var(--sp-1);color:var(--muted);font-size:var(--texto-etiqueta);user-select:none;pointer-events:none;}
 
 /* A AJUDA CURTA DA ABA, logo abaixo da barra. Ela fica sempre à vista nas
    quatro abas de consulta e de lista: guia único ninguém reabre.
@@ -2828,10 +2937,19 @@ onMounted(() => {
    motores (`list-style` no padrão, `::-webkit-details-marker` no WebKit velho) e
    a seta vira o SVG do template, que gira ao abrir e existe igual em todo
    navegador. */
-.au-mesa summary{display:flex;align-items:center;gap:8px;min-height:40px;cursor:pointer;font-family:var(--fonte-principal);font-size:var(--texto-corpo);font-weight:600;color:var(--text);list-style:none;}
-.au-mesa summary::-webkit-details-marker{display:none;}
+/* ⚠️ ESTAS TRÊS REGRAS ERAM `.au-mesa`, E VIRARAM `.au-mais` EM 02/09/2026.
+   `au-mesa` era o resto do nome do bloco "gravador de mesa", que já tinha virado
+   a gaveta genérica das ações raras — e nesta entrega o gravador de mesa saiu de
+   lá de vez. Classe cujo nome não diz mais o que ela faz é a que alguém
+   "conserta" errado depois. `.au-mais` é a gaveta, e agora são DUAS na
+   ferramenta: "Mais opções deste lote", na aba Gravar, e "Marcar várias de uma
+   vez", na aba Etiquetas — as duas com o mesmo desenho, pela mesma regra.
+   `display:flex` no <summary> apaga o marcador nativo nos dois motores, e a
+   seta vira o SVG do template. 40px de alvo. */
+.au-mais summary{display:flex;align-items:center;gap:8px;min-height:40px;cursor:pointer;font-family:var(--fonte-principal);font-size:var(--texto-corpo);font-weight:600;color:var(--text);list-style:none;}
+.au-mais summary::-webkit-details-marker{display:none;}
 .au-seta{flex-shrink:0;color:var(--accent);transition:transform .15s;}
-.au-mesa[open] > summary .au-seta{transform:rotate(90deg);}
+.au-mais[open] > summary .au-seta{transform:rotate(90deg);}
 /* 16px no campo não é estética: abaixo disso o iOS dá zoom ao focar e a tela
    salta na cara de quem está digitando. */
 .au-colar{display:block;width:100%;min-height:90px;margin:10px 0;box-sizing:border-box;font-family:var(--fonte-principal);font-size:var(--texto-campo);line-height:1.5;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface);color:var(--text);}
@@ -3484,14 +3602,43 @@ onMounted(() => {
     display:grid; grid-template-columns:repeat(auto-fill, minmax(440px, 1fr));
     gap:var(--sp-4); align-items:start;
   }
-  /* O CARTÃO ABERTO OCUPA A LARGURA TODA. Dentro dele mora a tabela das peças,
-     com seis colunas e o endereço inteiro: espremida em 440px ela não seria
-     tabela nenhuma. O mesmo vale para o formulário de editar e para as duas
-     perguntas de excluir, que são conversas — e conversa espremida numa coluna
-     de grade é onde o dedo erra o botão. */
+  /* O CARTÃO ABERTO OCUPA A LARGURA TODA, E SOBE PARA A PRIMEIRA LINHA.
+     Dentro dele mora a tabela das peças, com seis colunas e o endereço inteiro:
+     espremida em 440px ela não seria tabela nenhuma. O mesmo vale para o
+     formulário de editar e para as duas perguntas de excluir, que são conversas
+     — e conversa espremida numa coluna de grade é onde o dedo erra o botão.
+
+     ⚠️ O `order:-1` É O CONSERTO DE UM BURACO NA GRADE, e sem ele a largura
+     inteira sozinha é um defeito. O dono: "os cartões ficam em grade, mas o
+     cartão aberto ocupa a largura toda e os outros voltam para a grade abaixo
+     dele; fica desalinhado e parece defeito".
+
+     MEDIDO a 1440px, com o terceiro de seis lotes aberto e três colunas:
+       lote 1 → x=24    lote 2 → x=493   [ VAZIO em x=963 ]
+       lote 3 → x=24, largura 1392 (o aberto, sozinho na sua linha)
+       lote 4 → x=24    lote 5 → x=493   lote 6 → x=963
+     O buraco na primeira linha é o que se vê como "defeito": um item que ocupa
+     a linha inteira não cabe no que sobrou da linha em que ele estava, então
+     ele desce — e o que sobrou fica vazio para sempre.
+
+     `order:-1` põe o aberto na FRENTE de todos: ele vira a primeira linha, de
+     ponta a ponta, e os fechados descem para uma grade inteira embaixo, sem
+     nenhum vão. Foi a saída escolhida entre três:
+       · `grid-auto-flow:dense` tapa o buraco puxando cartões de baixo para
+         cima — mas a ordem que o olho lê deixa de ser a do HTML, e quem usa
+         teclado passa a andar em ziguezague;
+       · deixar o aberto na coluna dele espremeria a tabela de seis colunas em
+         440px, que é o que a largura inteira existe para evitar;
+       · o aberto na frente mantém as duas ordens iguais e a grade inteira.
+     A pessoa não perde o cartão de vista: `trazerOLoteParaAVista` rola até ele.
+
+     Vale SÓ no computador, e é por isso que estas duas linhas moram dentro do
+     `@media (min-width:900px)`: no celular a lista é uma coluna, não há grade,
+     não há buraco — e `order:-1` ali faria o cartão saltar para o alto da tela
+     sem motivo nenhum. */
   .au-grade-de-lotes > .au-card:has(.au-pecas),
   .au-grade-de-lotes > .au-card:has(.au-edicao),
-  .au-grade-de-lotes > .au-card:has(.au-confirma){grid-column:1 / -1;}
+  .au-grade-de-lotes > .au-card:has(.au-confirma){grid-column:1 / -1; order:-1;}
 
   /* ── 3. AS LISTAS DE VARREDURA VIRAM TABELA ────────────────────────────
      Cartão é a forma certa para UMA coisa por vez, e continua sendo a do
@@ -3597,8 +3744,29 @@ onMounted(() => {
     display:grid; align-items:center; gap:var(--sp-2) var(--sp-4);
     padding:var(--sp-2) var(--sp-3);
   }
+  /* ⚠️ A COLUNA DO ENDEREÇO TEM PISO EM PIXEL, E A DO "Nº" TAMBÉM.
+     O dono viu o endereço quebrando a ÚLTIMA LETRA sozinha na linha de baixo
+     ("…K7M4X001Q / P") e disse que endereço cortado atrapalha quem confere.
+     MEDIDO no navegador a 1440px, e a conta é de dar raiva de tão apertada:
+       · o endereço inteiro numa linha, em `--fonte-dados` a 13px: 353px
+       · a coluna, com `minmax(0, 2.4fr)`:                          349px
+     Faltavam QUATRO pixels, e é por isso que caía exatamente uma letra.
+     `minmax(380px, 2.4fr)` dá 27px de folga sobre a medida — o bastante para o
+     tema escuro, onde `--fonte-dados` é outra família (Oswald), e para quem
+     aumentou a letra do sistema em um degrau.
+     O SEGUNDO PISO É CONSEQUÊNCIA DO PRIMEIRO, e foi medido depois dele: com o
+     endereço tomando 380px numa janela de 900px, a coluna do "Nº" (`.5fr`)
+     caía para 28px e passava a cortar "nº 10" em VINTE E UMA linhas seguidas.
+     Trocar um texto cortado por outro não é conserto. `minmax(48px, .5fr)` é o
+     que "nº 500" precisa — o maior número que um lote pode ter, porque a
+     quantidade vai até 500.
+
+     As outras quatro continuam `minmax(0, Nfr)` de propósito: fração não
+     estoura a largura, e a página nunca ganha rolagem horizontal por causa da
+     tabela. Os dois pisos somados dão 428px, e a 900px sobram mais de 280px
+     para as outras quatro encolherem — medido, sem rolagem lateral. */
   .au-tabela-pecas .au-tabela-cab, .au-tabela-pecas .au-peca{
-    grid-template-columns:minmax(0,.5fr) minmax(0,1.3fr) minmax(0,1fr) minmax(0,1.4fr) minmax(0,2.4fr) minmax(0,1.8fr);
+    grid-template-columns:minmax(48px,.5fr) minmax(0,1.3fr) minmax(0,1fr) minmax(0,1.4fr) minmax(380px,2.4fr) minmax(0,1.8fr);
   }
   .au-tabela-pecas .au-peca-topo{display:contents;}
   .au-tabela-pecas .au-peca-estado, .au-tabela-pecas .au-peca-end{margin-top:0; min-width:0;}
@@ -3627,12 +3795,23 @@ onMounted(() => {
      Esta é a tela mais importante da ferramenta e a única usada DE PÉ: a pessoa
      está com a bolsa numa mão e o celular na outra.
 
-     ⚠️ SÃO QUATRO COLUNAS, E AS DE FORA SÃO `1fr` IGUAIS: é isso, e só isso,
-     que põe o conjunto no CENTRO da tela. Com TRÊS colunas — a fila dividindo a
-     terceira com a margem — quem ficava centrado era só a obra, e a fila pendia
-     para fora dela: MEDIDO a 1440px, sobravam 336px de margem à esquerda e 72px
-     à direita. Isso não é centralização, é um bloco empurrado. Agora a fila tem
-     coluna própria, e o que se centra é o GRUPO: obra + fila.
+     ⚠️ SÃO DUAS COLUNAS, E ELAS OCUPAM A LARGURA — não há mais coluna de
+     margem. A forma anterior tinha QUATRO colunas: duas de conteúdo (obra 720px
+     e fila 340px) e duas de `1fr` iguais nas pontas, que centravam o grupo.
+     Centrava mesmo — medido a 1440px: 174px de margem de cada lado, simétricos.
+     E o dono olhou e disse que "o painel de trabalho ocupa a metade esquerda, a
+     fila fica numa coluna estreita e sobra faixa à direita".
+
+     Ele está certo, e a conta explica: o grupo usava 1092 de 1440 (75,8%), a
+     obra sozinha ia até 62% da tela e a fila era uma tira de 340px encostada num
+     vão de 174px. Simetria não é aproveitamento. Agora obra e fila DIVIDEM a
+     largura — a fila com teto de 420px, a obra com o que sobra — e o recuo é o
+     mesmo 24px do resto da ferramenta (PADRÃO item 7: tela é full-bleed).
+     Medido depois: 940 + 420 de 1440, ou 96,7% da largura, sem faixa nenhuma.
+
+     A CENTRALIZAÇÃO QUE IMPORTAVA NÃO SE PERDEU: era a VERTICAL, e ela continua
+     no `align-self:center` com o teto de altura logo abaixo. A horizontal deixou
+     de fazer sentido quando o conteúdo passou a ocupar a largura toda.
 
      ⚠️ E O BLOCO É UM SÓ, CENTRADO NA VERTICAL. As formas anteriores foram
      medidas a 1440x900 e todas repetiam a queixa do dono:
@@ -3646,12 +3825,22 @@ onMounted(() => {
      respiro, e não buraco dentro do desenho. */
   .au-bancada{
     display:grid;
-    /* 720px NÃO É UM NÚMERO REDONDO ESCOLHIDO NO OLHO: é a medida do endereço.
-       Medido no navegador a 1440px — o endereço de um código de 10 caracteres
-       precisa de 648px em `--fonte-dados` a 24px, e com os 48px de recuo da
-       caixa dá 696. Com 660 ele quebrava a URL no meio ("…B4F8S1T / R"), e no
-       modo de copiar é justamente o endereço que a pessoa lê e copia. */
-    grid-template-columns:minmax(0,1fr) minmax(0,720px) minmax(0,340px) minmax(0,1fr);
+    /* A OBRA FICA COM O QUE SOBRA, e a fila tem teto de 420px. Os dois números
+       são medidos, não escolhidos:
+         · 420px é o que a fila precisa para a linha inteira caber sem quebrar —
+           "nº 12", o código de 10 caracteres em fonte de dados e o selo escrito.
+           Mais que isso vira espaço morto ao lado de linhas curtas;
+         · a obra fica com 940px a 1440px, e o piso que importa é o do ENDEREÇO:
+           um código de 10 caracteres precisa de 648px em `--fonte-dados` a 24px,
+           e com os 48px de recuo da caixa dá 696. Com 660 ele quebrava a URL no
+           meio ("…B4F8S1T / R"), e no modo de copiar é justamente o endereço que
+           a pessoa lê e copia. 940 passa folgado; a antiga era 720. */
+    /* ⚠️ `min(420px, 30%)` E NÃO `420px` FIXO: com a coluna travada em 420, a
+       1024px a obra ficava com 524px e a 900px com 400 — a fila passava a ser
+       MAIS LARGA que o trabalho. Medido. Com os 30% ela encolhe junto: 420 a
+       1440px, 246 a 900px, e nunca passa dos 420 num monitor grande, onde
+       sobrar largura numa lista de linhas curtas é só espaço morto. */
+    grid-template-columns:minmax(0,1fr) minmax(0,min(420px, 30%));
     grid-template-rows:auto minmax(0,1fr) auto;
     column-gap:var(--sp-6); row-gap:var(--sp-5);
     /* O TETO DE ALTURA É O QUE DÁ SENTIDO AO `align-self:center`. Sem ele a
@@ -3669,25 +3858,32 @@ onMounted(() => {
   /* O ALTO E A GAVETA COMEÇAM E ACABAM NA MESMA LINHA VERTICAL DO BLOCO.
      Soltos, o seletor de lote encostava na borda esquerda da tela e o "?" na
      direita, enquanto o painel ficava centrado 150px para dentro — três
-     alinhamentos diferentes na mesma tela. A medida não é escolhida: é a
-     largura do GRUPO (a obra + o vão + a fila). */
-  .au-bancada-topo, .au-mais{
-    width:100%; max-width:calc(720px + var(--sp-6) + 340px);
-    margin-left:auto; margin-right:auto;
-  }
-  .au-bancada-topo{grid-column:1 / -1; grid-row:1; align-self:start; justify-self:center;}
-  /* O BLOCO INTEIRO NO CENTRO ÓPTICO. `align-self:center` é o que junta o que
-     estava espalhado; o `gap` menor é o que o mantém junto: estado e ação
-     vizinhos, sem viagem vertical entre eles. */
-  .au-bancada-obra{grid-column:2; grid-row:2; align-self:center; gap:var(--sp-3);}
-  .au-bancada-lado{grid-column:3; grid-row:2; align-self:center; max-width:340px;}
+     alinhamentos diferentes na mesma tela. Com as duas colunas ocupando a
+     largura, a linha vertical do bloco É a da página: o `max-width` que a forma
+     centrada precisava sumiu junto com as colunas de margem. */
+  .au-mais{max-width:none; margin-left:24px; margin-right:24px;}
+  .au-bancada-topo{grid-column:1 / -1; grid-row:1; align-self:start;}
+  /* O BLOCO INTEIRO NO CENTRO ÓPTICO — na VERTICAL, que é a que importa aqui.
+     `align-self:center` é o que junta o que estava espalhado; o `gap` menor é o
+     que o mantém junto: estado e ação vizinhos, sem viagem vertical entre eles. */
+  .au-bancada-obra{grid-column:1; grid-row:2; align-self:center; gap:var(--sp-3);}
+  .au-bancada-lado{grid-column:2; grid-row:2; align-self:center;}
+  /* O SELO DA FILA ENCOSTA NA DIREITA. Com a coluna em 420px, os três pedaços da
+     linha ficavam amontoados à esquerda e sobrava um vão no fim; encostado, o
+     estado de cada peça vira uma coluna que o olho desce. */
+  .au-bancada-lado .au-fila-item .selo{margin-left:auto;}
   .au-bancada-topo > *:last-child{margin-left:auto;}
-  /* A pergunta de sobrescrever atravessa as três colunas: ela tem dois
+  /* A pergunta de sobrescrever atravessa as duas colunas: ela tem dois
      seletores e um motivo, e numa coluna estreita é onde o dedo erra o botão. */
   .au-sobrescrita{grid-column:1 / -1; grid-row:3;}
-  /* O botão é o alvo da bancada: ele atravessa o bloco inteiro e tem altura de
-     alvo grande. O rótulo continua no tamanho do "resto". */
-  .au-bancada-botao{min-height:72px;}
+  /* ⚠️ O BOTÃO TEM TETO DE LARGURA, E ISSO É O PEDIDO DO DONO: "botão grande é
+     bom na bancada, mas botão que atravessa meia tela vira faixa, não botão".
+     Medido antes: com `flex:1 1 200px` ele esticava para a coluna inteira — 720
+     de 1440px, exatamente meia tela. Agora ele fica em 360px (25% da tela),
+     com os mesmos 72px de altura: o que precisa ser grande é o ALVO, e a altura
+     é que dá o alvo. `flex:0 1 360px` e não `width`, para no celular a
+     regra-base (`flex:1 1 200px`, largura toda) continuar valendo. */
+  .au-bancada-botao{flex:0 1 360px; min-height:72px;}
   /* A frase de "não há nada por gravar" e a gaveta acompanham o recuo do
      painel, para tudo começar na mesma linha vertical. */
   .au-mais{margin-top:var(--sp-4);}

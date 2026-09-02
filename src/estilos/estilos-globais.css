@@ -1649,24 +1649,57 @@ img{max-width:100%;}
    mínima e espremia o rótulo até a palavra partir no meio da sílaba —
    "CONFIGU / RAÇÕES / S". O dono chamou de feio e estava certo.
 
-   Quebrar a FAIXA é sempre melhor que quebrar a PALAVRA. E nunca rolar: com
-   quatro ou cinco itens num conjunto fixo, esconder algum atrás de rolagem é
-   o mesmo erro que deixou duas abas inalcançáveis no Colaboradores. */
-.abas{display:flex;flex-wrap:wrap;justify-content:center;gap:2px 4px;padding:2px 12px 0;border-bottom:1px solid var(--border);}
+   Quebrar a FAIXA é sempre melhor que quebrar a PALAVRA — e continua sendo:
+   é por isso que ninguém aqui embaixo espreme rótulo.
+
+   ⚠️ A SEGUNDA METADE DESTA REGRA CAIU EM 02/09/2026, e é ela que explica o
+   `overflow-x` logo abaixo. Ela dizia "e nunca rolar", por causa de um defeito
+   real: no Colaboradores, uma barra que rolava deixou DUAS abas inalcançáveis.
+   O dono pediu o contrário, com estas palavras: "quero o menu de abas em uma
+   linha no celular, não em duas". Medido a 375px antes de mexer, nas quatro
+   telas que usam esta classe: a barra tinha 83px de altura e comia duas
+   fileiras logo abaixo do título — Frota (5 abas), Patrimônio (5), Acessos (5)
+   e Autenticidade (5 mais o separador). No computador ela já cabia numa linha
+   só, com 42px.
+
+   O QUE FAZ A ROLAGEM SER SEGURA AQUI, e não foi assim no Colaboradores:
+
+   1. `justify-content:flex-start`, e NÃO `center`. Esta é a linha que importa.
+      Com o conteúdo centrado e mais largo que a caixa, ele transborda pelos
+      DOIS lados — e o que sai pela esquerda é inalcançável, porque rolagem só
+      alcança o que sai pela direita. Já foi tentado neste projeto: a primeira
+      aba nasceu em −67px, fora da tela e sem como voltar. Encostado à esquerda,
+      a primeira aba nasce sempre em x ≥ 0 e nada some.
+   2. A ROLAGEM É DA BARRA, NUNCA DA PÁGINA (`overflow-x:auto` aqui dentro).
+      Rolagem horizontal na página é zero pelo PADRÃO item 6, e continua sendo.
+   3. `overscroll-behavior-x:contain`: arrastar o dedo até o fim da barra não
+      vira gesto de "voltar" do navegador.
+   4. A BARRA NÃO GANHA BARRA DE ROLAGEM VISÍVEL. Ela apareceria por cima do
+      rótulo, e a barra tem 42px de altura: não há onde pôr. A rolagem com o
+      dedo continua igual — o que se esconde é o desenho dela, não o gesto.
+   5. `scroll-margin-inline` nos botões: o navegador rola o elemento que recebe
+      FOCO para dentro da vista sozinho, e é assim que a aba clicada aparece
+      inteira mesmo entrando pela beirada. A margem é para ela não nascer
+      colada na borda.
+   As quatro telas abrem sempre na PRIMEIRA aba (conferido no código das
+   quatro), então não existe hoje o caso de entrar com a ativa fora da vista. */
+.abas{display:flex;flex-wrap:nowrap;justify-content:flex-start;gap:2px 4px;padding:2px 12px 0;border-bottom:1px solid var(--border);overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none;-ms-overflow-style:none;}
+.abas::-webkit-scrollbar{display:none;}
 /* `min-height:40px` — CORREÇÃO DE PADRÃO (19/08/2026), e ela vale para as 4
    telas que usam `.abas` (Frota, Patrimônio, Acessos, Autenticidade).
    Medido com o CSS do build: a aba tinha 35px de altura a 375px e 39px no
    computador. O PADRAO-DA-CENTRAL exige 40px de alvo de toque, e não é
    opinião — é o que o dedo acerta. Estava assim desde que a barra nasceu, em
    nenhuma das quatro telas ninguém tinha medido. */
-.abas button{flex:0 1 auto;appearance:none;background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-1px;padding:11px 12px;min-height:40px;font-family:var(--fonte-principal);font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);cursor:pointer;touch-action:manipulation;line-height:1.25;}
+.abas button{flex:0 0 auto;white-space:nowrap;scroll-margin-inline:12px;appearance:none;background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-1px;padding:11px 12px;min-height:40px;font-family:var(--fonte-principal);font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);cursor:pointer;touch-action:manipulation;line-height:1.25;}
 .abas button:hover{color:var(--text);}
 .abas button.on{color:var(--accent);border-bottom-color:var(--accent);}
 @media(min-width:768px){
-  /* No computador tudo cabe numa linha, e as abas encostam à esquerda,
-     alinhadas com o resto da tela — centralizar só faz sentido quando elas
-     ocupam a largura toda. */
-  .abas{justify-content:flex-start;padding:2px 24px 0;}
+  /* No computador as abas encostam à esquerda, alinhadas com o resto da tela.
+     O `justify-content` saiu daqui em 02/09/2026 porque virou o padrão da
+     regra-base — no celular ele era `center`, e centrado é o que jogava o
+     começo da faixa para fora da tela quando ela passou a rolar. */
+  .abas{padding:2px 24px 0;}
   .abas button{padding:11px 18px;font-size:max(9px, calc(12px * var(--escala-texto, 1)));}
 }
 @media(max-width:400px){

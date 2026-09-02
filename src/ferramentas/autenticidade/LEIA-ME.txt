@@ -54,15 +54,40 @@ cinco itens ela quebra em duas linhas no celular — igual as irmas fariam.
 
            AS ACOES RARAS FICAM ATRAS DE UM PONTO SO, "Mais opcoes deste lote":
            dar baixa, excluir a peca, trocar o jeito de gravar, a trava
-           permanente, a lista para o gravador de mesa, quais lotes o seletor
-           oferece e as pecas baixadas com o "Desfazer". Antes eram seis links
-           do MESMO peso soltos na tela, e seis do mesmo peso e o mesmo que
-           nenhuma acao principal.
+           permanente, quais lotes o seletor oferece e as pecas baixadas com o
+           "Desfazer". Antes eram seis links do MESMO peso soltos na tela, e
+           seis do mesmo peso e o mesmo que nenhuma acao principal.
+
+           A GAVETA "GRAVADOR DE MESA" SAIU DAQUI EM 02/09/2026. O dono
+           perguntou se ela ainda fazia sentido, e metade nao fazia:
+             - "Baixar a lista das que faltam" SAIU DA FERRAMENTA. Nasceu
+               quando nao existia programa de gravacao nenhum; hoje ha tres
+               caminhos melhores ("Por onde gravar", nesta mesma gaveta) e uma
+               lista em arquivo MAIS COMPLETA na aba 1 Lotes: "Baixar a lista
+               inteira", dentro de "Ver as pecas e os links", em CSV com todas
+               as pecas, o estado e o endereco de cada uma;
+             - o CAMPO DE COLAR O RETORNO mudou de casa, para a aba 3
+               Etiquetas. Ele marca cinquenta pecas de uma vez a partir de um
+               log, e continua sendo o unico jeito de fazer isso sem cinquenta
+               cliques. Nunca foi da bancada: aqui se grava UMA peca por vez.
 
 3 ETIQUETAS
            O desfazer da aba Gravar: apagar uma gravacao feita errado, com duas
            perguntas e a senha. A peca volta para a fila; o codigo e a garantia
            da cliente continuam existindo. Abre nos ULTIMOS 30 DIAS.
+
+           E TAMBEM O MARCAR EM BLOCO, desde 02/09/2026: a gaveta "Marcar
+           varias de uma vez, pelo gravador de mesa", logo abaixo do seletor de
+           lote. Cole o que o gravador devolveu — arquivo, planilha ou log
+           solto — e a tela procura os codigos la dentro. Ela mora aqui porque
+           esta aba e o conserto EM BLOCO da gravacao, nos dois sentidos:
+           apagar uma e marcar cinquenta.
+           GANHOU ALGO NA MUDANCA: na bancada ela so conferia contra o lote da
+           bancada; aqui o seletor abre em "Todos os lotes", e quem colou o log
+           de duas fornadas juntas nao precisa mais colar duas vezes.
+           ⚠️ E O UNICO CAMINHO DA FERRAMENTA QUE MARCA SEM CONFERIR ETIQUETA
+           NENHUMA, e por isso passa por uma pergunta que diz o numero e diz
+           isso por escrito.
 
 GARANTIAS  Quem registrou a garantia: nome, WhatsApp, onde comprou. Da pra
            buscar e baixar em planilha. (A chave interna dela continua sendo
@@ -284,13 +309,20 @@ etiqueta gravada, renovar vesselbrasil.com.br deixa de ser opcional - e o
 caminho /verify/ e o formato do codigo congelam junto.
 O dominio sai de enderecoDaTag() em lotes.js e de nenhum outro lugar.
 
-AS DUAS LISTAS DO LOTE, E POR QUE SAO DUAS
-=========================================
+AS DUAS LISTAS DO LOTE, E POR QUE ERAM DUAS
+==========================================
+
+⚠️ HOJE SO UMA DELAS TEM BOTAO. Desde 02/09/2026 a unica lista em arquivo da
+ferramenta e a `linhasDaListaDoLote` — a de baixo. A outra continua no codigo,
+com os testes dela, e a explicacao aqui fica porque a REGRA dela continua
+valendo para quem for mexer.
 
 `listaParaGravadorDeMesa` (nfc-fila.js) e a FILA DO QUE FALTA: uma URL por
 linha, para alimentar o gravador de mesa. Ela TIRA as gravadas e as baixadas —
 misturar as gravadas nela mandaria a maquina regravar etiqueta que ja esta
-costurada dentro de uma bolsa.
+costurada dentro de uma bolsa. O botao que a baixava ("Baixar a lista das que
+faltam") saiu da tela: ela sabia MENOS que a de baixo, e duas listas para o
+mesmo dedo era uma a mais.
 
 `linhasDaListaDoLote` (lotes.js) CONTA A HISTORIA: sai com TODAS as pecas, na
 ordem da serie, com numero, codigo, endereco, estado, a data da gravacao e o
