@@ -2882,12 +2882,18 @@ onMounted(() => {
    NA ABA GRAVAR ELA NÃO EXISTE — ali a tela é uma bancada, e quem grava a
    terceira etiqueta não lê parágrafo. O que ela dizia mora no guia, atrás do
    "?" do alto do painel. */
-.au-ajuda{font-family:var(--fonte-principal);font-size:var(--texto-corpo);color:var(--muted);line-height:1.6;padding:var(--sp-3) 24px 0;max-width:680px;overflow-wrap:anywhere;}
+/* O TEXTO DO TOPO VAI ATE A BORDA, e quebra la — decisao do dono em 02/09/2026.
+   Ele estava preso a 680px e quebrava no meio da tela, com metade vazia a
+   direita, o que parece defeito. A linha longa e o preco: o olho se perde na
+   volta em linha muito larga, e por isso texto corrido costuma ter teto. Como
+   este e um paragrafo curto de tres linhas no topo, o preco e pequeno e o
+   ganho — a tela nao parecer quebrada — e maior. */
+.au-ajuda{font-family:var(--fonte-principal);font-size:var(--texto-corpo);color:var(--muted);line-height:1.6;padding:var(--sp-3) 24px 0;overflow-wrap:anywhere;}
 
-.au-vazio,.au-erro,.au-pronto{font-family:var(--fonte-principal);font-size:var(--texto-corpo);color:var(--muted);padding:28px 24px;line-height:1.7;max-width:620px;}
+.au-vazio,.au-erro,.au-pronto{font-family:var(--fonte-principal);font-size:var(--texto-corpo);color:var(--muted);padding:28px 24px;line-height:1.7;}
 .au-erro{color:var(--red);}
 .au-pronto{color:var(--accent);}
-.au-instrucao{font-family:var(--fonte-principal);font-size:var(--texto-corpo);color:var(--muted);line-height:1.7;padding:16px 24px 0;max-width:620px;}
+.au-instrucao{font-family:var(--fonte-principal);font-size:var(--texto-corpo);color:var(--muted);line-height:1.7;padding:16px 24px 0;}
 .au-secao{font-family:var(--fonte-principal);font-size:var(--texto-etiqueta);font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text);padding:24px 24px 4px;}
 
 .au-topo-acao{display:flex;gap:10px;align-items:center;padding:18px 24px 0;flex-wrap:wrap;}
