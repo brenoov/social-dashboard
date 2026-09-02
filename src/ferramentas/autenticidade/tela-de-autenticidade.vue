@@ -95,7 +95,11 @@
            (min-width)` do fim do arquivo: no celular ela não pinta nada, e a
            coluna única de hoje fica exatamente como está. -->
       <div class="au-lista au-grade-de-lotes">
-        <div v-for="l in lotesVisiveis" :key="l.id" class="au-card">
+        <!-- `data-lote` é o gancho de `trazerOLoteParaAVista`: quando o cartão
+             abre, ele sobe para a primeira linha da grade (o `order:-1` do CSS)
+             e a tela rola até ele. Sem o atributo, a rolagem não tem como achar
+             o cartão certo entre seis iguais. -->
+        <div v-for="l in lotesVisiveis" :key="l.id" class="au-card" :data-lote="l.id">
           <div class="au-card-topo">
             <span class="au-modelo">{{ l.modelo }}</span>
             <span class="au-progresso">{{ progressoDoLote(pecasDoLote(l.id)).texto }} gravadas</span>
@@ -1182,7 +1186,7 @@
  * porque a garantia de "nenhum código repetido" é da chave primária. Ver
  * db/migrations/2026-08-05-vessel-painel.sql.
  */
-import { ref, reactive, computed, watch, onMounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import BarraDeTopo from '../../compartilhado/barra-de-topo.vue'
 import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
@@ -1619,12 +1623,28 @@ const pecasVisiveis = computed(() => pecasDoLoteAberto.value.slice(0, quantasMos
 const pecasQueFaltamMostrar = computed(
   () => Math.max(0, pecasDoLoteAberto.value.length - pecasVisiveis.value.length))
 
+// O CARTÃO ABERTO SOBE PARA A PRIMEIRA LINHA DA GRADE (o `order:-1` do CSS da
+// tela grande, que é o conserto do buraco que ficava na fileira dele). Sem esta
+// rolagem, abrir um lote da terceira fileira o mandaria para cima da vista e a
+// pessoa acharia que o cartão sumiu.
+//
+// `block:'nearest'` de propósito: ele só rola o quanto for preciso para o
+// cartão caber na tela, e NÃO faz nada quando ele já está visível — que é
+// exatamente o caso do celular, onde não há grade e nada se move de lugar.
+async function trazerOLoteParaAVista(id) {
+  await nextTick()
+  document.querySelector(`.au-grade-de-lotes > [data-lote="${id}"]`)
+    ?.scrollIntoView({ block: 'nearest' })
+}
+
 function alternarPecas(id) {
-  loteAberto.value = loteAberto.value === id ? null : id
+  const abrindo = loteAberto.value !== id
+  loteAberto.value = abrindo ? id : null
   // recomeça do topo: deixar o limite crescido de um lote de 500 faria o lote
   // seguinte desenhar 500 linhas de uma vez, que é o que este limite evita
   quantasMostrar.value = DE_CADA_VEZ
   enderecoCopiado.value = ''
+  if (abrindo) trazerOLoteParaAVista(id)
 }
 
 function mostrarMaisPecas() { quantasMostrar.value += DE_CADA_VEZ }
@@ -2041,6 +2061,8 @@ function abrirEdicao(l) {
   edicao.sku = l.sku || ''
   edicao.fabricado_em = l.fabricado_em || ''
   edicao.quantidade = l.quantidade || 1
+  // o cartão em edição também vira faixa e sobe para a primeira linha
+  trazerOLoteParaAVista(l.id)
 }
 
 function pedirExcluir(id) {
@@ -2052,6 +2074,9 @@ function pedirExcluir(id) {
   etapaDeExcluir.value = 1
   senhaDaExclusao.value = ''
   erroDaSenha.value = ''
+  // e o cartão com a pergunta aberta idem: perder de vista a pergunta que se
+  // acabou de abrir é pior aqui do que em qualquer outro lugar desta tela
+  trazerOLoteParaAVista(id)
 }
 
 function fecharExcluir() {
@@ -3484,14 +3509,43 @@ onMounted(() => {
     display:grid; grid-template-columns:repeat(auto-fill, minmax(440px, 1fr));
     gap:var(--sp-4); align-items:start;
   }
-  /* O CARTÃO ABERTO OCUPA A LARGURA TODA. Dentro dele mora a tabela das peças,
-     com seis colunas e o endereço inteiro: espremida em 440px ela não seria
-     tabela nenhuma. O mesmo vale para o formulário de editar e para as duas
-     perguntas de excluir, que são conversas — e conversa espremida numa coluna
-     de grade é onde o dedo erra o botão. */
+  /* O CARTÃO ABERTO OCUPA A LARGURA TODA, E SOBE PARA A PRIMEIRA LINHA.
+     Dentro dele mora a tabela das peças, com seis colunas e o endereço inteiro:
+     espremida em 440px ela não seria tabela nenhuma. O mesmo vale para o
+     formulário de editar e para as duas perguntas de excluir, que são conversas
+     — e conversa espremida numa coluna de grade é onde o dedo erra o botão.
+
+     ⚠️ O `order:-1` É O CONSERTO DE UM BURACO NA GRADE, e sem ele a largura
+     inteira sozinha é um defeito. O dono: "os cartões ficam em grade, mas o
+     cartão aberto ocupa a largura toda e os outros voltam para a grade abaixo
+     dele; fica desalinhado e parece defeito".
+
+     MEDIDO a 1440px, com o terceiro de seis lotes aberto e três colunas:
+       lote 1 → x=24    lote 2 → x=493   [ VAZIO em x=963 ]
+       lote 3 → x=24, largura 1392 (o aberto, sozinho na sua linha)
+       lote 4 → x=24    lote 5 → x=493   lote 6 → x=963
+     O buraco na primeira linha é o que se vê como "defeito": um item que ocupa
+     a linha inteira não cabe no que sobrou da linha em que ele estava, então
+     ele desce — e o que sobrou fica vazio para sempre.
+
+     `order:-1` põe o aberto na FRENTE de todos: ele vira a primeira linha, de
+     ponta a ponta, e os fechados descem para uma grade inteira embaixo, sem
+     nenhum vão. Foi a saída escolhida entre três:
+       · `grid-auto-flow:dense` tapa o buraco puxando cartões de baixo para
+         cima — mas a ordem que o olho lê deixa de ser a do HTML, e quem usa
+         teclado passa a andar em ziguezague;
+       · deixar o aberto na coluna dele espremeria a tabela de seis colunas em
+         440px, que é o que a largura inteira existe para evitar;
+       · o aberto na frente mantém as duas ordens iguais e a grade inteira.
+     A pessoa não perde o cartão de vista: `trazerOLoteParaAVista` rola até ele.
+
+     Vale SÓ no computador, e é por isso que estas duas linhas moram dentro do
+     `@media (min-width:900px)`: no celular a lista é uma coluna, não há grade,
+     não há buraco — e `order:-1` ali faria o cartão saltar para o alto da tela
+     sem motivo nenhum. */
   .au-grade-de-lotes > .au-card:has(.au-pecas),
   .au-grade-de-lotes > .au-card:has(.au-edicao),
-  .au-grade-de-lotes > .au-card:has(.au-confirma){grid-column:1 / -1;}
+  .au-grade-de-lotes > .au-card:has(.au-confirma){grid-column:1 / -1; order:-1;}
 
   /* ── 3. AS LISTAS DE VARREDURA VIRAM TABELA ────────────────────────────
      Cartão é a forma certa para UMA coisa por vez, e continua sendo a do
@@ -3597,8 +3651,29 @@ onMounted(() => {
     display:grid; align-items:center; gap:var(--sp-2) var(--sp-4);
     padding:var(--sp-2) var(--sp-3);
   }
+  /* ⚠️ A COLUNA DO ENDEREÇO TEM PISO EM PIXEL, E A DO "Nº" TAMBÉM.
+     O dono viu o endereço quebrando a ÚLTIMA LETRA sozinha na linha de baixo
+     ("…K7M4X001Q / P") e disse que endereço cortado atrapalha quem confere.
+     MEDIDO no navegador a 1440px, e a conta é de dar raiva de tão apertada:
+       · o endereço inteiro numa linha, em `--fonte-dados` a 13px: 353px
+       · a coluna, com `minmax(0, 2.4fr)`:                          349px
+     Faltavam QUATRO pixels, e é por isso que caía exatamente uma letra.
+     `minmax(380px, 2.4fr)` dá 27px de folga sobre a medida — o bastante para o
+     tema escuro, onde `--fonte-dados` é outra família (Oswald), e para quem
+     aumentou a letra do sistema em um degrau.
+     O SEGUNDO PISO É CONSEQUÊNCIA DO PRIMEIRO, e foi medido depois dele: com o
+     endereço tomando 380px numa janela de 900px, a coluna do "Nº" (`.5fr`)
+     caía para 28px e passava a cortar "nº 10" em VINTE E UMA linhas seguidas.
+     Trocar um texto cortado por outro não é conserto. `minmax(48px, .5fr)` é o
+     que "nº 500" precisa — o maior número que um lote pode ter, porque a
+     quantidade vai até 500.
+
+     As outras quatro continuam `minmax(0, Nfr)` de propósito: fração não
+     estoura a largura, e a página nunca ganha rolagem horizontal por causa da
+     tabela. Os dois pisos somados dão 428px, e a 900px sobram mais de 280px
+     para as outras quatro encolherem — medido, sem rolagem lateral. */
   .au-tabela-pecas .au-tabela-cab, .au-tabela-pecas .au-peca{
-    grid-template-columns:minmax(0,.5fr) minmax(0,1.3fr) minmax(0,1fr) minmax(0,1.4fr) minmax(0,2.4fr) minmax(0,1.8fr);
+    grid-template-columns:minmax(48px,.5fr) minmax(0,1.3fr) minmax(0,1fr) minmax(0,1.4fr) minmax(380px,2.4fr) minmax(0,1.8fr);
   }
   .au-tabela-pecas .au-peca-topo{display:contents;}
   .au-tabela-pecas .au-peca-estado, .au-tabela-pecas .au-peca-end{margin-top:0; min-width:0;}
