@@ -92,11 +92,17 @@ test('cada aba busca por data, por texto e por estado', () => {
   }
 });
 
-test('a dica de cada campo cita o CÓDIGO DA PEÇA', () => {
-  // quem está com a etiqueta na mão tem o código, e não o modelo
+test('a dica de cada campo cita o CÓDIGO DA PEÇA e o NÚMERO DE SÉRIE', () => {
+  // quem está com a etiqueta na mão tem o código, e não o modelo — e desde
+  // 02/09/2026 quem está com a BOLSA na mão tem o número de série, que é o que
+  // está impresso nela. A dica só pode prometer o que a busca acha de verdade:
+  // ela dizia "ou o nº da série" enquanto a busca não sabia procurar por ele.
   const dicas = [...template.matchAll(/dica="([^"]+)"/g)].map((m) => m[1]);
   assert.equal(dicas.length, 2);
-  for (const d of dicas) assert.match(d, /código/i, `a dica "${d}" não diz que dá para buscar por código`);
+  for (const d of dicas) {
+    assert.match(d, /código/i, `a dica "${d}" não diz que dá para buscar por código`);
+    assert.match(d, /número de série/i, `a dica "${d}" não diz que dá para buscar pelo número de série`);
+  }
 });
 
 /* ERAM TRÊS CONTAGENS, E SÃO DUAS: `contagemDoSeletor` existia para o painel de

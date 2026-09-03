@@ -34,7 +34,15 @@ test('o cartão do lote abre a lista das peças', () => {
 
 test('cada peça mostra número, código, endereço e estado', () => {
   const lista = cartao.slice(cartao.indexOf('class="au-pecas"'));
-  assert.match(lista, /\{\{ pc\.numero_na_serie \}\}/, 'o número da série é por onde se procura');
+  // A COLUNA "Nº" VIROU "Nº DE SÉRIE" em 02/09/2026. Ela não ganhou uma sétima
+  // coluna ao lado: o número da peça sozinho só é único DENTRO de um lote (dois
+  // lotes têm uma peça 3 cada), e o número de série é o que está impresso na
+  // bolsa. Aqui o rótulo é o CURTO, porque o cabeçalho da coluna já diz o que o
+  // número é.
+  assert.match(lista, /\{\{ rotuloDaSerie\(pc, l, \{ curto: true \}\) \}\}/,
+    'o número de série é por onde se procura a bolsa');
+  assert.match(lista, /<span>Nº de série<\/span>/,
+    'o cabeçalho tem de dizer que aquela coluna é o número de série');
   assert.match(lista, /\{\{ pc\.codigo \}\}/);
   assert.match(lista, /\{\{ enderecoDaTag\(pc\.codigo\) \}\}/);
   // o estado por escrito, e não só pela cor do selo: cor sozinha não é estado
@@ -106,7 +114,7 @@ test('a fila do que falta continua sendo só o que FALTA, mesmo sem chamador na 
 test('a lista inteira do lote sai por uma função PRÓPRIA, com a data da tela', () => {
   const corpo = script.slice(script.indexOf('function baixarListaDoLote('));
   const ate = corpo.slice(0, corpo.indexOf('\n}')).replace(/\s+/g, ' ');
-  assert.match(ate, /linhasDaListaDoLote\(doLote, \{ formatarData: dataCurta \}\)/,
+  assert.match(ate, /linhasDaListaDoLote\(doLote, \{ formatarData: dataCurta, sku: l\.sku \}\)/,
     'a data tem de vir do formatador da tela, que é o do fuso de São Paulo');
   assert.match(ate, /text\/csv/);
   assert.match(ate, /\\ufeff/, 'sem o BOM o Excel abre "Mônaco" como "MÃ´naco"');

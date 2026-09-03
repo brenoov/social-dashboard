@@ -85,7 +85,13 @@ test('a tela desenha a fila, e marca qual é a atual', () => {
   // e a atual não se distingue SÓ pela cor: o selo dela é escrito
   assert.match(template, /pf\.codigo === proxima\.codigo \? 'Agora' :/,
     'cor sozinha some para quem não a enxerga — a atual tem de estar escrita');
-  assert.match(template, /\{\{ pf\.numero_na_serie \}\}/);
+  // A FILA NOMEIA A PEÇA PELO NÚMERO DE SÉRIE, e no rótulo LONGO: aqui não há
+  // cabeçalho de coluna dizendo o que o número é, e um número pelado encostado
+  // no código ao lado leria como se fossem dois códigos.
+  assert.match(template, /\{\{ rotuloDaSerie\(pf, loteAtual\) \}\}/,
+    'a fila tem de nomear a peça pelo número que está impresso na bolsa');
+  assert.doesNotMatch(template, /nº \{\{ pf\.numero_na_serie \}\}/,
+    'o número da peça cru voltou à fila — ele só é único DENTRO de um lote');
   assert.match(template, /\{\{ pf\.codigo \}\}/);
 });
 
