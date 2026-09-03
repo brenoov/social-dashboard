@@ -251,11 +251,11 @@ test('linhasDaListaDoLote: cabecalho + uma linha por peca, na ordem da serie', (
   const csv = linhasDaListaDoLote([
     { codigo: 'BBB222', numero_na_serie: 2, gravada_em: null },
     { codigo: 'AAA111', numero_na_serie: 1, gravada_em: '2026-08-05T10:00:00Z' },
-  ], { formatarData: () => '05/08/2026' })
+  ], { formatarData: () => '05/08/2026', sku: 'H0015S' })
   const linhas = csv.split('\n')
-  assert.equal(linhas[0], 'numero;codigo;endereco;estado;gravada em;motivo da baixa')
-  assert.equal(linhas[1], '1;AAA111;https://vesselbrasil.com.br/verify/AAA111;Gravada;05/08/2026;')
-  assert.equal(linhas[2], '2;BBB222;https://vesselbrasil.com.br/verify/BBB222;Pendente;;')
+  assert.equal(linhas[0], 'numero de serie;numero;codigo;endereco;estado;gravada em;motivo da baixa')
+  assert.equal(linhas[1], '00151;1;AAA111;https://vesselbrasil.com.br/verify/AAA111;Gravada;05/08/2026;')
+  assert.equal(linhas[2], '00152;2;BBB222;https://vesselbrasil.com.br/verify/BBB222;Pendente;;')
 })
 
 test('linhasDaListaDoLote: a baixada ENTRA na lista, com o motivo', () => {
@@ -264,8 +264,10 @@ test('linhasDaListaDoLote: a baixada ENTRA na lista, com o motivo', () => {
   const csv = linhasDaListaDoLote([
     { codigo: 'CCC333', numero_na_serie: 3, baixada: true, baixa_motivo: 'extraviada' },
   ])
+  // sem `sku` a coluna do numero de serie sai VAZIA — lote sem referencia nao
+  // tem numero de serie, e a planilha nao inventa um
   assert.equal(csv.split('\n')[1],
-    '3;CCC333;https://vesselbrasil.com.br/verify/CCC333;Baixada;;Extraviada')
+    ';3;CCC333;https://vesselbrasil.com.br/verify/CCC333;Baixada;;Extraviada')
 })
 
 test('linhasDaListaDoLote: a que FALTA tambem entra — a lista e INTEIRA', () => {
@@ -278,7 +280,8 @@ test('linhasDaListaDoLote: a que FALTA tambem entra — a lista e INTEIRA', () =
 })
 
 test('linhasDaListaDoLote: lote vazio sai so com o cabecalho', () => {
-  assert.equal(linhasDaListaDoLote([]), 'numero;codigo;endereco;estado;gravada em;motivo da baixa')
+  assert.equal(linhasDaListaDoLote([]),
+    'numero de serie;numero;codigo;endereco;estado;gravada em;motivo da baixa')
   assert.equal(linhasDaListaDoLote(null).split('\n').length, 1)
 })
 

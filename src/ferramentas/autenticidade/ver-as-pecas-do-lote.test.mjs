@@ -106,7 +106,7 @@ test('a fila do que falta continua sendo só o que FALTA, mesmo sem chamador na 
 test('a lista inteira do lote sai por uma função PRÓPRIA, com a data da tela', () => {
   const corpo = script.slice(script.indexOf('function baixarListaDoLote('));
   const ate = corpo.slice(0, corpo.indexOf('\n}')).replace(/\s+/g, ' ');
-  assert.match(ate, /linhasDaListaDoLote\(doLote, \{ formatarData: dataCurta \}\)/,
+  assert.match(ate, /linhasDaListaDoLote\(doLote, \{ formatarData: dataCurta, sku: l\.sku \}\)/,
     'a data tem de vir do formatador da tela, que é o do fuso de São Paulo');
   assert.match(ate, /text\/csv/);
   assert.match(ate, /\\ufeff/, 'sem o BOM o Excel abre "Mônaco" como "MÃ´naco"');

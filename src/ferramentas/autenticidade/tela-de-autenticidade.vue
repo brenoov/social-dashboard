@@ -2757,7 +2757,9 @@ function avisoDeMeiaSobrescrita(pedido) {
 function baixarListaDoLote(l) {
   const doLote = pecasDoLote(l.id)
   if (!doLote.length) { adminToast('Este lote não tem peça nenhuma', false); return }
-  const csv = linhasDaListaDoLote(doLote, { formatarData: dataCurta })
+  // A REFERÊNCIA DO LOTE VAI JUNTO: é dela que sai o número de série de cada
+  // peça, e é por ele que se procura a bolsa depois de arquivada a ordem.
+  const csv = linhasDaListaDoLote(doLote, { formatarData: dataCurta, sku: l.sku })
   // BOM na frente: sem ele o Excel abre "Mônaco" como "MÃ´naco"
   const blob = new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8' })
   const url = URL.createObjectURL(blob)

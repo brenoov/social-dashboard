@@ -9,6 +9,82 @@ export function enderecoDaTag(codigo) {
   return `${DOMINIO}/verify/${String(codigo || '').trim().toUpperCase()}`
 }
 
+// ── O NÚMERO DE SÉRIE ──────────────────────────────────────────────────────
+// DECISÃO DO DONO, 02/09/2026: a REFERÊNCIA e a PEÇA viram um número só, e o
+// formato é COLADO — os DÍGITOS da referência seguidos da sequência da peça, sem
+// separador e sem zeros de enchimento:
+//
+//     referência H0015S, peça 1   →  00151
+//     referência H0015S, peça 12  →  001512
+//     referência C0011S, peça 3   →  00113
+//
+// ⚠️ COLADO SÓ NÃO É AMBÍGUO ENQUANTO TODA REFERÊNCIA TIVER A MESMA QUANTIDADE
+// DE DÍGITOS. Hoje são quatro (0011, 0012, 0015), então "001512" só pode ser a
+// referência 0015 na peça 12. No dia em que entrar uma de três ou de cinco,
+// "001512" passa a poder ser 0015+12 OU 00151+2 — e um número de série que
+// aponta para duas bolsas não é número de série. O dono escolheu o formato
+// sabendo disso; `serieAmbigua` e `avisoDeSerieAmbigua` são o que faz a tela
+// AVISAR (nunca impedir) antes que aconteça.
+//
+// SEM REFERÊNCIA NÃO HÁ NÚMERO DE SÉRIE. Aí a tela volta a mostrar o que já
+// mostrava — `nº 3` —, que é a verdade que se tem, em vez de um traço que não
+// diz nada.
+//
+// ⚠️ ESTA MESMA CONTA MORA DO OUTRO LADO, em `vessel-brasil/verify/regras.js`,
+// que é a página que a CLIENTE abre ao encostar o celular na bolsa. As duas são
+// a mesma de propósito: o número que a etiqueta manda para a cliente e o número
+// que o painel imprime na bancada têm de bater. Mudou uma, muda a outra — não há
+// terceira dona da regra.
+export const DIGITOS_DA_REFERENCIA = 4
+
+const digitosDaReferencia = (sku) => String(sku ?? '').replace(/\D/g, '')
+
+export function numeroDeSerie(sku, numero) {
+  const digitos = digitosDaReferencia(sku)
+  // ⚠️ `Number(null)` é ZERO, que é finito — uma guarda com `Number.isFinite`
+  // deixa passar e o número sai como "0015null" na cara da pessoa. O teste do
+  // lado do certificado pegou isso. Aqui se exige INTEIRO MAIOR QUE ZERO.
+  const n = (numero === null || numero === undefined || numero === '') ? NaN : Number(numero)
+  if (!digitos || !Number.isInteger(n) || n < 1) return ''
+  return digitos + String(n)
+}
+
+export function serieAmbigua(sku) {
+  const digitos = digitosDaReferencia(sku)
+  // referência SEM dígito nenhum não é ambígua: ela simplesmente não tem série.
+  // Avisar dela seria aviso que aparece sempre, e aviso que aparece sempre vira
+  // paisagem (PADRÃO item 9).
+  return digitos.length > 0 && digitos.length !== DIGITOS_DA_REFERENCIA
+}
+
+// O AVISO, POR ESCRITO. Ele mora aqui, junto da regra, e não na tela: a mesma
+// frase serve às DUAS portas do lote (criar e editar), e frase escrita em dois
+// lugares é frase que diverge no dia em que uma delas muda.
+//
+// Ele mostra AS DUAS LEITURAS lado a lado de propósito. "Ambíguo" é palavra de
+// programador; "pode ser a peça 12 da 0015 ou a peça 2 da 00151" é a coisa.
+export function avisoDeSerieAmbigua(sku) {
+  const digitos = digitosDaReferencia(sku)
+  if (!serieAmbigua(sku)) return ''
+  return `Esta referência tem ${digitos.length} dígitos, e as outras têm ${DIGITOS_DA_REFERENCIA}. `
+    + 'O número de série cola os dígitos da referência na sequência da peça, sem separador — '
+    + 'a referência 0015 na peça 12 vira “001512”. Isso só aponta para uma bolsa só enquanto '
+    + `todas tiverem ${DIGITOS_DA_REFERENCIA} dígitos: misturando tamanhos, “001512” passa a poder `
+    + 'ser a peça 12 da referência 0015 OU a peça 2 da referência 00151 — e um número que aponta '
+    + 'para duas bolsas não é número de série. Nada está bloqueado: quem decide se a referência '
+    + 'muda é você.'
+}
+
+// COMO A TELA CHAMA UMA PEÇA, em qualquer lugar em que ela seja NOMEADA.
+// Com referência é o número de série; sem ela, o `nº 3` de sempre. Peça sem
+// número nenhum não vira "nº undefined": não sai rótulo.
+export function rotuloDaSerie(peca, lote) {
+  const p = peca || {}
+  const serie = numeroDeSerie((lote || {}).sku, p.numero_na_serie)
+  if (serie) return `nº de série ${serie}`
+  return p.numero_na_serie == null ? '' : `nº ${p.numero_na_serie}`
+}
+
 // PEÇA BAIXADA SAI DA FILA. Sem isto a tela mandaria alguém gravar a etiqueta
 // de uma peça dada como refugo, e a etiqueta iria para dentro de uma bolsa que
 // não deveria existir.
@@ -239,7 +315,13 @@ export function estadoDaPeca(peca) {
   return { chave: 'pendente', rotulo: 'Pendente', selo: 'selo-neutro' }
 }
 
-const COLUNAS_DO_LOTE = ['numero', 'codigo', 'endereco', 'estado', 'gravada em', 'motivo da baixa']
+// O NÚMERO DE SÉRIE VEM PRIMEIRO, e o número da peça CONTINUA na segunda coluna.
+// Ele não é redundância (PADRÃO item 8): o número de série carrega só os DÍGITOS
+// da referência — as letras dela ("H", "S") não entram nele em lugar nenhum —, e
+// o número da peça é o que casa com a ordem de produção antiga, que foi arquivada
+// antes desta entrega.
+const COLUNAS_DO_LOTE = ['numero de serie', 'numero', 'codigo', 'endereco', 'estado',
+  'gravada em', 'motivo da baixa']
 
 // A LISTA PARA ARQUIVAR JUNTO DA ORDEM DE PRODUÇÃO.
 //
@@ -253,10 +335,16 @@ const COLUNAS_DO_LOTE = ['numero', 'codigo', 'endereco', 'estado', 'gravada em',
 // A DATA ENTRA POR PARÂMETRO: formatar data é conta de fuso, e o fuso da Central
 // mora na tela (`dataCurta`, em America/Sao_Paulo). Escrevendo uma segunda aqui,
 // o arquivo sairia com a data de um dia e a tela com a de outro.
-export function linhasDaListaDoLote(pecas, { formatarData = (v) => (v == null ? '' : String(v)) } = {}) {
+// A REFERÊNCIA ENTRA POR PARÂMETRO pelo mesmo motivo que a data: ela é do LOTE,
+// e esta conta recebe as PEÇAS. Sem ela a coluna do número de série sai vazia —
+// que é o certo, e nunca "null": lote sem referência não tem número de série.
+export function linhasDaListaDoLote(pecas, {
+  formatarData = (v) => (v == null ? '' : String(v)), sku = '',
+} = {}) {
   const linhas = pecasEmOrdem(pecas).map((p) => {
     const estado = estadoDaPeca(p)
     return [
+      numeroDeSerie(sku, p.numero_na_serie),
       p.numero_na_serie ?? '',
       p.codigo ?? '',
       enderecoDaTag(p.codigo),
@@ -335,7 +423,11 @@ export function descricaoDaPeca(peca, lote) {
   const partes = []
   if (l.modelo) partes.push(String(l.modelo))
   if (l.cor) partes.push(String(l.cor))
-  if (p.numero_na_serie != null) partes.push(`nº ${p.numero_na_serie}`)
+  // O NÚMERO DE SÉRIE quando o lote tem referência; o `nº 7` de sempre quando
+  // não tem. Quem está com a etiqueta na mão vai comparar com o número IMPRESSO
+  // na bolsa, e o impresso é o de série.
+  const serie = rotuloDaSerie(p, l)
+  if (serie) partes.push(serie)
   const codigo = String(p.codigo ?? '').trim().toUpperCase()
   if (!partes.length) {
     // peça que a tela não conhece: nunca inventar modelo. Dizer só o código, e
