@@ -353,6 +353,51 @@ test('filtrarEtiquetas: por número na série, e ele casa EXATO', () => {
     'número que não existe na série não devolve a lista inteira')
 })
 
+/* ── A BUSCA PELO NÚMERO DE SÉRIE ─────────────────────────────────────────
+ * Desde 02/09/2026 a peça é NOMEADA pelo número de série (os dígitos da
+ * referência colados na sequência: SS1234 na peça 5 é "12345"). A dica do campo
+ * já dizia "ou o nº da série" — mas quem digitasse o número que está IMPRESSO na
+ * bolsa não achava nada, porque a busca só sabia do número da peça sozinho.
+ */
+
+test('filtrarEtiquetas: o número de série INTEIRO acha a peça', () => {
+  const so = (texto) => codigos(filtrarEtiquetas(ETIQUETAS, { loteDaPeca, texto }))
+  assert.deepEqual(so('10881'), ['AAA111'], 'SS1088 na peça 1')
+  assert.deepEqual(so('12345'), ['BBB222'], 'SS1234 na peça 5')
+  assert.deepEqual(so('15009'), ['CCC333'], 'SS1500 na peça 9')
+})
+
+test('filtrarEtiquetas: o número de série casa EXATO, como o número da peça', () => {
+  // pedaço de número de série não pode devolver meia lista — é o mesmo motivo
+  // pelo qual o número da peça nunca entrou no palheiro de texto
+  assert.deepEqual(codigos(filtrarEtiquetas(ETIQUETAS, { loteDaPeca, texto: '108811' })), [],
+    'número de série que não existe não devolve nada')
+})
+
+test('filtrarEtiquetas: procurar pelo número da peça CONTINUA funcionando', () => {
+  // PADRÃO item 8: o caminho antigo não pode sumir por causa do novo. Quem tem
+  // a ordem de produção na mesa procura por "9", e a ordem diz "9".
+  assert.deepEqual(codigos(filtrarEtiquetas(ETIQUETAS, { loteDaPeca, texto: '9' })), ['CCC333'])
+})
+
+test('filtrarEtiquetas: peça de lote sem referência não estoura nem casa com vazio', () => {
+  const semLote = [{ codigo: 'DDD444', lote_id: 'z', numero_na_serie: 3 }]
+  assert.deepEqual(codigos(filtrarEtiquetas(semLote, { loteDaPeca, texto: '3' })), ['DDD444'])
+  assert.deepEqual(codigos(filtrarEtiquetas(semLote, { loteDaPeca, texto: '15009' })), [])
+})
+
+test('filtrarLotes: o número de série de uma peça acha o LOTE dela', () => {
+  // é o mesmo caminho de "esta bolsa aqui é de qual lote?" que já existia pelo
+  // código — só que agora pelo número que está IMPRESSO na bolsa
+  assert.deepEqual(ids(filtrarLotes(LOTES, { pecasDoLote, texto: '10881', estado: 'todos' })), ['a'])
+  assert.deepEqual(ids(filtrarLotes(LOTES, { pecasDoLote, texto: '15001', estado: 'todos' })), ['c'])
+  assert.deepEqual(ids(filtrarLotes(LOTES, { pecasDoLote, texto: '999999', estado: 'todos' })), [])
+})
+
+test('lotesParaGravar: o seletor da aba Gravar também acha pelo número de série', () => {
+  assert.deepEqual(ids(lotesParaGravar(LOTES, { pecasDoLote, texto: '10881' })), ['a'])
+})
+
 test('filtrarEtiquetas: por estado', () => {
   const so = (estado, comGarantia) => codigos(filtrarEtiquetas(ETIQUETAS, { loteDaPeca, estado, comGarantia }))
   assert.deepEqual(so('baixada'), ['CCC333'])

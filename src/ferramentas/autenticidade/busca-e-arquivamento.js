@@ -15,7 +15,7 @@
 // Contas puras: sem DOM, sem rede, sem Vue. É por isso que dá para provar a
 // regra de "encerrado", o intervalo de datas e cada campo da busca sem abrir
 // navegador.
-import { naFila } from './lotes.js'
+import { naFila, numeroDeSerie } from './lotes.js'
 
 // ── TEXTO: SEM ACENTO E SEM CAIXA ─────────────────────────────────────────
 // A IDEIA vem do `procurarProduto` de `produtos-do-bling.js` — ninguém digita
@@ -33,6 +33,18 @@ export function semAcentoNemCaixa(texto) {
     .replace(/[-_/]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
+}
+
+// O NÚMERO DE SÉRIE DE UMA PEÇA CASA EXATO, e só quando o que se digitou é só
+// dígito. É a mesma regra do número da peça, pelo mesmo motivo: número jogado
+// dentro do palheiro de texto devolve meia lista, porque um pedaço de número
+// aparece em quase todo código. Desde 02/09/2026 é ESTE o número que está
+// impresso na bolsa, então é por ele que se procura primeiro.
+export function ehONumeroDeSerie(texto, sku, numeroNaSerie) {
+  const t = semAcentoNemCaixa(texto)
+  if (!/^\d+$/.test(t)) return false
+  const serie = numeroDeSerie(sku, numeroNaSerie)
+  return Boolean(serie) && serie === t
 }
 
 // CADA PALAVRA DIGITADA TEM DE APARECER em algum lugar do que se procura, e não
@@ -198,7 +210,7 @@ export function dataDoLote(lote) {
  * @param {Array}  lotes
  * @param {object} opcoes
  * @param {function} opcoes.pecasDoLote  id → as peças daquele lote
- * @param {string} opcoes.texto     modelo, cor, referência ou CÓDIGO DE PEÇA
+ * @param {string} opcoes.texto     modelo, cor, referência, CÓDIGO DE PEÇA ou NÚMERO DE SÉRIE
  * @param {string} opcoes.de/ate    dia 'AAAA-MM-DD', os dois opcionais
  * @param {string} opcoes.estado    'todos' | 'andamento' | 'encerrado' | 'com_baixa'
  */
@@ -218,7 +230,8 @@ export function filtrarLotes(lotes, {
     // não existia em lugar nenhum da tela.
     if (combina(texto, l.modelo, l.cor, l.sku)) return true
     const t = semAcentoNemCaixa(texto)
-    return pecasDoLote(l.id).some((p) => semAcentoNemCaixa(p?.codigo).includes(t))
+    return pecasDoLote(l.id).some((p) => semAcentoNemCaixa(p?.codigo).includes(t)
+      || ehONumeroDeSerie(texto, l.sku, p?.numero_na_serie))
   })
 }
 
@@ -248,7 +261,8 @@ export function lotesParaGravar(lotes, {
     if (!texto) return true
     if (combina(texto, l.modelo, l.cor, l.sku)) return true
     const t = semAcentoNemCaixa(texto)
-    return pecasDoLote(l.id).some((p) => semAcentoNemCaixa(p?.codigo).includes(t))
+    return pecasDoLote(l.id).some((p) => semAcentoNemCaixa(p?.codigo).includes(t)
+      || ehONumeroDeSerie(texto, l.sku, p?.numero_na_serie))
   })
 }
 
@@ -285,8 +299,13 @@ export function filtrarEtiquetas(etiquetas, {
     // peça nº 7 — e continua achando os códigos que tenham 7, pela linha de
     // baixo, porque quem digita um pedaço de código está procurando por ele.
     const t = semAcentoNemCaixa(texto)
-    if (/^\d+$/.test(t) && Number(p.numero_na_serie) === Number(t)) return true
     const l = loteDaPeca(p.lote_id) || {}
+    // O NÚMERO DE SÉRIE PRIMEIRO: é o que está impresso na bolsa desde
+    // 02/09/2026, e é o que a dica do campo promete achar. Ele NÃO substitui a
+    // linha de baixo (PADRÃO item 8): quem tem a ordem de produção antiga na
+    // mesa procura pelo número da peça sozinho, e continua achando.
+    if (ehONumeroDeSerie(texto, l.sku, p.numero_na_serie)) return true
+    if (/^\d+$/.test(t) && Number(p.numero_na_serie) === Number(t)) return true
     return combina(texto, p.codigo, l.modelo, l.cor, l.sku)
   })
 }

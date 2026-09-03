@@ -70,7 +70,7 @@
       <PainelDeBusca v-else v-model:filtro="filtroDeLotes"
                      :atalhos="ATALHOS_DE_DATA" :estados="ESTADOS_DE_LOTE"
                      rotulo-da-data="Fabricado em" estado-padrao="andamento"
-                     dica="Modelo, cor, referência ou o código de uma peça"
+                     dica="Número de série, código de uma peça, modelo, cor ou referência"
                      :contagem="contagemDeLotes" />
 
       <div v-if="lotes.length" class="au-acoes">
@@ -911,7 +911,7 @@
       <PainelDeBusca v-model:filtro="filtroDeEtiquetas"
                      :atalhos="ATALHOS_DE_DATA" :estados="ESTADOS_DE_ETIQUETA"
                      rotulo-da-data="Gravada em" estado-padrao="todas"
-                     dica="Código da peça, modelo, referência ou o nº da série"
+                     dica="Número de série, código da peça, modelo ou referência"
                      :contagem="contagemDeEtiquetas" />
 
       <p v-if="!etiquetasDaAba.length" class="au-vazio">
