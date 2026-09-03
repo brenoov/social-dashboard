@@ -229,18 +229,30 @@
                  `position:sticky` e continua no alto enquanto a pessoa varre
                  500 peças.
                  `aria-hidden` porque ele não acrescenta informação nenhuma:
-                 cada linha já diz "nº 3", "Gravada em 12/08" por escrito. Ele é
-                 ajuda de OLHO, para varrer coluna. No celular não existe:
+                 cada linha já diz o número e "Gravada em 12/08" por escrito. Ele
+                 é ajuda de OLHO, para varrer coluna. No celular não existe:
                  `display:none` na regra-base, e só o `@media (min-width)` o
-                 acende. -->
+                 acende.
+
+                 ⚠️ A PRIMEIRA COLUNA VIROU "Nº DE SÉRIE", e não ganhou uma sétima
+                 coluna ao lado do código. O número da peça sozinho ("nº 3") só é
+                 único DENTRO de um lote: dois lotes diferentes têm uma peça 3
+                 cada. O número de série é único entre todos, é o que está
+                 impresso na bolsa e é o que a cliente vê ao encostar o celular —
+                 ele é o que aquela coluna sempre quis ser. Uma sétima coluna
+                 mostraria o mesmo dado duas vezes e espremeria a do endereço,
+                 que é a mais apertada da tabela e já tem piso medido em pixel.
+                 O NÚMERO DA PEÇA NÃO SE PERDE (PADRÃO item 8): ele continua na
+                 planilha que se baixa aqui do lado, em coluna própria, e volta a
+                 aparecer na tela inteira quando o lote não tem referência. -->
             <ul v-else class="au-pecas-lista au-tabela-pecas">
               <li class="au-tabela-cab" aria-hidden="true">
-                <span>Nº</span><span>Código</span><span>Estado</span>
+                <span>Nº de série</span><span>Código</span><span>Estado</span>
                 <span>Situação</span><span>Endereço</span><span>Ações</span>
               </li>
               <li v-for="pc in pecasVisiveis" :key="pc.codigo" class="au-peca">
                 <div class="au-peca-topo">
-                  <span class="au-peca-n">nº {{ pc.numero_na_serie }}</span>
+                  <span class="au-peca-n">{{ rotuloDaSerie(pc, l, { curto: true }) }}</span>
                   <span class="au-ref au-peca-cod">{{ pc.codigo }}</span>
                   <span class="selo" :class="estadoDaPeca(pc).selo">{{ estadoDaPeca(pc).rotulo }}</span>
                 </div>
@@ -426,6 +438,25 @@
 
             <!-- 1. QUAL PEÇA É AGORA. O maior elemento da tela, e o único desse
                  tamanho. ELE NÃO É O PROGRESSO: é qual peça está na mão agora.
+
+                 ⚠️ ELE CONTINUA SENDO O NÚMERO DA PEÇA, e NÃO virou número de
+                 série em 02/09/2026, quando toda a ferramenta virou. A decisão é
+                 deliberada, e o motivo é o trabalho que ele faz:
+
+                 · ELE NÃO IDENTIFICA A BOLSA, aponta a posição na fila — é a
+                   resposta para "qual peça está na minha mão agora", lida de pé,
+                   de longe, no meio de um gesto. Quem identifica a bolsa é o
+                   endereço logo ao lado e o código, e desde esta entrega também
+                   a fila logo abaixo, que diz o número de série de cada uma.
+                 · O NÚMERO DE SÉRIE É PIOR NA ÚNICA COISA QUE ELE FAZ. Duas
+                   peças seguidas são "001517" e "001518": a 32px, do outro lado
+                   da bancada, elas são a mesma mancha, e só o último dígito
+                   separa uma da outra. "7 de 20" e "8 de 20" não se confundem.
+                 · O "de 20" só existe com a sequência. "001518 de 20" não é
+                   frase nenhuma.
+
+                 Trocá-lo seria trocar um número que se lê de longe por um que
+                 não se lê, para responder uma pergunta que ele não faz. -->
                  COM A FILA ACABADA ELE SAI, e quem vira o elemento dominante é o
                  estado — "Lote pronto", em verde, com o ✓ desenhado. Antes ele
                  mostrava aqui o "6 de 20" do lote, que é exatamente o que a
@@ -544,7 +575,12 @@
             <ul class="au-fila-lista">
               <li v-for="pf in filaAoRedor" :key="pf.codigo"
                   :class="['au-fila-item', { atual: pf.codigo === proxima.codigo }]">
-                <span class="au-fila-n">nº {{ pf.numero_na_serie }}</span>
+                <!-- AQUI O RÓTULO É O LONGO ("nº de série 001512"), e na tabela
+                     de peças é o curto. A diferença não é descuido: lá existe um
+                     cabeçalho de coluna dizendo o que o número é; aqui não há
+                     cabeçalho nenhum, e um número pelado encostado no código ao
+                     lado leria como se fossem dois códigos. -->
+                <span class="au-fila-n">{{ rotuloDaSerie(pf, loteAtual) }}</span>
                 <span class="au-ref au-fila-cod">{{ pf.codigo }}</span>
                 <span class="selo"
                       :class="pf.codigo === proxima.codigo ? 'selo-info' : estadoDaPeca(pf).selo">
@@ -660,7 +696,7 @@
 
               <div v-if="excluindoPeca" class="au-confirma">
                 <p class="au-confirma-texto">
-                  Excluir a peça {{ proxima.numero_na_serie }}, de código
+                  Excluir a peça {{ rotuloDaSerie(proxima, loteAtual) }}, de código
                   <strong>{{ proxima.codigo }}</strong>?
                 </p>
                 <p class="au-aviso-menor">
@@ -678,7 +714,7 @@
               </div>
 
               <div v-if="baixando" class="au-confirma">
-                <p class="au-confirma-texto">Dar baixa na peça {{ proxima.numero_na_serie }}?</p>
+                <p class="au-confirma-texto">Dar baixa na peça {{ rotuloDaSerie(proxima, loteAtual) }}?</p>
                 <label class="au-campo"><span class="au-rot">Motivo</span>
                   <select v-model="motivoDaBaixa">
                     <option v-for="m in MOTIVOS_DE_BAIXA" :key="m.chave" :value="m.chave">{{ m.rotulo }}</option>
@@ -793,7 +829,7 @@
               <p class="au-mais-titulo">{{ baixadasDoLote.length }} peça(s) baixada(s) neste lote</p>
               <ul class="au-baixadas">
                 <li v-for="pc in baixadasDoLote" :key="pc.codigo">
-                  <span>Peça {{ pc.numero_na_serie }} — {{ rotuloDoMotivo(pc.baixa_motivo) }}</span>
+                  <span>Peça {{ rotuloDaSerie(pc, loteAtual) }} — {{ rotuloDoMotivo(pc.baixa_motivo) }}</span>
                   <button v-if="podeEditar" class="au-link" type="button" :disabled="baixaEmVoo"
                           @click="desfazerBaixa(pc.codigo)">Desfazer</button>
                 </li>
@@ -1289,6 +1325,7 @@ import {
   MOTIVOS_DE_BAIXA, fraseDaRecusa, fraseDaSenha, naFila,
   rotuloDoMotivo, pecasEmOrdem, estadoDaPeca, linhasDaListaDoLote,
   codigosComGarantia, etiquetasGravadas, motivoObrigatorio, descricaoDaPeca,
+  rotuloDaSerie, serieAmbigua, avisoDeSerieAmbigua,
 } from './lotes.js'
 import {
   // ⚠️ `listaParaGravadorDeMesa` NÃO entra mais aqui, e não é esquecimento: o
@@ -2528,8 +2565,8 @@ async function gravarNaEtiqueta() {
 
     if (travarDepois.value) await gravador.travar()
     recadoNfc.value = await marcarGravada(peca.codigo)
-      ? `Peça ${peca.numero_na_serie} pronta. Pegue a próxima etiqueta.`
-      : `Gravei a etiqueta da peça ${peca.numero_na_serie}, mas não consegui marcá-la `
+      ? `Peça ${rotuloDaSerie(peca, loteAtual.value)} pronta. Pegue a próxima etiqueta.`
+      : `Gravei a etiqueta da peça ${rotuloDaSerie(peca, loteAtual.value)}, mas não consegui marcá-la `
         + 'como pronta. NÃO pegue outra etiqueta: encoste esta de novo.'
   } catch (erro) {
     recadoNfc.value = traduzirFalha(erro)
@@ -3807,16 +3844,27 @@ onMounted(() => {
      O SEGUNDO PISO É CONSEQUÊNCIA DO PRIMEIRO, e foi medido depois dele: com o
      endereço tomando 380px numa janela de 900px, a coluna do "Nº" (`.5fr`)
      caía para 28px e passava a cortar "nº 10" em VINTE E UMA linhas seguidas.
-     Trocar um texto cortado por outro não é conserto. `minmax(48px, .5fr)` é o
-     que "nº 500" precisa — o maior número que um lote pode ter, porque a
+     Trocar um texto cortado por outro não é conserto. `minmax(48px, .5fr)` era
+     o que "nº 500" precisava — o maior número que um lote pode ter, porque a
      quantidade vai até 500.
+     ELE SUBIU PARA 76px EM 02/09/2026, quando a coluna virou "Nº de série": o
+     texto mais largo que ela carrega deixou de ser "nº 500" (48px) e passou a
+     ser "0015500" — os quatro dígitos da referência mais a peça 500 —, que em
+     `--fonte-principal` a 13px em negrito mede 55px. Quem manda no piso, porém,
+     não é a célula: é o CABEÇALHO, "Nº DE SÉRIE" em 11px com 1,5px de
+     entreletra, cuja maior palavra ("SÉRIE") mede 51px e cuja quebra em duas
+     linhas ("Nº DE" / "SÉRIE") pede 51px de largura útil. 76px dá folga para o
+     tema escuro, onde a família muda, e para quem aumentou a letra do sistema.
+     Os dois pisos somados vão de 428px para 456px, e a 900px continuam sobrando
+     mais de 250px para as outras quatro colunas encolherem — medido, sem
+     rolagem lateral.
 
      As outras quatro continuam `minmax(0, Nfr)` de propósito: fração não
      estoura a largura, e a página nunca ganha rolagem horizontal por causa da
      tabela. Os dois pisos somados dão 428px, e a 900px sobram mais de 280px
      para as outras quatro encolherem — medido, sem rolagem lateral. */
   .au-tabela-pecas .au-tabela-cab, .au-tabela-pecas .au-peca{
-    grid-template-columns:minmax(48px,.5fr) minmax(0,1.3fr) minmax(0,1fr) minmax(0,1.4fr) minmax(380px,2.4fr) minmax(0,1.8fr);
+    grid-template-columns:minmax(76px,.5fr) minmax(0,1.3fr) minmax(0,1fr) minmax(0,1.4fr) minmax(380px,2.4fr) minmax(0,1.8fr);
   }
   .au-tabela-pecas .au-peca-topo{display:contents;}
   .au-tabela-pecas .au-peca-estado, .au-tabela-pecas .au-peca-end{margin-top:0; min-width:0;}

@@ -78,10 +78,20 @@ export function avisoDeSerieAmbigua(sku) {
 // COMO A TELA CHAMA UMA PEÇA, em qualquer lugar em que ela seja NOMEADA.
 // Com referência é o número de série; sem ela, o `nº 3` de sempre. Peça sem
 // número nenhum não vira "nº undefined": não sai rótulo.
-export function rotuloDaSerie(peca, lote) {
+//
+// `curto` é para onde JÁ EXISTE um cabeçalho dizendo o que o número é — a
+// coluna "Nº de série" da tabela de peças. Ali "nº de série 001512" embaixo de
+// "Nº DE SÉRIE" é a mesma palavra duas vezes, e ela rouba a largura de uma
+// coluna que precisa caber "0015500" sem cortar.
+//
+// ⚠️ O FALLBACK NÃO ENCURTA, de propósito: sem referência, a célula diz `nº 3`
+// mesmo embaixo do cabeçalho "Nº de série". É esse `nº` que avisa que ali não
+// há número de série nenhum — um "3" pelado embaixo daquele cabeçalho seria a
+// tela dizendo que o número de série desta bolsa é 3.
+export function rotuloDaSerie(peca, lote, { curto = false } = {}) {
   const p = peca || {}
   const serie = numeroDeSerie((lote || {}).sku, p.numero_na_serie)
-  if (serie) return `nº de série ${serie}`
+  if (serie) return curto ? serie : `nº de série ${serie}`
   return p.numero_na_serie == null ? '' : `nº ${p.numero_na_serie}`
 }
 

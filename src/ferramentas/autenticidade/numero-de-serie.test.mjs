@@ -23,6 +23,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import {
   DIGITOS_DA_REFERENCIA, numeroDeSerie, serieAmbigua, avisoDeSerieAmbigua,
   rotuloDaSerie, descricaoDaPeca, linhasDaListaDoLote,
@@ -126,6 +127,16 @@ test('SEM referência o rótulo volta a ser o `nº 3` de sempre', () => {
   assert.equal(rotuloDaSerie({ numero_na_serie: 3 }, {}), 'nº 3')
 })
 
+test('`curto` é só o número, para onde o cabeçalho da coluna já diz o que ele é', () => {
+  assert.equal(rotuloDaSerie({ numero_na_serie: 12 }, { sku: 'H0015S' }, { curto: true }), '001512')
+})
+
+test('o `curto` NÃO encurta o fallback: sem referência a célula continua dizendo `nº 3`', () => {
+  // é esse "nº" que avisa que ali não há número de série. Um "3" pelado embaixo
+  // do cabeçalho "Nº DE SÉRIE" seria a tela dizendo que a série desta bolsa é 3.
+  assert.equal(rotuloDaSerie({ numero_na_serie: 3 }, null, { curto: true }), 'nº 3')
+})
+
 test('sem peça e sem número não sai rótulo nenhum — nem "nº undefined"', () => {
   assert.equal(rotuloDaSerie(null, { sku: 'H0015S' }), '')
   assert.equal(rotuloDaSerie({}, { sku: 'H0015S' }), '')
@@ -173,4 +184,54 @@ test('lote sem referência: a coluna existe e sai VAZIA, nunca com "null" dentro
   assert.match(cab, /^numero de serie;/)
   assert.match(linha, /^;12;AAA111;/)
   assert.doesNotMatch(csv, /null|undefined|NaN/)
+})
+
+/* ── 8. NA TELA ───────────────────────────────────────────────────────────
+ * A regra pura acima é metade: o que decide se a pessoa vê o número de série é
+ * o template. Estes testes leem o arquivo da tela — é o mesmo motor das provas
+ * de tela das irmãs, e é o que impede que a regra fique certa e a tela velha.
+ */
+const tela = readFileSync(new URL('./tela-de-autenticidade.vue', import.meta.url), 'utf8')
+const template = tela.slice(0, tela.indexOf('<script setup>'))
+
+test('as confirmações de excluir e de dar baixa nomeiam a peça pelo número de série', () => {
+  // do outro lado destas duas perguntas há uma bolsa de couro. Perguntar "dar
+  // baixa na peça 3?" com três lotes abertos é perguntar sobre três bolsas.
+  assert.match(template, /Excluir a peça \{\{ rotuloDaSerie\(proxima, loteAtual\) \}\}, de código/)
+  assert.match(template, /Dar baixa na peça \{\{ rotuloDaSerie\(proxima, loteAtual\) \}\}\?/)
+})
+
+test('a lista das peças baixadas nomeia a peça pelo número de série', () => {
+  assert.match(template, /Peça \{\{ rotuloDaSerie\(pc, loteAtual\) \}\} — \{\{ rotuloDoMotivo/)
+})
+
+test('nenhum lugar da tela escreve `nº {{ …numero_na_serie }}` à mão', () => {
+  // varredura do arquivo INTEIRO, e não da lista que eu lembrei de conferir: é
+  // assim que sobra um canto com o número velho depois de a regra ter mudado.
+  // A ÚNICA EXCEÇÃO É O NÚMERO GRANDE DA BANCADA, logo abaixo.
+  const sobras = [...template.matchAll(/nº \{\{ ([^}]+?)\.numero_na_serie \}\}/g)]
+    .map((m) => m[0])
+  assert.deepEqual(sobras, ['nº {{ proxima.numero_na_serie }}'],
+    'sobrou um lugar mostrando o número da peça cru em vez do número de série')
+})
+
+/* ── 9. O NÚMERO GRANDE DA BANCADA CONTINUA SENDO A POSIÇÃO ──────────────── */
+
+test('o "nº 8 de 20" da bancada NÃO virou número de série, e isso é decisão', () => {
+  /* ELE NÃO IDENTIFICA A BOLSA: aponta a posição na fila. É a resposta para
+   * "qual peça está na minha mão agora", lida de pé, de longe, no meio de um
+   * gesto — e o número de série é PIOR nessa única coisa. Duas peças seguidas
+   * são "001517" e "001518": a 32px, do outro lado da bancada, são a mesma
+   * mancha, e só o último dígito separa uma da outra. "7 de 20" e "8 de 20" não
+   * se confundem. E o "de 20" só existe com a sequência: "001518 de 20" não é
+   * frase nenhuma.
+   *
+   * Quem identifica a bolsa ali é o endereço ao lado, o código, e a fila logo
+   * abaixo — que desde esta entrega diz o número de série de cada peça.
+   *
+   * Este teste existe para que a próxima pessoa que "padronizar" a tela tenha
+   * de apagar a decisão de propósito, e não de passagem. */
+  assert.match(template,
+    /class="au-bancada-peca">\s*nº \{\{ proxima\.numero_na_serie \}\} de \{\{ loteAtual\?\.quantidade \}\}/,
+    'o número grande da bancada mudou: ele é a POSIÇÃO na fila, não a identidade da bolsa')
 })
