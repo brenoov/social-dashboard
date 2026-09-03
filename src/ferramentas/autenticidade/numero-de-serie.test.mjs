@@ -27,6 +27,7 @@ import { readFileSync } from 'node:fs'
 import {
   DIGITOS_DA_REFERENCIA, numeroDeSerie, serieAmbigua, avisoDeSerieAmbigua,
   rotuloDaSerie, prefixoDaSerie, descricaoDaPeca, linhasDaListaDoLote,
+  fraseDaPecaNaMao,
 } from './lotes.js'
 
 /* ── 1. O FORMATO QUE O DONO ESCOLHEU ─────────────────────────────────────── */
@@ -250,10 +251,15 @@ test('no celular o número de série leva o rótulo junto; no computador, o cabe
 test('nenhum lugar da tela escreve `nº {{ …numero_na_serie }}` à mão', () => {
   // varredura do arquivo INTEIRO, e não da lista que eu lembrei de conferir: é
   // assim que sobra um canto com o número velho depois de a regra ter mudado.
-  // A ÚNICA EXCEÇÃO É O NÚMERO GRANDE DA BANCADA, logo abaixo.
+  //
+  // ⚠️ ATÉ 03/09/2026 ESTA LISTA TINHA UMA EXCEÇÃO: o número grande da bancada,
+  // que é POSIÇÃO e não identidade, era montado à mão aqui. Ele continua sendo
+  // posição — a decisão não mudou —, mas quem monta a frase agora é
+  // `fraseDaPecaNaMao`, porque a série passou a aceitar buraco e `nº 10 de 9`
+  // precisou virar `nº 10`. A decisão é guardada logo abaixo, pela função.
   const sobras = [...template.matchAll(/nº \{\{ ([^}]+?)\.numero_na_serie \}\}/g)]
     .map((m) => m[0])
-  assert.deepEqual(sobras, ['nº {{ proxima.numero_na_serie }}'],
+  assert.deepEqual(sobras, [],
     'sobrou um lugar mostrando o número da peça cru em vez do número de série')
 })
 
@@ -274,8 +280,16 @@ test('o "nº 8 de 20" da bancada NÃO virou número de série, e isso é decisã
    * Este teste existe para que a próxima pessoa que "padronizar" a tela tenha
    * de apagar a decisão de propósito, e não de passagem. */
   assert.match(template,
-    /class="au-bancada-peca">\s*nº \{\{ proxima\.numero_na_serie \}\} de \{\{ loteAtual\?\.quantidade \}\}/,
-    'o número grande da bancada mudou: ele é a POSIÇÃO na fila, não a identidade da bolsa')
+    /class="au-bancada-peca">\s*\{\{ fraseDaPecaNaMao\(proxima, loteAtual\) \}\}/,
+    'o número grande da bancada mudou de dono: quem monta a frase é fraseDaPecaNaMao')
+
+  // e a função continua entregando a POSIÇÃO, não o número de série — medido
+  // pelo que ela devolve, não pelo nome dela. Um lote com referência conta a
+  // história inteira: se algum dia isto virar série, `00158` aparece aqui.
+  assert.equal(fraseDaPecaNaMao({ numero_na_serie: 8 }, { sku: 'H0015S', quantidade: 20 }),
+    'nº 8 de 20',
+    'o número grande da bancada virou número de série: ele é a POSIÇÃO na fila, '
+    + 'não a identidade da bolsa')
 })
 
 /* ── 10. A TRAVA DA AMBIGUIDADE, NA TELA ─────────────────────────────────── */
@@ -338,4 +352,36 @@ test('o recuo do celular do aviso vive no `@media` do FIM do arquivo', () => {
     'a regra-base do aviso tem de vir ANTES do `@media` do celular')
   assert.match(estilo.slice(celular), /\.au-aviso-serie\{margin-left:16px/,
     'o aviso não recuou junto com os campos a 375px')
+})
+
+// ── A FRASE GRANDE DA BANCADA, DEPOIS QUE A SÉRIE PASSOU A ACEITAR BURACO ──
+//
+// Em 03/09/2026 peça gravada ou com garantia passou a CONGELAR no número dela,
+// porque esse número virou o número de série impresso no certificado da
+// cliente. O preço combinado com o dono é o vão: um lote de nove peças pode ter
+// uma numerada 10, e aí `nº 10 de 9` seria uma frase impossível na maior letra
+// da tela, no meio de uma gravação em série.
+test('fraseDaPecaNaMao: o caso normal continua igual', () => {
+  assert.equal(fraseDaPecaNaMao({ numero_na_serie: 8 }, { quantidade: 20 }), 'nº 8 de 20')
+  assert.equal(fraseDaPecaNaMao({ numero_na_serie: 1 }, { quantidade: 1 }), 'nº 1 de 1')
+})
+
+test('fraseDaPecaNaMao: o "de N" SAI quando o número não cabe no total', () => {
+  // é este o caso que a série com buraco cria — e a frase impossível que ele
+  // colocaria na maior letra da tela
+  assert.equal(fraseDaPecaNaMao({ numero_na_serie: 10 }, { quantidade: 9 }), 'nº 10')
+  assert.equal(fraseDaPecaNaMao({ numero_na_serie: 50 }, { quantidade: 3 }), 'nº 50')
+})
+
+test('fraseDaPecaNaMao: sem total confiável, mostra só o número', () => {
+  // lote ainda carregando, ou `quantidade` que voltou nula do banco: melhor um
+  // número sozinho do que "nº 8 de undefined"
+  assert.equal(fraseDaPecaNaMao({ numero_na_serie: 8 }, null), 'nº 8')
+  assert.equal(fraseDaPecaNaMao({ numero_na_serie: 8 }, { quantidade: null }), 'nº 8')
+  assert.equal(fraseDaPecaNaMao({ numero_na_serie: 8 }, { quantidade: '20' }), 'nº 8')
+})
+
+test('fraseDaPecaNaMao: peça sem número nenhum não vira "nº undefined"', () => {
+  assert.equal(fraseDaPecaNaMao({}, { quantidade: 20 }), '')
+  assert.equal(fraseDaPecaNaMao(null, { quantidade: 20 }), '')
 })

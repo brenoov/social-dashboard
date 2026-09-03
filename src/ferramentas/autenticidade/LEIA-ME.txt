@@ -515,13 +515,49 @@ buraco na serie sem mexer no numero nao consertava nada — e buraco nao e
 hipotese: o lote real do Monaco tinha quantidade 20 com pecas numeradas de 7 a
 11, e a cliente lia "peca 7 de 20" numa fornada de 5.
 
-O PORQUE DE RENUMERAR. A pagina da cliente mostra
-"peca N de TOTAL". Sem renumerar, diminuir um lote de 10 para 5 deixaria quem
-tem a peca 10 lendo "peca 10 de 5". O CODIGO da etiqueta NAO muda - e ele que
-identifica a peca, e e ele que esta costurado dentro da bolsa - mas o NUMERO
-pode mudar: quem viu "peca 10 de 10" pode ver "peca 5 de 5" depois. Numero
-coerente vale mais que numero imutavel: incoerencia a cliente percebe, mudanca
-silenciosa quase nunca.
+O PORQUE DE RENUMERAR. A pagina da cliente mostra "peca N de TOTAL". Sem
+renumerar, diminuir um lote de 10 para 5 deixaria quem tem a peca 10 lendo
+"peca 10 de 5". O CODIGO da etiqueta NAO muda - e ele que identifica a peca, e
+e ele que esta costurado dentro da bolsa - mas o NUMERO podia mudar.
+
+⚠️ ESTA REGRA FOI VIRADA EM 03/09/2026, E A PREMISSA DELA E QUE MUDOU.
+
+Ate 02/09 valia "numero coerente vale mais que numero imutavel: incoerencia a
+cliente percebe, mudanca silenciosa quase nunca". Estava certo enquanto
+`numero_na_serie` era POSICAO — o "nº 7 de 20" da bancada, dado de dentro de
+casa. Em 02/09 a REFERENCIA e a PECA viraram um NUMERO DE SERIE so, que aparece
+no certificado. O numero deixou de ser posicao e virou IDENTIDADE, e a frase
+acima passou a autorizar exatamente o que ela queria evitar: a identidade da
+bolsa de uma cliente mudando calado.
+
+O caminho, medido no banco e nao deduzido: lote com as pecas 1 a 10, a 6 e a 7
+gravadas e com as clientes; excluo a peca 5, que esta LIVRE e cuja exclusao e
+permitida; a renumeracao fecha o buraco e a 6 vira 5, a 7 vira 6. A cliente que
+anotou 001517 na compra volta meses depois e le 001516.
+
+A REGRA DE HOJE: PECA PRESA NUNCA MUDA DE NUMERO. Presa e a mesma definicao que
+`vessel_editar_lote` ja usava — GRAVADA ou COM GARANTIA REGISTRADA. As livres
+continuam se acomodando nos menores numeros que sobram, porque ninguem as viu
+ainda. O preco combinado com o dono e o BURACO na serie: um lote de nove pecas
+pode ter uma numerada 10. Um vao na numeracao e feio; um numero de serie que
+muda depois de vendido e defeito.
+
+Por causa do buraco, as DUAS frases que juntam numero e total ganharam guarda, e
+elas sao irmas: `fraseDaPecaNaMao` (lotes.js) no "nº 8 de 20" da bancada e
+`pecaDaSerie` (vessel-brasil/verify/regras.js) no "01 de 12" do certificado.
+Quando o numero nao cabe no total, o "de N" sai. "nº 10 de 9" e "10 de 09" sao
+frases impossiveis — e a segunda apareceria no documento que existe para a
+cliente CONFIRMAR que a bolsa e verdadeira.
+
+O que NAO mudou, e ja estava certo: `vessel_excluir_peca` recusa peca gravada
+(`esta_gravada`) e peca com garantia (`tem_garantia`), e `vessel_editar_lote`
+recusa baixar a quantidade abaixo das presas (`abaixo_do_gravado`). Ninguem
+consegue apagar uma peca que esta no mundo. O buraco era o EFEITO COLATERAL de
+apagar a peca do lado.
+
+Prova: docs/provar-serie-congelada.sql, 16 assercoes em begin/rollback. Rodada
+tambem SEM a migration, para provar que ela pega o defeito: as pecas gravadas
+voltavam "5,6" onde tinham de voltar "6,7".
 
 AS MIGRATIONS DE 30/08, E A ORDEM DELAS
 =======================================

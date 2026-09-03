@@ -110,6 +110,30 @@ export function rotuloDaSerie(peca, lote, { curto = false } = {}) {
   return p.numero_na_serie == null ? '' : `nº ${p.numero_na_serie}`
 }
 
+// A FRASE GRANDE DA BANCADA — "nº 8 de 20", o maior elemento da tela.
+//
+// Ela mora aqui, e não na tela, por causa de uma coisa que mudou em 03/09/2026:
+// a SÉRIE PASSOU A ACEITAR BURACO. Antes, renumerar sempre deixava as peças em
+// 1..N, então o número da peça nunca passava do total do lote e `nº X de N` era
+// uma frase sempre verdadeira. Agora peça GRAVADA ou COM GARANTIA fica congelada
+// no número dela — porque esse número virou o número de série impresso no
+// certificado da cliente, e ele não pode mudar depois que a bolsa saiu daqui.
+//
+// O preço é o vão: um lote pode ter nove peças com uma delas numerada 10. Aí
+// `nº 10 de 9` é uma frase impossível, do tipo que faz quem lê parar e
+// desconfiar da ferramenta inteira no meio de uma gravação em série.
+//
+// Quando o número não cabe no total, o "de N" simplesmente sai. `nº 10` sozinho
+// continua respondendo a única pergunta que essa frase faz — qual peça está na
+// minha mão —, e o progresso do lote continua na barra logo abaixo, que é de
+// quem essa conta sempre foi.
+export function fraseDaPecaNaMao(peca, lote) {
+  const n = (peca || {}).numero_na_serie
+  if (n == null) return ''
+  const total = (lote || {}).quantidade
+  return Number.isInteger(total) && n <= total ? `nº ${n} de ${total}` : `nº ${n}`
+}
+
 // PEÇA BAIXADA SAI DA FILA. Sem isto a tela mandaria alguém gravar a etiqueta
 // de uma peça dada como refugo, e a etiqueta iria para dentro de uma bolsa que
 // não deveria existir.

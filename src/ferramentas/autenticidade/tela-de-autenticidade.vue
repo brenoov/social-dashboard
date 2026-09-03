@@ -477,6 +477,12 @@
                  · O "de 20" só existe com a sequência. "001518 de 20" não é
                    frase nenhuma.
 
+                 ⚠️ O "de 20" PODE SUMIR, desde 03/09/2026. A série passou a
+                 aceitar buraco — peça gravada ou com garantia congela no número
+                 dela, porque ele virou o número de série da cliente — e um lote
+                 de nove peças pode ter uma numerada 10. `nº 10 de 9` é frase
+                 impossível. Quem decide é `fraseDaPecaNaMao`, com teste.
+
                  Trocá-lo seria trocar um número que se lê de longe por um que
                  não se lê, para responder uma pergunta que ele não faz.
 
@@ -488,7 +494,7 @@
                  reclamou. O bloco de trabalho não some junto: ele nunca teve
                  `v-if`, então o ✓ da última etiqueta continua na tela. -->
             <p v-if="proxima" class="au-bancada-peca">
-              nº {{ proxima.numero_na_serie }} de {{ loteAtual?.quantidade }}
+              {{ fraseDaPecaNaMao(proxima, loteAtual) }}
             </p>
 
             <!-- 2. O ESTADO. A COR E O MOVIMENTO SÃO O SINAL, O TEXTO É A
@@ -1353,7 +1359,7 @@ import {
   MOTIVOS_DE_BAIXA, fraseDaRecusa, fraseDaSenha, naFila,
   rotuloDoMotivo, pecasEmOrdem, estadoDaPeca, linhasDaListaDoLote,
   codigosComGarantia, etiquetasGravadas, motivoObrigatorio, descricaoDaPeca,
-  rotuloDaSerie, prefixoDaSerie, serieAmbigua, avisoDeSerieAmbigua,
+  rotuloDaSerie, prefixoDaSerie, serieAmbigua, avisoDeSerieAmbigua, fraseDaPecaNaMao,
 } from './lotes.js'
 import {
   // ⚠️ `listaParaGravadorDeMesa` NÃO entra mais aqui, e não é esquecimento: o
