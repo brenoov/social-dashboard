@@ -1,0 +1,226 @@
+#!/usr/bin/env node
+// coletor/fotos-do-selo-do-bling.mjs
+//
+// O ROBO QUE ENCHE O CERTIFICADO. Para cada lote do selo que tem SKU e esta
+// SEM FOTO OU SEM COR, procura o produto no Bling, copia as imagens grandes
+// para o site e atualiza o lote. A bolsa que ja esta com a cliente passa a
+// mostrar a foto na proxima vez que ela encostar o celular — sem regravar
+// etiqueta nenhuma, porque a tag guarda so o endereco.
+//
+//   node coletor/fotos-do-selo-do-bling.mjs           # roda e publica
+//   node coletor/fotos-do-selo-do-bling.mjs --dry     # so diz o que faria
+//   node coletor/fotos-do-selo-do-bling.mjs --sem-push  # baixa e grava, nao publica
+//
+// ── AS FOTOS NAO VAO PARA O SUPABASE, E ISSO E DELIBERADO ──────────────────
+//
+// O dono levantou o medo de estourar o armazenamento. Medido em 03/09/2026: o
+// projeto esta no plano FREE — 1 GB — com 0,56 GB usados (56%), ~440 MB
+// sobrando. As fotos do selo nunca moraram la: elas ficam no REPOSITORIO DO
+// SITE, servidas pela Vercel, que nao cobra por arquivo estatico. Este robo
+// mantem essa escolha. Custo no 1 GB do Supabase: ZERO.
+//
+// E as fotos entram OTIMIZADAS: o `sips` (nativo do Mac, sem instalar nada)
+// reduz para 1400px de largura. Medido: uma foto do Bling tem ~326 KB em media
+// e sai daqui com ~60 KB, do tamanho das que ja estao no site.
+//
+// ── POR QUE COPIAR, E NAO APONTAR ─────────────────────────────────────────
+//
+// ⚠️ AS URLS DO BLING SAO ASSINADAS E EXPIRAM. O proprio Bling manda a
+// `validade`, e na medicao ela era de SETE DIAS. Apontar o certificado direto
+// para o Bling deixaria a bolsa da cliente com um quadrado quebrado uma semana
+// depois da compra. Copiar nao e escolha de arquitetura — e a unica forma de a
+// foto continuar la.
+//
+// ⚠️ E A IMAGEM GRANDE SO VEM NO DETALHE DO PRODUTO. A lista devolve
+// `imagemURL`, que e MINIATURA DE 70x70 PIXELS. O robo antigo
+// (`baixar-fotos-bling.mjs`) pega essa primeiro — por isso ele nao serve aqui.
+import './lib/carregar-env.mjs'
+import pg from 'pg'
+import { execFileSync } from 'node:child_process'
+import { mkdirSync, writeFileSync, existsSync, rmSync, statSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import {
+  lotesParaOlhar, pastaDoLote, enderecoDaFoto, imagensGrandesDoProduto,
+  corDoProduto, produtoQueBate, loteEstaFaltando,
+} from './lib/fotos-do-selo.mjs'
+
+const aqui = dirname(fileURLToPath(import.meta.url))
+
+// ⚠️ O SITE MORA NO CHECKOUT PRINCIPAL, e nao "uma pasta acima deste arquivo".
+// `vessel-brasil` e um repositorio SEPARADO que fica dentro do iamundi, e nao
+// e versionado por ele — entao um worktree do iamundi nao tem copia dele.
+// A primeira versao usava `resolve(aqui, '..')` e, rodando de um worktree, o
+// robo CRIOU uma pasta `vessel-brasil/fotos/selo/` vazia la dentro e baixou as
+// fotos para um lugar que nenhum site publica. Nao deu erro nenhum: baixou,
+// reduziu, gravou no banco e o certificado apontaria para o vazio.
+// `--git-common-dir` devolve o `.git` do checkout PRINCIPAL mesmo de dentro de
+// um worktree; a pasta acima dele e a raiz de verdade.
+function raizDoIamundi() {
+  try {
+    const git = execFileSync('/usr/bin/git', ['-C', aqui, 'rev-parse',
+      '--path-format=absolute', '--git-common-dir'], { encoding: 'utf8' }).trim()
+    return dirname(git)
+  } catch {
+    return resolve(aqui, '..')
+  }
+}
+const SITE = join(raizDoIamundi(), 'vessel-brasil')
+const PASTA_DAS_FOTOS = join(SITE, 'fotos', 'selo')
+const BLING = 'https://api.bling.com.br/Api/v3'
+const DRY = process.argv.includes('--dry')
+const SEM_PUSH = process.argv.includes('--sem-push')
+// ⚠️ 900 PIXELS PORQUE E O QUE JA ESTA NO SITE, nao porque eu escolhi um numero
+// bonito. Medido: as seis pastas que ja existem tem fotos de 900x900 com 36-52
+// KB. A minha primeira versao usava 1400, e as fotos sairam com 196 KB — quatro
+// vezes o peso das vizinhas, na mesma galeria, no celular de uma cliente que
+// pode estar num sinal ruim. Foto do robo tem de ser indistinguivel da foto que
+// o dono sobe a mao.
+const LARGURA_MAXIMA = 900
+const MAXIMO_DE_FOTOS = 4   // o certificado mostra uma galeria, nao um album
+
+const espera = (ms) => new Promise((r) => setTimeout(r, ms))
+
+async function pedirAoBling(caminho, token) {
+  // O Bling responde 429 com facilidade. Esperar e tentar de novo e mais
+  // barato do que perder a rodada inteira e voltar so amanha.
+  for (let tentativa = 0; tentativa < 4; tentativa++) {
+    const r = await fetch(`${BLING}/${caminho}`, {
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+    })
+    if (r.status === 429) { await espera(1500 * (tentativa + 1)); continue }
+    if (!r.ok) return null
+    return r.json().catch(() => null)
+  }
+  return null
+}
+
+/** Baixa e reduz. Devolve o tamanho final em bytes, ou 0 se nao deu. */
+function baixarEReduzir(bytes, destino) {
+  const cru = `${destino}.original`
+  writeFileSync(cru, bytes)
+  try {
+    // `sips` e nativo do macOS: nao entra dependencia nova no projeto por causa
+    // de um robo que roda cinco vezes por dia.
+    execFileSync('/usr/bin/sips', ['-Z', String(LARGURA_MAXIMA), '-s', 'format', 'jpeg',
+      '-s', 'formatOptions', '55', cru, '--out', destino], { stdio: 'ignore' })
+  } catch {
+    // Se o `sips` recusar (arquivo que nao e imagem, por exemplo), NAO se
+    // guarda o original no lugar: uma foto que o redutor nao entendeu tambem
+    // nao vai abrir no celular da cliente.
+    rmSync(cru, { force: true })
+    rmSync(destino, { force: true })
+    return 0
+  }
+  rmSync(cru, { force: true })
+  return tamanhoDe(destino)
+}
+
+// ⚠️ `require` NAO EXISTE NUM MODULO ESM, e a primeira versao disto usava. O
+// arquivo carregava normalmente e so quebraria na hora de medir a foto — ou
+// seja, so na primeira rodada que achasse uma imagem, que hoje e rara.
+const tamanhoDe = (caminho) => {
+  try { return statSync(caminho).size } catch { return 0 }
+}
+
+async function main() {
+  const cliente = new pg.Client({ connectionString: process.env.DATABASE_URL })
+  await cliente.connect()
+  let publicou = false
+  try {
+    const { rows: tokens } = await cliente.query(
+      'select access_token from public.bling_tokens order by id desc limit 1')
+    const token = tokens[0]?.access_token
+    if (!token) { console.log('Sem token do Bling. Nada a fazer.'); return }
+
+    const { rows: lotes } = await cliente.query(
+      'select id, modelo, cor, sku, fotos from public.vessel_lotes order by criado_em desc')
+    const alvos = lotesParaOlhar(lotes)
+    console.log(`${lotes.length} lotes no total · ${alvos.length} com SKU e faltando foto ou cor\n`)
+    if (!alvos.length) return
+
+    for (const lote of alvos) {
+      const falta = loteEstaFaltando(lote)
+      const oQueFalta = [falta.faltaFoto && 'foto', falta.faltaCor && 'cor'].filter(Boolean).join(' e ')
+      console.log(`── ${lote.modelo} (${lote.sku}) — falta ${oQueFalta}`)
+
+      const busca = await pedirAoBling(`produtos?codigo=${encodeURIComponent(lote.sku)}&limite=5`, token)
+      const achado = produtoQueBate(busca?.data, lote.sku)
+      if (!achado) { console.log('   não achei este SKU no Bling. Fica como está.'); continue }
+
+      const detalhe = await pedirAoBling(`produtos/${achado.id}`, token)
+      const produto = detalhe?.data
+      if (!produto) { console.log('   o Bling não devolveu o detalhe. Tento na próxima rodada.'); continue }
+
+      const mudou = {}
+
+      // ── A COR ──
+      if (falta.faltaCor) {
+        const cor = corDoProduto(produto)
+        if (cor) { mudou.cor = cor; console.log(`   cor: "${cor}"`) }
+        else console.log('   o Bling também não diz a cor. Fica vazia — palpite errado é pior que vazio.')
+      }
+
+      // ── AS FOTOS ──
+      if (falta.faltaFoto) {
+        const urls = imagensGrandesDoProduto(produto).slice(0, MAXIMO_DE_FOTOS)
+        const pasta = pastaDoLote({ ...lote, cor: mudou.cor ?? lote.cor })
+        if (!urls.length) {
+          console.log('   o produto não tem foto no Bling. Assim que subir lá, a próxima rodada pega.')
+        } else if (!pasta) {
+          console.log('   sem modelo nem cor não dá para nomear a pasta. Fica como está.')
+        } else if (DRY) {
+          console.log(`   [dry] baixaria ${urls.length} foto(s) para fotos/selo/${pasta}/`)
+        } else {
+          const destino = join(PASTA_DAS_FOTOS, pasta)
+          mkdirSync(destino, { recursive: true })
+          const guardadas = []
+          for (let i = 0; i < urls.length; i++) {
+            const r = await fetch(urls[i])
+            if (!r.ok) { console.log(`   foto ${i + 1}: o Bling recusou (${r.status}).`); continue }
+            const arquivo = join(destino, `${guardadas.length + 1}.jpg`)
+            const tamanho = baixarEReduzir(Buffer.from(await r.arrayBuffer()), arquivo)
+            if (!tamanho) { console.log(`   foto ${i + 1}: não é uma imagem que eu consiga reduzir.`); continue }
+            guardadas.push(enderecoDaFoto(pasta, guardadas.length + 1))
+            console.log(`   foto ${guardadas.length}: ${(tamanho / 1024).toFixed(0)} KB`)
+          }
+          if (guardadas.length) mudou.fotos = guardadas
+        }
+      }
+
+      if (!Object.keys(mudou).length) continue
+      if (DRY) { console.log('   [dry] gravaria', JSON.stringify(mudou).slice(0, 120)); continue }
+
+      // ⚠️ O BANCO SO E ATUALIZADO DEPOIS DE O ARQUIVO EXISTIR. Ao contrario, o
+      // lote apontaria para uma foto que ainda nao esta publicada, e a cliente
+      // que encostasse o celular no meio do caminho veria quadrado quebrado.
+      await cliente.query(
+        `update public.vessel_lotes
+            set cor = coalesce($2, cor), fotos = coalesce($3, fotos)
+          where id = $1`,
+        [lote.id, mudou.cor ?? null, mudou.fotos ?? null])
+      publicou = publicou || Boolean(mudou.fotos)
+      console.log('   gravado no lote.')
+    }
+
+    // ── PUBLICAR O SITE ──
+    if (publicou && !DRY && !SEM_PUSH) {
+      // ⚠️ `git add` SO DA PASTA DAS FOTOS. `git add .` levaria junto qualquer
+      // coisa que estiver no meio do caminho no repositorio do site — e esse
+      // repositorio e publicado a cada push.
+      const git = (...args) => execFileSync('/usr/bin/git', ['-C', SITE, ...args], { encoding: 'utf8' })
+      const sujo = git('status', '--porcelain', 'fotos/selo').trim()
+      if (!sujo) { console.log('\nNada novo para publicar.'); return }
+      git('add', 'fotos/selo')
+      git('commit', '-m', 'Fotos do selo vindas do Bling (robô)')
+      git('push', 'origin', 'main')
+      console.log('\nSite publicado. A Vercel leva um minuto para trocar.')
+    } else if (publicou) {
+      console.log('\nFotos gravadas, sem publicar (--dry ou --sem-push).')
+    }
+  } finally {
+    await cliente.end()
+  }
+}
+
+await main()
