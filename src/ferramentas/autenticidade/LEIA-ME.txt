@@ -8,6 +8,55 @@ A pagina da cliente NAO esta aqui: ela e um arquivo separado, em
 public/verify/index.html, porque precisa abrir em 1 segundo no 4G de uma loja e
 nao pode carregar o painel inteiro junto.
 
+O NUMERO DE SERIE
+=================
+
+Ate 02/09/2026 uma bolsa era descrita por DOIS campos: a REFERENCIA do lote
+("H0015S") e o numero da PECA dentro dele ("no 3"). O dono decidiu unir os dois
+num NUMERO DE SERIE so, e escolheu o formato COLADO: os DIGITOS da referencia
+seguidos da sequencia da peca, sem separador e sem zeros de enchimento.
+
+    referencia H0015S, peca 1    ->  00151
+    referencia H0015S, peca 12   ->  001512
+    referencia C0011S, peca 3    ->  00113
+
+POR QUE UM SO. O numero da peca sozinho ("no 3") so e unico DENTRO de um lote:
+dois lotes tem uma peca 3 cada. O numero de serie e unico entre todos, e e ele
+que fica impresso na bolsa.
+
+AS LETRAS DA REFERENCIA NAO ENTRAM — so os digitos. Por isso a referencia crua
+continua escrita no cartao do lote ("ref. H0015S"): sem aquela linha, o "H" e o
+"S" sumiriam da tela inteira. O numero da PECA tambem nao se perde: ele continua
+em coluna propria na planilha que se baixa do lote, e volta a aparecer na tela
+inteira quando o lote nao tem referencia nenhuma.
+
+SEM REFERENCIA NAO HA NUMERO DE SERIE. Nesse caso a tela mostra o que sempre
+mostrou — "no 3" — que e a verdade que se tem, e nunca um traco.
+
+O CUIDADO QUE VEM JUNTO. Colado so nao e ambiguo enquanto TODA referencia tiver
+a mesma quantidade de digitos. Hoje sao quatro (0011, 0012, 0015), entao
+"001512" so pode ser a referencia 0015 na peca 12. No dia em que entrar uma de
+tres ou de cinco, "001512" passa a poder ser 0015+12 OU 00151+2 — e um numero
+que aponta para duas bolsas nao e numero de serie.
+
+A tela AVISA, e nao impede: ao criar ou editar um lote com uma referencia
+assim, aparece um recado embaixo do campo explicando as duas leituras
+possiveis, e o cartao do lote ganha um selo "No de serie ambiguo". O campo
+continua aceitando e o botao continua ligado — quem decide se a referencia muda
+e o dono.
+
+A MESMA CONTA MORA DO OUTRO LADO, em vessel-brasil/verify/regras.js, que e a
+pagina que a CLIENTE abre ao encostar o celular. As duas sao iguais de
+proposito: o numero da etiqueta e o numero da bancada tem de bater. Mudou uma,
+muda a outra.
+
+O QUE CONTINUOU SENDO O NUMERO DA PECA: o "no 8 de 20" GRANDE da bancada. Ele
+nao identifica a bolsa — aponta a posicao na fila, lido de pe e de longe. Duas
+pecas seguidas seriam "001517" e "001518", que a 32px do outro lado da bancada
+sao a mesma mancha; e "001518 de 20" nao e frase nenhuma. Quem identifica a
+bolsa ali e o endereco ao lado e a fila logo abaixo, que diz o numero de serie
+de cada peca. Ha teste segurando essa decisao.
+
 AS CINCO ABAS, E POR QUE TRES DELAS TEM NUMERO
 ==============================================
 
@@ -28,10 +77,14 @@ cinco itens ela quebra em duas linhas no celular — igual as irmas fariam.
 
 1 LOTES    Cada lote e uma fornada de bolsas do mesmo modelo. Ao criar um lote
            de 20, nascem 20 codigos DIFERENTES, um por bolsa.
-           "Ver as pecas e os links" abre a lista do lote: numero da serie,
+           "Ver as pecas e os links" abre a lista do lote: numero de serie,
            codigo, o endereco que foi gravado, o estado (gravada com a data,
            pendente, ou baixada com o motivo), copiar o endereco e abrir a
-           pagina que a CLIENTE ve. E de la que sai "Baixar a lista inteira",
+           pagina que a CLIENTE ve.
+           No computador ela e tabela, e a coluna "No de serie" diz o que o
+           numero e. No celular a mesma lista vira cartao e o cabecalho some —
+           entao o rotulo "no de serie" vem junto do numero, senao ele ficaria
+           encostado no codigo sem nada dizendo qual e qual. E de la que sai "Baixar a lista inteira",
            a planilha para arquivar junto da ordem de producao.
 
 2 GRAVAR   E A BANCADA. Nao ha modo para entrar: escolheu o lote, trabalha.
@@ -170,9 +223,19 @@ lote para "em andamento" sozinho, sem ninguem precisar destravar nada.
 
 A BUSCA E A MESMA NAS DUAS ABAS QUE PROCURAM ENTRE MUITOS — Lotes e Etiquetas:
 por data (com atalhos — hoje, 7 dias, 30 dias, este mes, este ano — e o periodo
-exato numa gaveta), por modelo, por cor, por referencia, pelo CODIGO DE UMA PECA
-e por estado. Sem acento e sem caixa, e cada palavra digitada pode estar num
-campo diferente ("monaco quartz" acha o lote).
+exato numa gaveta), por modelo, por cor, por referencia, pelo CODIGO DE UMA
+PECA, pelo NUMERO DE SERIE e por estado. Sem acento e sem caixa, e cada palavra
+digitada pode estar num campo diferente ("monaco quartz" acha o lote).
+
+O NUMERO DE SERIE CASA EXATO, e so quando o que se digitou e so digito —
+"10881" acha a peca de numero de serie 10881, e nada mais. Pedaco de numero nao
+vale, pelo mesmo motivo que o numero da peca nunca entrou no palheiro de texto:
+um pedaco de numero aparece em quase todo codigo, e devolveria meia lista.
+Digitar so o numero da PECA continua funcionando ("9" acha a peca 9), para quem
+tem a ordem de producao antiga na mesa.
+Ate 03/09/2026 a dica do campo ja PROMETIA "ou o no da serie" e a busca nao
+sabia procurar por ele: quem digitasse o numero impresso na bolsa nao achava
+nada.
 A aba Gravar NAO tem busca: ali se escolhe UM lote, e quem procura entre muitos
 faz isso na aba 1 Lotes — de la, "Gravar as etiquetas deste lote" traz para a
 bancada com o lote ja escolhido.
@@ -345,8 +408,13 @@ faltam") saiu da tela: ela sabia MENOS que a de baixo, e duas listas para o
 mesmo dedo era uma a mais.
 
 `linhasDaListaDoLote` (lotes.js) CONTA A HISTORIA: sai com TODAS as pecas, na
-ordem da serie, com numero, codigo, endereco, estado, a data da gravacao e o
-motivo da baixa. E a lista para arquivar junto da ordem de producao — quem
+ordem da serie, com NUMERO DE SERIE, numero da peca, codigo, endereco, estado,
+a data da gravacao e o motivo da baixa. O numero de serie vem na primeira
+coluna, porque e por ele que se procura a bolsa; o numero da peca fica na
+segunda, porque e o que casa com as ordens de producao arquivadas antes de
+02/09/2026. A REFERENCIA DO LOTE entra por parametro (`sku`), pelo mesmo motivo
+que a data: ela e do LOTE, e esta conta recebe as PECAS. Sem ela a coluna sai
+vazia — lote sem referencia nao tem numero de serie, e a planilha nao inventa. E a lista para arquivar junto da ordem de producao — quem
 arquiva precisa saber o que aconteceu com cada numero.
 
 Sao duas de proposito. Juntar numa so quebra uma das duas, e a que quebra e a
