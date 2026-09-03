@@ -26,7 +26,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import {
   DIGITOS_DA_REFERENCIA, numeroDeSerie, serieAmbigua, avisoDeSerieAmbigua,
-  rotuloDaSerie, descricaoDaPeca, linhasDaListaDoLote,
+  rotuloDaSerie, prefixoDaSerie, descricaoDaPeca, linhasDaListaDoLote,
 } from './lotes.js'
 
 /* ── 1. O FORMATO QUE O DONO ESCOLHEU ─────────────────────────────────────── */
@@ -186,6 +186,34 @@ test('lote sem referência: a coluna existe e sai VAZIA, nunca com "null" dentro
   assert.doesNotMatch(csv, /null|undefined|NaN/)
 })
 
+/* ── 7½. O RÓTULO SÓ SOME ONDE O CABEÇALHO O SUBSTITUI ────────────────────
+ * No computador a lista de peças é TABELA, e a coluna "Nº DE SÉRIE" diz o que
+ * o número é. No celular a MESMA lista vira cartão e o cabeçalho some
+ * (`display:none` na regra-base) — e ali "00151" encostado em "K7M4X001QP"
+ * são dois amontoados de caractere sem nada dizendo qual é qual.
+ * O prefixo é separado do número justamente para poder sumir só onde há
+ * cabeçalho, em vez de sumir sempre. */
+
+test('o prefixo existe quando há número de série, e não quando não há', () => {
+  assert.equal(prefixoDaSerie({ numero_na_serie: 12 }, { sku: 'H0015S' }), 'nº de série ')
+  // sem referência o número já sai como "nº 3": um prefixo aqui daria "nº de série nº 3"
+  assert.equal(prefixoDaSerie({ numero_na_serie: 3 }, null), '')
+  assert.equal(prefixoDaSerie({}, { sku: 'H0015S' }), '')
+  assert.equal(prefixoDaSerie(null, null), '')
+})
+
+test('prefixo + número curto formam exatamente o rótulo longo', () => {
+  // as duas formas não podem divergir: são a mesma frase, montada em dois
+  // pedaços só para o pedaço da frente poder sumir no computador
+  for (const lote of [{ sku: 'H0015S' }, { sku: '' }, null]) {
+    for (const n of [1, 12, 500]) {
+      const peca = { numero_na_serie: n }
+      assert.equal(prefixoDaSerie(peca, lote) + rotuloDaSerie(peca, lote, { curto: true }),
+        rotuloDaSerie(peca, lote))
+    }
+  }
+})
+
 /* ── 8. NA TELA ───────────────────────────────────────────────────────────
  * A regra pura acima é metade: o que decide se a pessoa vê o número de série é
  * o template. Estes testes leem o arquivo da tela — é o mesmo motor das provas
@@ -203,6 +231,20 @@ test('as confirmações de excluir e de dar baixa nomeiam a peça pelo número d
 
 test('a lista das peças baixadas nomeia a peça pelo número de série', () => {
   assert.match(template, /Peça \{\{ rotuloDaSerie\(pc, loteAtual\) \}\} — \{\{ rotuloDoMotivo/)
+})
+
+test('no celular o número de série leva o rótulo junto; no computador, o cabeçalho', () => {
+  // a lista de peças é tabela no computador e cartão no celular. O cabeçalho
+  // "Nº DE SÉRIE" nasce `display:none` e só o `@media (min-width)` o acende —
+  // então é no computador, e SÓ nele, que o prefixo pode sumir.
+  assert.match(template, /<span class="au-rot-serie">\{\{ prefixoDaSerie\(pc, l\) \}\}<\/span>/)
+  const grande = estilo.slice(estilo.indexOf('@media (min-width:900px){'),
+    estilo.lastIndexOf('@media (max-width:520px){'))
+  assert.match(grande, /\.au-tabela-pecas \.au-rot-serie\{display:none\}/,
+    'o prefixo tem de sumir no computador, onde o cabeçalho da coluna já o diz')
+  assert.doesNotMatch(estilo.slice(0, estilo.indexOf('@media (min-width:900px){')),
+    /\.au-rot-serie\{display:none\}/,
+    'o prefixo sumiu na regra-base: aí ele some no celular também, que é onde ele serve')
 })
 
 test('nenhum lugar da tela escreve `nº {{ …numero_na_serie }}` à mão', () => {

@@ -271,7 +271,10 @@
               </li>
               <li v-for="pc in pecasVisiveis" :key="pc.codigo" class="au-peca">
                 <div class="au-peca-topo">
-                  <span class="au-peca-n">{{ rotuloDaSerie(pc, l, { curto: true }) }}</span>
+                  <!-- O PREFIXO VEM JUNTO NO CELULAR, e some no computador: lá
+                       a coluna "Nº DE SÉRIE" já diz o que o número é; aqui a
+                       tabela virou cartão e o cabeçalho não existe. -->
+                  <span class="au-peca-n"><span class="au-rot-serie">{{ prefixoDaSerie(pc, l) }}</span>{{ rotuloDaSerie(pc, l, { curto: true }) }}</span>
                   <span class="au-ref au-peca-cod">{{ pc.codigo }}</span>
                   <span class="selo" :class="estadoDaPeca(pc).selo">{{ estadoDaPeca(pc).rotulo }}</span>
                 </div>
@@ -475,7 +478,8 @@
                    frase nenhuma.
 
                  Trocá-lo seria trocar um número que se lê de longe por um que
-                 não se lê, para responder uma pergunta que ele não faz. -->
+                 não se lê, para responder uma pergunta que ele não faz.
+
                  COM A FILA ACABADA ELE SAI, e quem vira o elemento dominante é o
                  estado — "Lote pronto", em verde, com o ✓ desenhado. Antes ele
                  mostrava aqui o "6 de 20" do lote, que é exatamente o que a
@@ -1349,7 +1353,7 @@ import {
   MOTIVOS_DE_BAIXA, fraseDaRecusa, fraseDaSenha, naFila,
   rotuloDoMotivo, pecasEmOrdem, estadoDaPeca, linhasDaListaDoLote,
   codigosComGarantia, etiquetasGravadas, motivoObrigatorio, descricaoDaPeca,
-  rotuloDaSerie, serieAmbigua, avisoDeSerieAmbigua,
+  rotuloDaSerie, prefixoDaSerie, serieAmbigua, avisoDeSerieAmbigua,
 } from './lotes.js'
 import {
   // ⚠️ `listaParaGravadorDeMesa` NÃO entra mais aqui, e não é esquecimento: o
@@ -3915,6 +3919,10 @@ onMounted(() => {
   .au-tabela-pecas .au-tabela-cab, .au-tabela-pecas .au-peca{
     grid-template-columns:minmax(76px,.5fr) minmax(0,1.3fr) minmax(0,1fr) minmax(0,1.4fr) minmax(380px,2.4fr) minmax(0,1.8fr);
   }
+  /* O rótulo "nº de série" sai aqui, e SÓ aqui: a coluna acima já o diz, e
+     repeti-lo em 500 linhas roubaria a largura da coluna do endereço. No
+     celular ele fica, porque lá não há cabeçalho nenhum. */
+  .au-tabela-pecas .au-rot-serie{display:none}
   .au-tabela-pecas .au-peca-topo{display:contents;}
   .au-tabela-pecas .au-peca-estado, .au-tabela-pecas .au-peca-end{margin-top:0; min-width:0;}
   /* Os dois links de ação, um debaixo do outro: lado a lado nesta coluna eles

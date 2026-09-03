@@ -75,6 +75,21 @@ export function avisoDeSerieAmbigua(sku) {
     + 'muda é você.'
 }
 
+// O PREFIXO, SEPARADO DO NÚMERO. Ele existe porque o rótulo precisa sumir em UM
+// lugar só: a lista de peças é TABELA no computador, onde a coluna "Nº DE SÉRIE"
+// já diz o que o número é — e é a MESMA lista virada em CARTÃO no celular, onde
+// o cabeçalho não existe (`display:none` na regra-base) e "00151" encostado em
+// "K7M4X001QP" são dois amontoados de caractere sem nada dizendo qual é qual.
+//
+// Em dois pedaços, o da frente some por CSS só no computador. Numa string só,
+// ou ele some nos dois ou fica nos dois.
+//
+// Sem número de série não há prefixo: o número já sai como "nº 3" sozinho, e
+// somar os dois daria "nº de série nº 3".
+export function prefixoDaSerie(peca, lote) {
+  return numeroDeSerie((lote || {}).sku, (peca || {}).numero_na_serie) ? 'nº de série ' : ''
+}
+
 // COMO A TELA CHAMA UMA PEÇA, em qualquer lugar em que ela seja NOMEADA.
 // Com referência é o número de série; sem ela, o `nº 3` de sempre. Peça sem
 // número nenhum não vira "nº undefined": não sai rótulo.
