@@ -110,7 +110,20 @@
                  sai das classes prontas do PADRAO, nunca de cor à mão. -->
             <span class="selo" :class="marcaDoLote(l.id).selo">{{ marcaDoLote(l.id).rotulo }}</span>
             <span v-if="l.cor">{{ l.cor }}</span>
+            <!-- A REFERÊNCIA CRUA CONTINUA AQUI, e é de propósito (PADRÃO item 8).
+                 O número de série leva só os DÍGITOS dela: as letras ("H", "S")
+                 não entram nele em lugar nenhum, e sem esta linha elas sumiriam
+                 da tela inteira. Este é o lugar delas — junto do modelo e da cor,
+                 que também são do lote e não da peça. -->
             <span v-if="l.sku" class="au-ref">ref. {{ l.sku }}</span>
+            <!-- ⚠️ O AVISO DA AMBIGUIDADE, no lugar em que se VÊ o lote.
+                 O texto inteiro está a um clique de "Editar", logo abaixo, e é
+                 lá que ele mora — aqui caberia um parágrafo por cartão. O selo
+                 existe porque sem ele, para achar a referência problemática,
+                 seria preciso abrir a edição de um lote por vez.
+                 Ele não aparece hoje em lote nenhum: toda referência tem quatro
+                 dígitos. Aviso que aparece sempre vira paisagem (PADRÃO item 9). -->
+            <span v-if="serieAmbigua(l.sku)" class="selo selo-atencao">Nº de série ambíguo</span>
             <span>{{ l.quantidade }} {{ l.quantidade === 1 ? 'peça' : 'peças' }}</span>
             <span>{{ dataCurta(l.fabricado_em) }}</span>
           </div>
@@ -194,6 +207,12 @@
               <input v-model="edicao.cor" type="text" maxlength="60"></label>
             <label class="au-campo"><span class="au-rot">Referência</span>
               <input v-model="edicao.sku" type="text" maxlength="40"></label>
+            <!-- O AVISO SEGUE O QUE ESTÁ DIGITADO, e não o que está gravado:
+                 quem está corrigindo a referência precisa ver o aviso sumir
+                 enquanto digita, senão não tem como saber se resolveu. -->
+            <p v-if="avisoDaSerieEditada" class="au-confirma au-aviso-serie au-aviso-serie-edicao">
+              {{ avisoDaSerieEditada }}
+            </p>
             <label class="au-campo"><span class="au-rot">Fabricado em</span>
               <input v-model="edicao.fabricado_em" type="date"></label>
             <label class="au-campo"><span class="au-rot">Quantidade</span>
@@ -1288,6 +1307,11 @@
           <input v-model="novo.cor" type="text" maxlength="60" placeholder="Quartz"></label>
         <label class="au-campo"><span class="au-rot">Referência</span>
           <input v-model="novo.sku" type="text" maxlength="40" placeholder="LV1021"></label>
+        <!-- ⚠️ AVISA, NÃO IMPEDE. A referência pode estar certa assim, e quem
+             sabe disso é o dono — o campo continua aceitando e o botão "Gerar"
+             continua ligado. O que a tela não pode é deixar entrar em silêncio
+             uma referência que faz dois números de série iguais. -->
+        <p v-if="avisoDaSerieNova" class="au-confirma au-aviso-serie">{{ avisoDaSerieNova }}</p>
         <label class="au-campo"><span class="au-rot">Quantidade de peças</span>
           <input v-model.number="novo.quantidade" type="number" min="1" max="500" required></label>
         <label class="au-campo"><span class="au-rot">Data de fabricação</span>
@@ -1643,6 +1667,20 @@ const podeEditar = computed(() => hasPermission('autenticidade', 'editar'))
 
 const pecasDoLote = (id) => pecas.value.filter((p) => p.lote_id === id)
 const loteAtual = computed(() => lotes.value.find((l) => l.id === loteEscolhido.value) || null)
+
+// ── O AVISO DE QUE O NÚMERO DE SÉRIE FICARIA AMBÍGUO ──────────────────────
+// O número de série é COLADO — os dígitos da referência seguidos da sequência da
+// peça, sem separador. Isso só aponta para uma bolsa só enquanto TODA referência
+// tiver a mesma quantidade de dígitos (hoje quatro). Com uma de cinco, "001512"
+// passa a poder ser duas bolsas diferentes.
+//
+// AS DUAS PORTAS DO LOTE TÊM O AVISO, e as duas leem o que está DIGITADO: só a
+// criação não basta, porque a referência também se corrige na edição, e só a
+// edição não basta, porque é na criação que ela entra. A frase é uma só, e mora
+// em `lotes.js`, junto da regra — frase escrita em dois lugares diverge no dia
+// em que uma delas muda.
+const avisoDaSerieNova = computed(() => avisoDeSerieAmbigua(novo.sku))
+const avisoDaSerieEditada = computed(() => avisoDeSerieAmbigua(edicao.sku))
 const proxima = computed(() => proximaPorGravar(pecasDoLote(loteEscolhido.value)))
 const resumo = computed(() => resumoDeAlertas(alertas.value))
 
@@ -3076,6 +3114,17 @@ onMounted(() => {
    dentro de um cartão: ele carrega o próprio recuo. */
 .au-aviso-garantia{margin:var(--sp-4) 24px 0; max-width:620px}
 
+/* O AVISO DE NÚMERO DE SÉRIE AMBÍGUO. Ele REAPROVEITA `.au-confirma`, que já é o
+   desenho de aviso desta tela (cor de sinal misturada à superfície, texto em
+   `--text` para se ler — PADRÃO item 2). O que ele acrescenta é só o recuo:
+   ele é vizinho de `.au-campo`, que traz 24px de cada lado, e um bloco com borda
+   colado na margem da folha ficaria 24px mais largo que os campos acima dele.
+   MARGEM, e não `padding`: a borda tem de recuar junto, senão a caixa encosta
+   na beirada e só o texto de dentro respeita o alinhamento. */
+.au-aviso-serie{margin:var(--sp-2) 24px 0; max-width:520px}
+/* Dentro da edição o recuo lateral já vem do bloco, como nos campos de lá. */
+.au-aviso-serie-edicao{margin-left:0; margin-right:0; max-width:none}
+
 /* ── EDITAR E EXCLUIR O LOTE ───────────────────────────────────────────────
    A pergunta de excluir REAPROVEITA `.au-confirma`, o bloco de aviso que esta
    tela já tem. */
@@ -4091,6 +4140,10 @@ onMounted(() => {
   .au-pecas-topo{flex-direction:column; align-items:stretch;}
   .au-pecas-topo .au-botao{flex:none;}
   .au-aviso-garantia{margin-left:16px; margin-right:16px;}
+  /* Mesmo recuo dos campos ao lado dele, que a 520px caem para 16px. O da
+     edição não entra aqui: lá o recuo é do bloco, e continua sendo. */
+  .au-aviso-serie{margin-left:16px; margin-right:16px;}
+  .au-aviso-serie-edicao{margin-left:0; margin-right:0;}
   /* O MODAL OCUPA A TELA NO CELULAR, com 12px de cada lado (PADRAO item 4) — os
      12px são o `padding` do fundo. `dvh` e nunca `vh`. */
   .au-guia{max-width:none; max-height:calc(100dvh - 24px);}

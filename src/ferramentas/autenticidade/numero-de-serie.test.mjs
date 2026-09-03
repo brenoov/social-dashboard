@@ -235,3 +235,65 @@ test('o "nº 8 de 20" da bancada NÃO virou número de série, e isso é decisã
     /class="au-bancada-peca">\s*nº \{\{ proxima\.numero_na_serie \}\} de \{\{ loteAtual\?\.quantidade \}\}/,
     'o número grande da bancada mudou: ele é a POSIÇÃO na fila, não a identidade da bolsa')
 })
+
+/* ── 10. A TRAVA DA AMBIGUIDADE, NA TELA ─────────────────────────────────── */
+
+const script = tela.slice(tela.indexOf('<script setup>'))
+const estilo = tela.slice(tela.indexOf('<style'))
+
+test('as DUAS portas do lote avisam quando a referência faria número de série ambíguo', () => {
+  // só a criação não basta — a referência também se corrige na edição; só a
+  // edição não basta — é na criação que ela entra
+  assert.match(script, /const avisoDaSerieNova = computed\(\(\) => avisoDeSerieAmbigua\(novo\.sku\)\)/)
+  assert.match(script, /const avisoDaSerieEditada = computed\(\(\) => avisoDeSerieAmbigua\(edicao\.sku\)\)/)
+  assert.match(template, /v-if="avisoDaSerieNova"/)
+  assert.match(template, /v-if="avisoDaSerieEditada"/)
+})
+
+test('o aviso segue o que está DIGITADO, e não o que está gravado', () => {
+  // quem está corrigindo a referência precisa ver o aviso sumir enquanto digita
+  for (const campo of ['novo.sku', 'edicao.sku']) {
+    assert.ok(script.includes(`avisoDeSerieAmbigua(${campo})`),
+      `o aviso não lê ${campo}: ele mostraria o estado de antes da correção`)
+  }
+})
+
+test('a tela AVISA e não IMPEDE: nada trava por causa da ambiguidade', () => {
+  // o dono escolheu o formato sabendo da ressalva. Quem decide se a referência
+  // muda é ele, e um botão travado tiraria essa decisão dele.
+  assert.doesNotMatch(script, /serieAmbigua\([^)]*\)[^\n]*\breturn\b/,
+    'alguma conta passou a recusar por causa da ambiguidade — o combinado é avisar')
+  assert.doesNotMatch(template, /:disabled="[^"]*[sS]erie[aA]mbigua/,
+    'um botão ficou travado pela ambiguidade — o combinado é avisar, não impedir')
+})
+
+test('o cartão do lote mostra o selo, e a referência CRUA continua lá', () => {
+  // PADRÃO item 8: o número de série leva só os DÍGITOS da referência. As letras
+  // ("H", "S") não entram nele em lugar nenhum — sem esta linha elas sumiriam da
+  // tela inteira, e este é o lugar delas.
+  assert.match(template, /<span v-if="l\.sku" class="au-ref">ref\. \{\{ l\.sku \}\}<\/span>/,
+    'a referência crua sumiu do cartão: as letras dela não moram em mais lugar nenhum')
+  assert.match(template, /v-if="serieAmbigua\(l\.sku\)" class="selo selo-atencao"/)
+})
+
+test('o aviso é bloco de aviso da casa, e não cor escolhida no olho', () => {
+  // PADRÃO item 2: cor só de token, e o texto em `--text` porque a cor é o
+  // SINAL. `.au-confirma` é o desenho de aviso que esta tela já tem.
+  assert.match(template, /class="au-confirma au-aviso-serie/,
+    'o aviso tem de reaproveitar `.au-confirma`, o bloco de aviso desta tela')
+  const regra = estilo.match(/\n\.au-aviso-serie\{([^}]*)\}/)
+  assert.ok(regra, 'sumiu a regra do recuo do aviso')
+  assert.doesNotMatch(regra[1], /#[0-9a-f]{3,8}/i, 'hex de cor no aviso')
+  assert.doesNotMatch(regra[1], /font-size:\s*\d/, 'tamanho de texto escolhido no olho')
+})
+
+test('o recuo do celular do aviso vive no `@media` do FIM do arquivo', () => {
+  // duas regras de mesma especificidade, ganha a última: um ajuste de celular
+  // escrito antes das regras-base seria apagado em silêncio
+  const celular = estilo.lastIndexOf('@media (max-width:520px){')
+  assert.notEqual(celular, -1)
+  assert.ok(estilo.indexOf('.au-aviso-serie{') < celular,
+    'a regra-base do aviso tem de vir ANTES do `@media` do celular')
+  assert.match(estilo.slice(celular), /\.au-aviso-serie\{margin-left:16px/,
+    'o aviso não recuou junto com os campos a 375px')
+})
