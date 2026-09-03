@@ -1086,6 +1086,112 @@
 
     <!-- ── REGISTROS ────────────────────────────────────────────────────── -->
     <template v-else-if="aba === 'registros'">
+      <!-- ── A FILA, ANTES DE TUDO ────────────────────────────────────────
+           Ela fica ACIMA da busca e da lista de propósito: é a única coisa
+           desta aba que espera por uma pessoa. Quem abre "Garantias" quase
+           sempre vem por causa dela; a lista de quem já está registrado é
+           consulta, e consulta espera.
+
+           ⚠️ POR QUE ELA EXISTE. A tag não tem senha: quem encosta o celular
+           na bolsa abre a página. Até 03/09/2026 registrar era "quem chegar
+           primeiro leva" — qualquer pessoa que segurasse a bolsa punha o nome
+           dela, e a dona de verdade lia "já registrada" e ficava sem garantia.
+           Agora o sistema procura a compra no Bling: bateu, entra na hora;
+           não bateu, cai aqui.
+
+           ⚠️ E "NÃO BATEU" NÃO QUER DIZER "MENTIU". Feira, presente, revenda,
+           pedido lançado sem CPF: é a maioria dos casos honestos. Por isso
+           nenhuma palavra desta caixa acusa quem está esperando. -->
+      <section v-if="filaDeGarantias.length" class="au-fila-garantias">
+        <h2 class="au-fila-titulo">
+          {{ filaDeGarantias.length }}
+          {{ filaDeGarantias.length === 1 ? 'registro esperando você' : 'registros esperando você' }}
+        </h2>
+        <p class="au-instrucao">
+          Não achamos a compra destas pessoas pelo CPF. Confira e decida — a garantia delas
+          só começa a valer no seu nome depois disso.
+        </p>
+
+        <div class="au-lista">
+          <article v-for="pd in filaDeGarantias" :key="pd.id" class="au-card">
+            <div class="au-card-topo">
+              <span class="au-modelo">{{ pd.nome }}</span>
+              <span class="au-progresso">{{ dataCurta(pd.criado_em) }}</span>
+            </div>
+            <div class="au-card-linha">
+              <span class="au-ref">{{ pd.modelo }}<template v-if="pd.cor"> · {{ pd.cor }}</template></span>
+              <span>{{ rotuloDaSerie({ numero_na_serie: pd.numero_na_serie }, pd) }}</span>
+              <span>{{ pd.codigo }}</span>
+            </div>
+            <div class="au-card-linha">
+              <span>CPF {{ pd.cpf }}</span>
+              <span>{{ pd.whatsapp }}</span>
+              <span v-if="pd.onde_comprou">comprou em {{ pd.onde_comprou }}</span>
+              <span v-if="pd.comprado_em">na data {{ dataCurta(pd.comprado_em) }}</span>
+            </div>
+
+            <!-- ⚠️ ESTA PEÇA JÁ TEM DONO é o aviso mais importante da tela: é
+                 aqui que se decide entre duas pessoas que dizem ser a mesma
+                 dona, e era exatamente isso que o sistema antigo resolvia
+                 sozinho, do jeito errado, dando para quem chegou primeiro. -->
+            <p v-if="pd.e_o_dono_atual === false && donoDe(pd.codigo)" class="au-aviso-menor">
+              <strong>Esta peça já está registrada em nome de {{ donoDe(pd.codigo).nome }}.</strong>
+              Aprovar aqui troca o dono.
+            </p>
+
+            <details class="au-como-conferir">
+              <summary>Como conferir</summary>
+              <ul>
+                <li v-for="(passo, i) in comoConferir(pd, pd)" :key="i">{{ passo }}</li>
+              </ul>
+            </details>
+
+            <div v-if="decidindo?.id !== pd.id" class="au-acoes">
+              <button class="au-botao secundario" type="button"
+                      @click="abrirDecisao(pd, 'recusado')">Recusar</button>
+              <button class="au-botao" type="button"
+                      @click="abrirDecisao(pd, 'aprovado')">Aprovar garantia</button>
+            </div>
+
+            <div v-else class="au-confirma">
+              <p class="au-confirma-texto">
+                <template v-if="decidindo.estado === 'aprovado'">
+                  Aprovar a garantia de <strong>{{ pd.nome }}</strong> nesta peça?
+                </template>
+                <template v-else>
+                  Recusar o registro de <strong>{{ pd.nome }}</strong>?
+                </template>
+              </p>
+              <p class="au-aviso-menor">
+                <template v-if="decidindo.estado === 'aprovado'">
+                  A garantia passa a valer no nome dela, contando 2 anos da data da compra.
+                </template>
+                <template v-else>
+                  Ela continua podendo registrar de novo. A recusa fica no histórico da peça.
+                </template>
+              </p>
+
+              <label class="au-campo">
+                <span class="au-rot">Motivo{{ decidindo.estado === 'recusado' ? '' : ' (opcional)' }}</span>
+                <input v-model="motivoDaDecisao" type="text" maxlength="200" :disabled="decisaoEmVoo"
+                       :placeholder="decidindo.estado === 'aprovado'
+                         ? 'Ex.: conferi a venda na feira de agosto'
+                         : 'Ex.: a cliente confirmou que não é a bolsa dela'"></label>
+
+              <p v-if="erroDaDecisao" class="au-erro">{{ erroDaDecisao }}</p>
+              <div class="au-acoes">
+                <button class="au-botao secundario" type="button" :disabled="decisaoEmVoo"
+                        @click="fecharDecisao">Cancelar</button>
+                <button class="au-botao" type="button" :disabled="decisaoEmVoo || !podeDecidir"
+                        @click="confirmarDecisao">
+                  {{ decisaoEmVoo ? 'Salvando…' : (decidindo.estado === 'aprovado' ? 'Aprovar' : 'Recusar') }}
+                </button>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
       <div class="au-topo-acao">
         <input v-model="busca" class="au-busca" type="search" placeholder="Buscar por nome ou código">
         <button class="au-botao secundario" type="button" v-if="registros.length" @click="baixarPlanilha">
@@ -1119,6 +1225,61 @@
             <span>{{ r.whatsapp }}</span>
             <span v-if="r.onde_comprou">{{ r.onde_comprou }}</span>
             <span v-if="r.comprado_em">comprou {{ dataCurta(r.comprado_em) }}</span>
+          </div>
+          <!-- DE ONDE ESTA GARANTIA VEIO. Sem isto, daqui a um ano ninguém sabe
+               quais foram conferidas de verdade e quais alguém aprovou no olho —
+               e é essa diferença que importa no dia de uma disputa. -->
+          <p v-if="r.bling_pedido" class="au-aviso-menor">
+            Compra conferida: pedido {{ r.bling_pedido }} no Bling.
+          </p>
+
+          <div v-if="podeEditar && trocando !== r.codigo" class="au-acoes">
+            <button class="au-botao secundario" type="button" @click="abrirTroca(r)">
+              Trocar de dono
+            </button>
+          </div>
+
+          <!-- ⚠️ REVENDA E PRESENTE SÃO O CASO NORMAL DISTO, não a exceção: uma
+               bolsa muda de mão e a garantia tem de acompanhar. Por isso a troca
+               existe na tela em vez de virar chamado — e por isso ela exige
+               motivo escrito e o código digitado, do mesmo jeito que excluir um
+               lote. É história que se vai querer consultar. -->
+          <div v-else-if="trocando === r.codigo" class="au-confirma">
+            <p class="au-confirma-texto">
+              Trocar o dono desta peça? Hoje ela está em nome de <strong>{{ r.nome }}</strong>.
+            </p>
+            <p class="au-aviso-menor">
+              A garantia <strong>não recomeça</strong>: continua valendo até
+              {{ dataCurta(r.garantia_ate) }}, contando da compra original.
+            </p>
+
+            <label class="au-campo"><span class="au-rot">Nome do novo dono</span>
+              <input v-model="troca.nome" type="text" maxlength="120" :disabled="trocaEmVoo"></label>
+            <label class="au-campo"><span class="au-rot">CPF</span>
+              <input :value="troca.cpf" type="text" inputmode="numeric" maxlength="14"
+                     :disabled="trocaEmVoo" placeholder="000.000.000-00"
+                     @input="troca.cpf = cpfComMascara($event.target.value)"></label>
+            <label class="au-campo"><span class="au-rot">WhatsApp</span>
+              <input v-model="troca.whatsapp" type="tel" inputmode="numeric" maxlength="15"
+                     :disabled="trocaEmVoo" placeholder="(19) 99999-9999"></label>
+            <label class="au-campo"><span class="au-rot">Motivo</span>
+              <input v-model="troca.motivo" type="text" maxlength="200" :disabled="trocaEmVoo"
+                     placeholder="Ex.: a cliente revendeu e a compradora pediu a garantia"></label>
+            <label class="au-campo">
+              <span class="au-rot">Digite o código da etiqueta para confirmar</span>
+              <input v-model="troca.confirmacao" type="text" maxlength="20" :disabled="trocaEmVoo"
+                     :placeholder="r.codigo"></label>
+
+            <p v-if="erroDaTroca" class="au-erro">{{ erroDaTroca }}</p>
+            <div class="au-acoes">
+              <button class="au-botao secundario" type="button" :disabled="trocaEmVoo"
+                      @click="fecharTroca">Cancelar</button>
+              <button class="au-botao" type="button"
+                      :disabled="trocaEmVoo || !podeTrocarDono(troca, r.codigo)"
+                      @click="confirmarTroca(r)">
+                {{ trocaEmVoo ? 'Trocando…' : 'Trocar de dono' }}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -1362,6 +1523,10 @@ import {
   rotuloDaSerie, prefixoDaSerie, serieAmbigua, avisoDeSerieAmbigua, fraseDaPecaNaMao,
 } from './lotes.js'
 import {
+  filaDeGarantia, comoConferir, fraseDaRecusaDeGarantia,
+  podeTrocarDono, cpfComMascara, cpfLimpo,
+} from './registros-de-garantia.js'
+import {
   // ⚠️ `listaParaGravadorDeMesa` NÃO entra mais aqui, e não é esquecimento: o
   // botão "Baixar a lista das que faltam" saiu da ferramenta em 02/09/2026 (o
   // porquê está escrito na gaveta da aba Gravar e em `baixarListaDoLote`). A
@@ -1445,6 +1610,7 @@ const falha = ref('')
 const lotes = ref([])
 const pecas = ref([])
 const registros = ref([])
+const pedidosDeGarantia = ref([])
 const alertas = ref(null)
 
 const loteEscolhido = ref('')
@@ -2135,15 +2301,142 @@ function abrirFormulario() {
   carregarProdutos()
 }
 
+// ── A FILA DE GARANTIAS ────────────────────────────────────────────────────
+// A regra de quem entra e em que ordem mora em `registros-de-garantia.js`, com
+// teste. Aqui fica só o que precisa de tela.
+const filaDeGarantias = computed(() => filaDeGarantia(pedidosDeGarantia.value))
+
+// QUEM É O DONO ATUAL de uma peça, para o aviso "esta peça já está registrada
+// em nome de…". Esse aviso é o mais importante da fila: é aqui que se decide
+// entre duas pessoas que dizem ser a mesma dona — exatamente o que o sistema
+// antigo resolvia sozinho, do jeito errado, dando para quem chegou primeiro.
+const donoPorCodigo = computed(() => new Map(registros.value.map((r) => [r.codigo, r])))
+const donoDe = (codigo) => donoPorCodigo.value.get(codigo) || null
+
+const decidindo = ref(null)
+const motivoDaDecisao = ref('')
+const decisaoEmVoo = ref(false)
+const erroDaDecisao = ref('')
+
+// RECUSAR EXIGE MOTIVO ESCRITO; aprovar não. O banco cobra a mesma coisa —
+// aqui é só para o botão não convidar a um clique que vai voltar com erro.
+// Aprovar é o caminho normal, e exigir justificativa do caminho normal ensina a
+// escrever "ok" em tudo, que é o mesmo que não ter justificativa nenhuma.
+const podeDecidir = computed(() =>
+  decidindo.value?.estado === 'aprovado' || motivoDaDecisao.value.trim().length > 0)
+
+// ⚠️ O PARAMETRO NAO SE CHAMA `estado`, e nao e capricho: `estado` e exportado
+// por `controle-de-login-e-usuario.js`, e a guarda de imports reprova o arquivo
+// inteiro por causa da colisao — ela nao tem como saber que este `estado` e um
+// parametro local. O nome daqui e `decisao`, que alias diz melhor o que e.
+function abrirDecisao(pedido, decisao) {
+  decidindo.value = { id: pedido.id, estado: decisao }
+  motivoDaDecisao.value = ''
+  erroDaDecisao.value = ''
+}
+function fecharDecisao() {
+  decidindo.value = null
+  motivoDaDecisao.value = ''
+  erroDaDecisao.value = ''
+}
+
+async function confirmarDecisao() {
+  if (!decidindo.value || decisaoEmVoo.value || !podeDecidir.value) return
+  decisaoEmVoo.value = true
+  erroDaDecisao.value = ''
+  try {
+    const { data, error } = await sbClient.rpc('vessel_decidir_pedido_de_registro', {
+      p_pedido: decidindo.value.id,
+      p_estado: decidindo.value.estado,
+      // 'na_mao' é o único valor que esta tela pode mandar: 'bling' significa
+      // "a conferência automática achou a venda", e quem diz isso é a edge, com
+      // o número do pedido em mãos. A tela dizendo 'bling' seria a tela dando a
+      // si mesma um selo de conferido.
+      p_quem_decidiu: 'na_mao',
+      p_conferencia: null,
+      p_motivo: motivoDaDecisao.value.trim() || null,
+    })
+    if (error) throw error
+    if (!data?.ok) {
+      erroDaDecisao.value = fraseDaRecusaDeGarantia(data?.motivo, data)
+      return
+    }
+    adminToast(decidindo.value.estado === 'aprovado'
+      ? 'Garantia aprovada.' : 'Registro recusado.')
+    fecharDecisao()
+    // RECARREGA TUDO, e não só a fila: aprovar cria um dono novo em
+    // `vessel_registros`, e a lista de baixo mostraria a peça sem dono até a
+    // próxima visita. Duas listas da mesma verdade em estados diferentes na
+    // mesma tela é o defeito que faz a pessoa desconfiar do painel.
+    await carregar()
+  } catch (e) {
+    erroDaDecisao.value = fraseDaRecusaDeGarantia(e?.message)
+  } finally {
+    decisaoEmVoo.value = false
+  }
+}
+
+// ── TROCAR O DONO ─────────────────────────────────────────────────────────
+// Revenda e presente são o caso NORMAL disto, não a exceção. As regras de
+// quando o botão libera moram em `registros-de-garantia.js`, com teste — e o
+// banco cobra as mesmas de novo, porque a trava da tela é conforto e a do banco
+// é a que vale.
+const trocando = ref('')
+const troca = ref({ nome: '', cpf: '', whatsapp: '', motivo: '', confirmacao: '' })
+const trocaEmVoo = ref(false)
+const erroDaTroca = ref('')
+
+function abrirTroca(registro) {
+  trocando.value = registro.codigo
+  troca.value = { nome: '', cpf: '', whatsapp: '', motivo: '', confirmacao: '' }
+  erroDaTroca.value = ''
+}
+function fecharTroca() {
+  trocando.value = ''
+  erroDaTroca.value = ''
+}
+
+async function confirmarTroca(registro) {
+  if (trocaEmVoo.value || !podeTrocarDono(troca.value, registro.codigo)) return
+  trocaEmVoo.value = true
+  erroDaTroca.value = ''
+  try {
+    const { data, error } = await sbClient.rpc('vessel_trocar_dono', {
+      p_codigo: registro.codigo,
+      p_nome: troca.value.nome.trim(),
+      p_cpf: cpfLimpo(troca.value.cpf),
+      p_whatsapp: troca.value.whatsapp,
+      p_motivo: troca.value.motivo.trim(),
+      p_confirmacao: troca.value.confirmacao.trim(),
+    })
+    if (error) throw error
+    if (!data?.ok) {
+      erroDaTroca.value = fraseDaRecusaDeGarantia(data?.motivo, data)
+      return
+    }
+    adminToast(`Dono trocado: de ${data.de} para ${data.para}.`)
+    fecharTroca()
+    await carregar()
+  } catch (e) {
+    erroDaTroca.value = fraseDaRecusaDeGarantia(e?.message)
+  } finally {
+    trocaEmVoo.value = false
+  }
+}
+
 async function carregar() {
   carregando.value = true
   falha.value = ''
   try {
-    const [l, p, r, a, baixas] = await Promise.all([
+    const [l, p, r, a, fila, baixas] = await Promise.all([
       sbClient.from('vessel_lotes').select('*').order('criado_em', { ascending: false }),
       sbClient.from('vessel_pecas').select('codigo,lote_id,numero_na_serie,gravada_em'),
       sbClient.from('vessel_registros').select('*').order('registrado_em', { ascending: false }),
       sbClient.rpc('vessel_alertas'),
+      // A FILA VEM POR FUNÇÃO, e não por `select` na tabela, porque ela MASCARA
+      // o CPF: a tela nunca recebe o número inteiro, nem para quem tem a chave
+      // da ferramenta. Sai o que basta para reconhecer a pessoa e decidir.
+      sbClient.rpc('vessel_fila_de_registros'),
       // baixa ATIVA é a linha com `desfeita_em` nula. `vessel_baixas` tem a
       // mesma política de SELECT de `vessel_pecas`, então se lê do mesmo jeito.
       sbClient.from('vessel_baixas').select('codigo,motivo,baixada_em').is('desfeita_em', null),
@@ -2174,7 +2467,10 @@ async function carregar() {
     // não podia ver os alertas. O caminho é real e tem nome: quem tem a chave
     // `autenticidade` no front e NÃO no `features[]` do banco — são dois
     // lugares, e o LEIA-ME desta pasta avisa disso.
-    for (const leitura of [l, p, r, a, baixas]) {
+    //  · `fila`    — sem ela, os registros que esperam decisão somem da tela e
+    //                ninguém fica sabendo que há gente sem a garantia dela. É a
+    //                mesma família de defeito do `a`: falha virando silêncio.
+    for (const leitura of [l, p, r, a, fila, baixas]) {
       if (leitura.error) throw leitura.error
       if (leitura.data && leitura.data.ok === false) throw Object.assign(
         new Error(leitura.data.motivo), { recusa: leitura.data.motivo })
@@ -2183,6 +2479,7 @@ async function carregar() {
     pecas.value = p.data || []
     registros.value = r.data || []
     alertas.value = a.data || null
+    pedidosDeGarantia.value = fila.data?.pedidos || []
     // A PEÇA CARREGA A BAIXA JUNTO: é o campo `baixada` — este nome exato, e
     // booleano — que `naFila` usa em lotes.js para tirar a peça da fila de
     // gravação. Trocar o nome aqui não quebra teste nenhum: a fila simplesmente
@@ -3086,6 +3383,27 @@ onMounted(() => {
 
 /* Bloco de aviso pelo desenho do PADRAO-DA-CENTRAL: a cor é o sinal, o texto é
    para ler — por isso o `--text` e não o `--orange` na letra. */
+/* ── A FILA DE GARANTIAS ──────────────────────────────────────────────────
+   Ela fica no TOPO da aba e é a única coisa desta tela que espera por uma
+   pessoa. O filete embaixo a separa da lista de consulta que vem depois —
+   sem ele, as duas viram uma lista só e a fila deixa de ser uma fila. */
+.au-fila-garantias{padding-bottom:var(--sp-4);margin-bottom:var(--sp-4);
+  border-bottom:1px solid var(--border);}
+.au-fila-titulo{margin:0 0 var(--sp-2);font-family:var(--fonte-principal);
+  font-size:var(--texto-titulo);font-weight:600;color:var(--text);}
+
+/* "Como conferir" nasce FECHADO de propósito: quem já sabe o caminho não
+   precisa dele ocupando altura em cada cartão da fila, e quem não sabe abre
+   uma vez e aprende. */
+.au-como-conferir{margin-top:var(--sp-2);}
+.au-como-conferir summary{font-family:var(--fonte-principal);font-size:var(--texto-corpo);
+  color:var(--accent-forte);cursor:pointer;padding:var(--sp-1) 0;
+  /* 44px de alvo: o PADRAO manda, e aqui é um `summary`, que nasce sem altura. */
+  min-height:44px;display:flex;align-items:center;}
+.au-como-conferir ul{margin:0;padding:0 0 0 var(--sp-4);}
+.au-como-conferir li{font-family:var(--fonte-principal);font-size:var(--texto-corpo);
+  line-height:1.55;color:var(--text-muted);margin-bottom:var(--sp-1);}
+
 .au-confirma{margin-top:10px;padding:12px 14px;border-radius:var(--radius-md);background:color-mix(in srgb, var(--orange) 10%, var(--surface));border:1px solid color-mix(in srgb, var(--orange) 38%, var(--surface));}
 .au-confirma-texto{font-family:var(--fonte-principal);font-size:var(--texto-campo);line-height:1.5;color:var(--text);overflow-wrap:anywhere;}
 .au-confirma .au-acoes{padding:12px 0 0;}
