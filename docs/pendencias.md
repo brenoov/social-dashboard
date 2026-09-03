@@ -129,6 +129,28 @@ que o status veio da Frota, não travar o campo.
 
 ---
 
+### A17 · Selo Vessel › subir as fotos das duas bolsas no Bling 🟡 *aberto em 03/09*
+
+O robô das fotos (`coletor/fotos-do-selo-do-bling.mjs`, 8h05 todo dia) está no ar
+e funcionando — provado com um lote de teste. Mas **o Bling não tem foto destes
+dois produtos**, então ele não acha nada até você subir:
+
+| Bolsa | Produto no Bling | Código |
+|---|---|---|
+| De Ombro Grande Nice | Bolsa De Ombro Grande Nice Caramelo | `SS1025-Fly Rum` |
+| De Mão Média Lódz | Bolsa De Mão Média Lódz Memphis Preto | `SS-1162-Memphis Preto-Fly Olivia` |
+
+Até 4 fotos, e a **ordem importa**: a primeira é a que aparece grande no
+certificado. Depois de subir, o robô pega na manhã seguinte — ou é só pedir para
+eu rodar na hora.
+
+⚠️ Não é urgente para a etiqueta funcionar: as duas bolsas do lote Nice **já
+estão gravadas e no mundo**, e o certificado delas abre normalmente com modelo,
+cor e número de série. Só falta a foto.
+
+⚠️ E o Bling está quase sem foto no catálogo em geral: **28 de 100 produtos**, e do
+catálogo novo (SS) **3 de 9**. Vale saber antes de esperar que o robô encha todos.
+
 ## Parte B — Precisa programar
 
 ### B20 · Bling › o `bling-proxy` falha em 2% das chamadas ✅ *fechado em 18/08 — prazo próprio e segunda chance*
