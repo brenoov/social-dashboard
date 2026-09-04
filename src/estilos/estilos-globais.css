@@ -1824,7 +1824,18 @@ img{max-width:100%;}
    perto — e onde sobra espaço.
    `!important` porque telas individuais reintroduziam o relógio com regras
    próprias; esta é a palavra final e vale pro app inteiro. */
-@media (max-width: 1599px) {
+/* ⚠️ O LIMITE É 1920, E É O MESMO QUE O APP JÁ CHAMA DE TV (o bloco "FULLHD+"
+   logo acima). Antes eram 1600 aqui e 1920 no resto — DOIS números para a mesma
+   pergunta "isto é uma TV?", e uma tela podia cair no vão entre eles.
+   Foi o que aconteceu, medido em 04/09/2026: o MacBook do dono, com o "Mais
+   espaço" do macOS ligado, reporta 1710px lógicos. É um 13 polegadas que o CSS
+   enxerga como quase uma TV. O relógio voltou a aparecer no notebook — o oposto
+   da decisão de 06/08/2026, que era "no computador a hora está no sistema
+   operacional, e o espaço vale mais" — e, aparecendo, empilhava quatro linhas
+   (Tempo Real, hora, data, status) e quebrava a barra de topo em duas.
+   Escolher por polegada é escolher por um número que o sistema operacional
+   muda sem avisar. Um número só, e o mesmo do resto do app. */
+@media (max-width: 1919px) {
   .gv-clock-wrap,
   .gv-clock-time,
   .gv-clock-date,
