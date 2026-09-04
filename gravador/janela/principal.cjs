@@ -12,6 +12,9 @@
 // preload. Esta é a forma que menos surpreende na bancada.
 const path = require('node:path')
 const { app, BrowserWindow, shell, ipcMain } = require('electron')
+// O atualizador e CommonJS; as REGRAS de quando usa-lo estao em
+// `atualizacao.js`, que tem teste. Aqui so se entrega o objeto de verdade.
+const { autoUpdater } = require('electron-updater')
 
 let atendente = null
 
@@ -30,11 +33,13 @@ if (!app.requestSingleInstanceLock()) {
   })
 
   app.whenReady().then(async () => {
-    const [{ abrirAJanela }, { criarAtendente }, { criarLeitorDeVerdade }] = await Promise.all([
-      import('./abrir-a-janela.js'),
-      import('./atendente-do-leitor.js'),
-      import('../leitor-de-mesa.js'),
-    ])
+    const [{ abrirAJanela }, { criarAtendente }, { criarLeitorDeVerdade }, { criarAtualizacao }] =
+      await Promise.all([
+        import('./abrir-a-janela.js'),
+        import('./atendente-do-leitor.js'),
+        import('../leitor-de-mesa.js'),
+        import('./atualizacao.js'),
+      ])
 
     // O LEITOR SÓ NASCE NO PRIMEIRO PEDIDO. Criar aqui abriria o processo do
     // PowerShell antes de alguém querer gravar — e, num computador sem leitor
@@ -42,11 +47,22 @@ if (!app.requestSingleInstanceLock()) {
     atendente = criarAtendente({ criarLeitor: () => criarLeitorDeVerdade() })
     atendente.registrar(ipcMain)
 
-    abrirAJanela({
+    const janela = abrirAJanela({
       BrowserWindow,
       shell,
       caminhoDoPreload: path.join(__dirname, 'preload.cjs'),
     })
+
+    // A VERSAO VAI NO TITULO e a atualizacao corre por fora. Nada disto pode
+    // atrasar a abertura: `procurar()` nao e esperado de proposito — quem chega
+    // para gravar ve a janela na hora, com internet ou sem.
+    criarAtualizacao({
+      autoUpdater,
+      versao: app.getVersion(),
+      empacotado: app.isPackaged,
+      aoMudarTitulo: (titulo) => { if (!janela.isDestroyed?.()) janela.setTitle(titulo) },
+      registrar: (recado) => console.log('[atualizacao]', recado),
+    }).procurar()
   })
 
   // Fechar a janela solta a etiqueta e fecha o processo do PowerShell. Sem isto

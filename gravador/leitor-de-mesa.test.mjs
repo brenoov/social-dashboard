@@ -319,7 +319,16 @@ test('este programa não depende de nada que precise ser compilado', async () =>
   const { readFileSync } = await import('node:fs')
   const pacote = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'))
   const dependencias = Object.keys(pacote.dependencies || {})
-  assert.deepEqual(dependencias, ['@supabase/supabase-js'],
+  // `electron-updater` entrou em 04/09/2026, para o programa se atualizar
+  // sozinho. CONFERIDO ANTES DE ENTRAR, e é esta conferência que a lista acima
+  // representa — não é um número que se sobe para o teste passar:
+  //   arquivos nativos (.node) na árvore dele ....... 0
+  //   binding.gyp (receita de compilação) ........... 0
+  //   script `install`/`postinstall` .................. nenhum
+  // (O único `.node` de `node_modules` é do `iconv-corefoundation`, que vem do
+  //  electron-builder, só roda no Mac na hora de EMPACOTAR, e não vai no
+  //  instalador do Windows. Ele já estava aqui antes desta mudança.)
+  assert.deepEqual(dependencias, ['@supabase/supabase-js', 'electron-updater'],
     'entrou dependência nova: confira se ela compila antes de deixar')
 })
 

@@ -46,6 +46,13 @@ const configuracao = {
       filter: arquivos,
     })),
   ],
+  // DE ONDE O PROGRAMA BAIXA VERSAO NOVA.
+  // Repositorio PUBLICO e so de instaladores: publico porque o atualizador
+  // baixa sem senha nenhuma, e um repositorio privado obrigaria a embutir um
+  // token na maquina de todo mundo. So de instaladores porque nenhuma linha da
+  // Central tem por que morar la. O que vai dentro do pacote e a chave `anon`,
+  // a mesma que ja esta publica no JavaScript do painel.
+  publish: [{ provider: 'github', owner: 'rbv-co', repo: 'gravador-de-etiquetas-versoes' }],
   win: { target: 'nsis' },
   nsis: {
     oneClick: false,

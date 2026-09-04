@@ -8,6 +8,7 @@ module.exports = {
     'abrir-a-janela.js',
     'atendente-do-leitor.js',
     'enderecos-permitidos.js',
+    'atualizacao.js',
   ],
   gravador: [
     'leitor-de-mesa.js',
