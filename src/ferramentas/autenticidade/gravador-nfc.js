@@ -92,6 +92,19 @@ export function criarGravador({ janela = globalThis } = {}) {
       await leitor.write({ records: [{ recordType: 'url', data: endereco }] })
     },
 
+    // APAGA A ETIQUETA — mensagem NDEF vazia.
+    //
+    // ⚠️ `records: []` NÃO É "não escreva nada": pela especificação do Web NFC é
+    // escrever uma MENSAGEM VAZIA por cima do que estava lá, que é exatamente o
+    // estado em que a etiqueta sai de fábrica. É a mesma coisa que o leitor de
+    // mesa faz montando as páginas na mão.
+    //
+    // ⚠️ QUEM CHAMA ISTO PRECISA TER CONFIRMADO ANTES. Aqui não há pergunta,
+    // não há desfazer, e a etiqueta pode já estar costurada dentro de uma bolsa.
+    async apagar() {
+      await leitor.write({ records: [] })
+    },
+
     // ⚠️ PERMANENTE. Etiqueta travada nunca mais se regrava. A tela só chama
     // isto com o interruptor ligado, e o interruptor nasce desligado.
     // O primeiro teste com etiqueta de verdade tem de ser numa descartável.

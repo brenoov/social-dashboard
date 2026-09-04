@@ -18,6 +18,7 @@
 // que já confere tamanho e faixa de página antes do cabo.
 import {
   planoDeGravacao,
+  planoDeApagamento,
   enderecoNaEtiqueta,
   conferirCapabilityContainer,
   PRIMEIRA_PAGINA,
@@ -175,6 +176,35 @@ export function criarGravadorDeMesa({ janela = globalThis } = {}) {
       let plano
       try {
         plano = planoDeGravacao(endereco, memoriaAtual)
+      } catch (erro) {
+        throw intacta(erro)
+      }
+      for (const { pagina, bytes } of plano) {
+        await pedir('escreverPagina', pagina, bytes)
+      }
+      return plano.length
+    },
+
+    // APAGAR — a mesma forma do gravar, com o plano da porta separada.
+    //
+    // ⚠️ A MEMÓRIA TAMBÉM É OBRIGATÓRIA AQUI, e pelo mesmo motivo: o plano se
+    // monta em cima do Lock Control que a etiqueta já tem. Apagar às cegas
+    // escreveria por cima dele.
+    //
+    // ⚠️ AQUI NÃO EXISTE `nadaFoiEscrito` DEPOIS DA PRIMEIRA PÁGINA, e não
+    // precisa: a primeira escrita já é a mensagem vazia, então parar no meio
+    // deixa a etiqueta VÁLIDA e em branco — que é justamente o que se queria.
+    // Parar antes da primeira escrita deixa a etiqueta como estava.
+    async apagar(memoriaAtual) {
+      if (!Array.isArray(memoriaAtual) && !ArrayBuffer.isView(memoriaAtual)) {
+        throw intacta(new Error(
+          'Não dá para apagar sem ter lido a etiqueta antes: o plano se monta em cima do '
+          + 'Lock Control que ela já tem. Leia a etiqueta e tente de novo.',
+        ))
+      }
+      let plano
+      try {
+        plano = planoDeApagamento(memoriaAtual)
       } catch (erro) {
         throw intacta(erro)
       }

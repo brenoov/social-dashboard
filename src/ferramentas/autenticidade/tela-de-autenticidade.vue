@@ -901,6 +901,28 @@
         </div>
       </div>
 
+      <!-- ══════════════════════════════════════════════════════════════════
+           LER QUALQUER ETIQUETA — a porta de entrada pela ETIQUETA
+           ══════════════════════════════════════════════════════════════════
+           Fica ACIMA do seletor de lote de propósito: aqui não se escolhe nada
+           antes, é a etiqueta que diz quem é. Pedir um lote primeiro seria
+           pedir justamente a informação que a pessoa veio buscar. -->
+      <!-- UM BOTÃO, E O RESTO NO MODAL. A primeira versão punha o painel
+           inteiro aberto na aba: ocupava a tela para uma ação que é rápida e
+           rara, e brigava com a lista que é o assunto da aba. O `.au-acoes` é o
+           irmão dos outros blocos e já carrega o recuo desta aba — o defeito da
+           margem não volta por esquecimento. -->
+      <div class="au-acoes">
+        <button class="au-botao secundario" type="button" @click="abrirLeituraDeEtiqueta">
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M4 9a12 12 0 0 1 16 0" /><path d="M7.5 12.5a7 7 0 0 1 9 0" />
+            <circle cx="12" cy="16.5" r="1.2" fill="currentColor" stroke="none" />
+          </svg>
+          Ler etiqueta
+        </button>
+      </div>
+
       <label class="au-campo"><span class="au-rot">Lote</span>
         <select v-model="loteDaEtiqueta">
           <option value="">Todos os lotes</option>
@@ -1383,7 +1405,7 @@
          O MIOLO ROLA DENTRO DA CAIXA, e nunca a página atrás (PADRAO item 4):
          as telas do socorro têm quatro casos, e no celular elas passam da
          altura da tela. -->
-    <div v-if="guiaAberto" class="au-guia-fundo" role="dialog" aria-modal="true"
+    <div v-if="guiaAberto" v-trava-rolagem class="au-guia-fundo" role="dialog" aria-modal="true"
          aria-label="Guia de bancada da gravação">
       <div class="au-guia">
         <p class="au-guia-conta">{{ telaDoGuia + 1 }} de {{ TELAS_DO_GUIA.length }}</p>
@@ -1412,7 +1434,124 @@
     </div>
 
     <!-- ── FORMULÁRIO DE LOTE ───────────────────────────────────────────── -->
-    <div v-if="formulario" class="au-fundo" @click.self="formulario = false">
+    <!-- ══════════════════════════════════════════════════════════════════
+         LER UMA ETIQUETA — modal
+         ══════════════════════════════════════════════════════════════════
+         ⚠️ `v-trava-rolagem` (PADRÃO item 4). A diretiva está registrada em
+         `ponto-de-partida.js`; sem ela a página atrás rola por baixo do modal e,
+         no celular, o dedo escorrega a tela para os lados. Os outros dois modais
+         desta tela ainda não a têm — é anterior a este bloco e está anotado. -->
+    <div v-if="leituraAberta" v-trava-rolagem class="au-fundo"
+         @click.self="fecharLeituraDeEtiqueta">
+      <div class="au-folha au-folha-leitura" role="dialog" aria-modal="true"
+           aria-label="Ler uma etiqueta">
+        <div class="au-folha-topo">
+          <h2>Ler uma etiqueta</h2>
+          <button class="au-fechar" type="button" aria-label="Fechar"
+                  :disabled="ocupadoNaLeitura" @click="fecharLeituraDeEtiqueta">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none"
+                 stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+              <line x1="6" y1="6" x2="18" y2="18" /><line x1="18" y1="6" x2="6" y2="18" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- OS ANÉIS DA BANCADA, no meio, que é o que a pessoa olha enquanto
+             segura a etiqueta. O anel NUNCA é o único aviso: título e detalhe
+             vão sempre escritos ao lado (PADRÃO item 9). -->
+        <div class="au-leitura-corpo">
+          <div class="au-aneis-caixa au-leitura-aneis" :class="'au-aneis-' + estadoDaLeituraAneis.chave"
+               role="status">
+            <svg class="au-aneis" viewBox="0 0 120 120" width="120" height="120" aria-hidden="true"
+                 fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <circle class="au-anel-1" cx="60" cy="60" r="54" stroke-width="2" />
+              <circle class="au-anel-2" cx="60" cy="60" r="40" stroke-width="2.6" />
+              <circle class="au-anel-3" cx="60" cy="60" r="26" stroke-width="3.2" />
+              <circle class="au-anel-nucleo" cx="60" cy="60" r="11" stroke-width="3.2" />
+              <polyline class="au-anel-visto" points="42 61 55 74 80 45" stroke-width="7" />
+            </svg>
+          </div>
+          <p class="au-bancada-titulo au-leitura-titulo">{{ estadoDaLeituraAneis.titulo }}</p>
+          <p class="au-bancada-detalhe au-leitura-detalhe">{{ estadoDaLeituraAneis.detalhe }}</p>
+        </div>
+
+        <!-- O QUE A ETIQUETA É — quatro respostas -->
+        <template v-if="leituraLivre && !confirmandoReset">
+          <div v-if="leituraLivre.tipo === 'conhecida'" class="au-leitura-achado">
+            <p class="au-modelo">
+              {{ descricaoDaPeca(leituraLivre.peca, loteDaPeca(leituraLivre.peca.lote_id)) }}
+            </p>
+            <p class="au-card-linha"><span class="au-ref">{{ leituraLivre.codigo }}</span></p>
+            <p v-if="leituraPedeGarantia" class="au-confirma-texto au-aviso-garantia" role="alert">
+              Esta bolsa tem <strong>garantia registrada por uma cliente</strong>. Resetar tira a
+              identidade da bolsa dela.
+            </p>
+          </div>
+          <p v-else-if="leituraLivre.tipo === 'desconhecida'" class="au-leitura-achado au-card-linha">
+            É uma etiqueta nossa, mas o código <span class="au-ref">{{ leituraLivre.codigo }}</span>
+            não existe neste sistema. Dá para apagá-la e reaproveitar.
+          </p>
+        </template>
+
+        <!-- AS AÇÕES. Etiqueta virgem e de terceiro não aparecem aqui, e quem só
+             pode ver também não — `acoesDaLeitura` decide, e tem teste. -->
+        <div v-if="acoesDaLeituraAgora.length && !confirmandoReset" class="au-acoes">
+          <button v-if="acoesDaLeituraAgora.includes('regravar')" class="au-botao secundario"
+                  type="button" :disabled="ocupadoNaLeitura" @click="regravarDaLeitura">
+            Regravar o mesmo código
+          </button>
+          <button v-if="acoesDaLeituraAgora.includes('resetar') || acoesDaLeituraAgora.includes('apagar-chip')"
+                  class="au-botao secundario" type="button"
+                  :disabled="ocupadoNaLeitura" @click="confirmandoReset = true">
+            {{ acoesDaLeituraAgora.includes('resetar') ? 'Resetar' : 'Apagar esta etiqueta' }}
+          </button>
+        </div>
+
+        <!-- LER OUTRA: sem fechar e reabrir o modal, que é o que a bancada faz
+             uma etiqueta atrás da outra. -->
+        <div v-if="!lendoEtiqueta && !ocupadoNaLeitura && !confirmandoReset" class="au-acoes">
+          <button class="au-botao" type="button" @click="lerEtiquetaLivre">
+            {{ leituraLivre ? 'Ler outra etiqueta' : 'Ler etiqueta' }}
+          </button>
+        </div>
+
+        <!-- A PERGUNTA. Apagar o chip não tem desfazer, então cobra senha — a
+             mesma que a lista cobra. Esta ação é MAIS destrutiva que aquela
+             (apaga o chip junto) e não pode ser mais fácil. -->
+        <div v-if="confirmandoReset" class="au-confirma">
+          <p class="au-confirma-texto">
+            <span v-if="leituraLivre?.tipo === 'conhecida'">
+              A etiqueta vai ser <strong>apagada</strong> e a peça volta para a fila de gravação.
+              A etiqueta apagada continua costurada dentro da bolsa.
+            </span>
+            <span v-else>
+              A etiqueta vai ser <strong>apagada</strong> e poderá ser reaproveitada.
+            </span>
+          </p>
+
+          <label v-if="leituraPedeGarantia" class="au-campo"><span class="au-rot">Motivo</span>
+            <input v-model="motivoDaLeitura" type="text" :disabled="ocupadoNaLeitura"
+                   placeholder="Por que esta bolsa perde a identidade?">
+          </label>
+
+          <label class="au-campo"><span class="au-rot">Sua senha</span>
+            <input v-model="senhaDaLeitura" type="password" autocomplete="current-password"
+                   :disabled="ocupadoNaLeitura">
+          </label>
+
+          <div class="au-acoes">
+            <button class="au-botao" type="button" :disabled="ocupadoNaLeitura || !senhaDaLeitura"
+                    @click="leituraLivre?.tipo === 'conhecida' ? confirmarResetDaLeitura() : apagarChipOrfao()">
+              {{ ocupadoNaLeitura ? 'Apagando…' : 'Apagar a etiqueta' }}
+            </button>
+            <button class="au-botao secundario" type="button" :disabled="ocupadoNaLeitura"
+                    @click="confirmandoReset = false; senhaDaLeitura = ''">Cancelar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="formulario" v-trava-rolagem class="au-fundo" @click.self="formulario = false">
       <form class="au-folha" @submit.prevent="gerarLote">
         <!-- O BOTÃO DE FECHAR TEM 40px DE ALVO E MORA NO CANTO (PADRÃO item 4).
              Clicar no fundo já fechava, mas isso não é um alvo que se vê: no
@@ -1553,6 +1692,9 @@ import PainelDeBusca from './painel-de-busca.vue'
 import { produtosParaEscolher, procurarProduto } from './produtos-do-bling.js'
 import { paginasDoBling, avisoDoErro } from '../../compartilhado/chamada-do-bling.js'
 import { temSuporte, traduzirFalha, criarGravador } from './gravador-nfc.js'
+import {
+  classificarLeitura, acoesDaLeitura, precisaConfirmarGarantia, resetar, regravar,
+} from './ler-etiqueta.js'
 // O LEITOR DE MESA. `porta-do-gravador-de-mesa.js` é o irmão de `gravador-nfc.js`
 // — a única que fala com `window.gravadorDeMesa`, que só existe dentro do
 // programa da janela (gravador/janela/). Fora dele, `temLeitorDeMesa()` é falso e
@@ -1567,7 +1709,7 @@ import {
 // compila `.vue`, e o que precisa de prova aqui é justamente o que não se vê
 // olhando a tela: a etiqueta que sai no meio, a que responde bem e não guarda
 // nada, a leitura que falhou.
-import { gravarPeloLeitorDeMesa, escreverEConferir } from './gravador-de-mesa/gravar-pelo-leitor-de-mesa.js'
+import { gravarPeloLeitorDeMesa, escreverEConferir, apagarEConferir } from './gravador-de-mesa/gravar-pelo-leitor-de-mesa.js'
 // A BANCADA. Só conta pura: qual estado sai de qual fase, qual frase sai de cada
 // estado, e qual é a única ação. Fica fora do `.vue` pelo mesmo motivo da
 // sequência: `node --test` não compila `.vue`.
@@ -2003,6 +2145,295 @@ function mostrarMaisPecas() { quantasMostrar.value += DE_CADA_VEZ }
 // garantia já vêm de `carregar()` — o que muda aqui é o recorte:
 // `etiquetasGravadas` fica só com as que TÊM gravação, que são as únicas que
 // `vessel_desmarcar_gravada` aceita.
+// ══════════════════════════════════════════════════════════════════════════
+// LER QUALQUER ETIQUETA — a porta de entrada pela ETIQUETA, e não pela lista
+// ══════════════════════════════════════════════════════════════════════════
+// A aba Gravar já sabia ler, mas sempre conferindo contra uma peça escolhida
+// ANTES. Aqui é o contrário: encosta-se a etiqueta sem escolher nada, e é ela
+// quem diz quem é. As regras moram em `ler-etiqueta.js`, com teste; aqui só se
+// liga o leitor de verdade nelas.
+const leituraLivre = ref(null)      // o que a última leitura disse que a etiqueta é
+const lendoEtiqueta = ref(false)
+const recadoDaLeitura = ref('')
+const erroDaLeitura = ref('')
+const ocupadoNaLeitura = ref(false)
+const confirmandoReset = ref(false)
+const senhaDaLeitura = ref('')
+const motivoDaLeitura = ref('')
+
+// A peça sai do que a tela JÁ carregou — nada de ida nova ao banco para uma
+// pergunta que a memória já responde.
+function acharPecaPeloCodigo(codigo) {
+  return (pecas.value || []).find((p) => p.codigo === codigo) || null
+}
+
+// O MESMO COMPONENTE DE ANÉIS DA BANCADA, com os mesmos estados. Não é enfeite
+// repetido: quem grava na aba Gravar e quem lê aqui é a mesma pessoa, com a
+// mesma etiqueta na mão — dois vocabulários visuais para o mesmo gesto seria
+// ela ter de aprender a ferramenta duas vezes.
+//
+// ⚠️ O ANEL NUNCA É O ÚNICO AVISO. Vai sempre com título e detalhe escritos, do
+// mesmo jeito que na bancada: quem desligou animação, quem não distingue cor e
+// quem usa leitor de tela leem a mesma coisa (PADRÃO item 9).
+const estadoDaLeituraAneis = computed(() => {
+  if (ocupadoNaLeitura.value) {
+    return { chave: 'gravando', titulo: 'Escrevendo na etiqueta…', detalhe: 'Segure parada até acabar.' }
+  }
+  if (lendoEtiqueta.value) {
+    return {
+      chave: 'esperando',
+      titulo: gravaPorMesa.value ? 'Ponha a etiqueta no leitor' : 'Encoste a etiqueta',
+      detalhe: 'Segure parada — vou dizer de quem ela é.',
+    }
+  }
+  if (erroDaLeitura.value) return { chave: 'erro', titulo: 'Não deu', detalhe: erroDaLeitura.value }
+  if (leituraLivre.value || recadoDaLeitura.value) {
+    return { chave: 'ok', titulo: 'Etiqueta lida', detalhe: recadoDaLeitura.value || 'Veja abaixo o que ela é.' }
+  }
+  return { chave: 'parado', titulo: 'Pronto para ler', detalhe: 'Aperte e encoste qualquer etiqueta.' }
+})
+
+const acoesDaLeituraAgora = computed(
+  () => acoesDaLeitura(leituraLivre.value, { podeMexer: podeEditar.value }),
+)
+const leituraPedeGarantia = computed(() => precisaConfirmarGarantia(leituraLivre.value))
+
+const leituraAberta = ref(false)
+
+// ABRE E JÁ COMEÇA A LER. Na bancada a pessoa chega com a etiqueta na mão: um
+// segundo clique dentro do modal para "agora sim, leia" seria um passo que só
+// existe porque o programa quis.
+function abrirLeituraDeEtiqueta() {
+  leituraAberta.value = true
+  lerEtiquetaLivre()
+}
+
+// FECHAR LIMPA TUDO, inclusive a senha. Senha que sobrevive ao fecha-e-abre é
+// senha esperando ser usada por engano na próxima etiqueta — a mesma regra que
+// a aba já segue no apagar da lista.
+function fecharLeituraDeEtiqueta() {
+  if (ocupadoNaLeitura.value) return   // no meio de uma escrita não se fecha
+  leituraAberta.value = false
+  limparLeitura()
+}
+
+function limparLeitura() {
+  leituraLivre.value = null
+  recadoDaLeitura.value = ''
+  erroDaLeitura.value = ''
+  confirmandoReset.value = false
+  senhaDaLeitura.value = ''
+  motivoDaLeitura.value = ''
+}
+
+// LÊ UMA VEZ, pelos dois caminhos que a tela já conhece. Devolve o texto lido e,
+// no leitor de mesa, TAMBÉM a memória — para o apagamento montar o plano em
+// cima do Lock Control que a etiqueta tem, sem uma segunda ida ao chip.
+async function lerOChipUmaVez() {
+  if (gravaPorMesa.value) {
+    const porta = criarGravadorDeMesa()
+    if (!porta) throw new Error('O programa do gravador de mesa saiu do ar.')
+    try {
+      await porta.conectar()
+      const lida = await porta.lerAEtiqueta()
+      return { texto: lida.endereco, memoria: lida.memoria }
+    } finally {
+      await porta.desconectar()
+    }
+  }
+  const gravador = criarGravador()
+  if (!gravador) throw new Error('Este aparelho não lê etiqueta. Use o celular ou o leitor de mesa.')
+  return { texto: await gravador.lerUmaVez(), memoria: null }
+}
+
+async function lerEtiquetaLivre() {
+  limparLeitura()
+  lendoEtiqueta.value = true
+  recadoDaLeitura.value = gravaPorMesa.value
+    ? 'Ponha a etiqueta no leitor e segure parada…'
+    : 'Encoste a etiqueta no celular e segure parado…'
+  try {
+    const { texto, memoria } = await lerOChipUmaVez()
+    const achado = classificarLeitura(texto, acharPecaPeloCodigo)
+    // a memória viaja junto: é ela que o apagamento usa, sem reler o chip à toa
+    leituraLivre.value = { ...achado, memoria }
+    recadoDaLeitura.value = ''
+  } catch (erro) {
+    erroDaLeitura.value = gravaPorMesa.value
+      ? traduzirFalhaDoLeitorDeMesa(erro)
+      : traduzirFalha(erro)
+    recadoDaLeitura.value = ''
+  } finally {
+    lendoEtiqueta.value = false
+  }
+}
+
+// ⚠️ APAGA O CHIP E SÓ DEPOIS SOLTA NO BANCO — a ordem está presa por teste em
+// `ler-etiqueta.js`, e o porquê está escrito lá: soltar no banco primeiro
+// deixaria ETIQUETA ÓRFÃ se o apagamento falhasse.
+async function confirmarResetDaLeitura() {
+  const alvo = leituraLivre.value
+  if (!alvo || alvo.tipo !== 'conhecida') return
+  erroDaLeitura.value = ''
+
+  // O MOTIVO É COBRADO AQUI, ANTES DO BANCO — igual ao resto da tela.
+  const motivo = motivoDaLeitura.value.trim()
+  if (leituraPedeGarantia.value && !motivo) {
+    erroDaLeitura.value = fraseDaRecusa('motivo_obrigatorio')
+    return
+  }
+
+  ocupadoNaLeitura.value = true
+  try {
+    // A SENHA É CONFERIDA NO SERVIDOR ANTES DE QUALQUER COISA. Esta ação é MAIS
+    // destrutiva que apagar da lista — ela também apaga o chip — então não pode
+    // ser mais fácil que aquela.
+    const conferida = await conferirASenha(senhaDaLeitura.value)
+    if (!conferida.ok) { erroDaLeitura.value = fraseDaSenha(conferida.erro); return }
+
+    const saida = await resetar({
+      leitura: alvo,
+      apagarOChip: async () => {
+        if (gravaPorMesa.value) {
+          const porta = criarGravadorDeMesa()
+          if (!porta) throw new Error('O programa do gravador de mesa saiu do ar.')
+          try {
+            await porta.conectar()
+            // ⚠️ LÊ DE NOVO E CONFERE ANTES DE APAGAR. Entre o clique e agora a
+            // pessoa pôs a etiqueta de volta — e pode ser OUTRA. Apagar a errada
+            // não tem desfazer.
+            const agora = await porta.lerAEtiqueta()
+            if (classificarLeitura(agora.endereco, acharPecaPeloCodigo).codigo !== alvo.codigo) {
+              throw new Error('A etiqueta que está no leitor agora não é a mesma que foi lida. Nada foi apagado.')
+            }
+            const r = await apagarEConferir({ porta, memoria: agora.memoria })
+            if (!r.ok) throw new Error(r.frase)
+          } finally {
+            await porta.desconectar()
+          }
+          return
+        }
+        const gravador = criarGravador()
+        if (!gravador) throw new Error('Este aparelho não grava etiqueta.')
+        const antes = await gravador.lerUmaVez()
+        if (classificarLeitura(antes, acharPecaPeloCodigo).codigo !== alvo.codigo) {
+          throw new Error('A etiqueta encostada agora não é a mesma que foi lida. Nada foi apagado.')
+        }
+        await gravador.apagar()
+        const depois = await gravador.lerUmaVez()
+        if (classificarLeitura(depois, acharPecaPeloCodigo).tipo !== 'vazia') {
+          throw new Error('Apaguei, mas ao ler de volta a etiqueta ainda devolveu conteúdo. NÃO considere apagada.')
+        }
+      },
+      desmarcarNoBanco: async (codigo) => {
+        const { data, error } = await sbClient.rpc('vessel_desmarcar_gravada',
+          { p_codigo: codigo, p_motivo: motivo || null })
+        if (error) throw new Error('não consegui falar com o sistema')
+        if (!data?.ok) throw new Error(fraseDaRecusa(data?.motivo, data))
+      },
+    })
+
+    if (!saida.ok) { erroDaLeitura.value = saida.frase; avisarNaTela('falha'); return }
+    recadoDaLeitura.value = saida.frase
+    confirmandoReset.value = false
+    senhaDaLeitura.value = ''
+    motivoDaLeitura.value = ''
+    leituraLivre.value = null
+    avisarNaTela('ok')
+    await carregar()
+  } finally {
+    ocupadoNaLeitura.value = false
+  }
+}
+
+// ETIQUETA ÓRFÃ: endereço nosso, código que o sistema não conhece. Não há peça
+// para soltar no banco — só o chip a apagar. A senha continua sendo cobrada:
+// apagar é apagar, e não ter dono aqui dentro não torna a ação reversível.
+async function apagarChipOrfao() {
+  const alvo = leituraLivre.value
+  if (!alvo || alvo.tipo !== 'desconhecida') return
+  erroDaLeitura.value = ''
+  ocupadoNaLeitura.value = true
+  try {
+    const conferida = await conferirASenha(senhaDaLeitura.value)
+    if (!conferida.ok) { erroDaLeitura.value = fraseDaSenha(conferida.erro); return }
+
+    if (gravaPorMesa.value) {
+      const porta = criarGravadorDeMesa()
+      if (!porta) { erroDaLeitura.value = 'O programa do gravador de mesa saiu do ar.'; return }
+      try {
+        await porta.conectar()
+        const agora = await porta.lerAEtiqueta()
+        const r = await apagarEConferir({ porta, memoria: agora.memoria })
+        if (!r.ok) { erroDaLeitura.value = r.frase; avisarNaTela('falha'); return }
+      } finally { await porta.desconectar() }
+    } else {
+      const gravador = criarGravador()
+      if (!gravador) { erroDaLeitura.value = 'Este aparelho não grava etiqueta.'; return }
+      await gravador.apagar()
+      const depois = await gravador.lerUmaVez()
+      if (classificarLeitura(depois, acharPecaPeloCodigo).tipo !== 'vazia') {
+        erroDaLeitura.value = 'Apaguei, mas ao ler de volta a etiqueta ainda devolveu conteúdo.'
+        avisarNaTela('falha'); return
+      }
+    }
+    recadoDaLeitura.value = 'Etiqueta apagada. Ela pode ser reaproveitada.'
+    confirmandoReset.value = false
+    senhaDaLeitura.value = ''
+    leituraLivre.value = null
+    avisarNaTela('ok')
+  } catch (erro) {
+    erroDaLeitura.value = gravaPorMesa.value ? traduzirFalhaDoLeitorDeMesa(erro) : traduzirFalha(erro)
+  } finally {
+    ocupadoNaLeitura.value = false
+  }
+}
+
+// REGRAVAR NÃO TOCA NO BANCO: a peça já é dona desta etiqueta. Serve para
+// gravação que saiu pela metade.
+async function regravarDaLeitura() {
+  const alvo = leituraLivre.value
+  if (!alvo || alvo.tipo !== 'conhecida') return
+  erroDaLeitura.value = ''
+  ocupadoNaLeitura.value = true
+  recadoDaLeitura.value = gravaPorMesa.value
+    ? 'Ponha a MESMA etiqueta no leitor e segure parada…'
+    : 'Encoste a MESMA etiqueta e segure parado…'
+  try {
+    const saida = await regravar({
+      leitura: alvo,
+      gravarNoChip: async (codigo) => {
+        if (gravaPorMesa.value) {
+          const porta = criarGravadorDeMesa()
+          if (!porta) throw new Error('O programa do gravador de mesa saiu do ar.')
+          try {
+            await porta.conectar()
+            const r = await escreverEConferir({ porta, endereco: enderecoDaTag(codigo) })
+            if (!r.ok) throw new Error(r.frase)
+          } finally {
+            await porta.desconectar()
+          }
+          return
+        }
+        const gravador = criarGravador()
+        if (!gravador) throw new Error('Este aparelho não grava etiqueta.')
+        await gravador.gravar(enderecoDaTag(codigo))
+      },
+      // No leitor de mesa o `escreverEConferir` JÁ leu de volta e conferiu; reler
+      // aqui seria uma terceira ida ao chip, e cada ida é uma chance a mais de a
+      // etiqueta sair do leitor no meio.
+      lerDeVolta: async () => (gravaPorMesa.value
+        ? enderecoDaTag(alvo.codigo)
+        : criarGravador().lerUmaVez()),
+    })
+    recadoDaLeitura.value = saida.ok ? saida.frase : ''
+    if (!saida.ok) erroDaLeitura.value = saida.frase
+    avisarNaTela(saida.ok ? 'ok' : 'falha')
+  } finally {
+    ocupadoNaLeitura.value = false
+  }
+}
+
 const loteDaEtiqueta = ref('')
 const quantasEtiquetas = ref(DE_CADA_VEZ)
 
@@ -3345,6 +3776,29 @@ onMounted(() => {
 .au-progresso{font-family:var(--fonte-principal);font-size:var(--texto-corpo);color:var(--accent);white-space:nowrap;}
 .au-card-linha{display:flex;gap:var(--sp-4);flex-wrap:wrap;margin-top:var(--sp-3);font-family:var(--fonte-principal);font-size:var(--texto-corpo);color:var(--muted);}
 .au-ref{font-family:var(--fonte-dados);}
+
+/* ── LER QUALQUER ETIQUETA ────────────────────────────────────────────────
+   O bloco é o primeiro da aba e é uma FERRAMENTA, não um item de lista: um fio
+   de cor na lateral o separa dos cards de dado que vêm abaixo, sem inventar
+   fundo novo. Cor sai de token misturado com a superfície, para os dois temas
+   se cuidarem sozinhos (PADRÃO item 2). */
+/* ── LER UMA ETIQUETA: O MODAL ─────────────────────────────────────────────
+   A primeira versão era um painel aberto na aba, e o dono reprovou: ocupava a
+   tela para uma ação rápida e rara, e brigava com a lista, que é o assunto da
+   aba. Agora é um botão e um modal — e o modal é o `.au-fundo`/`.au-folha` que
+   esta tela já tinha, com as regras do PADRÃO item 4 já resolvidas dentro dele
+   (dvh, o par touch-action/overscroll, fechar no fundo, alvo de 40px).
+
+   O RECUO DE 24px é o mesmo do `.au-folha-topo`: dentro da folha, quem tem
+   recuo próprio é cada bloco, porque a folha rola e o cabeçalho não. */
+.au-leitura-corpo{
+  display:flex; flex-direction:column; align-items:center;
+  gap:var(--sp-2); padding:var(--sp-5) 24px 0; text-align:center;
+}
+.au-leitura-aneis{width:120px; flex:none}
+.au-leitura-titulo, .au-leitura-detalhe{margin:0; max-width:34ch}
+.au-leitura-achado{padding:var(--sp-4) 24px 0}
+.au-leitura-achado .au-modelo{display:block}
 .au-link{margin-top:10px;font-family:var(--fonte-principal);font-size:var(--texto-corpo);font-weight:600;color:var(--accent);background:none;border:none;padding:0;cursor:pointer;text-align:left;overflow-wrap:anywhere;}
 
 .au-campo{display:block;padding:16px 24px 0;max-width:520px;}

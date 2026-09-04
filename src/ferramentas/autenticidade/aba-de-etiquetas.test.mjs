@@ -136,7 +136,16 @@ test('são duas perguntas, e a segunda não repete a primeira', () => {
 });
 
 test('o botão da primeira etapa avança, e não apaga', () => {
-  const primeira = aba.slice(aba.indexOf('etapaDeApagar === 1'), aba.indexOf('<template v-else>'));
+  /* ⚠️ O RECORTE ANCORA NO BLOCO DE APAGAR, e não na aba inteira — mesma lição
+   * do teste logo acima, agora custando de novo. Ele procurava o PRIMEIRO
+   * `<template v-else>` da aba; em 04/09/2026 nasceu acima dele o bloco de ler
+   * qualquer etiqueta, com um `v-else` próprio, e o recorte passou a terminar
+   * ANTES de começar — virando texto vazio, que casa com qualquer coisa e não
+   * guarda nada. Marco de aba inteira quebra toda vez que um bloco nasce em
+   * cima. */
+  const bloco = aba.slice(aba.indexOf('v-if="apagando?.codigo === pc.codigo"'));
+  const primeira = bloco.slice(bloco.indexOf('etapaDeApagar === 1'), bloco.indexOf('<template v-else>'));
+  assert.ok(primeira, 'o recorte da primeira etapa veio vazio: o marco mudou de lugar');
   assert.doesNotMatch(primeira, /apagarGravacao/,
     'seriam duas perguntas de mentira: a primeira já apagaria');
   assert.match(primeira, /@click="etapaDeApagar = 2"/);
