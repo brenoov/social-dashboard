@@ -1405,7 +1405,7 @@
          O MIOLO ROLA DENTRO DA CAIXA, e nunca a página atrás (PADRAO item 4):
          as telas do socorro têm quatro casos, e no celular elas passam da
          altura da tela. -->
-    <div v-if="guiaAberto" class="au-guia-fundo" role="dialog" aria-modal="true"
+    <div v-if="guiaAberto" v-trava-rolagem class="au-guia-fundo" role="dialog" aria-modal="true"
          aria-label="Guia de bancada da gravação">
       <div class="au-guia">
         <p class="au-guia-conta">{{ telaDoGuia + 1 }} de {{ TELAS_DO_GUIA.length }}</p>
@@ -1551,7 +1551,7 @@
       </div>
     </div>
 
-    <div v-if="formulario" class="au-fundo" @click.self="formulario = false">
+    <div v-if="formulario" v-trava-rolagem class="au-fundo" @click.self="formulario = false">
       <form class="au-folha" @submit.prevent="gerarLote">
         <!-- O BOTÃO DE FECHAR TEM 40px DE ALVO E MORA NO CANTO (PADRÃO item 4).
              Clicar no fundo já fechava, mas isso não é um alvo que se vê: no
