@@ -4335,9 +4335,6 @@ onMounted(() => {
    inteira rolar, a busca sumiria na primeira raspada de dedo — e quem procura
    entre centenas precisa dela sempre à mão. `min-height:0` é o que permite um
    filho de flex encolher e criar a própria rolagem. */
-/* A lista respira agora que o modal e grande: 240px era o buraco de fechadura. */
-.au-produtos{max-height:min(46dvh, 420px)}
-
 /* ── A MINIATURA E A LUPA ────────────────────────────────────────────────
    A foto e de 70px e vem da propria lista do Bling. O quadrinho tem tamanho
    FIXO com ou sem foto: sem isso cada linha teria uma altura, e a lista inteira
@@ -4361,8 +4358,24 @@ onMounted(() => {
 }
 .au-produto-ref{font-family:var(--fonte-dados); font-size:var(--texto-etiqueta); color:var(--muted)}
 /* A lista rola por dentro para os NÚMEROS continuarem à vista: rolando a folha
-   inteira, eles ficariam lá embaixo, depois de trinta linhas. */
-.au-produtos{max-height:min(52dvh, 560px)}
+   inteira, eles ficariam lá embaixo, depois de trinta linhas.
+
+   ⚠️ `overscroll-behavior:contain` NÃO É ENFEITE — É A CORREÇÃO DO QUE O DONO
+   DESCREVEU em 04/09/2026: "quando vou rolando e chega ao fim, força rolar
+   abaixo e aí sai da lista, desce para o resto dos campos".
+   Isso é ENCADEAMENTO DE ROLAGEM: chegando ao fim de uma área que rola, o
+   navegador entrega o resto do gesto ao pai — e o formulário deslizava por baixo
+   da lista, tirando da tela o que a pessoa estava lendo. `contain` faz a rolagem
+   MORRER no fim da lista, em vez de vazar para fora.
+   É a mesma linha que o PADRÃO item 4 já exige nos fundos de modal, pelo mesmo
+   motivo: lá o dedo arrastava a página para os lados por dentro do modal.
+
+   E A LISTA OCUPA A ALTURA TODA quando está aberta, que foi o outro pedido: com
+   70dvh ela domina o modal e a rolagem acontece dentro dela, não em volta. */
+.au-produtos{
+  max-height:min(70dvh, 760px);
+  overscroll-behavior:contain;
+}
 .au-produto-foto{
   width:34px; height:34px; flex:none; border-radius:var(--radius-sm);
   object-fit:cover; background:var(--surface2); border:1px solid var(--border);

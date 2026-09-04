@@ -150,3 +150,21 @@ test('a linha e horizontal: foto, texto e lupa lado a lado', () => {
   assert.match(bloco.slice(0, bloco.indexOf('}')), /flex-direction:row/,
     'nome e referência empilhados: o pedido era tudo numa linha só')
 })
+
+test('⚠️ a rolagem MORRE no fim da lista, e nao vaza para o formulario', () => {
+  /* "quando vou rolando e chega ao fim, força rolar abaixo e aí sai da lista,
+   * desce para o resto dos campos" — 04/09/2026.
+   *
+   * Isso é ENCADEAMENTO DE ROLAGEM: ao terminar uma área que rola, o navegador
+   * entrega o resto do gesto ao pai, e o formulário deslizava por baixo da lista.
+   * `overscroll-behavior:contain` faz o gesto morrer ali. É a MESMA linha que o
+   * PADRÃO item 4 exige nos fundos de modal, pelo mesmo motivo. */
+  /* ⚠️ OLHA A REGRA QUE VENCE, e nao a primeira do arquivo. `.au-produtos` tem
+   * mais de uma regra (a base, e a que ajusta a altura), e a que manda e a
+   * ULTIMA. Ler a primeira foi o erro que eu cometi escrevendo este proprio
+   * teste — ele reprovava com o CSS correto na tela. */
+  const regras = [...TELA.matchAll(/\.au-produtos\{([^}]*)\}/g)].map((m) => m[1])
+  assert.ok(regras.length > 0, 'sumiu a regra da lista')
+  assert.ok(regras.some((r) => /overscroll-behavior:\s*contain/.test(r)),
+    'sem isto, chegar ao fim da lista arrasta o formulário para dentro da tela')
+})
