@@ -39,25 +39,21 @@ test('o aviso de falha mostra as DUAS frases, nunca o objeto inteiro', () => {
 })
 
 test('⚠️ Enter na busca de produto NAO cria o lote', () => {
-  /* O PERIGO: o botão de criar é `type="submit"`, então Enter em qualquer campo
-   * DENTRO do `<form @submit.prevent="gerarLote">` gravava as peças no banco sem
-   * ninguém pedir. A defesa era um `@keydown.enter.prevent` no campo.
+  /* O botão de criar é `type="submit"`: Enter em qualquer campo DENTRO do
+   * `<form @submit.prevent="gerarLote">` grava as peças no banco sem ninguém
+   * pedir. A defesa é o `@keydown.enter.prevent` no campo.
    *
-   * EM 04/09/2026 A DEFESA FICOU MELHOR: a busca de produto saiu do formulário e
-   * foi para um modal próprio (a lista precisava de tela). Fora do form, Enter
-   * não tem o que submeter — o perigo deixou de existir por CONSTRUÇÃO, e não
-   * por remendo.
+   * ESTE TESTE FOI E VOLTOU NO MESMO DIA, e vale registrar por quê. Em 04/09 eu
+   * tirei a busca do formulário para um modal próprio, e troquei a asserção por
+   * "o campo não está no form" — que era mais forte NAQUELE desenho. O dono
+   * reprovou o desenho (o modal abria atrás do outro, e ele queria o formulário
+   * inteiro maior, não um segundo modal). Com a busca de volta dentro do form, a
+   * defesa antiga volta a ser a certa.
    *
-   * Por isso a asserção mudou de alvo em vez de ser apagada: ela agora exige a
-   * garantia mais forte, que é o campo NÃO ESTAR no formulário. Se alguém um dia
-   * trouxer a busca de volta para dentro dele, este teste reprova — e aí a
-   * defesa a repor é o `@keydown.enter.prevent`. */
-  const form = TELA.slice(TELA.indexOf('@submit.prevent="gerarLote"'))
-  const ateOFimDoForm = form.slice(0, form.indexOf('</form>'))
-  assert.ok(ateOFimDoForm.length > 0, 'não achei o formulário de gerar lote')
-  assert.doesNotMatch(ateOFimDoForm, /v-model="buscaProduto"/,
-    'a busca de produto voltou para dentro do form: Enter volta a criar o lote. '
-    + 'Ou tire-a de lá, ou reponha o `@keydown.enter.prevent`')
+   * A lição não é "não mude testes": é que uma asserção acompanha o DESENHO, e
+   * desenho reprovado leva a asserção junto de volta. */
+  const campo = TELA.slice(TELA.indexOf('v-model="buscaProduto"'))
+  assert.match(campo.slice(0, campo.indexOf('</label>')), /@keydown\.enter\.prevent/)
 })
 
 test('a lista e os avisos da busca acompanham o recuo dos campos', () => {
@@ -75,9 +71,20 @@ test('a lista e os avisos da busca acompanham o recuo dos campos', () => {
   assert.match(celular, /\.au-produtos\{padding-left:8px/)
 })
 
-test('o import morto do chamarBling saiu', () => {
-  assert.doesNotMatch(TELA, /\bchamarBling\b/,
-    'importado e nunca usado — import morto engana quem for ler depois')
+test('nada e importado sem ser usado — o caso do chamarBling', () => {
+  /* A INTENÇÃO DESTE TESTE NUNCA FOI PROIBIR O `chamarBling`: era proibir IMPORT
+   * MORTO, que engana quem for ler depois. Ele nasceu quando a função estava
+   * importada e não era usada por ninguém.
+   *
+   * Em 04/09/2026 ela passou a ser usada de verdade — é ela que busca a foto
+   * GRANDE do produto no detalhe (`produtos/{id}`), quando se clica na lupa. A
+   * asserção passa a exigir o que ela sempre quis dizer: se está importado,
+   * tem de ser usado. */
+  const importado = /import\s*\{[^}]*\bchamarBling\b[^}]*\}/.test(TELA)
+  if (!importado) return
+  const usos = (TELA.match(/\bchamarBling\s*\(/g) || []).length
+  assert.ok(usos > 0,
+    'chamarBling importado e nunca chamado — import morto engana quem for ler depois')
 })
 
 // ══════════════════════════════════════════════════════════════════════════

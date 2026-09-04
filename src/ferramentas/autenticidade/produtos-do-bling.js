@@ -125,7 +125,18 @@ export function produtosParaEscolher(itens) {
       const codigo = String(x.codigo).trim()
       const nome = String(x.nome ?? '').trim()
       const cor = corDoProduto(codigo, nome)
-      return { codigo, nome, cor, modelo: modeloDoProduto(nome, cor) }
+      // ⚠️ `imagemURL` VEM DE GRACA NA LISTA — miniatura de 70px e 1,3 KB, medida
+      // em 03/09/2026. Ela estava sendo jogada fora aqui, e a tela ficava sem
+      // foto nenhuma tendo a foto na mao. O `id` viaja junto porque a imagem
+      // GRANDE so existe no detalhe (`produtos/{id}`), buscada so na lupa.
+      //
+      // NEM TODO PRODUTO TEM FOTO: 3 de 9 da linha nova. Ausencia e normal, e a
+      // tela mostra o quadrinho vazio em vez de um icone de erro.
+      return {
+        codigo, nome, cor, modelo: modeloDoProduto(nome, cor),
+        id: x.id ?? null,
+        foto: String(x.imagemURL ?? '').trim() || null,
+      }
     })
     .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
 }
