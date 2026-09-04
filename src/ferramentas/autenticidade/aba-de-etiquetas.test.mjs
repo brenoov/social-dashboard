@@ -96,7 +96,17 @@ test('a peça com garantia de cliente aparece MARCADA na lista', () => {
 
 test('a lista não desenha 500 linhas de uma vez, e diz quantas faltam', () => {
   assert.match(script, /etiquetasFiltradas\.value\.slice\(0, quantasEtiquetas\.value\)/);
-  assert.match(aba, /v-for="pc in etiquetasVisiveis"/, 'o v-for roda sobre a fatia');
+  /* ⚠️ A GARANTIA MUDOU DE LUGAR, mas continua sendo a mesma. Em 04/09/2026 a
+   * lista virou ÁRVORE (lote fora, etiquetas dentro), e o `v-for` das linhas
+   * passou a rodar sobre `g.etiquetas`. A fatia paginada não sumiu: ela é o que
+   * entra no agrupamento, uma camada acima. Se alguém agrupar
+   * `etiquetasFiltradas` em vez de `etiquetasVisiveis`, a árvore desenha as 500
+   * linhas de uma vez e o botão "faltam N" passa a mentir — por isso a
+   * asserção segue o dado até onde ele agora mora, em vez de ser apagada. */
+  assert.match(script, /agruparPorLote\(etiquetasVisiveis\.value/,
+    'a árvore tem de ser montada sobre a FATIA, nunca sobre a lista inteira');
+  assert.match(aba, /v-for="pc in g\.etiquetas"/, 'o v-for das linhas roda dentro do grupo');
+  assert.match(aba, /v-for="g in gruposDeEtiquetas"/, 'o v-for de fora roda sobre os grupos');
   assert.match(aba, /faltam \{\{ etiquetasQueFaltamMostrar \}\}/,
     'lista que esconde sem avisar é lista que mente');
 });
