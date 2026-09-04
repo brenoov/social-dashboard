@@ -3336,13 +3336,14 @@ onMounted(() => {
 .au-link[disabled]{opacity:.6;cursor:default;}
 .au-botao.secundario{color:var(--accent);background:transparent;}
 
-.au-lista{display:flex;flex-direction:column;gap:10px;padding:16px 24px 0;max-width:720px;}
-.au-card{border:1px solid var(--border);border-radius:8px;background:var(--surface);padding:14px 16px;}
-.au-card.alerta{border-color:var(--orange);}
-.au-card-topo{display:flex;justify-content:space-between;align-items:baseline;gap:12px;}
-.au-modelo{font-family:var(--fonte-principal);font-size:var(--texto-campo);font-weight:600;color:var(--text);overflow-wrap:anywhere;}
+.au-lista{display:flex;flex-direction:column;gap:var(--sp-4);padding:16px 24px 0;max-width:720px;}
+.au-card{border:1px solid color-mix(in srgb,var(--accent) 25%,var(--border));border-radius:var(--card-radius);background:var(--surface);padding:var(--card-pad);box-shadow:var(--shadow-sm);transition:box-shadow .18s ease,border-color .18s ease;}
+.au-card:hover{box-shadow:var(--shadow-md);border-color:color-mix(in srgb,var(--accent) 55%,var(--border));}
+.au-card.alerta{border-color:color-mix(in srgb,var(--orange) 45%,var(--border));background:color-mix(in srgb,var(--orange) 8%,var(--surface));}
+.au-card-topo{display:flex;justify-content:space-between;align-items:baseline;gap:var(--sp-3);flex-wrap:wrap;padding-bottom:var(--sp-2);border-bottom:1px solid color-mix(in srgb,var(--accent) 40%,var(--border));}
+.au-modelo{font-family:var(--fonte-principal);font-size:var(--texto-titulo);font-weight:700;line-height:1.3;color:var(--text);overflow-wrap:anywhere;}
 .au-progresso{font-family:var(--fonte-principal);font-size:var(--texto-corpo);color:var(--accent);white-space:nowrap;}
-.au-card-linha{display:flex;gap:14px;flex-wrap:wrap;margin-top:6px;font-family:var(--fonte-principal);font-size:var(--texto-corpo);color:var(--muted);}
+.au-card-linha{display:flex;gap:var(--sp-4);flex-wrap:wrap;margin-top:var(--sp-3);font-family:var(--fonte-principal);font-size:var(--texto-corpo);color:var(--muted);}
 .au-ref{font-family:var(--fonte-dados);}
 .au-link{margin-top:10px;font-family:var(--fonte-principal);font-size:var(--texto-corpo);font-weight:600;color:var(--accent);background:none;border:none;padding:0;cursor:pointer;text-align:left;overflow-wrap:anywhere;}
 
