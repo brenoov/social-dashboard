@@ -109,3 +109,69 @@ test('cada palavra digitada tem de aparecer, e nao a frase em ordem', () => {
   assert.ok(achar('fendi lunea'), 'trocar a ordem das palavras deixou de achar')
   assert.ok(!achar('lunea mostarda'), 'bastou UMA palavra casar')
 })
+
+// ══════════════════════════════════════════════════════════════════════════
+// AS OUTRAS DUAS BUSCAS: a aba Lotes e o seletor da aba Gravar
+// ══════════════════════════════════════════════════════════════════════════
+// Elas achavam o lote por modelo/cor/sku escritos à mão, e as peças dele SÓ
+// pelo código. Agora as duas pontas são universais.
+
+const { filtrarLotes, lotesParaGravar } = await import('./busca-e-arquivamento.js')
+
+const PECAS_DO_LOTE = () => [PECA]
+// ⚠️ `estado: 'todos'` DE PROPOSITO. O padrao de `filtrarLotes` e 'andamento', e
+// o lote deste teste esta ENCERRADO (a unica peca dele ja foi gravada) — ele
+// seria descartado antes de a busca por texto acontecer, e o teste passaria
+// dizendo "nao achou" por motivo nenhum. Foi o que aconteceu na primeira
+// rodada: o teste do identificador passou VERDE sem provar nada.
+const acharLote = (texto, lote = LOTE, pecas = PECAS_DO_LOTE) =>
+  filtrarLotes([lote], { pecasDoLote: pecas, texto, estado: 'todos' }).length === 1
+const acharNoSeletor = (texto, lote = LOTE, pecas = PECAS_DO_LOTE) =>
+  lotesParaGravar([lote], { pecasDoLote: pecas, texto, incluirEncerrados: true }).length === 1
+
+test('aba Lotes: o que ja funcionava continua', () => {
+  for (const t of ['Lunea', 'Fendi', 'H0009S', 'PX9FWMYJET']) {
+    assert.ok(acharLote(t), `a aba Lotes deixou de achar por "${t}"`)
+  }
+})
+
+test('⚠️ aba Lotes: CAMPO NOVO NO LOTE ja e pesquisavel', () => {
+  assert.ok(acharLote('Aurora', { ...LOTE, fornecedor: 'Curtume Aurora' }))
+})
+
+test('⚠️ aba Lotes: CAMPO NOVO NA PECA acha o lote dela', () => {
+  // Antes so o CODIGO da peca achava o lote. Agora qualquer coisa que esteja
+  // na peca acha — que e o caminho de "esta bolsa aqui e de qual lote?".
+  const pecas = () => [{ ...PECA, revisado_por: 'Barbara Franco' }]
+  assert.ok(acharLote('Barbara', LOTE, pecas))
+})
+
+test('aba Lotes: identificador continua fora, pelas duas peneiras', () => {
+  assert.ok(!acharLote('7f3a1c22'), 'o id do lote virou termo de busca')
+  const pecas = () => [{ ...PECA, pedido_id: 'dd99ee88-7777-6666-5555-444433332222' }]
+  assert.ok(!acharLote('dd99ee88', LOTE, pecas), 'identificador entrou por coluna nao listada')
+})
+
+test('aba Lotes: data pesquisavel como se escreve', () => {
+  assert.ok(acharLote('30/08'), 'nao achou pela data de fabricacao')
+  assert.ok(acharLote('agosto'), 'nao achou pelo mes')
+})
+
+test('seletor da aba Gravar: mesma regra, mesma promessa', () => {
+  assert.ok(acharNoSeletor('Lunea'), 'perdeu o que ja funcionava')
+  assert.ok(acharNoSeletor('Aurora', { ...LOTE, fornecedor: 'Curtume Aurora' }),
+    'campo novo no lote nao entrou')
+  assert.ok(acharNoSeletor('Barbara', LOTE, () => [{ ...PECA, revisado_por: 'Barbara Franco' }]),
+    'campo novo na peca nao entrou')
+  assert.ok(!acharNoSeletor('7f3a1c22'), 'identificador virou termo de busca')
+})
+
+test('as tres buscas concordam: o mesmo termo acha nas tres', () => {
+  // Tres telas com regras diferentes para a mesma pergunta e o defeito de
+  // origem disto tudo. O termo que acha numa tem de achar nas outras.
+  const pecas = () => [{ ...PECA, revisado_por: 'Barbara Franco' }]
+  const peca = { ...PECA, revisado_por: 'Barbara Franco' }
+  assert.ok(achar('Barbara', peca), 'aba Etiquetas nao achou')
+  assert.ok(acharLote('Barbara', LOTE, pecas), 'aba Lotes nao achou')
+  assert.ok(acharNoSeletor('Barbara', LOTE, pecas), 'seletor da Gravar nao achou')
+})

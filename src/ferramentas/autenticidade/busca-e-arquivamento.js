@@ -296,9 +296,12 @@ export function filtrarLotes(lotes, {
     // O CÓDIGO DA PEÇA ACHA O LOTE. Quem tem a etiqueta na mão tem o código, e
     // não o modelo: sem isto, o caminho de "esta bolsa aqui é de qual lote?"
     // não existia em lugar nenhum da tela.
-    if (combina(texto, l.modelo, l.cor, l.sku)) return true
-    const t = semAcentoNemCaixa(texto)
-    return pecasDoLote(l.id).some((p) => semAcentoNemCaixa(p?.codigo).includes(t)
+    // ⚠️ O LOTE INTEIRO, e não campos escolhidos — ver `palheiroDe`.
+    if (combina(texto, palheiroDe(l))) return true
+    // E AS PEÇAS DELE TAMBÉM POR INTEIRO. Antes só o código da peça achava o
+    // lote; agora qualquer coisa que esteja na peça acha — inclusive campo que
+    // ainda não existe.
+    return pecasDoLote(l.id).some((p) => combina(texto, palheiroDe(p))
       || ehONumeroDeSerie(texto, l.sku, p?.numero_na_serie))
   })
 }
@@ -327,9 +330,12 @@ export function lotesParaGravar(lotes, {
     if (!incluirEncerrados && estadoDoLote(pecasDoLote(l.id)).encerrado) return false
     if (!dentroDoIntervalo(dataDoLote(l), de, ate)) return false
     if (!texto) return true
-    if (combina(texto, l.modelo, l.cor, l.sku)) return true
-    const t = semAcentoNemCaixa(texto)
-    return pecasDoLote(l.id).some((p) => semAcentoNemCaixa(p?.codigo).includes(t)
+    // ⚠️ O LOTE INTEIRO, e não campos escolhidos — ver `palheiroDe`.
+    if (combina(texto, palheiroDe(l))) return true
+    // E AS PEÇAS DELE TAMBÉM POR INTEIRO. Antes só o código da peça achava o
+    // lote; agora qualquer coisa que esteja na peça acha — inclusive campo que
+    // ainda não existe.
+    return pecasDoLote(l.id).some((p) => combina(texto, palheiroDe(p))
       || ehONumeroDeSerie(texto, l.sku, p?.numero_na_serie))
   })
 }
