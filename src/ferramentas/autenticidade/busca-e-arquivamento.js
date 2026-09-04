@@ -58,6 +58,74 @@ function combina(termo, ...campos) {
   return t.split(' ').every((palavra) => palheiro.includes(palavra))
 }
 
+// ── O PALHEIRO UNIVERSAL ───────────────────────────────────────────────────
+//
+// ⚠️ A LISTA É DE EXCEÇÕES, NUNCA DE INCLUSÕES, e essa inversão é o ponto.
+// Antes a busca recebia os campos escritos à mão — `p.codigo, l.modelo, l.cor,
+// l.sku`. Campo novo na etiqueta nascia INVISÍVEL para a busca, e ninguém
+// descobria: não dá erro, só não acha. Lista de inclusão cresce para sempre e
+// depende de alguém lembrar; lista de exceção é curta e praticamente não muda.
+// Pedido do dono em 04/09/2026, pensando nos campos que ainda vão nascer.
+//
+// SÃO DUAS PENEIRAS, e a segunda é a que sobrevive ao futuro:
+//   1. POR NOME — os identificadores internos que já conhecemos.
+//   2. POR FORMA — qualquer valor que SEJA um identificador, mesmo em coluna
+//      que ninguém pensou em excluir. É o que impede a coluna nova `pedido_id`
+//      de envenenar a busca no dia em que ela nascer: identificadores são
+//      hexadecimais e contêm todas as letras de a até f, então digitar "a"
+//      sozinho casaria com quase tudo.
+export const FORA_DA_BUSCA = new Set(['id', 'lote_id', 'criado_por', 'fotos'])
+
+const PARECE_IDENTIFICADOR = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const PARECE_MOMENTO = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}|$)/
+
+const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+  'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro']
+
+// DATA ENTRA LEGÍVEL, E NÃO COMO O BANCO A GUARDA. `2026-09-03T00:42:59Z` não é
+// o que ninguém digita: quem procura escreve "03/09" ou "setembro". O dia sai
+// pelo fuso de São Paulo, o mesmo que a tela mostra — senão uma gravação das
+// 22h apareceria como o dia seguinte na busca e não na lista.
+function momentoLegivel(valor) {
+  const dia = diaDeSaoPaulo(valor)
+  if (!dia) return ''
+  const [ano, mes, d] = dia.split('-')
+  return `${d}/${mes}/${ano} ${d}/${mes} ${MESES[Number(mes) - 1] || ''} ${ano}`
+}
+
+function pedacosDoValor(valor, profundidade) {
+  if (valor == null) return []
+  if (typeof valor === 'boolean') return []          // ninguém digita "true"
+  if (typeof valor === 'number') return [String(valor)]
+  if (typeof valor === 'string') {
+    const t = valor.trim()
+    if (!t) return []
+    if (PARECE_IDENTIFICADOR.test(t)) return []
+    if (PARECE_MOMENTO.test(t)) return [t, momentoLegivel(t)]
+    return [t]
+  }
+  if (Array.isArray(valor)) return valor.flatMap((v) => pedacosDoValor(v, profundidade))
+  if (typeof valor === 'object') return profundidade > 0 ? pedacosDoObjeto(valor, profundidade - 1) : []
+  return []
+}
+
+function pedacosDoObjeto(objeto, profundidade) {
+  return Object.entries(objeto || {})
+    .filter(([chave]) => !FORA_DA_BUSCA.has(chave))
+    .flatMap(([, valor]) => pedacosDoValor(valor, profundidade))
+}
+
+/**
+ * Tudo o que se pode procurar num objeto, numa string só.
+ *
+ * A profundidade de 1 nível existe para o dia em que a etiqueta carregar um
+ * objeto dentro dela (um registro de garantia embutido, por exemplo) sem que
+ * alguém precise vir aqui ligar isso.
+ */
+export function palheiroDe(objeto, { profundidade = 1 } = {}) {
+  return pedacosDoObjeto(objeto, profundidade).join(' ')
+}
+
 // ── DATA: O DIA EM SÃO PAULO, NUNCA O DIA EM UTC ──────────────────────────
 // O banco guarda a hora em UTC. Uma gravação feita às 22h de terça é
 // "quarta-feira" em UTC — e um filtro de "hoje" feito no dia cru esconderia
@@ -306,7 +374,9 @@ export function filtrarEtiquetas(etiquetas, {
     // mesa procura pelo número da peça sozinho, e continua achando.
     if (ehONumeroDeSerie(texto, l.sku, p.numero_na_serie)) return true
     if (/^\d+$/.test(t) && Number(p.numero_na_serie) === Number(t)) return true
-    return combina(texto, p.codigo, l.modelo, l.cor, l.sku)
+    // ⚠️ A PEÇA E O LOTE INTEIROS, e não campos escolhidos. Ver `palheiroDe`:
+    // a lista é de exceções, para que campo novo entre sozinho.
+    return combina(texto, palheiroDe(p), palheiroDe(l))
   })
 }
 

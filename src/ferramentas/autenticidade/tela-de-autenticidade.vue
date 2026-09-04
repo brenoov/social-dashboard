@@ -998,7 +998,7 @@
       <PainelDeBusca v-model:filtro="filtroDeEtiquetas"
                      :atalhos="ATALHOS_DE_DATA" :estados="ESTADOS_DE_ETIQUETA"
                      rotulo-da-data="Gravada em" estado-padrao="todas"
-                     dica="Número de série, código da peça, modelo ou referência"
+                     dica="Número de série, código, modelo, cor, data — ou qualquer campo"
                      :contagem="contagemDeEtiquetas" />
 
       <p v-if="!etiquetasDaAba.length" class="au-vazio">
