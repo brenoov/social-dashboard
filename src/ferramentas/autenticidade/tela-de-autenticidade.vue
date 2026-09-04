@@ -4373,7 +4373,12 @@ onMounted(() => {
    E A LISTA OCUPA A ALTURA TODA quando está aberta, que foi o outro pedido: com
    70dvh ela domina o modal e a rolagem acontece dentro dela, não em volta. */
 .au-produtos{
-  max-height:min(70dvh, 760px);
+  /* ⚠️ 56dvh, E NÃO 70. Com 70 os NÚMEROS saíam da tela — foi o defeito que o
+     dono viu, e eu o criei subindo esta altura depois de ter escrito, aqui
+     mesmo, que a lista rola por dentro JUSTAMENTE para eles continuarem à
+     vista. Altura de lista não é decisão isolada: ela divide o modal com o
+     cabeçalho, a busca, a contagem e os números. */
+  max-height:min(56dvh, 620px);
   overscroll-behavior:contain;
 }
 .au-produto-foto{
@@ -4409,8 +4414,15 @@ onMounted(() => {
 /* ── OS NÚMEROS DE PÁGINA ────────────────────────────────────────────────
    Alvo de 40px em cada um (PADRÃO item 6) e quebra de linha quando são muitos:
    numa lista de trinta páginas, no celular, eles não cabem numa fileira só. */
+/* ⚠️ OS NÚMEROS GRUDAM NO RODAPÉ. Só encolher a lista não bastava: numa tela
+   baixa, ou com o zoom de letra do sistema aumentado, eles voltariam a sair. Com
+   `sticky` eles ficam visíveis enquanto o modal rola, aconteça o que acontecer
+   com a altura. O fundo é obrigatório — sem ele a lista passa por baixo e os
+   números ficam ilegíveis. */
 .au-paginas{display:flex; flex-wrap:wrap; gap:var(--sp-1);
-  justify-content:center; align-items:center; padding:var(--sp-3) 24px 0}
+  justify-content:center; align-items:center; padding:var(--sp-3) 24px;
+  position:sticky; bottom:0; z-index:1;
+  background:var(--surface); border-top:1px solid var(--border)}
 .au-pagina{
   min-width:40px; min-height:40px; padding:0 var(--sp-2);
   display:inline-flex; align-items:center; justify-content:center;

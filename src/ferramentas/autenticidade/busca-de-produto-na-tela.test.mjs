@@ -168,3 +168,23 @@ test('⚠️ a rolagem MORRE no fim da lista, e nao vaza para o formulario', () 
   assert.ok(regras.some((r) => /overscroll-behavior:\s*contain/.test(r)),
     'sem isto, chegar ao fim da lista arrasta o formulário para dentro da tela')
 })
+
+test('⚠️ os NUMEROS de pagina ficam sempre a vista', () => {
+  /* Eu subi a altura da lista para 70dvh e empurrei os números para fora da
+   * tela — tendo escrito, no comentário da própria regra, que a lista rolava por
+   * dentro PARA os números continuarem à vista. O dono viu na hora.
+   *
+   * Duas defesas, porque só uma não basta: a lista cede altura, E os números
+   * grudam no rodapé — numa tela baixa, ou com o zoom de letra do sistema
+   * aumentado, só encolher a lista deixaria eles saírem de novo. */
+  const paginas = TELA.slice(TELA.indexOf('.au-paginas{'))
+  const regra = paginas.slice(0, paginas.indexOf('}'))
+  assert.match(regra, /position:\s*sticky/, 'sem sticky, os números somem em tela baixa')
+  assert.match(regra, /bottom:\s*0/)
+  assert.match(regra, /background:/, 'sem fundo, a lista passa por baixo e some os números')
+
+  const listas = [...TELA.matchAll(/\.au-produtos\{([^}]*)\}/g)].map((m) => m[1])
+  const altura = listas.find((r) => /max-height/.test(r) && /dvh/.test(r))
+  const dvh = Number((altura.match(/(\d+)dvh/) || [])[1])
+  assert.ok(dvh <= 60, `lista com ${dvh}dvh não deixa espaço para os números no modal`)
+})
