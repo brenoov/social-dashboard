@@ -907,6 +907,7 @@
            Fica ACIMA do seletor de lote de propósito: aqui não se escolhe nada
            antes, é a etiqueta que diz quem é. Pedir um lote primeiro seria
            pedir justamente a informação que a pessoa veio buscar. -->
+      <div class="au-ler-livre-fora">
       <section class="au-card au-ler-livre">
         <div class="au-card-topo">
           <span class="au-modelo">Ler uma etiqueta</span>
@@ -914,6 +915,26 @@
         <p class="au-card-linha">
           Encoste qualquer etiqueta para descobrir de quem ela é — sem escolher lote nem peça antes.
         </p>
+
+        <!-- OS MESMOS ANÉIS DA BANCADA. `role="status"` para o leitor de tela
+             anunciar a troca sem roubar o foco de quem está com a etiqueta na
+             mão — e o estado vai SEMPRE por escrito ao lado do anel. -->
+        <div class="au-bancada-estado au-leitura-estado" role="status">
+          <div class="au-aneis-caixa" :class="'au-aneis-' + estadoDaLeituraAneis.chave">
+            <svg class="au-aneis" viewBox="0 0 120 120" width="104" height="104" aria-hidden="true"
+                 fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <circle class="au-anel-1" cx="60" cy="60" r="54" stroke-width="2" />
+              <circle class="au-anel-2" cx="60" cy="60" r="40" stroke-width="2.6" />
+              <circle class="au-anel-3" cx="60" cy="60" r="26" stroke-width="3.2" />
+              <circle class="au-anel-nucleo" cx="60" cy="60" r="11" stroke-width="3.2" />
+              <polyline class="au-anel-visto" points="42 61 55 74 80 45" stroke-width="7" />
+            </svg>
+          </div>
+          <div class="au-bancada-dito">
+            <p class="au-bancada-titulo">{{ estadoDaLeituraAneis.titulo }}</p>
+            <p class="au-bancada-detalhe">{{ estadoDaLeituraAneis.detalhe }}</p>
+          </div>
+        </div>
 
         <div class="au-acoes">
           <button class="au-botao" type="button" :disabled="lendoEtiqueta || ocupadoNaLeitura"
@@ -924,8 +945,6 @@
                   type="button" :disabled="ocupadoNaLeitura" @click="limparLeitura">Limpar</button>
         </div>
 
-        <p v-if="recadoDaLeitura" class="au-card-linha" role="status">{{ recadoDaLeitura }}</p>
-        <p v-if="erroDaLeitura" class="au-card-linha au-leitura-erro" role="alert">{{ erroDaLeitura }}</p>
 
         <!-- O QUE A ETIQUETA É — quatro respostas, e as duas últimas são as
              que costumam faltar numa tela dessas. -->
@@ -1002,6 +1021,7 @@
           </div>
         </div>
       </section>
+      </div>
 
       <label class="au-campo"><span class="au-rot">Lote</span>
         <select v-model="loteDaEtiqueta">
@@ -2129,6 +2149,32 @@ const motivoDaLeitura = ref('')
 function acharPecaPeloCodigo(codigo) {
   return (pecas.value || []).find((p) => p.codigo === codigo) || null
 }
+
+// O MESMO COMPONENTE DE ANÉIS DA BANCADA, com os mesmos estados. Não é enfeite
+// repetido: quem grava na aba Gravar e quem lê aqui é a mesma pessoa, com a
+// mesma etiqueta na mão — dois vocabulários visuais para o mesmo gesto seria
+// ela ter de aprender a ferramenta duas vezes.
+//
+// ⚠️ O ANEL NUNCA É O ÚNICO AVISO. Vai sempre com título e detalhe escritos, do
+// mesmo jeito que na bancada: quem desligou animação, quem não distingue cor e
+// quem usa leitor de tela leem a mesma coisa (PADRÃO item 9).
+const estadoDaLeituraAneis = computed(() => {
+  if (ocupadoNaLeitura.value) {
+    return { chave: 'gravando', titulo: 'Escrevendo na etiqueta…', detalhe: 'Segure parada até acabar.' }
+  }
+  if (lendoEtiqueta.value) {
+    return {
+      chave: 'esperando',
+      titulo: gravaPorMesa.value ? 'Ponha a etiqueta no leitor' : 'Encoste a etiqueta',
+      detalhe: 'Segure parada — vou dizer de quem ela é.',
+    }
+  }
+  if (erroDaLeitura.value) return { chave: 'erro', titulo: 'Não deu', detalhe: erroDaLeitura.value }
+  if (leituraLivre.value || recadoDaLeitura.value) {
+    return { chave: 'ok', titulo: 'Etiqueta lida', detalhe: recadoDaLeitura.value || 'Veja abaixo o que ela é.' }
+  }
+  return { chave: 'parado', titulo: 'Pronto para ler', detalhe: 'Aperte e encoste qualquer etiqueta.' }
+})
 
 const acoesDaLeituraAgora = computed(
   () => acoesDaLeitura(leituraLivre.value, { podeMexer: podeEditar.value }),
@@ -3700,21 +3746,22 @@ onMounted(() => {
    de cor na lateral o separa dos cards de dado que vêm abaixo, sem inventar
    fundo novo. Cor sai de token misturado com a superfície, para os dois temas
    se cuidarem sozinhos (PADRÃO item 2). */
+/* ⚠️ O RECUO SAI DO INVÓLUCRO, e é o MESMO dos irmãos desta aba (`.au-lista`,
+   `.au-campo`, `.au-acoes`, `.au-instrucao`, todos `16px 24px 0`). O bloco
+   nasceu sem ele e encostava na borda da tela — o card tem recheio próprio, que
+   é o espaço DENTRO dele, e não o afastamento da margem. São duas medidas
+   diferentes, e confundi-las foi o defeito. O `max-width` acompanha o da lista
+   para os dois começarem e terminarem na mesma linha. */
+.au-ler-livre-fora{padding:var(--sp-4) var(--sp-5) 0; max-width:720px;}
 .au-ler-livre{
   border-left:3px solid color-mix(in srgb,var(--accent) 70%,var(--border));
-  margin-bottom:var(--sp-4);
 }
 .au-leitura-achado{margin-top:var(--sp-3)}
-/* O texto do erro usa --text, e não --red: o vermelho do tema claro sobre esta
-   superfície não alcança 4,5 de contraste em letra pequena. A cor é o sinal, o
-   texto é para ler (PADRÃO item 2). */
-.au-leitura-erro{
-  color:var(--text);
-  background:color-mix(in srgb,var(--red) 10%,var(--surface));
-  border:1px solid color-mix(in srgb,var(--red) 38%,var(--surface));
-  border-radius:var(--radius-md);
-  padding:var(--sp-3);
-}
+/* Os anéis vêm da bancada com o tamanho da bancada, onde a tela é vista de pé e
+   de longe. Aqui é uma consulta rápida, sentado: o mesmo desenho, menor. */
+.au-leitura-estado{margin-top:var(--sp-4)}
+.au-leitura-estado .au-aneis-caixa{width:68px}
+.au-leitura-estado .au-aneis{width:68px; height:68px}
 .au-link{margin-top:10px;font-family:var(--fonte-principal);font-size:var(--texto-corpo);font-weight:600;color:var(--accent);background:none;border:none;padding:0;cursor:pointer;text-align:left;overflow-wrap:anywhere;}
 
 .au-campo{display:block;padding:16px 24px 0;max-width:520px;}
