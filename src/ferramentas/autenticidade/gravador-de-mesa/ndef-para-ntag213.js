@@ -133,6 +133,17 @@ export function planoDeGravacao(endereco, memoriaAtual) {
     )
   }
 
+  return paginasComOConteudo(conteudo, inicio, memoria)
+}
+
+// O MONTADOR DE PÁGINAS — usado pela gravação E pelo apagamento.
+//
+// Ele mora fora das duas porque a parte delicada é a mesma nos dois casos: a
+// escrita é de página INTEIRA, e a página onde a mensagem começa carrega junto
+// o rabo do Lock Control da etiqueta. Duas cópias disto seria uma delas
+// esquecendo de preservar a trava no dia em que a outra mudasse.
+function paginasComOConteudo(conteudo, inicio, memoria) {
+  const fim = inicio + conteudo.length
   const primeira = Math.floor(inicio / BYTES_POR_PAGINA)
   const ultima = Math.floor((fim - 1) / BYTES_POR_PAGINA)
 
@@ -161,6 +172,44 @@ export function planoDeGravacao(endereco, memoriaAtual) {
       }
     }
     escritas.push({ pagina: PRIMEIRA_PAGINA + pagina, bytes })
+  }
+  return escritas
+}
+
+// ── APAGAR: DEVOLVER A ETIQUETA AO ESTADO DE FÁBRICA ───────────────────────
+//
+// ⚠️ ESTA É A ÚNICA PORTA QUE PODE DEIXAR UMA ETIQUETA EM BRANCO, e ela é
+// separada de propósito. `planoDeGravacao` RECUSA endereço vazio, e essa recusa
+// não pode ser afrouxada: se ela aceitasse, qualquer caminho futuro passaria a
+// poder apagar uma etiqueta por acidente — bastaria uma variável chegar vazia
+// num dia ruim, e a bolsa já estaria costurada. Duas portas para duas
+// intenções: quem grava nunca apaga sem querer, e quem apaga sabe o que faz.
+//
+// "EM BRANCO" NÃO É MEMÓRIA ZERADA. Uma NTAG213 sai de fábrica com
+// `01 03 A0 0C 34 03 00 FE`: o Lock Control, que se preserva, seguido de uma
+// MENSAGEM NDEF VAZIA (`03 00 FE`). Apagar é devolver exatamente esse estado —
+// não é inventar um estado novo, é restaurar o que o fabricante documenta.
+//
+// ⚠️ A ORDEM DAS ESCRITAS NÃO É DETALHE. A mensagem vazia vai PRIMEIRO: a
+// partir da primeira escrita a etiqueta já lê como em branco, e todo o resto é
+// só higiene. Se a etiqueta sair do leitor no meio — que é o que mais acontece
+// na bancada — ela fica num estado VÁLIDO e vazio, e não num meio-termo.
+// Limpando primeiro e escrevendo a mensagem por último, a interrupção deixaria
+// a etiqueta com o endereço antigo pela metade: nem apagada, nem legível.
+//
+// A limpeza do resto existe para o código da bolsa anterior não continuar
+// legível na memória: o leitor comum para no terminador, mas os bytes seguem
+// lá para quem lê a memória crua.
+export function planoDeApagamento(memoriaAtual) {
+  const memoria = bytesLidos(memoriaAtual)
+  const inicio = ondeComecaAMensagem(memoria)
+
+  const mensagemVazia = [TLV_MENSAGEM, 0x00, TLV_FIM]
+  const escritas = paginasComOConteudo(mensagemVazia, inicio, memoria)
+
+  const ultimaEscrita = escritas[escritas.length - 1].pagina
+  for (let pagina = ultimaEscrita + 1; pagina <= ULTIMA_PAGINA; pagina++) {
+    escritas.push({ pagina, bytes: [0, 0, 0, 0] })
   }
   return escritas
 }
