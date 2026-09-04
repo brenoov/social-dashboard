@@ -1473,6 +1473,61 @@
          `ponto-de-partida.js`; sem ela a página atrás rola por baixo do modal e,
          no celular, o dedo escorrega a tela para os lados. Os outros dois modais
          desta tela ainda não a têm — é anterior a este bloco e está anotado. -->
+    <!-- ══════════════════════════════════════════════════════════════════
+         ESCOLHER O PRODUTO — modal LARGO
+         ══════════════════════════════════════════════════════════════════
+         ⚠️ EXCEÇÃO DELIBERADA AO PADRÃO item 4, que manda 420px no computador.
+         Aquele número serve para modal de PERGUNTA — meia dúzia de campos, onde
+         a linha curta ajuda a ler. Aqui o conteúdo é uma LISTA de centenas de
+         produtos, e 420px com uma caixinha de 240px rolando dentro era um buraco
+         de fechadura. A variante `larga` existe só para modal cujo conteúdo é
+         lista, e está anotada no CSS.
+
+         MODAL DENTRO DE MODAL, e isso é previsto: o `travar-rolagem-de-fundo`
+         usa CONTADOR e não booleano justamente porque dois modais podem se
+         sobrepor — fechar o de cima não destrava a página com o de baixo aberto. -->
+    <div v-if="escolhendoProduto" v-trava-rolagem class="au-fundo"
+         @click.self="escolhendoProduto = false">
+      <div class="au-folha au-folha-larga" role="dialog" aria-modal="true"
+           aria-label="Escolher produto no Bling">
+        <div class="au-folha-topo">
+          <h2>Escolher produto</h2>
+          <button class="au-fechar" type="button" aria-label="Fechar"
+                  @click="escolhendoProduto = false">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none"
+                 stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+              <line x1="6" y1="6" x2="18" y2="18" /><line x1="18" y1="6" x2="6" y2="18" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- ⚠️ A BUSCA FICA FORA DA ÁREA QUE ROLA. Rolando junto, ela sumiria na
+             primeira raspada de dedo — e quem procura entre centenas precisa
+             dela sempre à mão. -->
+        <label class="au-campo au-produtos-busca"><span class="au-rot">Buscar</span>
+          <input v-model="buscaProduto" type="search"
+                 placeholder="Nome ou referência — ex.: Lunea, SS1025">
+        </label>
+        <p class="au-aviso-menor au-produtos-conta">
+          {{ produtosAchados.length }} de {{ produtos.length }} produto(s) da linha nova
+        </p>
+
+        <ul v-if="produtosAchados.length" class="au-produtos au-produtos-modal">
+          <li v-for="p in produtosAchados" :key="p.codigo">
+            <button class="au-produto" type="button" @click="usarProduto(p); escolhendoProduto = false">
+              <strong>{{ p.nome }}</strong>
+              <span class="au-aviso-menor">{{ p.codigo }}</span>
+            </button>
+          </li>
+        </ul>
+        <p v-else-if="buscaProduto" class="au-aviso-menor au-produtos-conta">
+          Nenhum produto da linha nova com esse nome ou referência.
+          Você pode fechar e escrever à mão nos campos.
+        </p>
+        <p v-else class="au-aviso-menor au-produtos-conta">Nenhum produto para mostrar.</p>
+      </div>
+    </div>
+
     <div v-if="leituraAberta" v-trava-rolagem class="au-fundo"
          @click.self="fecharLeituraDeEtiqueta">
       <div class="au-folha au-folha-leitura" role="dialog" aria-modal="true"
@@ -1612,34 +1667,22 @@
              Os campos continuam editáveis depois de escolher: o Bling preenche,
              a pessoa confere. -->
         <div class="au-escolha-produto">
-          <label class="au-campo"><span class="au-rot">Produto no Bling</span>
-            <!-- Enter num campo de busca é o gesto mais natural que existe, e este
-                 campo mora dentro do `<form @submit.prevent="gerarLote">`: sem esta
-                 linha, apertar Enter GRAVAVA o lote inteiro no banco, com a
-                 quantidade padrão, sem ninguém ter pedido. -->
-            <input v-model="buscaProduto" type="search" :disabled="carregandoProdutos"
-                   @keydown.enter.prevent
-                   :placeholder="carregandoProdutos ? 'Carregando os produtos…' : 'Busque por nome ou referência'"></label>
+          <span class="au-rot">Produto no Bling</span>
+          <button class="au-botao secundario au-abrir-produtos" type="button"
+                  :disabled="carregandoProdutos" @click="abrirEscolhaDeProduto">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/>
+            </svg>
+            <span v-if="carregandoProdutos">Carregando os produtos…</span>
+            <span v-else-if="produtoEscolhido">{{ produtoEscolhido.nome }}</span>
+            <span v-else>Escolher produto ({{ produtos.length }} da linha nova)</span>
+          </button>
 
           <p v-if="erroProdutos" class="au-aviso-menor">
             {{ erroProdutos.titulo }}
             <template v-if="erroProdutos.detalhe">{{ erroProdutos.detalhe }}</template>
             Você ainda pode escrever à mão nos campos abaixo.
-          </p>
-
-          <ul v-else-if="produtosAchados.length" class="au-produtos">
-            <li v-for="p in produtosAchados" :key="p.codigo">
-              <button class="au-produto" type="button" @click="usarProduto(p)">
-                <strong>{{ p.nome }}</strong>
-                <span class="au-aviso-menor">{{ p.codigo }}</span>
-              </button>
-            </li>
-          </ul>
-          <p v-else-if="!carregandoProdutos && buscaProduto" class="au-aviso-menor">
-            Nenhum produto da linha nova com esse nome ou referência.
-          </p>
-          <p v-else-if="!carregandoProdutos" class="au-aviso-menor">
-            {{ produtos.length }} produto(s) da linha nova. Busque, ou escreva à mão abaixo.
           </p>
         </div>
 
@@ -2035,6 +2078,21 @@ const loteAtual = computed(() => lotes.value.find((l) => l.id === loteEscolhido.
 // edição não basta, porque é na criação que ela entra. A frase é uma só, e mora
 // em `lotes.js`, junto da regra — frase escrita em dois lugares diverge no dia
 // em que uma delas muda.
+const escolhendoProduto = ref(false)
+// O que o botão do formulário mostra: o produto que foi escolhido, achado pela
+// referência que ele gravou. Sai do que JÁ está na tela — nada de guardar uma
+// segunda cópia do produto, que é como duas verdades comecam a divergir.
+const produtoEscolhido = computed(
+  () => (produtos.value || []).find((p) => p && p.codigo === novo.sku) || null)
+
+// ⚠️ ABRIR LIMPA A BUSCA ANTERIOR. Sem isso o modal abre já filtrado pelo que
+// foi digitado da última vez, mostrando três produtos de trezentos — e parece
+// que o Bling está vazio de novo, que é exatamente a queixa que originou isto.
+function abrirEscolhaDeProduto() {
+  buscaProduto.value = ''
+  escolhendoProduto.value = true
+}
+
 const avisoDaSerieNova = computed(() => avisoDeSerieAmbigua(novo.sku))
 const avisoDaSerieEditada = computed(() => avisoDeSerieAmbigua(edicao.sku))
 const proxima = computed(() => proximaPorGravar(pecasDoLote(loteEscolhido.value)))
@@ -4049,6 +4107,33 @@ onMounted(() => {
 /* O RECUO LATERAL DE CADA FILHO É POR CONTA DELE: a `.au-folha` tem
    `padding:22px 0`, e quem não pede recuo encosta na borda da caixa. */
 .au-escolha-produto > .au-aviso-menor{padding-left:24px; padding-right:24px}
+/* O botão que abre a escolha ocupa a linha inteira e alinha à esquerda: ele
+   mostra o NOME do produto escolhido, que é texto e se lê da esquerda. */
+.au-escolha-produto > .au-rot{padding:0 24px}
+.au-abrir-produtos{margin:var(--sp-2) 24px 0; width:calc(100% - 48px);
+  justify-content:flex-start; text-align:left; overflow-wrap:anywhere}
+
+/* ── O MODAL LARGO DE PRODUTOS ────────────────────────────────────────────
+   ⚠️ EXCEÇÃO DELIBERADA AO PADRÃO item 4 (420px no computador), e ela vale só
+   para modal cujo conteúdo é LISTA. O 420px do PADRÃO serve para modal de
+   PERGUNTA — meia dúzia de campos, onde a linha curta ajuda a ler. Uma lista de
+   centenas de produtos dentro de 420px, com uma caixinha de 240px rolando
+   dentro dela, era um buraco de fechadura: foi a queixa do dono em 04/09/2026.
+
+   No celular nada disto vale: o `@media` do fim do arquivo já faz TODA `.au-folha`
+   ocupar a tela, que é o que se quer aqui de qualquer jeito. */
+.au-folha-larga{
+  max-width:min(1040px, 94vw);
+  height:min(88dvh, 900px);
+  display:flex; flex-direction:column; overflow:hidden;
+}
+.au-folha-larga > .au-campo{max-width:none}
+.au-produtos-conta{padding:var(--sp-2) 24px 0; margin:0}
+/* ⚠️ SÓ A LISTA ROLA, e o campo de busca fica parado em cima. Deixando a folha
+   inteira rolar, a busca sumiria na primeira raspada de dedo — e quem procura
+   entre centenas precisa dela sempre à mão. `min-height:0` é o que permite um
+   filho de flex encolher e criar a própria rolagem. */
+.au-produtos-modal{max-height:none; flex:1; min-height:0; padding:var(--sp-2) 24px var(--sp-4)}
 .au-produtos{list-style:none; margin:var(--sp-2) 0 0; padding:0 16px; max-height:240px; overflow-y:auto}
 .au-produtos li + li{border-top:1px solid var(--border)}
 .au-produto{

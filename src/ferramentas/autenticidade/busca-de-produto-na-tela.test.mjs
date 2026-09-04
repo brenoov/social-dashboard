@@ -38,11 +38,26 @@ test('o aviso de falha mostra as DUAS frases, nunca o objeto inteiro', () => {
     'o objeto inteiro num `{{ }}` é a pessoa lendo `[object Object]`')
 })
 
-test('Enter na busca de produto NAO cria o lote', () => {
-  // O campo mora dentro do `<form @submit.prevent="gerarLote">`, e o botão é
-  // `type="submit"`: sem isto, Enter gravava as peças no banco sem ninguém pedir.
-  const campo = TELA.slice(TELA.indexOf('v-model="buscaProduto"'))
-  assert.match(campo.slice(0, campo.indexOf('</label>')), /@keydown\.enter\.prevent/)
+test('⚠️ Enter na busca de produto NAO cria o lote', () => {
+  /* O PERIGO: o botão de criar é `type="submit"`, então Enter em qualquer campo
+   * DENTRO do `<form @submit.prevent="gerarLote">` gravava as peças no banco sem
+   * ninguém pedir. A defesa era um `@keydown.enter.prevent` no campo.
+   *
+   * EM 04/09/2026 A DEFESA FICOU MELHOR: a busca de produto saiu do formulário e
+   * foi para um modal próprio (a lista precisava de tela). Fora do form, Enter
+   * não tem o que submeter — o perigo deixou de existir por CONSTRUÇÃO, e não
+   * por remendo.
+   *
+   * Por isso a asserção mudou de alvo em vez de ser apagada: ela agora exige a
+   * garantia mais forte, que é o campo NÃO ESTAR no formulário. Se alguém um dia
+   * trouxer a busca de volta para dentro dele, este teste reprova — e aí a
+   * defesa a repor é o `@keydown.enter.prevent`. */
+  const form = TELA.slice(TELA.indexOf('@submit.prevent="gerarLote"'))
+  const ateOFimDoForm = form.slice(0, form.indexOf('</form>'))
+  assert.ok(ateOFimDoForm.length > 0, 'não achei o formulário de gerar lote')
+  assert.doesNotMatch(ateOFimDoForm, /v-model="buscaProduto"/,
+    'a busca de produto voltou para dentro do form: Enter volta a criar o lote. '
+    + 'Ou tire-a de lá, ou reponha o `@keydown.enter.prevent`')
 })
 
 test('a lista e os avisos da busca acompanham o recuo dos campos', () => {
