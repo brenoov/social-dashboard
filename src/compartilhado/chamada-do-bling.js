@@ -141,14 +141,33 @@ export async function chamarBling(sbClient, endpoint, params) {
 // dia sem venda. O que mudou: a FALHA não passa mais por vazio, ela sobe.
 // (O código antigo tentava 3 vezes por página e desistia devolvendo [], o que
 // transformava um Bling fora do ar em "não vendeu nada".)
-export async function paginasDoBling(sbClient, endpoint, params) {
+//
+// ⚠️ O TETO DE PÁGINAS EXISTE, E ELE PRECISA GRITAR QUANDO ENCOSTA.
+//
+// O teto era 10 páginas — 1000 itens — e a saída por teto era IDÊNTICA à saída
+// por fim da lista: o laço terminava e devolvia o que tinha. Enquanto o catálogo
+// coube em 1000, ninguém viu. Quando passou, os produtos do fim sumiram da tela
+// de criar lote sem uma linha de aviso — e o fim da lista é justamente onde
+// moram os SKU novos, porque `SS` vem depois de `LV` em ordem alfabética.
+//
+// Relatado pelo dono em 04/09/2026: "não tá puxando os produtos novos, tem
+// muito mais coisa de SKU com início SS".
+//
+// Agora as duas saídas são distinguíveis: pelo fim da lista, `return` no meio do
+// laço; pelo teto, o laço termina e `aoTruncar` é chamado. Quem chama decide o
+// que fazer com isso — mas não dá mais para não saber.
+export async function paginasDoBling(sbClient, endpoint, params, opcoes = {}) {
+  const { maxPaginas = 10, aoTruncar = null } = opcoes || {}
   const todos = []
-  for (let pagina = 1; pagina <= 10; pagina++) {
+  for (let pagina = 1; pagina <= maxPaginas; pagina++) {
     const resp = await chamarBling(sbClient, endpoint, { ...params, pagina, limite: 100 })
     const itens = Array.isArray(resp?.data) ? resp.data : []
-    if (!itens.length) break
+    // FIM DA LISTA: sai por aqui, e ninguém é avisado de nada — está completo.
+    if (!itens.length) return todos
     todos.push(...itens)
-    if (itens.length < 100) break
+    if (itens.length < 100) return todos
   }
+  // TETO: chegou aqui porque a última página veio CHEIA. Há mais lá fora.
+  if (typeof aoTruncar === 'function') aoTruncar(todos.length, maxPaginas)
   return todos
 }
