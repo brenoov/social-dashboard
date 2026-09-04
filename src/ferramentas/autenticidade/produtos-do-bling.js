@@ -151,3 +151,40 @@ export function procurarProduto(lista, termo) {
   return (Array.isArray(lista) ? lista : []).filter((p) =>
     semAcento(p.nome).includes(t) || semAcento(p.codigo).includes(t))
 }
+
+// ── A PAGINAÇÃO DA LISTA ───────────────────────────────────────────────────
+// A lista mostrava 12 itens e ponto: `.slice(0, 12)` na tela, sem nada dizendo
+// que havia mais. Com o catálogo crescendo, isso virou "não aparece nada".
+export const PRODUTOS_POR_PAGINA = 30
+
+export function fatiarProdutos(lista, pagina, porPagina = PRODUTOS_POR_PAGINA) {
+  const todos = Array.isArray(lista) ? lista : []
+  const total = Math.max(1, Math.ceil(todos.length / porPagina))
+  // ⚠️ A PÁGINA É PRESA AO INTERVALO VÁLIDO. Digitar uma busca curta depois de
+  // estar na página 9 deixaria a pessoa olhando uma lista vazia com resultados
+  // existindo — o pior tipo de "não achei", porque parece defeito da busca.
+  const atual = Math.min(Math.max(1, Number(pagina) || 1), total)
+  return {
+    itens: todos.slice((atual - 1) * porPagina, atual * porPagina),
+    pagina: atual,
+    paginas: total,
+    total: todos.length,
+  }
+}
+
+// OS NÚMEROS QUE APARECEM EMBAIXO, no formato do Google: sempre a primeira, a
+// última, e uma janela em volta da atual. O `null` é o "…" — quem desenha
+// decide como mostrar, esta conta só diz onde há buraco.
+export function numerosDePagina(atual, paginas, janela = 2) {
+  const fim = Math.max(1, Number(paginas) || 1)
+  const p = Math.min(Math.max(1, Number(atual) || 1), fim)
+  const mostrar = new Set([1, fim])
+  for (let i = p - janela; i <= p + janela; i++) if (i >= 1 && i <= fim) mostrar.add(i)
+  const ordenados = [...mostrar].sort((a, b) => a - b)
+  const saida = []
+  for (let i = 0; i < ordenados.length; i++) {
+    if (i > 0 && ordenados[i] - ordenados[i - 1] > 1) saida.push(null)
+    saida.push(ordenados[i])
+  }
+  return saida
+}

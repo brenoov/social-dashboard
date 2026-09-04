@@ -1656,33 +1656,38 @@
               Escolhido: <strong>{{ produtoEscolhido.nome }}</strong>. Clique na busca para trocar.
             </template>
             <template v-else>
-              {{ produtosAchados.length }} de {{ produtos.length }} produto(s) da linha nova.
+              {{ produtosAchados.length }} de {{ produtos.length }} produto(s)<template
+                v-if="paginaAtualDeProdutos.paginas > 1"> · página {{ paginaAtualDeProdutos.pagina }}
+                de {{ paginaAtualDeProdutos.paginas }}</template>.
             </template>
           </p>
 
           <!-- A LISTA SÓ OCUPA ESPAÇO QUANDO ESTÁ SENDO USADA: abre ao clicar na
-               busca e fecha ao escolher. Aberta o tempo todo, ela empurraria os
+               busca e fecha ao escolher. Aberta o tempo todo, empurraria os
                campos do lote para fora da tela. -->
-          <ul v-if="listaDeProdutosAberta && produtosAchados.length" class="au-produtos">
-            <li v-for="p in produtosAchados" :key="p.codigo">
+          <ul v-if="listaDeProdutosAberta && paginaAtualDeProdutos.itens.length" class="au-produtos">
+            <li v-for="p in paginaAtualDeProdutos.itens" :key="p.codigo">
               <button class="au-produto" type="button"
                       @click="usarProduto(p); listaDeProdutosAberta = false">
                 <!-- A MINIATURA VEM DA PRÓPRIA LISTA DO BLING (70px, 1,3 KB) —
-                     nenhuma chamada a mais. Nem todo produto tem foto lá: medido
-                     em 03/09/2026, 3 de 9 da linha nova. Sem foto mostra o
+                     nenhuma chamada a mais. Nem todo produto tem foto lá: 3 de 9
+                     da linha nova, medido em 03/09/2026. Sem foto mostra o
                      quadrinho vazio, e não um ícone de erro. -->
                 <img v-if="p.foto" :src="p.foto" alt="" class="au-produto-foto" loading="lazy">
                 <span v-else class="au-produto-foto au-produto-sem-foto" aria-hidden="true"></span>
+                <!-- TUDO NUMA LINHA: nome e referência lado a lado. Sem
+                     `text-overflow`, que o PADRÃO item 5 proíbe em nome — se não
+                     couber, quebra; nunca corta com reticência. -->
                 <span class="au-produto-texto">
                   <strong>{{ p.nome }}</strong>
-                  <span class="au-aviso-menor">{{ p.codigo }}</span>
+                  <span class="au-produto-ref">{{ p.codigo }}</span>
                 </span>
                 <!-- A LUPA NÃO ESCOLHE O PRODUTO: ela abre a foto grande. Sem o
                      `.stop`, clicar para VER preencheria os campos do lote. -->
                 <span v-if="p.foto" class="au-produto-lupa" role="button" tabindex="0"
                       aria-label="Ver a foto maior"
                       @click.stop="verFotoGrande(p)" @keydown.enter.stop.prevent="verFotoGrande(p)">
-                  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none"
+                  <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none"
                        stroke="currentColor" stroke-width="2" stroke-linecap="round">
                     <circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/>
                     <line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/>
@@ -1691,6 +1696,26 @@
               </button>
             </li>
           </ul>
+
+          <!-- OS NÚMEROS, como nas páginas de busca: primeira, última e a janela
+               em volta da atual. Sem eles a lista mentia — mostrava um pedaço e
+               não dizia que havia mais. -->
+          <nav v-if="listaDeProdutosAberta && paginaAtualDeProdutos.paginas > 1"
+               class="au-paginas" aria-label="Páginas de produtos">
+            <button class="au-pagina" type="button" :disabled="paginaAtualDeProdutos.pagina === 1"
+                    @click="paginaDeProdutos = paginaAtualDeProdutos.pagina - 1">‹</button>
+            <template v-for="(n, i) in numerosDasPaginas" :key="i">
+              <span v-if="n === null" class="au-pagina-vazio" aria-hidden="true">…</span>
+              <button v-else class="au-pagina" type="button"
+                      :class="{ on: n === paginaAtualDeProdutos.pagina }"
+                      :aria-current="n === paginaAtualDeProdutos.pagina ? 'page' : null"
+                      @click="paginaDeProdutos = n">{{ n }}</button>
+            </template>
+            <button class="au-pagina" type="button"
+                    :disabled="paginaAtualDeProdutos.pagina === paginaAtualDeProdutos.paginas"
+                    @click="paginaDeProdutos = paginaAtualDeProdutos.pagina + 1">›</button>
+          </nav>
+
           <p v-else-if="listaDeProdutosAberta && !carregandoProdutos && buscaProduto"
              class="au-aviso-menor au-produtos-conta">
             Nenhum produto da linha nova com esse nome ou referência.
@@ -1812,7 +1837,9 @@ import {
   filtrarEtiquetas, fraseDaContagem,
 } from './busca-e-arquivamento.js'
 import PainelDeBusca from './painel-de-busca.vue'
-import { produtosParaEscolher, procurarProduto } from './produtos-do-bling.js'
+import {
+  produtosParaEscolher, procurarProduto, fatiarProdutos, numerosDePagina,
+} from './produtos-do-bling.js'
 import { paginasDoBling, chamarBling, avisoDoErro } from '../../compartilhado/chamada-do-bling.js'
 import { temSuporte, traduzirFalha, criarGravador } from './gravador-nfc.js'
 import {
@@ -2858,8 +2885,19 @@ const buscaProduto = ref('')
 const carregandoProdutos = ref(false)
 const erroProdutos = ref(null)
 
-const produtosAchados = computed(() =>
-  buscaProduto.value.trim() ? procurarProduto(produtos.value, buscaProduto.value).slice(0, 12) : [])
+// ⚠️ SEM BUSCA MOSTRA TUDO, e nao lista vazia. Antes era
+// `busca ? procurar(...).slice(0, 12) : []` — dois cortes silenciosos no mesmo
+// lugar: abrir sem digitar nada nao mostrava produto nenhum, e digitar mostrava
+// no maximo doze de trezentos, sem nada dizendo que havia mais.
+const produtosAchados = computed(() => procurarProduto(produtos.value, buscaProduto.value))
+const paginaDeProdutos = ref(1)
+const paginaAtualDeProdutos = computed(
+  () => fatiarProdutos(produtosAchados.value, paginaDeProdutos.value))
+const numerosDasPaginas = computed(
+  () => numerosDePagina(paginaAtualDeProdutos.value.pagina, paginaAtualDeProdutos.value.paginas))
+// Buscar volta para a primeira pagina: continuar na 9 depois de filtrar deixaria
+// a pessoa olhando o vazio com resultados existindo.
+watch(buscaProduto, () => { paginaDeProdutos.value = 1 })
 
 async function carregarProdutos() {
   if (produtos.value.length || carregandoProdutos.value) return
@@ -4167,12 +4205,6 @@ onMounted(() => {
 /* O RECUO LATERAL DE CADA FILHO É POR CONTA DELE: a `.au-folha` tem
    `padding:22px 0`, e quem não pede recuo encosta na borda da caixa. */
 .au-escolha-produto > .au-aviso-menor{padding-left:24px; padding-right:24px}
-/* O botão que abre a escolha ocupa a linha inteira e alinha à esquerda: ele
-   mostra o NOME do produto escolhido, que é texto e se lê da esquerda. */
-.au-escolha-produto > .au-rot{padding:0 24px}
-.au-abrir-produtos{margin:var(--sp-2) 24px 0; width:calc(100% - 48px);
-  justify-content:flex-start; text-align:left; overflow-wrap:anywhere}
-
 .au-produtos{list-style:none; margin:var(--sp-2) 0 0; padding:0 16px; max-height:240px; overflow-y:auto}
 .au-produtos li + li{border-top:1px solid var(--border)}
 .au-produto{
@@ -4295,8 +4327,7 @@ onMounted(() => {
      sozinha. Aplicada ao FORMULARIO inteiro, prendia a altura e travava a
      rolagem: os campos de baixo (Quantidade, Finalizado em) ficariam
      inalcancaveis, e a caixa ficaria enorme e vazia num formulario curto. */
-  max-width:min(1040px, 94vw);
-  max-height:min(88dvh, 900px);
+  width:80vw; max-width:80vw; max-height:88dvh;
 }
 .au-folha-larga > .au-campo{max-width:none}
 .au-produtos-conta{padding:var(--sp-2) 24px 0; margin:0}
@@ -4311,15 +4342,37 @@ onMounted(() => {
    A foto e de 70px e vem da propria lista do Bling. O quadrinho tem tamanho
    FIXO com ou sem foto: sem isso cada linha teria uma altura, e a lista inteira
    dancaria conforme os produtos com foto entrassem e saissem da busca. */
-.au-produto{display:flex; align-items:center; gap:var(--sp-3); text-align:left; width:100%}
+/* ── A LINHA DA LISTA: FINA, E TUDO NUMA LINHA SÓ ────────────────────────
+   A regra-base lá em cima é `flex-direction:column` — nome em cima, código
+   embaixo, duas alturas por item. Aqui vira linha: foto à esquerda, nome e
+   referência lado a lado, lupa à direita. */
+.au-produto{
+  display:flex; flex-direction:row; align-items:center;
+  gap:var(--sp-3); text-align:left; width:100%;
+  min-height:0; padding:var(--sp-1) var(--sp-2);
+}
+.au-produto strong{font-size:var(--texto-corpo); font-weight:600}
+/* ⚠️ SEM `text-overflow:ellipsis` — o PADRÃO item 5 proíbe cortar NOME. Se não
+   couber, quebra a linha; nunca some com reticência. Com o modal a 80% da tela,
+   praticamente todo nome cabe. */
+.au-produto-texto{
+  display:flex; flex-direction:row; align-items:baseline;
+  gap:var(--sp-2); flex-wrap:wrap; min-width:0; flex:1;
+}
+.au-produto-ref{font-family:var(--fonte-dados); font-size:var(--texto-etiqueta); color:var(--muted)}
+/* A lista rola por dentro para os NÚMEROS continuarem à vista: rolando a folha
+   inteira, eles ficariam lá embaixo, depois de trinta linhas. */
+.au-produtos{max-height:min(52dvh, 560px)}
 .au-produto-foto{
-  width:44px; height:44px; flex:none; border-radius:var(--radius-sm);
+  width:34px; height:34px; flex:none; border-radius:var(--radius-sm);
   object-fit:cover; background:var(--surface2); border:1px solid var(--border);
 }
 .au-produto-sem-foto{display:block}
 .au-produto-texto{display:flex; flex-direction:column; gap:2px; min-width:0; flex:1}
 /* A lupa e alvo de dedo de 40px, como tudo nesta tela (PADRAO item 6). */
 .au-produto-lupa{
+  /* 40px de alvo mesmo numa linha fina: PADRAO item 6 nao abre excecao para
+     lista comprida. O botao e maior que o desenho dentro dele. */
   flex:none; width:40px; height:40px; display:inline-flex;
   align-items:center; justify-content:center; border-radius:var(--radius-md);
   color:var(--muted); cursor:zoom-in;
@@ -4340,6 +4393,23 @@ onMounted(() => {
 .au-peca-end{display:flex; align-items:center; gap:var(--sp-3); flex-wrap:wrap}
 .au-peca-end-texto{min-width:0; overflow-wrap:anywhere}
 .au-abrir-pagina{flex:none; text-decoration:none; min-height:40px}
+
+/* ── OS NÚMEROS DE PÁGINA ────────────────────────────────────────────────
+   Alvo de 40px em cada um (PADRÃO item 6) e quebra de linha quando são muitos:
+   numa lista de trinta páginas, no celular, eles não cabem numa fileira só. */
+.au-paginas{display:flex; flex-wrap:wrap; gap:var(--sp-1);
+  justify-content:center; align-items:center; padding:var(--sp-3) 24px 0}
+.au-pagina{
+  min-width:40px; min-height:40px; padding:0 var(--sp-2);
+  display:inline-flex; align-items:center; justify-content:center;
+  background:none; color:var(--text); cursor:pointer; font:inherit;
+  border:1px solid var(--border); border-radius:var(--radius-md);
+}
+.au-pagina:hover:not(:disabled){background:var(--surface2)}
+.au-pagina:disabled{opacity:.4; cursor:default}
+/* A página atual é a única com fundo cheio: sem isso, "onde eu estou" some. */
+.au-pagina.on{background:var(--accent); border-color:var(--accent); color:var(--surface); font-weight:700}
+.au-pagina-vazio{min-width:24px; text-align:center; color:var(--muted)}
 
 /* ⚠️ ESTE BLOCO MORA DEPOIS DE `.au-folha` DE PROPOSITO, e nao por arrumacao.
    `.au-folha` e `.au-folha-larga` tem a MESMA especificidade — uma classe cada —

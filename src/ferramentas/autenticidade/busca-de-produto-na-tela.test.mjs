@@ -106,14 +106,21 @@ test('⚠️ a variante LARGA vem DEPOIS da base no CSS', () => {
     'a variante larga está ANTES da base: o max-width de 420px a sobrescreve inteira')
 })
 
-test('⚠️ o botao de escolher produto NAO nasce desabilitado', () => {
-  // Ele era `:disabled="carregandoProdutos"`, e a busca pode levar dezenas de
-  // chamadas ao Bling. O resultado era um botão morto por dezenas de segundos —
-  // que é indistinguível de "o programa travou".
-  const botao = TELA.slice(TELA.indexOf('au-abrir-produtos'))
-  const ateOFim = botao.slice(0, botao.indexOf('</button>'))
+test('⚠️ o campo de busca NAO fica desabilitado enquanto carrega', () => {
+  /* O DEFEITO ORIGINAL: o controle que abre a lista era `:disabled` enquanto os
+   * produtos carregavam, e a busca pode levar dezenas de chamadas ao Bling. O
+   * dono clicou num controle morto e concluiu, com razão, que travou.
+   *
+   * O controle mudou — era um botão "Escolher produto", virou o próprio campo de
+   * busca, porque o desenho de dois modais foi reprovado. A preocupação seguiu
+   * junto: o que quer que abra a lista NÃO pode nascer desligado. Quem avisa que
+   * está carregando é o texto de dentro do campo e a contagem. */
+  const campo = TELA.slice(TELA.indexOf('v-model="buscaProduto"'))
+  const ateOFim = campo.slice(0, campo.indexOf('</label>'))
   assert.doesNotMatch(ateOFim, /:disabled/,
-    'o modal tem de abrir mesmo carregando; quem mostra o andamento é ele')
+    'campo desligado por dezenas de segundos é indistinguível de programa travado')
+  assert.match(ateOFim, /carregandoProdutos/,
+    'sem dizer que está carregando, um campo vazio parece um Bling vazio')
 })
 
 test('a espera e VISIVEL: o modal conta os produtos lidos', () => {
