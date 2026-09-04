@@ -4368,7 +4368,6 @@ onMounted(() => {
   object-fit:cover; background:var(--surface2); border:1px solid var(--border);
 }
 .au-produto-sem-foto{display:block}
-.au-produto-texto{display:flex; flex-direction:column; gap:2px; min-width:0; flex:1}
 /* A lupa e alvo de dedo de 40px, como tudo nesta tela (PADRAO item 6). */
 .au-produto-lupa{
   /* 40px de alvo mesmo numa linha fina: PADRAO item 6 nao abre excecao para

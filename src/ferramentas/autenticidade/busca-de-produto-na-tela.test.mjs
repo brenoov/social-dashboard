@@ -128,3 +128,25 @@ test('a espera e VISIVEL: o modal conta os produtos lidos', () => {
   assert.match(TELA, /produtosLidos/, 'sem contador, a espera vira travamento aos olhos')
   assert.match(TELA, /aoProgredir/, 'a paginação precisa avisar a cada página')
 })
+
+test('⚠️ a linha da lista NAO tem regra duplicada brigando consigo mesma', () => {
+  /* TRES VEZES no mesmo dia (04/09/2026) um defeito visual foi ORDEM de CSS, e
+   * nao a regra em si: duas regras da mesma classe, mesma especificidade, e a
+   * ultima do arquivo vencendo em silencio. A regra nova ficava la, parecendo
+   * certa, sem efeito nenhum.
+   *
+   * `.au-produto-texto` chegou a ter DUAS: a nova em `row` (nome e referencia
+   * lado a lado, que e o pedido) e a velha em `column`, escrita depois — e a
+   * velha vencia. Este teste exige UMA regra por classe aqui, que e a forma mais
+   * simples de nao haver disputa. */
+  for (const classe of ['au-produto-texto', 'au-produto-foto', 'au-produto-lupa']) {
+    const quantas = (TELA.match(new RegExp('\\.' + classe + '\\{', 'g')) || []).length
+    assert.equal(quantas, 1, `.${classe} tem ${quantas} regras: a ultima vence e a outra engana`)
+  }
+})
+
+test('a linha e horizontal: foto, texto e lupa lado a lado', () => {
+  const bloco = TELA.slice(TELA.indexOf('.au-produto-texto{'))
+  assert.match(bloco.slice(0, bloco.indexOf('}')), /flex-direction:row/,
+    'nome e referência empilhados: o pedido era tudo numa linha só')
+})
