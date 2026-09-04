@@ -207,13 +207,18 @@
               <input v-model="edicao.cor" type="text" maxlength="60"></label>
             <label class="au-campo"><span class="au-rot">Referência</span>
               <input v-model="edicao.sku" type="text" maxlength="40"></label>
+            <!-- EDITÁVEL DE PROPÓSITO: um número que só pode ser digitado na
+                 criação e nunca corrigido fica errado para sempre no primeiro
+                 dedo trocado — e é justamente ele que amarra a bolsa ao papel. -->
+            <label class="au-campo"><span class="au-rot">O.S. (opcional)</span>
+              <input v-model="edicao.os" type="text" maxlength="40"></label>
             <!-- O AVISO SEGUE O QUE ESTÁ DIGITADO, e não o que está gravado:
                  quem está corrigindo a referência precisa ver o aviso sumir
                  enquanto digita, senão não tem como saber se resolveu. -->
             <p v-if="avisoDaSerieEditada" class="au-confirma au-aviso-serie au-aviso-serie-edicao">
               {{ avisoDaSerieEditada }}
             </p>
-            <label class="au-campo"><span class="au-rot">Fabricado em</span>
+            <label class="au-campo"><span class="au-rot">Finalizado em</span>
               <input v-model="edicao.fabricado_em" type="date"></label>
             <label class="au-campo"><span class="au-rot">Quantidade</span>
               <input v-model="edicao.quantidade" type="number" min="1" max="500"></label>
@@ -1036,6 +1041,12 @@
                  stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
             <span class="au-lote-nome">{{ g.lote.modelo || 'Lote que não existe mais' }}<template v-if="g.lote.cor"> · {{ g.lote.cor }}</template></span>
             <span class="au-ref au-lote-ref" v-if="g.lote.sku">{{ g.lote.sku }}</span>
+            <!-- A O.S. E A DATA DE CRIACAO no card FECHADO: e o que o dono pediu
+                 para reconhecer o lote sem precisar abrir. A data sai de
+                 `criado_em`, que o banco ja guarda sozinho — nao e campo para
+                 preencher, entao nao tem como estar errada nem esquecida. -->
+            <span class="au-lote-os" v-if="g.lote.os">O.S. {{ g.lote.os }}</span>
+            <span class="au-lote-data" v-if="g.lote.criado_em">criado em {{ dataCurta(g.lote.criado_em) }}</span>
             <span class="au-lote-conta">{{ contagemDoGrupo(g) }}</span>
           </summary>
 
@@ -1638,6 +1649,11 @@
           <input v-model="novo.cor" type="text" maxlength="60" placeholder="Quartz"></label>
         <label class="au-campo"><span class="au-rot">Referência</span>
           <input v-model="novo.sku" type="text" maxlength="40" placeholder="LV1021"></label>
+        <!-- A O.S. É OPCIONAL e é o número que amarra a bolsa ao papel da
+             oficina. Fica ao lado da Referência porque as duas são o mesmo tipo
+             de coisa: um código de fora que identifica este lote. -->
+        <label class="au-campo"><span class="au-rot">O.S. (opcional)</span>
+          <input v-model="novo.os" type="text" maxlength="40" placeholder="Número da ordem de serviço"></label>
         <!-- ⚠️ AVISA, NÃO IMPEDE. A referência pode estar certa assim, e quem
              sabe disso é o dono — o campo continua aceitando e o botão "Gerar"
              continua ligado. O que a tela não pode é deixar entrar em silêncio
@@ -1645,7 +1661,7 @@
         <p v-if="avisoDaSerieNova" class="au-confirma au-aviso-serie">{{ avisoDaSerieNova }}</p>
         <label class="au-campo"><span class="au-rot">Quantidade de peças</span>
           <input v-model.number="novo.quantidade" type="number" min="1" max="500" required></label>
-        <label class="au-campo"><span class="au-rot">Data de fabricação</span>
+        <label class="au-campo"><span class="au-rot">Finalizado em</span>
           <input v-model="novo.fabricado_em" type="date"></label>
 
         <p class="au-erro" v-if="erroForm">{{ erroForm }}</p>
@@ -1961,14 +1977,14 @@ const larguraDoProgresso = computed(() => {
 const textoDoGravador = ref('')
 const confirmacaoDoGravador = ref(null)  // { reconhecidos, ignorados } enquanto a pergunta está na tela
 
-const novo = reactive({ modelo: '', cor: '', sku: '', quantidade: 20, fabricado_em: '' })
+const novo = reactive({ modelo: '', cor: '', sku: '', quantidade: 20, fabricado_em: '', os: '' })
 
 // EDITAR E EXCLUIR ABREM DENTRO DO MESMO CARTÃO, e só um de cada vez: dois
 // blocos empilhados no mesmo lote fazem a tela perguntar duas coisas ao mesmo
 // tempo, e aí nenhuma das duas é a pergunta principal.
 const editando = ref(null)    // o lote com o formulário de editar aberto, ou null
 const excluindo = ref(null)   // o lote com a pergunta de excluir na tela, ou null
-const edicao = reactive({ modelo: '', cor: '', sku: '', fabricado_em: '', quantidade: 1 })
+const edicao = reactive({ modelo: '', cor: '', sku: '', fabricado_em: '', quantidade: 1, os: '' })
 
 // ── AS DUAS PERGUNTAS DE EXCLUIR, E A SENHA ───────────────────────────────
 // 1 = "vai excluir o lote?"  ·  2 = o que se PERDE, com o número de peças, e a
@@ -3005,6 +3021,8 @@ async function gerarLote() {
       p_quantidade: novo.quantidade,
       p_fabricado_em: novo.fabricado_em || null,
       p_fotos: null,
+      // O.S. em branco vai como string vazia, e o banco a transforma em NULA.
+      p_os: novo.os,
     })
     if (error) throw error
     if (!data?.ok) {
@@ -3036,6 +3054,9 @@ function abrirEdicao(l) {
   edicao.sku = l.sku || ''
   edicao.fabricado_em = l.fabricado_em || ''
   edicao.quantidade = l.quantidade || 1
+  // ⚠️ SEM ESTA LINHA, ABRIR E SALVAR APAGARIA A O.S.: o campo nasceria vazio,
+  // e vazio quer dizer "limpe" para a função do banco.
+  edicao.os = l.os || ''
   // o cartão em edição também vira faixa e sobe para a primeira linha
   trazerOLoteParaAVista(l.id)
 }
@@ -3108,6 +3129,10 @@ async function salvarEdicao() {
     p_sku: edicao.sku,
     p_fabricado_em: edicao.fabricado_em || null,
     p_quantidade: Number(edicao.quantidade),
+    // ⚠️ MANDA STRING, NUNCA `|| null`. Para esta função, NULO quer dizer "não
+    // mexa na O.S." — então `edicao.os || null` faria apagar um número virar
+    // impossível: quem limpasse o campo veria o valor antigo voltar.
+    p_os: String(edicao.os ?? ''),
   })
   if (error) { adminToast('Não consegui salvar agora', false); return }
   if (!data?.ok) { adminToast(fraseDaRecusa(data?.motivo, data), false); return }
@@ -4521,6 +4546,10 @@ onMounted(() => {
 .au-lote-no > summary{padding:var(--sp-2) var(--sp-3); gap:var(--sp-3); flex-wrap:wrap}
 .au-lote-nome{font-size:var(--texto-campo); font-weight:700; overflow-wrap:anywhere}
 .au-lote-ref{font-weight:400; color:var(--muted)}
+.au-lote-os{font-family:var(--fonte-dados); font-weight:600; color:var(--text);
+  background:color-mix(in srgb,var(--accent) 12%,var(--surface));
+  border-radius:var(--radius-sm); padding:2px var(--sp-2)}
+.au-lote-data{color:var(--muted); font-weight:400}
 /* A contagem vai para a direita e NUNCA quebra no meio: "2 de 12" partido em
    duas linhas lê como dois números diferentes. A 375px o summary inteiro quebra
    antes disso (flex-wrap acima), e ela desce inteira. */
