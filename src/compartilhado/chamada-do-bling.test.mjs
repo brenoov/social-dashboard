@@ -190,3 +190,36 @@ test('avisoDoErro: quem não é admin não lê jargão', () => {
   assert.equal(detalhe, '')
   assert.doesNotMatch(titulo, /Token/)
 })
+
+// ══════════════════════════════════════════════════════════════════════════
+// O TETO DE PÁGINAS PRECISA GRITAR — 04/09/2026
+// ══════════════════════════════════════════════════════════════════════════
+// Antes, sair pelo TETO e sair pelo FIM DA LISTA eram indistinguíveis: o laço
+// terminava e devolvia o que tinha. O catálogo cresceu, passou de 1000, e os
+// produtos do fim sumiram da tela de criar lote sem uma linha de aviso — e o
+// fim da lista é onde moram os SKU novos, porque `SS` vem depois de `LV`.
+
+const CHEIA = { status: 200, corpo: { data: Array.from({ length: 100 }, (_, k) => ({ id: k })) } }
+
+test('sair pelo FIM da lista nao avisa nada — esta completo', async () => {
+  let avisou = false
+  const curta = { status: 200, corpo: { data: [{ id: 999 }] } }
+  const todos = await comFetch([CHEIA, curta],
+    () => paginasDoBling(sbFalso, 'produtos', {}, { aoTruncar: () => { avisou = true } }))
+  assert.equal(todos.length, 101)
+  assert.equal(avisou, false, 'avisar quando a lista acabou faria o aviso virar paisagem')
+})
+
+test('⚠️ sair pelo TETO AVISA, com quantos leu', async () => {
+  let quantos = null
+  await comFetch([CHEIA],
+    () => paginasDoBling(sbFalso, 'produtos', {}, {
+      maxPaginas: 2, aoTruncar: (n) => { quantos = n },
+    }))
+  assert.equal(quantos, 200, 'o teto passou batido: quem chama nao tem como saber que faltou')
+})
+
+test('o teto e configuravel, e o padrao continua 10 paginas', async () => {
+  const todos = await comFetch([CHEIA], () => paginasDoBling(sbFalso, 'produtos', {}))
+  assert.equal(todos.length, 1000, 'quem nao pede teto novo continua com o de antes')
+})

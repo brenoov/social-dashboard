@@ -2757,10 +2757,28 @@ async function carregarProdutos() {
     // (1 últimos incluídos · 2 ativos · 3 inativos · 4 excluídos · 5 todos).
     // Produto inativo é produto que saiu de linha: etiqueta de autenticidade
     // não se costura em bolsa que não se fabrica mais.
-    const itens = await paginasDoBling(sbClient, 'produtos', { criterio: 2 })
+    // ⚠️ O TETO SUBIU DE 10 PARA 60 PÁGINAS (1.000 → 6.000 produtos), e o
+    // motivo não é folga: `produtosParaEscolher` FILTRA para a linha nova
+    // DEPOIS de a busca terminar. Filtrar depois de paginar é o que faz um teto
+    // baixo esconder justamente o que se procura — e aqui esconde o pior
+    // pedaço, porque `SS` vem depois de `LV` em ordem alfabética e os SKU novos
+    // moram no fim da lista.
+    let truncou = 0
+    const itens = await paginasDoBling(sbClient, 'produtos', { criterio: 2 }, {
+      maxPaginas: 60,
+      aoTruncar: (quantos) => { truncou = quantos },
+    })
     produtos.value = produtosParaEscolher(itens)
     if (!produtos.value.length) {
       erroProdutos.value = { titulo: 'Não encontrei nenhum produto da linha nova no Bling.', detalhe: '' }
+    } else if (truncou) {
+      // NÃO É ERRO, É AVISO: a lista veio, só não veio inteira. Quem está
+      // criando um lote precisa saber que o produto pode existir e não estar
+      // aqui — senão cadastra à mão achando que ele não existe.
+      erroProdutos.value = {
+        titulo: `O Bling tem mais produtos do que eu consigo ler de uma vez (parei em ${truncou}).`,
+        detalhe: 'Se o produto que você procura não aparecer, ele pode estar além desse limite. Me avise.',
+      }
     }
   } catch (e) {
     // A FÁBRICA NÃO PODE FICAR REFÉM DO BLING: a busca some, os campos à mão
