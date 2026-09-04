@@ -157,7 +157,7 @@ export async function chamarBling(sbClient, endpoint, params) {
 // laço; pelo teto, o laço termina e `aoTruncar` é chamado. Quem chama decide o
 // que fazer com isso — mas não dá mais para não saber.
 export async function paginasDoBling(sbClient, endpoint, params, opcoes = {}) {
-  const { maxPaginas = 10, aoTruncar = null } = opcoes || {}
+  const { maxPaginas = 10, aoTruncar = null, aoProgredir = null } = opcoes || {}
   const todos = []
   for (let pagina = 1; pagina <= maxPaginas; pagina++) {
     const resp = await chamarBling(sbClient, endpoint, { ...params, pagina, limite: 100 })
@@ -165,6 +165,9 @@ export async function paginasDoBling(sbClient, endpoint, params, opcoes = {}) {
     // FIM DA LISTA: sai por aqui, e ninguém é avisado de nada — está completo.
     if (!itens.length) return todos
     todos.push(...itens)
+    // ESPERA VISIVEL. Uma busca de dezenas de paginas leva dezenas de segundos, e
+    // tela parada e indistinguivel de tela travada — foi o que o dono viu.
+    if (typeof aoProgredir === 'function') aoProgredir(todos.length, pagina)
     if (itens.length < 100) return todos
   }
   // TETO: chegou aqui porque a última página veio CHEIA. Há mais lá fora.

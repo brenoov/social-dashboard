@@ -1508,8 +1508,15 @@
           <input v-model="buscaProduto" type="search"
                  placeholder="Nome ou referência — ex.: Lunea, SS1025">
         </label>
+        <!-- ESPERA VISIVEL, e nao tela parada: o numero cresce a cada pagina que
+             chega do Bling. Barra que nao anda e indistinguivel de travamento. -->
         <p class="au-aviso-menor au-produtos-conta">
-          {{ produtosAchados.length }} de {{ produtos.length }} produto(s) da linha nova
+          <template v-if="carregandoProdutos">
+            Procurando no Bling… {{ produtosLidos }} produto(s) lidos até agora.
+          </template>
+          <template v-else>
+            {{ produtosAchados.length }} de {{ produtos.length }} produto(s) da linha nova
+          </template>
         </p>
 
         <ul v-if="produtosAchados.length" class="au-produtos au-produtos-modal">
@@ -1520,6 +1527,9 @@
             </button>
           </li>
         </ul>
+        <p v-else-if="carregandoProdutos" class="au-aviso-menor au-produtos-conta">
+          A lista aparece aqui conforme o Bling responde. Pode buscar assim que ela chegar.
+        </p>
         <p v-else-if="buscaProduto" class="au-aviso-menor au-produtos-conta">
           Nenhum produto da linha nova com esse nome ou referência.
           Você pode fechar e escrever à mão nos campos.
@@ -1668,8 +1678,12 @@
              a pessoa confere. -->
         <div class="au-escolha-produto">
           <span class="au-rot">Produto no Bling</span>
+          <!-- ⚠️ SEM `:disabled` AQUI. Ele ficava desabilitado enquanto os produtos
+               carregavam, e a busca pode levar dezenas de chamadas ao Bling: o
+               dono clicou num botao morto e concluiu, com razao, que travou. O
+               modal abre SEMPRE, e quem mostra o andamento e ele. -->
           <button class="au-botao secundario au-abrir-produtos" type="button"
-                  :disabled="carregandoProdutos" @click="abrirEscolhaDeProduto">
+                  @click="abrirEscolhaDeProduto">
             <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none"
                  stroke="currentColor" stroke-width="2" stroke-linecap="round">
               <circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/>
@@ -2079,6 +2093,7 @@ const loteAtual = computed(() => lotes.value.find((l) => l.id === loteEscolhido.
 // em `lotes.js`, junto da regra — frase escrita em dois lugares diverge no dia
 // em que uma delas muda.
 const escolhendoProduto = ref(false)
+const produtosLidos = ref(0)
 // O que o botão do formulário mostra: o produto que foi escolhido, achado pela
 // referência que ele gravou. Sai do que JÁ está na tela — nada de guardar uma
 // segunda cópia do produto, que é como duas verdades comecam a divergir.
@@ -2807,6 +2822,7 @@ async function carregarProdutos() {
   if (produtos.value.length || carregandoProdutos.value) return
   carregandoProdutos.value = true
   erroProdutos.value = null
+  produtosLidos.value = 0
   try {
     // `paginasDoBling` sobe a falha em vez de devolver lista vazia. Isso importa
     // aqui: "o Bling caiu" e "não há produto novo" ficariam iguais na tela, e a
@@ -2825,6 +2841,7 @@ async function carregarProdutos() {
     const itens = await paginasDoBling(sbClient, 'produtos', { criterio: 2 }, {
       maxPaginas: 60,
       aoTruncar: (quantos) => { truncou = quantos },
+      aoProgredir: (quantos) => { produtosLidos.value = quantos },
     })
     produtos.value = produtosParaEscolher(itens)
     if (!produtos.value.length) {
@@ -4113,27 +4130,6 @@ onMounted(() => {
 .au-abrir-produtos{margin:var(--sp-2) 24px 0; width:calc(100% - 48px);
   justify-content:flex-start; text-align:left; overflow-wrap:anywhere}
 
-/* ── O MODAL LARGO DE PRODUTOS ────────────────────────────────────────────
-   ⚠️ EXCEÇÃO DELIBERADA AO PADRÃO item 4 (420px no computador), e ela vale só
-   para modal cujo conteúdo é LISTA. O 420px do PADRÃO serve para modal de
-   PERGUNTA — meia dúzia de campos, onde a linha curta ajuda a ler. Uma lista de
-   centenas de produtos dentro de 420px, com uma caixinha de 240px rolando
-   dentro dela, era um buraco de fechadura: foi a queixa do dono em 04/09/2026.
-
-   No celular nada disto vale: o `@media` do fim do arquivo já faz TODA `.au-folha`
-   ocupar a tela, que é o que se quer aqui de qualquer jeito. */
-.au-folha-larga{
-  max-width:min(1040px, 94vw);
-  height:min(88dvh, 900px);
-  display:flex; flex-direction:column; overflow:hidden;
-}
-.au-folha-larga > .au-campo{max-width:none}
-.au-produtos-conta{padding:var(--sp-2) 24px 0; margin:0}
-/* ⚠️ SÓ A LISTA ROLA, e o campo de busca fica parado em cima. Deixando a folha
-   inteira rolar, a busca sumiria na primeira raspada de dedo — e quem procura
-   entre centenas precisa dela sempre à mão. `min-height:0` é o que permite um
-   filho de flex encolher e criar a própria rolagem. */
-.au-produtos-modal{max-height:none; flex:1; min-height:0; padding:var(--sp-2) 24px var(--sp-4)}
 .au-produtos{list-style:none; margin:var(--sp-2) 0 0; padding:0 16px; max-height:240px; overflow-y:auto}
 .au-produtos li + li{border-top:1px solid var(--border)}
 .au-produto{
@@ -4239,6 +4235,34 @@ onMounted(() => {
 }
 .au-fechar:hover, .au-fechar:focus-visible{background:var(--surface2); color:var(--text)}
 .au-folha .au-erro{padding:12px 24px 0;}
+
+/* ── O MODAL LARGO DE PRODUTOS ────────────────────────────────────────────
+   ⚠️ EXCEÇÃO DELIBERADA AO PADRÃO item 4 (420px no computador), e ela vale só
+   para modal cujo conteúdo é LISTA. O 420px do PADRÃO serve para modal de
+   PERGUNTA — meia dúzia de campos, onde a linha curta ajuda a ler. Uma lista de
+   centenas de produtos dentro de 420px, com uma caixinha de 240px rolando
+   dentro dela, era um buraco de fechadura: foi a queixa do dono em 04/09/2026.
+
+   No celular nada disto vale: o `@media` do fim do arquivo já faz TODA `.au-folha`
+   ocupar a tela, que é o que se quer aqui de qualquer jeito. */
+.au-folha-larga{
+  max-width:min(1040px, 94vw);
+  height:min(88dvh, 900px);
+  display:flex; flex-direction:column; overflow:hidden;
+}
+.au-folha-larga > .au-campo{max-width:none}
+.au-produtos-conta{padding:var(--sp-2) 24px 0; margin:0}
+/* ⚠️ SÓ A LISTA ROLA, e o campo de busca fica parado em cima. Deixando a folha
+   inteira rolar, a busca sumiria na primeira raspada de dedo — e quem procura
+   entre centenas precisa dela sempre à mão. `min-height:0` é o que permite um
+   filho de flex encolher e criar a própria rolagem. */
+.au-produtos-modal{max-height:none; flex:1; min-height:0; padding:var(--sp-2) 24px var(--sp-4)}
+
+/* ⚠️ ESTE BLOCO MORA DEPOIS DE `.au-folha` DE PROPOSITO, e nao por arrumacao.
+   `.au-folha` e `.au-folha-larga` tem a MESMA especificidade — uma classe cada —
+   entao quem vence e quem vem DEPOIS. Escrito antes, o `max-width:420px` da base
+   sobrescrevia a variante inteira e o modal saia estreito, com a regra larga ali
+   no arquivo parecendo certa. Foi o defeito que o dono viu em 04/09/2026. */
 
 /* ── O GUIA DE BANCADA ─────────────────────────────────────────────────────
    `position:fixed` com inset zero, e não `absolute`: dentro de um pai que rola,

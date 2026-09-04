@@ -79,3 +79,38 @@ test('o import morto do chamarBling saiu', () => {
   assert.doesNotMatch(TELA, /\bchamarBling\b/,
     'importado e nunca usado — import morto engana quem for ler depois')
 })
+
+// ══════════════════════════════════════════════════════════════════════════
+// OS DOIS DEFEITOS DO MODAL DE PRODUTOS — 04/09/2026
+// ══════════════════════════════════════════════════════════════════════════
+// "ficou uma bosta o modal, travou, não ficou ocupando quase toda a tela no
+// pc/notebook, eu clico no botão escolher produto e não abre nada."
+// Eram dois, e os dois eram invisíveis lendo o código de perto.
+
+test('⚠️ a variante LARGA vem DEPOIS da base no CSS', () => {
+  // `.au-folha` e `.au-folha-larga` têm a MESMA especificidade — uma classe cada
+  // — então quem vence é quem vem DEPOIS. Escrita antes, a variante existia no
+  // arquivo, parecia certa, e era inteiramente sobrescrita pelo `max-width:420px`
+  // da base. O modal saía estreito e não havia nada de errado à vista.
+  const base = TELA.indexOf('\n.au-folha{')
+  const larga = TELA.indexOf('\n.au-folha-larga{')
+  assert.ok(base > 0 && larga > 0, 'sumiu uma das duas regras')
+  assert.ok(larga > base,
+    'a variante larga está ANTES da base: o max-width de 420px a sobrescreve inteira')
+})
+
+test('⚠️ o botao de escolher produto NAO nasce desabilitado', () => {
+  // Ele era `:disabled="carregandoProdutos"`, e a busca pode levar dezenas de
+  // chamadas ao Bling. O resultado era um botão morto por dezenas de segundos —
+  // que é indistinguível de "o programa travou".
+  const botao = TELA.slice(TELA.indexOf('au-abrir-produtos'))
+  const ateOFim = botao.slice(0, botao.indexOf('</button>'))
+  assert.doesNotMatch(ateOFim, /:disabled/,
+    'o modal tem de abrir mesmo carregando; quem mostra o andamento é ele')
+})
+
+test('a espera e VISIVEL: o modal conta os produtos lidos', () => {
+  // Tela parada é indistinguível de tela travada. O número cresce a cada página.
+  assert.match(TELA, /produtosLidos/, 'sem contador, a espera vira travamento aos olhos')
+  assert.match(TELA, /aoProgredir/, 'a paginação precisa avisar a cada página')
+})
