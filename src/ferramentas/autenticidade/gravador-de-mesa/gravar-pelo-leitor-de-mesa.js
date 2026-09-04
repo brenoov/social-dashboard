@@ -141,6 +141,67 @@ export async function escreverEConferir({ porta, endereco, memoria = null }) {
 // texto. Bastaria alguém melhorar uma palavra aqui para o painel parar de mudar
 // de estado, em silêncio. A fase é 'esperando' ou 'gravando', os mesmos nomes de
 // `modo-bancada.js`.
+// ── APAGAR E CONFERIR ──────────────────────────────────────────────────────
+// O espelho de `escreverEConferir`, e a conferência é o contrário: aqui dá certo
+// quando a etiqueta NÃO devolve endereço nenhum.
+//
+// ⚠️ NÃO EXISTE "PAROU NA METADE" QUE ESTRAGUE A ETIQUETA. O plano põe a
+// mensagem vazia na primeira escrita, então qualquer interrupção deixa a
+// etiqueta válida e em branco. Por isso a frase de falha aqui nunca manda
+// separar a etiqueta — mandar jogar fora uma etiqueta que está boa e vazia
+// seria jogar fora etiqueta boa, que é o defeito que este arquivo já combate
+// do outro lado.
+export async function apagarEConferir({ porta, memoria = null }) {
+  let memoriaAtual = memoria
+  if (!memoriaAtual) {
+    const antes = await lerComCuidado(porta)
+    if (!antes.leu) {
+      return {
+        ok: false,
+        estado: NAO_LI,
+        frase: `Não consegui ler esta etiqueta, então não apaguei nada nela. ${antes.falha}`,
+      }
+    }
+    memoriaAtual = antes.memoria
+  }
+
+  try {
+    await porta.apagar(memoriaAtual)
+  } catch (erro) {
+    if (erro?.nadaFoiEscrito) {
+      return { ok: false, estado: 'recusada', frase: String(erro?.message || erro) }
+    }
+    return {
+      ok: false,
+      estado: 'falhou-ao-apagar',
+      frase: `${erro?.message || erro} A etiqueta pode ter ficado em branco mesmo assim — `
+        + 'ponha a MESMA etiqueta no leitor e apague de novo para conferir. '
+        + 'Apagar duas vezes não faz mal.',
+    }
+  }
+
+  const depois = await lerComCuidado(porta)
+  if (!depois.leu) {
+    return {
+      ok: false,
+      estado: 'nao-conferiu',
+      frase: `Apaguei, mas não consegui ler de volta para conferir. ${depois.falha} `
+        + 'Ponha a MESMA etiqueta no leitor de novo: se ela estiver apagada, vai ser '
+        + 'reconhecida como em branco.',
+    }
+  }
+  if (depois.endereco) {
+    return {
+      ok: false,
+      estado: 'nao-conferiu',
+      frase: `Apaguei, mas ao ler de volta a etiqueta ainda devolveu "${depois.endereco}". `
+        + 'NÃO considere esta etiqueta apagada.',
+    }
+  }
+
+  return { ok: true, estado: 'apagada', frase: 'Etiqueta apagada e conferida: não devolve mais endereço.' }
+}
+
 export async function gravarPeloLeitorDeMesa({ porta, peca, endereco, marcar, aoContar = () => {} }) {
   const codigo = String(peca?.codigo ?? '').trim().toUpperCase()
   const nada = { codigo, lido: '', codigoAntigo: '' }
