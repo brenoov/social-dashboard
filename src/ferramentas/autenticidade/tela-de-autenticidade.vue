@@ -1067,7 +1067,24 @@
                  gravação não tem como saber que do outro lado há uma cliente. -->
             <span v-if="temGarantia(pc.codigo)" class="selo selo-atencao">Garantia de cliente</span>
           </div>
-          <div class="au-peca-end">{{ enderecoDaTag(pc.codigo) }}</div>
+          <div class="au-peca-end">
+            <span class="au-peca-end-texto">{{ enderecoDaTag(pc.codigo) }}</span>
+            <!-- O ENDEREÇO ERA SÓ TEXTO PARA CONFERIR LETRA POR LETRA. Continua
+                 sendo — e agora tem também o caminho de UM CLIQUE para ver a
+                 página como a cliente vê. `rel="noopener"` porque a página aberta
+                 não tem por que ter acesso a esta; dentro do programa da bancada
+                 o próprio Electron manda o link para o navegador do computador,
+                 longe do leitor. -->
+            <a class="au-botao secundario au-abrir-pagina" :href="enderecoDaTag(pc.codigo)"
+               target="_blank" rel="noopener noreferrer">
+              <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none"
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 4h6v6"/><path d="M20 4l-9 9"/>
+                <path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>
+              </svg>
+              Abrir a página
+            </a>
+          </div>
 
           <div v-if="podeEditar && apagando?.codigo !== pc.codigo" class="au-peca-acoes">
             <button class="au-link au-baixar" type="button"
@@ -1584,7 +1601,11 @@
     </div>
 
     <div v-if="formulario" v-trava-rolagem class="au-fundo" @click.self="formulario = false">
-      <form class="au-folha" @submit.prevent="gerarLote">
+      <!-- ⚠️ ESTE e o modal que precisa de tela: e dentro DELE que a lista de
+           centenas de produtos aparece. Era 420px de largura com a lista
+           espremida — ver a variante `larga` no CSS, e o porque da excecao ao
+           PADRAO item 4 escrito la. -->
+      <form class="au-folha au-folha-larga" @submit.prevent="gerarLote">
         <!-- O BOTÃO DE FECHAR TEM 40px DE ALVO E MORA NO CANTO (PADRÃO item 4).
              Clicar no fundo já fechava, mas isso não é um alvo que se vê: no
              celular a caixa ocupa a tela e não sobra fundo nenhum para clicar.
@@ -1615,11 +1636,11 @@
           <label class="au-campo"><span class="au-rot">Produto no Bling</span>
             <!-- Enter num campo de busca é o gesto mais natural que existe, e este
                  campo mora dentro do `<form @submit.prevent="gerarLote">`: sem esta
-                 linha, apertar Enter GRAVAVA o lote inteiro no banco, com a
+                 linha, apertar Enter GRAVA o lote inteiro no banco, com a
                  quantidade padrão, sem ninguém ter pedido. -->
-            <input v-model="buscaProduto" type="search" :disabled="carregandoProdutos"
-                   @keydown.enter.prevent
-                   :placeholder="carregandoProdutos ? 'Carregando os produtos…' : 'Busque por nome ou referência'"></label>
+            <input v-model="buscaProduto" type="search" @keydown.enter.prevent
+                   @focus="listaDeProdutosAberta = true"
+                   :placeholder="carregandoProdutos ? 'Carregando os produtos…' : 'Clique para ver a lista, ou busque por nome/referência'"></label>
 
           <p v-if="erroProdutos" class="au-aviso-menor">
             {{ erroProdutos.titulo }}
@@ -1627,19 +1648,77 @@
             Você ainda pode escrever à mão nos campos abaixo.
           </p>
 
-          <ul v-else-if="produtosAchados.length" class="au-produtos">
-            <li v-for="p in produtosAchados" :key="p.codigo">
-              <button class="au-produto" type="button" @click="usarProduto(p)">
-                <strong>{{ p.nome }}</strong>
-                <span class="au-aviso-menor">{{ p.codigo }}</span>
+          <p class="au-aviso-menor au-produtos-conta">
+            <template v-if="carregandoProdutos">
+              Procurando no Bling… {{ produtosLidos }} produto(s) lidos até agora.
+            </template>
+            <template v-else-if="produtoEscolhido">
+              Escolhido: <strong>{{ produtoEscolhido.nome }}</strong>. Clique na busca para trocar.
+            </template>
+            <template v-else>
+              {{ produtosAchados.length }} de {{ produtos.length }} produto(s)<template
+                v-if="paginaAtualDeProdutos.paginas > 1"> · página {{ paginaAtualDeProdutos.pagina }}
+                de {{ paginaAtualDeProdutos.paginas }}</template>.
+            </template>
+          </p>
+
+          <!-- A LISTA SÓ OCUPA ESPAÇO QUANDO ESTÁ SENDO USADA: abre ao clicar na
+               busca e fecha ao escolher. Aberta o tempo todo, empurraria os
+               campos do lote para fora da tela. -->
+          <ul v-if="listaDeProdutosAberta && paginaAtualDeProdutos.itens.length" class="au-produtos">
+            <li v-for="p in paginaAtualDeProdutos.itens" :key="p.codigo">
+              <button class="au-produto" type="button"
+                      @click="usarProduto(p); listaDeProdutosAberta = false">
+                <!-- A MINIATURA VEM DA PRÓPRIA LISTA DO BLING (70px, 1,3 KB) —
+                     nenhuma chamada a mais. Nem todo produto tem foto lá: 3 de 9
+                     da linha nova, medido em 03/09/2026. Sem foto mostra o
+                     quadrinho vazio, e não um ícone de erro. -->
+                <img v-if="p.foto" :src="p.foto" alt="" class="au-produto-foto" loading="lazy">
+                <span v-else class="au-produto-foto au-produto-sem-foto" aria-hidden="true"></span>
+                <!-- TUDO NUMA LINHA: nome e referência lado a lado. Sem
+                     `text-overflow`, que o PADRÃO item 5 proíbe em nome — se não
+                     couber, quebra; nunca corta com reticência. -->
+                <span class="au-produto-texto">
+                  <strong>{{ p.nome }}</strong>
+                  <span class="au-produto-ref">{{ p.codigo }}</span>
+                </span>
+                <!-- A LUPA NÃO ESCOLHE O PRODUTO: ela abre a foto grande. Sem o
+                     `.stop`, clicar para VER preencheria os campos do lote. -->
+                <span v-if="p.foto" class="au-produto-lupa" role="button" tabindex="0"
+                      aria-label="Ver a foto maior"
+                      @click.stop="verFotoGrande(p)" @keydown.enter.stop.prevent="verFotoGrande(p)">
+                  <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none"
+                       stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                    <circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/>
+                    <line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/>
+                  </svg>
+                </span>
               </button>
             </li>
           </ul>
-          <p v-else-if="!carregandoProdutos && buscaProduto" class="au-aviso-menor">
+
+          <!-- OS NÚMEROS, como nas páginas de busca: primeira, última e a janela
+               em volta da atual. Sem eles a lista mentia — mostrava um pedaço e
+               não dizia que havia mais. -->
+          <nav v-if="listaDeProdutosAberta && paginaAtualDeProdutos.paginas > 1"
+               class="au-paginas" aria-label="Páginas de produtos">
+            <button class="au-pagina" type="button" :disabled="paginaAtualDeProdutos.pagina === 1"
+                    @click="paginaDeProdutos = paginaAtualDeProdutos.pagina - 1">‹</button>
+            <template v-for="(n, i) in numerosDasPaginas" :key="i">
+              <span v-if="n === null" class="au-pagina-vazio" aria-hidden="true">…</span>
+              <button v-else class="au-pagina" type="button"
+                      :class="{ on: n === paginaAtualDeProdutos.pagina }"
+                      :aria-current="n === paginaAtualDeProdutos.pagina ? 'page' : null"
+                      @click="paginaDeProdutos = n">{{ n }}</button>
+            </template>
+            <button class="au-pagina" type="button"
+                    :disabled="paginaAtualDeProdutos.pagina === paginaAtualDeProdutos.paginas"
+                    @click="paginaDeProdutos = paginaAtualDeProdutos.pagina + 1">›</button>
+          </nav>
+
+          <p v-else-if="listaDeProdutosAberta && !carregandoProdutos && buscaProduto"
+             class="au-aviso-menor au-produtos-conta">
             Nenhum produto da linha nova com esse nome ou referência.
-          </p>
-          <p v-else-if="!carregandoProdutos" class="au-aviso-menor">
-            {{ produtos.length }} produto(s) da linha nova. Busque, ou escreva à mão abaixo.
           </p>
         </div>
 
@@ -1673,6 +1752,37 @@
           </button>
         </div>
       </form>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════════════
+         A FOTO GRANDE DO PRODUTO
+         ══════════════════════════════════════════════════════════════════════
+         ⚠️ FICA DEPOIS DO MODAL DE GERAR LOTE NO TEMPLATE, E ISSO NAO E ESTILO.
+         Os dois usam `.au-fundo`, que tem a MESMA `z-index` — entao quem pinta
+         por cima e quem vem DEPOIS no DOM. Foi exatamente assim que o modal de
+         produtos abriu ATRAS do de gerar lote e pareceu que nada acontecia. -->
+    <div v-if="fotoGrande" v-trava-rolagem class="au-fundo au-fundo-foto"
+         @click.self="fotoGrande = null">
+      <div class="au-folha au-folha-foto" role="dialog" aria-modal="true"
+           :aria-label="'Foto de ' + fotoGrande.nome">
+        <div class="au-folha-topo">
+          <h2>{{ fotoGrande.nome }}</h2>
+          <button class="au-fechar" type="button" aria-label="Fechar" @click="fotoGrande = null">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none"
+                 stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+              <line x1="6" y1="6" x2="18" y2="18" /><line x1="18" y1="6" x2="6" y2="18" />
+            </svg>
+          </button>
+        </div>
+        <img :src="fotoGrande.url" :alt="'Foto de ' + fotoGrande.nome" class="au-foto-grande">
+        <p class="au-aviso-menor au-produtos-conta">
+          <template v-if="fotoGrande.carregando">Buscando a foto maior no Bling…</template>
+          <template v-else-if="fotoGrande.so_miniatura">
+            Este produto só tem a miniatura no Bling — é esta a maior que existe.
+          </template>
+          <template v-else>{{ fotoGrande.codigo }}</template>
+        </p>
+      </div>
     </div>
   </div>
 </template>
@@ -1727,8 +1837,10 @@ import {
   filtrarEtiquetas, fraseDaContagem,
 } from './busca-e-arquivamento.js'
 import PainelDeBusca from './painel-de-busca.vue'
-import { produtosParaEscolher, procurarProduto } from './produtos-do-bling.js'
-import { paginasDoBling, avisoDoErro } from '../../compartilhado/chamada-do-bling.js'
+import {
+  produtosParaEscolher, procurarProduto, fatiarProdutos, numerosDePagina,
+} from './produtos-do-bling.js'
+import { paginasDoBling, chamarBling, avisoDoErro } from '../../compartilhado/chamada-do-bling.js'
 import { temSuporte, traduzirFalha, criarGravador } from './gravador-nfc.js'
 import {
   classificarLeitura, acoesDaLeitura, precisaConfirmarGarantia, resetar, regravar,
@@ -2035,6 +2147,37 @@ const loteAtual = computed(() => lotes.value.find((l) => l.id === loteEscolhido.
 // edição não basta, porque é na criação que ela entra. A frase é uma só, e mora
 // em `lotes.js`, junto da regra — frase escrita em dois lugares diverge no dia
 // em que uma delas muda.
+const listaDeProdutosAberta = ref(false)
+const produtosLidos = ref(0)
+// A foto grande do produto, quando se clica na lupa. `null` = ninguem pediu.
+const fotoGrande = ref(null)
+// O que o botão do formulário mostra: o produto que foi escolhido, achado pela
+// referência que ele gravou. Sai do que JÁ está na tela — nada de guardar uma
+// segunda cópia do produto, que é como duas verdades comecam a divergir.
+const produtoEscolhido = computed(
+  () => (produtos.value || []).find((p) => p && p.codigo === novo.sku) || null)
+
+// ⚠️ A FOTO GRANDE PEDE UMA CHAMADA A MAIS, e por isso so acontece no clique da
+// lupa. A lista do Bling so traz MINIATURA de 70px; a imagem cheia mora no
+// detalhe do produto (`produtos/{id}`), e buscar o detalhe de trezentos itens
+// para mostrar uma lista seria trezentas chamadas para nada.
+//
+// ⚠️ E AS URLS DO BLING EXPIRAM EM 7 DIAS. Aqui isso nao machuca: a foto e
+// buscada na hora e some quando a janela fecha — nada e guardado apontando para
+// la. Guardar seria quebrar em uma semana.
+async function verFotoGrande(produto) {
+  fotoGrande.value = { nome: produto.nome, codigo: produto.codigo, url: produto.foto, carregando: true }
+  try {
+    const det = await chamarBling(sbClient, `produtos/${produto.id}`, {})
+    const cheia = det?.data?.midia?.imagens?.internas?.[0]?.link
+    if (cheia) fotoGrande.value = { ...fotoGrande.value, url: cheia, carregando: false }
+    else fotoGrande.value = { ...fotoGrande.value, carregando: false, so_miniatura: true }
+  } catch {
+    // Falhar em ampliar NAO pode tirar a miniatura da tela: fica o que ja havia.
+    fotoGrande.value = { ...fotoGrande.value, carregando: false, so_miniatura: true }
+  }
+}
+
 const avisoDaSerieNova = computed(() => avisoDeSerieAmbigua(novo.sku))
 const avisoDaSerieEditada = computed(() => avisoDeSerieAmbigua(edicao.sku))
 const proxima = computed(() => proximaPorGravar(pecasDoLote(loteEscolhido.value)))
@@ -2742,13 +2885,25 @@ const buscaProduto = ref('')
 const carregandoProdutos = ref(false)
 const erroProdutos = ref(null)
 
-const produtosAchados = computed(() =>
-  buscaProduto.value.trim() ? procurarProduto(produtos.value, buscaProduto.value).slice(0, 12) : [])
+// ⚠️ SEM BUSCA MOSTRA TUDO, e nao lista vazia. Antes era
+// `busca ? procurar(...).slice(0, 12) : []` — dois cortes silenciosos no mesmo
+// lugar: abrir sem digitar nada nao mostrava produto nenhum, e digitar mostrava
+// no maximo doze de trezentos, sem nada dizendo que havia mais.
+const produtosAchados = computed(() => procurarProduto(produtos.value, buscaProduto.value))
+const paginaDeProdutos = ref(1)
+const paginaAtualDeProdutos = computed(
+  () => fatiarProdutos(produtosAchados.value, paginaDeProdutos.value))
+const numerosDasPaginas = computed(
+  () => numerosDePagina(paginaAtualDeProdutos.value.pagina, paginaAtualDeProdutos.value.paginas))
+// Buscar volta para a primeira pagina: continuar na 9 depois de filtrar deixaria
+// a pessoa olhando o vazio com resultados existindo.
+watch(buscaProduto, () => { paginaDeProdutos.value = 1 })
 
 async function carregarProdutos() {
   if (produtos.value.length || carregandoProdutos.value) return
   carregandoProdutos.value = true
   erroProdutos.value = null
+  produtosLidos.value = 0
   try {
     // `paginasDoBling` sobe a falha em vez de devolver lista vazia. Isso importa
     // aqui: "o Bling caiu" e "não há produto novo" ficariam iguais na tela, e a
@@ -2767,6 +2922,7 @@ async function carregarProdutos() {
     const itens = await paginasDoBling(sbClient, 'produtos', { criterio: 2 }, {
       maxPaginas: 60,
       aoTruncar: (quantos) => { truncou = quantos },
+      aoProgredir: (quantos) => { produtosLidos.value = quantos },
     })
     produtos.value = produtosParaEscolher(itens)
     if (!produtos.value.length) {
@@ -4154,6 +4310,136 @@ onMounted(() => {
 }
 .au-fechar:hover, .au-fechar:focus-visible{background:var(--surface2); color:var(--text)}
 .au-folha .au-erro{padding:12px 24px 0;}
+
+/* ── O MODAL LARGO DE PRODUTOS ────────────────────────────────────────────
+   ⚠️ EXCEÇÃO DELIBERADA AO PADRÃO item 4 (420px no computador), e ela vale só
+   para modal cujo conteúdo é LISTA. O 420px do PADRÃO serve para modal de
+   PERGUNTA — meia dúzia de campos, onde a linha curta ajuda a ler. Uma lista de
+   centenas de produtos dentro de 420px, com uma caixinha de 240px rolando
+   dentro dela, era um buraco de fechadura: foi a queixa do dono em 04/09/2026.
+
+   No celular nada disto vale: o `@media` do fim do arquivo já faz TODA `.au-folha`
+   ocupar a tela, que é o que se quer aqui de qualquer jeito. */
+.au-folha-larga{
+  /* ⚠️ `max-height`, NUNCA `height`, e a rolagem CONTINUA sendo a da folha.
+     A primeira versao desta regra tinha `height` fixa e `overflow:hidden` — ela
+     foi escrita para um modal cujo unico conteudo era a lista, que rolava
+     sozinha. Aplicada ao FORMULARIO inteiro, prendia a altura e travava a
+     rolagem: os campos de baixo (Quantidade, Finalizado em) ficariam
+     inalcancaveis, e a caixa ficaria enorme e vazia num formulario curto. */
+  width:80vw; max-width:80vw; max-height:88dvh;
+}
+.au-folha-larga > .au-campo{max-width:none}
+.au-produtos-conta{padding:var(--sp-2) 24px 0; margin:0}
+/* ⚠️ SÓ A LISTA ROLA, e o campo de busca fica parado em cima. Deixando a folha
+   inteira rolar, a busca sumiria na primeira raspada de dedo — e quem procura
+   entre centenas precisa dela sempre à mão. `min-height:0` é o que permite um
+   filho de flex encolher e criar a própria rolagem. */
+/* ── A MINIATURA E A LUPA ────────────────────────────────────────────────
+   A foto e de 70px e vem da propria lista do Bling. O quadrinho tem tamanho
+   FIXO com ou sem foto: sem isso cada linha teria uma altura, e a lista inteira
+   dancaria conforme os produtos com foto entrassem e saissem da busca. */
+/* ── A LINHA DA LISTA: FINA, E TUDO NUMA LINHA SÓ ────────────────────────
+   A regra-base lá em cima é `flex-direction:column` — nome em cima, código
+   embaixo, duas alturas por item. Aqui vira linha: foto à esquerda, nome e
+   referência lado a lado, lupa à direita. */
+.au-produto{
+  display:flex; flex-direction:row; align-items:center;
+  gap:var(--sp-3); text-align:left; width:100%;
+  min-height:0; padding:var(--sp-1) var(--sp-2);
+}
+.au-produto strong{font-size:var(--texto-corpo); font-weight:600}
+/* ⚠️ SEM `text-overflow:ellipsis` — o PADRÃO item 5 proíbe cortar NOME. Se não
+   couber, quebra a linha; nunca some com reticência. Com o modal a 80% da tela,
+   praticamente todo nome cabe. */
+.au-produto-texto{
+  display:flex; flex-direction:row; align-items:baseline;
+  gap:var(--sp-2); flex-wrap:wrap; min-width:0; flex:1;
+}
+.au-produto-ref{font-family:var(--fonte-dados); font-size:var(--texto-etiqueta); color:var(--muted)}
+/* A lista rola por dentro para os NÚMEROS continuarem à vista: rolando a folha
+   inteira, eles ficariam lá embaixo, depois de trinta linhas.
+
+   ⚠️ `overscroll-behavior:contain` NÃO É ENFEITE — É A CORREÇÃO DO QUE O DONO
+   DESCREVEU em 04/09/2026: "quando vou rolando e chega ao fim, força rolar
+   abaixo e aí sai da lista, desce para o resto dos campos".
+   Isso é ENCADEAMENTO DE ROLAGEM: chegando ao fim de uma área que rola, o
+   navegador entrega o resto do gesto ao pai — e o formulário deslizava por baixo
+   da lista, tirando da tela o que a pessoa estava lendo. `contain` faz a rolagem
+   MORRER no fim da lista, em vez de vazar para fora.
+   É a mesma linha que o PADRÃO item 4 já exige nos fundos de modal, pelo mesmo
+   motivo: lá o dedo arrastava a página para os lados por dentro do modal.
+
+   E A LISTA OCUPA A ALTURA TODA quando está aberta, que foi o outro pedido: com
+   70dvh ela domina o modal e a rolagem acontece dentro dela, não em volta. */
+.au-produtos{
+  /* ⚠️ 56dvh, E NÃO 70. Com 70 os NÚMEROS saíam da tela — foi o defeito que o
+     dono viu, e eu o criei subindo esta altura depois de ter escrito, aqui
+     mesmo, que a lista rola por dentro JUSTAMENTE para eles continuarem à
+     vista. Altura de lista não é decisão isolada: ela divide o modal com o
+     cabeçalho, a busca, a contagem e os números. */
+  max-height:min(56dvh, 620px);
+  overscroll-behavior:contain;
+}
+.au-produto-foto{
+  width:34px; height:34px; flex:none; border-radius:var(--radius-sm);
+  object-fit:cover; background:var(--surface2); border:1px solid var(--border);
+}
+.au-produto-sem-foto{display:block}
+/* A lupa e alvo de dedo de 40px, como tudo nesta tela (PADRAO item 6). */
+.au-produto-lupa{
+  /* 40px de alvo mesmo numa linha fina: PADRAO item 6 nao abre excecao para
+     lista comprida. O botao e maior que o desenho dentro dele. */
+  flex:none; width:40px; height:40px; display:inline-flex;
+  align-items:center; justify-content:center; border-radius:var(--radius-md);
+  color:var(--muted); cursor:zoom-in;
+}
+.au-produto-lupa:hover, .au-produto-lupa:focus-visible{background:var(--surface2); color:var(--text)}
+
+/* ── A FOTO GRANDE ───────────────────────────────────────────────────────
+   `z-index` acima do resto: ela abre POR CIMA do modal de gerar lote, que ja
+   esta aberto. A ordem no DOM ja resolve, e o numero e cinto e suspensorio. */
+.au-fundo-foto{z-index:60}
+.au-folha-foto{max-width:min(720px, 94vw)}
+.au-foto-grande{display:block; width:calc(100% - 48px); margin:var(--sp-3) 24px 0;
+  height:auto; border-radius:var(--radius-md); background:var(--surface2)}
+
+/* ── O ENDERECO DA ETIQUETA, com o botao de abrir ────────────────────────
+   O endereco continua inteiro e selecionavel — e ele que se confere letra por
+   letra antes de gravar. O botao e um caminho A MAIS, nunca um substituto. */
+.au-peca-end{display:flex; align-items:center; gap:var(--sp-3); flex-wrap:wrap}
+.au-peca-end-texto{min-width:0; overflow-wrap:anywhere}
+.au-abrir-pagina{flex:none; text-decoration:none; min-height:40px}
+
+/* ── OS NÚMEROS DE PÁGINA ────────────────────────────────────────────────
+   Alvo de 40px em cada um (PADRÃO item 6) e quebra de linha quando são muitos:
+   numa lista de trinta páginas, no celular, eles não cabem numa fileira só. */
+/* ⚠️ OS NÚMEROS GRUDAM NO RODAPÉ. Só encolher a lista não bastava: numa tela
+   baixa, ou com o zoom de letra do sistema aumentado, eles voltariam a sair. Com
+   `sticky` eles ficam visíveis enquanto o modal rola, aconteça o que acontecer
+   com a altura. O fundo é obrigatório — sem ele a lista passa por baixo e os
+   números ficam ilegíveis. */
+.au-paginas{display:flex; flex-wrap:wrap; gap:var(--sp-1);
+  justify-content:center; align-items:center; padding:var(--sp-3) 24px;
+  position:sticky; bottom:0; z-index:1;
+  background:var(--surface); border-top:1px solid var(--border)}
+.au-pagina{
+  min-width:40px; min-height:40px; padding:0 var(--sp-2);
+  display:inline-flex; align-items:center; justify-content:center;
+  background:none; color:var(--text); cursor:pointer; font:inherit;
+  border:1px solid var(--border); border-radius:var(--radius-md);
+}
+.au-pagina:hover:not(:disabled){background:var(--surface2)}
+.au-pagina:disabled{opacity:.4; cursor:default}
+/* A página atual é a única com fundo cheio: sem isso, "onde eu estou" some. */
+.au-pagina.on{background:var(--accent); border-color:var(--accent); color:var(--surface); font-weight:700}
+.au-pagina-vazio{min-width:24px; text-align:center; color:var(--muted)}
+
+/* ⚠️ ESTE BLOCO MORA DEPOIS DE `.au-folha` DE PROPOSITO, e nao por arrumacao.
+   `.au-folha` e `.au-folha-larga` tem a MESMA especificidade — uma classe cada —
+   entao quem vence e quem vem DEPOIS. Escrito antes, o `max-width:420px` da base
+   sobrescrevia a variante inteira e o modal saia estreito, com a regra larga ali
+   no arquivo parecendo certa. Foi o defeito que o dono viu em 04/09/2026. */
 
 /* ── O GUIA DE BANCADA ─────────────────────────────────────────────────────
    `position:fixed` com inset zero, e não `absolute`: dentro de um pai que rola,
