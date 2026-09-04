@@ -441,6 +441,51 @@ export function etiquetasGravadas(pecas, loteId = null) {
     || (a.numero_na_serie || 0) - (b.numero_na_serie || 0))
 }
 
+// ── A ÁRVORE DA ABA ETIQUETAS ──────────────────────────────────────────────
+// O lote é a linha principal e as etiquetas dele ficam dentro, para abrir.
+// Pedido do dono em 04/09/2026: "mostrar os lotes com opção de expandir as
+// etiquetas".
+//
+// A ORDEM QUE CHEGA É PRESERVADA. `etiquetasGravadas` já ordena por gravação
+// mais recente, e o lote herda a posição da sua etiqueta mais nova: reordenar
+// aqui faria a lista pular de lugar entre uma busca e outra, e o olho perde a
+// peça que estava seguindo.
+export function agruparPorLote(etiquetas, { loteDaPeca = () => null, totalDoLote = () => 0 } = {}) {
+  const grupos = new Map()
+  for (const p of (Array.isArray(etiquetas) ? etiquetas : [])) {
+    if (!p) continue
+    const lote = loteDaPeca(p.lote_id) || { id: p.lote_id }
+    const chave = lote.id ?? p.lote_id ?? '(sem lote)'
+    if (!grupos.has(chave)) grupos.set(chave, { chave, lote, etiquetas: [] })
+    grupos.get(chave).etiquetas.push(p)
+  }
+  return [...grupos.values()].map((g) => ({
+    ...g,
+    gravadas: g.etiquetas.length,
+    total: totalDoLote(g.lote?.id) || g.etiquetas.length,
+  }))
+}
+
+// ⚠️ ÁRVORE FECHADA COM BUSCA ATIVA PARECE QUE NÃO ACHOU NADA — e é o defeito
+// mais provável de uma tela assim. Quem digita um código vê uma linha de lote
+// fechada e conclui que a busca quebrou, com a peça ali dentro.
+//
+// Também abre quando há UM lote só: uma árvore de uma linha fechada é uma tela
+// escondendo tudo o que tem para mostrar.
+export function abrirPorPadrao(grupos, { buscando = false } = {}) {
+  const lista = Array.isArray(grupos) ? grupos : []
+  if (buscando) return lista.map((g) => g.chave)
+  return lista.length === 1 ? [lista[0].chave] : []
+}
+
+// "2 de 12 gravadas" — a conta do cabeçalho do lote.
+export function contagemDoGrupo(grupo) {
+  const g = grupo || {}
+  const total = Number(g.total || 0)
+  const gravadas = Number(g.gravadas || 0)
+  return total > gravadas ? `${gravadas} de ${total} gravadas` : `${gravadas} gravada${gravadas === 1 ? '' : 's'}`
+}
+
 // QUANDO O MOTIVO ESCRITO É OBRIGATÓRIO.
 //
 // A TELA PRECISA SABER ANTES DO BANCO. As duas funções novas recusam com

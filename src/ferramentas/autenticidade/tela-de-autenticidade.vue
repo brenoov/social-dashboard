@@ -1020,12 +1020,31 @@
            entre os dois partiria a corrente — já aconteceu nesta tela, em
            30/08. `aria-hidden` porque cada linha já diz tudo por escrito
            ("Gravada em 12/08"); ele é ajuda de olho para varrer coluna. -->
-      <div v-else class="au-lista au-tabela au-tabela-etiquetas">
+      <!-- ══════════════════════════════════════════════════════════════
+           A ÁRVORE: o lote é a linha, as etiquetas ficam dentro
+           ══════════════════════════════════════════════════════════════
+           `<details>` é o que esta tela já usa para abrir e fechar (três vezes
+           nela mesma) — abre com teclado, é lido por leitor de tela e não
+           precisa de JavaScript nenhum para funcionar. -->
+      <div v-else class="au-lista au-arvore">
+        <details v-for="g in gruposDeEtiquetas" :key="g.chave" class="au-mais au-lote-no"
+                 :open="gruposAbertos.has(g.chave)"
+                 @toggle="alternarGrupo(g.chave, $event.target.open)">
+          <summary>
+            <svg class="au-seta" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"
+                 fill="none" stroke="currentColor" stroke-width="2.4"
+                 stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+            <span class="au-lote-nome">{{ g.lote.modelo || 'Lote que não existe mais' }}<template v-if="g.lote.cor"> · {{ g.lote.cor }}</template></span>
+            <span class="au-ref au-lote-ref" v-if="g.lote.sku">{{ g.lote.sku }}</span>
+            <span class="au-lote-conta">{{ contagemDoGrupo(g) }}</span>
+          </summary>
+
+        <div class="au-tabela au-tabela-etiquetas">
         <div class="au-tabela-cab" aria-hidden="true">
           <span>Peça</span><span>Estado</span><span>Situação</span>
           <span>Endereço da etiqueta</span><span>Ações</span>
         </div>
-        <div v-for="pc in etiquetasVisiveis" :key="pc.codigo" class="au-card">
+        <div v-for="pc in g.etiquetas" :key="pc.codigo" class="au-card">
           <div class="au-card-topo">
             <span class="au-modelo">{{ descricaoDaPeca(pc, loteDaPeca(pc.lote_id)) }}</span>
             <span class="selo" :class="estadoDaPeca(pc).selo">{{ estadoDaPeca(pc).rotulo }}</span>
@@ -1094,6 +1113,8 @@
             </template>
           </div>
         </div>
+        </div>
+        </details>
       </div>
 
       <!-- lista que esconde sem avisar é lista que mente: o botão diz quantas
@@ -1659,6 +1680,7 @@ import {
   MOTIVOS_DE_BAIXA, fraseDaRecusa, fraseDaSenha, naFila,
   rotuloDoMotivo, pecasEmOrdem, estadoDaPeca, linhasDaListaDoLote,
   codigosComGarantia, etiquetasGravadas, motivoObrigatorio, descricaoDaPeca,
+  agruparPorLote, abrirPorPadrao, contagemDoGrupo,
   rotuloDaSerie, prefixoDaSerie, serieAmbigua, avisoDeSerieAmbigua, fraseDaPecaNaMao,
 } from './lotes.js'
 import {
@@ -2493,6 +2515,33 @@ const contagemDeEtiquetas = computed(() => fraseDaContagem(
   etiquetasFiltradas.value.length, etiquetasDaAba.value.length,
   { um: 'etiqueta gravada', muitos: 'etiquetas gravadas' }))
 function mostrarMaisEtiquetas() { quantasEtiquetas.value += DE_CADA_VEZ }
+
+// ── A ÁRVORE: LOTE FORA, ETIQUETAS DENTRO ─────────────────────────────────
+// Agrupa o que JÁ ESTÁ NA TELA (a fatia paginada), e não a lista inteira: o
+// botão "mostrar mais" continua mandando em quantas aparecem, e a árvore não
+// promete um lote cheio que ainda não foi carregado.
+const gruposDeEtiquetas = computed(() => agruparPorLote(etiquetasVisiveis.value, {
+  loteDaPeca,
+  totalDoLote: (id) => (pecas.value || []).filter((p) => p && p.lote_id === id).length,
+}))
+
+// ⚠️ ÁRVORE FECHADA COM BUSCA ATIVA PARECE QUE NÃO ACHOU NADA. Quem digita um
+// código vê uma linha de lote fechada e conclui que a busca quebrou, com a peça
+// ali dentro. Por isso o estado de aberto é RECALCULADO a cada busca, e não
+// guardado para sempre: a decisão de `abrirPorPadrao` tem teste.
+const gruposAbertos = ref(new Set())
+watch([gruposDeEtiquetas, () => filtroDeEtiquetas.value.texto], () => {
+  gruposAbertos.value = new Set(abrirPorPadrao(gruposDeEtiquetas.value, {
+    buscando: Boolean(String(filtroDeEtiquetas.value.texto || '').trim()),
+  }))
+}, { immediate: true })
+
+// Abrir e fechar na mão continua valendo — o padrão é ponto de partida, não cela.
+function alternarGrupo(chave, aberto) {
+  const novo = new Set(gruposAbertos.value)
+  if (aberto) novo.add(chave); else novo.delete(chave)
+  gruposAbertos.value = novo
+}
 
 // MUDAR A BUSCA RECOMEÇA A LISTA DO TOPO, pelo mesmo motivo do watch de
 // `loteDaEtiqueta`: com o limite crescido de uma busca larga, a busca seguinte
@@ -4459,6 +4508,25 @@ onMounted(() => {
 }
 .au-mais > summary{padding:0 var(--sp-3)}
 .au-mais-miolo{padding:0 var(--sp-3) var(--sp-4); border-top:1px solid var(--border)}
+
+/* ── A ÁRVORE DA ABA ETIQUETAS ────────────────────────────────────────────
+   Reusa o `.au-mais` inteiro — a seta que gira, o marcador escondido, a borda
+   e o fundo já vêm de lá. O que muda é só o que é da árvore.
+
+   ⚠️ O RECUO VOLTA A ZERO AQUI. O `.au-mais` solto carrega `margin: sp-5 24px`
+   porque ele fica direto na aba; dentro da `.au-lista`, que JÁ tem o recuo de
+   24px dos irmãos, aquela margem viraria recuo dobrado. Foi o mesmo tropeço do
+   bloco de ler etiqueta hoje de manhã: recheio e recuo são medidas diferentes. */
+.au-lote-no{margin:0; max-width:none}
+.au-lote-no > summary{padding:var(--sp-2) var(--sp-3); gap:var(--sp-3); flex-wrap:wrap}
+.au-lote-nome{font-size:var(--texto-campo); font-weight:700; overflow-wrap:anywhere}
+.au-lote-ref{font-weight:400; color:var(--muted)}
+/* A contagem vai para a direita e NUNCA quebra no meio: "2 de 12" partido em
+   duas linhas lê como dois números diferentes. A 375px o summary inteiro quebra
+   antes disso (flex-wrap acima), e ela desce inteira. */
+.au-lote-conta{margin-left:auto; white-space:nowrap; color:var(--accent);
+  font-size:var(--texto-corpo); font-weight:600}
+.au-lote-no > .au-tabela{border-top:1px solid var(--border); padding:var(--sp-3)}
 .au-mais-titulo{
   margin:var(--sp-4) 0 var(--sp-2); font-family:var(--fonte-principal);
   font-size:var(--texto-etiqueta);
