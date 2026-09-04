@@ -907,120 +907,20 @@
            Fica ACIMA do seletor de lote de propósito: aqui não se escolhe nada
            antes, é a etiqueta que diz quem é. Pedir um lote primeiro seria
            pedir justamente a informação que a pessoa veio buscar. -->
-      <div class="au-ler-livre-fora">
-      <section class="au-card au-ler-livre">
-        <div class="au-card-topo">
-          <span class="au-modelo">Ler uma etiqueta</span>
-        </div>
-        <p class="au-card-linha">
-          Encoste qualquer etiqueta para descobrir de quem ela é — sem escolher lote nem peça antes.
-        </p>
-
-        <!-- OS MESMOS ANÉIS DA BANCADA. `role="status"` para o leitor de tela
-             anunciar a troca sem roubar o foco de quem está com a etiqueta na
-             mão — e o estado vai SEMPRE por escrito ao lado do anel. -->
-        <div class="au-bancada-estado au-leitura-estado" role="status">
-          <div class="au-aneis-caixa" :class="'au-aneis-' + estadoDaLeituraAneis.chave">
-            <svg class="au-aneis" viewBox="0 0 120 120" width="104" height="104" aria-hidden="true"
-                 fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-              <circle class="au-anel-1" cx="60" cy="60" r="54" stroke-width="2" />
-              <circle class="au-anel-2" cx="60" cy="60" r="40" stroke-width="2.6" />
-              <circle class="au-anel-3" cx="60" cy="60" r="26" stroke-width="3.2" />
-              <circle class="au-anel-nucleo" cx="60" cy="60" r="11" stroke-width="3.2" />
-              <polyline class="au-anel-visto" points="42 61 55 74 80 45" stroke-width="7" />
-            </svg>
-          </div>
-          <div class="au-bancada-dito">
-            <p class="au-bancada-titulo">{{ estadoDaLeituraAneis.titulo }}</p>
-            <p class="au-bancada-detalhe">{{ estadoDaLeituraAneis.detalhe }}</p>
-          </div>
-        </div>
-
-        <div class="au-acoes">
-          <button class="au-botao" type="button" :disabled="lendoEtiqueta || ocupadoNaLeitura"
-                  @click="lerEtiquetaLivre">
-            {{ lendoEtiqueta ? 'Lendo…' : 'Ler etiqueta' }}
-          </button>
-          <button v-if="leituraLivre || erroDaLeitura || recadoDaLeitura" class="au-botao secundario"
-                  type="button" :disabled="ocupadoNaLeitura" @click="limparLeitura">Limpar</button>
-        </div>
-
-
-        <!-- O QUE A ETIQUETA É — quatro respostas, e as duas últimas são as
-             que costumam faltar numa tela dessas. -->
-        <template v-if="leituraLivre">
-          <div v-if="leituraLivre.tipo === 'conhecida'" class="au-leitura-achado">
-            <p class="au-modelo">
-              {{ descricaoDaPeca(leituraLivre.peca, loteDaPeca(leituraLivre.peca.lote_id)) }}
-            </p>
-            <p class="au-card-linha"><span class="au-ref">{{ leituraLivre.codigo }}</span></p>
-            <!-- O AVISO DA GARANTIA VEM ANTES DOS BOTÕES, e não depois: depois
-                 já seria tarde. -->
-            <p v-if="leituraPedeGarantia" class="au-confirma-texto au-aviso-garantia" role="alert">
-              Esta bolsa tem <strong>garantia registrada por uma cliente</strong>. Resetar tira a
-              identidade da bolsa dela.
-            </p>
-          </div>
-          <p v-else-if="leituraLivre.tipo === 'desconhecida'" class="au-card-linha">
-            É uma etiqueta nossa, mas o código <span class="au-ref">{{ leituraLivre.codigo }}</span>
-            não existe neste sistema. Dá para apagá-la e reaproveitar.
-          </p>
-          <p v-else-if="leituraLivre.tipo === 'vazia'" class="au-card-linha">
-            Etiqueta em branco — pronta para gravar.
-          </p>
-          <p v-else class="au-card-linha">
-            Esta etiqueta não é do selo Vessel, ou está ilegível. Nada a fazer com ela por aqui.
-          </p>
-        </template>
-
-        <!-- AS AÇÕES. Etiqueta virgem e de terceiro não aparecem aqui, e quem só
-             pode ver também não — `acoesDaLeitura` decide, e tem teste. -->
-        <div v-if="acoesDaLeituraAgora.length && !confirmandoReset" class="au-acoes">
-          <button v-if="acoesDaLeituraAgora.includes('regravar')" class="au-botao secundario"
-                  type="button" :disabled="ocupadoNaLeitura" @click="regravarDaLeitura">
-            Regravar o mesmo código
-          </button>
-          <button v-if="acoesDaLeituraAgora.includes('resetar') || acoesDaLeituraAgora.includes('apagar-chip')"
-                  class="au-botao secundario au-card-acao" type="button"
-                  :disabled="ocupadoNaLeitura" @click="confirmandoReset = true">
-            {{ acoesDaLeituraAgora.includes('resetar') ? 'Resetar' : 'Apagar esta etiqueta' }}
-          </button>
-        </div>
-
-        <!-- A PERGUNTA. Apagar o chip não tem desfazer, então ela cobra senha —
-             a mesma que a lista cobra para apagar uma gravação. Esta ação é MAIS
-             destrutiva que aquela (apaga o chip também) e não pode ser mais fácil. -->
-        <div v-if="confirmandoReset" class="au-confirma">
-          <p class="au-confirma-texto">
-            <span v-if="leituraLivre?.tipo === 'conhecida'">
-              A etiqueta vai ser <strong>apagada</strong> e a peça volta para a fila de gravação.
-              A etiqueta apagada continua costurada dentro da bolsa.
-            </span>
-            <span v-else>
-              A etiqueta vai ser <strong>apagada</strong> e poderá ser reaproveitada.
-            </span>
-          </p>
-
-          <label v-if="leituraPedeGarantia" class="au-campo"><span class="au-rot">Motivo</span>
-            <input v-model="motivoDaLeitura" type="text" :disabled="ocupadoNaLeitura"
-                   placeholder="Por que esta bolsa perde a identidade?">
-          </label>
-
-          <label class="au-campo"><span class="au-rot">Sua senha</span>
-            <input v-model="senhaDaLeitura" type="password" autocomplete="current-password"
-                   :disabled="ocupadoNaLeitura">
-          </label>
-
-          <div class="au-acoes">
-            <button class="au-botao" type="button" :disabled="ocupadoNaLeitura || !senhaDaLeitura"
-                    @click="leituraLivre?.tipo === 'conhecida' ? confirmarResetDaLeitura() : apagarChipOrfao()">
-              {{ ocupadoNaLeitura ? 'Apagando…' : 'Apagar a etiqueta' }}
-            </button>
-            <button class="au-botao secundario" type="button" :disabled="ocupadoNaLeitura"
-                    @click="confirmandoReset = false; senhaDaLeitura = ''">Cancelar</button>
-          </div>
-        </div>
-      </section>
+      <!-- UM BOTÃO, E O RESTO NO MODAL. A primeira versão punha o painel
+           inteiro aberto na aba: ocupava a tela para uma ação que é rápida e
+           rara, e brigava com a lista que é o assunto da aba. O `.au-acoes` é o
+           irmão dos outros blocos e já carrega o recuo desta aba — o defeito da
+           margem não volta por esquecimento. -->
+      <div class="au-acoes">
+        <button class="au-botao secundario" type="button" @click="abrirLeituraDeEtiqueta">
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M4 9a12 12 0 0 1 16 0" /><path d="M7.5 12.5a7 7 0 0 1 9 0" />
+            <circle cx="12" cy="16.5" r="1.2" fill="currentColor" stroke="none" />
+          </svg>
+          Ler etiqueta
+        </button>
       </div>
 
       <label class="au-campo"><span class="au-rot">Lote</span>
@@ -1534,6 +1434,123 @@
     </div>
 
     <!-- ── FORMULÁRIO DE LOTE ───────────────────────────────────────────── -->
+    <!-- ══════════════════════════════════════════════════════════════════
+         LER UMA ETIQUETA — modal
+         ══════════════════════════════════════════════════════════════════
+         ⚠️ `v-trava-rolagem` (PADRÃO item 4). A diretiva está registrada em
+         `ponto-de-partida.js`; sem ela a página atrás rola por baixo do modal e,
+         no celular, o dedo escorrega a tela para os lados. Os outros dois modais
+         desta tela ainda não a têm — é anterior a este bloco e está anotado. -->
+    <div v-if="leituraAberta" v-trava-rolagem class="au-fundo"
+         @click.self="fecharLeituraDeEtiqueta">
+      <div class="au-folha au-folha-leitura" role="dialog" aria-modal="true"
+           aria-label="Ler uma etiqueta">
+        <div class="au-folha-topo">
+          <h2>Ler uma etiqueta</h2>
+          <button class="au-fechar" type="button" aria-label="Fechar"
+                  :disabled="ocupadoNaLeitura" @click="fecharLeituraDeEtiqueta">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none"
+                 stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+              <line x1="6" y1="6" x2="18" y2="18" /><line x1="18" y1="6" x2="6" y2="18" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- OS ANÉIS DA BANCADA, no meio, que é o que a pessoa olha enquanto
+             segura a etiqueta. O anel NUNCA é o único aviso: título e detalhe
+             vão sempre escritos ao lado (PADRÃO item 9). -->
+        <div class="au-leitura-corpo">
+          <div class="au-aneis-caixa au-leitura-aneis" :class="'au-aneis-' + estadoDaLeituraAneis.chave"
+               role="status">
+            <svg class="au-aneis" viewBox="0 0 120 120" width="120" height="120" aria-hidden="true"
+                 fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <circle class="au-anel-1" cx="60" cy="60" r="54" stroke-width="2" />
+              <circle class="au-anel-2" cx="60" cy="60" r="40" stroke-width="2.6" />
+              <circle class="au-anel-3" cx="60" cy="60" r="26" stroke-width="3.2" />
+              <circle class="au-anel-nucleo" cx="60" cy="60" r="11" stroke-width="3.2" />
+              <polyline class="au-anel-visto" points="42 61 55 74 80 45" stroke-width="7" />
+            </svg>
+          </div>
+          <p class="au-bancada-titulo au-leitura-titulo">{{ estadoDaLeituraAneis.titulo }}</p>
+          <p class="au-bancada-detalhe au-leitura-detalhe">{{ estadoDaLeituraAneis.detalhe }}</p>
+        </div>
+
+        <!-- O QUE A ETIQUETA É — quatro respostas -->
+        <template v-if="leituraLivre && !confirmandoReset">
+          <div v-if="leituraLivre.tipo === 'conhecida'" class="au-leitura-achado">
+            <p class="au-modelo">
+              {{ descricaoDaPeca(leituraLivre.peca, loteDaPeca(leituraLivre.peca.lote_id)) }}
+            </p>
+            <p class="au-card-linha"><span class="au-ref">{{ leituraLivre.codigo }}</span></p>
+            <p v-if="leituraPedeGarantia" class="au-confirma-texto au-aviso-garantia" role="alert">
+              Esta bolsa tem <strong>garantia registrada por uma cliente</strong>. Resetar tira a
+              identidade da bolsa dela.
+            </p>
+          </div>
+          <p v-else-if="leituraLivre.tipo === 'desconhecida'" class="au-leitura-achado au-card-linha">
+            É uma etiqueta nossa, mas o código <span class="au-ref">{{ leituraLivre.codigo }}</span>
+            não existe neste sistema. Dá para apagá-la e reaproveitar.
+          </p>
+        </template>
+
+        <!-- AS AÇÕES. Etiqueta virgem e de terceiro não aparecem aqui, e quem só
+             pode ver também não — `acoesDaLeitura` decide, e tem teste. -->
+        <div v-if="acoesDaLeituraAgora.length && !confirmandoReset" class="au-acoes">
+          <button v-if="acoesDaLeituraAgora.includes('regravar')" class="au-botao secundario"
+                  type="button" :disabled="ocupadoNaLeitura" @click="regravarDaLeitura">
+            Regravar o mesmo código
+          </button>
+          <button v-if="acoesDaLeituraAgora.includes('resetar') || acoesDaLeituraAgora.includes('apagar-chip')"
+                  class="au-botao secundario" type="button"
+                  :disabled="ocupadoNaLeitura" @click="confirmandoReset = true">
+            {{ acoesDaLeituraAgora.includes('resetar') ? 'Resetar' : 'Apagar esta etiqueta' }}
+          </button>
+        </div>
+
+        <!-- LER OUTRA: sem fechar e reabrir o modal, que é o que a bancada faz
+             uma etiqueta atrás da outra. -->
+        <div v-if="!lendoEtiqueta && !ocupadoNaLeitura && !confirmandoReset" class="au-acoes">
+          <button class="au-botao" type="button" @click="lerEtiquetaLivre">
+            {{ leituraLivre ? 'Ler outra etiqueta' : 'Ler etiqueta' }}
+          </button>
+        </div>
+
+        <!-- A PERGUNTA. Apagar o chip não tem desfazer, então cobra senha — a
+             mesma que a lista cobra. Esta ação é MAIS destrutiva que aquela
+             (apaga o chip junto) e não pode ser mais fácil. -->
+        <div v-if="confirmandoReset" class="au-confirma">
+          <p class="au-confirma-texto">
+            <span v-if="leituraLivre?.tipo === 'conhecida'">
+              A etiqueta vai ser <strong>apagada</strong> e a peça volta para a fila de gravação.
+              A etiqueta apagada continua costurada dentro da bolsa.
+            </span>
+            <span v-else>
+              A etiqueta vai ser <strong>apagada</strong> e poderá ser reaproveitada.
+            </span>
+          </p>
+
+          <label v-if="leituraPedeGarantia" class="au-campo"><span class="au-rot">Motivo</span>
+            <input v-model="motivoDaLeitura" type="text" :disabled="ocupadoNaLeitura"
+                   placeholder="Por que esta bolsa perde a identidade?">
+          </label>
+
+          <label class="au-campo"><span class="au-rot">Sua senha</span>
+            <input v-model="senhaDaLeitura" type="password" autocomplete="current-password"
+                   :disabled="ocupadoNaLeitura">
+          </label>
+
+          <div class="au-acoes">
+            <button class="au-botao" type="button" :disabled="ocupadoNaLeitura || !senhaDaLeitura"
+                    @click="leituraLivre?.tipo === 'conhecida' ? confirmarResetDaLeitura() : apagarChipOrfao()">
+              {{ ocupadoNaLeitura ? 'Apagando…' : 'Apagar a etiqueta' }}
+            </button>
+            <button class="au-botao secundario" type="button" :disabled="ocupadoNaLeitura"
+                    @click="confirmandoReset = false; senhaDaLeitura = ''">Cancelar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div v-if="formulario" class="au-fundo" @click.self="formulario = false">
       <form class="au-folha" @submit.prevent="gerarLote">
         <!-- O BOTÃO DE FECHAR TEM 40px DE ALVO E MORA NO CANTO (PADRÃO item 4).
@@ -2180,6 +2197,25 @@ const acoesDaLeituraAgora = computed(
   () => acoesDaLeitura(leituraLivre.value, { podeMexer: podeEditar.value }),
 )
 const leituraPedeGarantia = computed(() => precisaConfirmarGarantia(leituraLivre.value))
+
+const leituraAberta = ref(false)
+
+// ABRE E JÁ COMEÇA A LER. Na bancada a pessoa chega com a etiqueta na mão: um
+// segundo clique dentro do modal para "agora sim, leia" seria um passo que só
+// existe porque o programa quis.
+function abrirLeituraDeEtiqueta() {
+  leituraAberta.value = true
+  lerEtiquetaLivre()
+}
+
+// FECHAR LIMPA TUDO, inclusive a senha. Senha que sobrevive ao fecha-e-abre é
+// senha esperando ser usada por engano na próxima etiqueta — a mesma regra que
+// a aba já segue no apagar da lista.
+function fecharLeituraDeEtiqueta() {
+  if (ocupadoNaLeitura.value) return   // no meio de uma escrita não se fecha
+  leituraAberta.value = false
+  limparLeitura()
+}
 
 function limparLeitura() {
   leituraLivre.value = null
@@ -3746,22 +3782,23 @@ onMounted(() => {
    de cor na lateral o separa dos cards de dado que vêm abaixo, sem inventar
    fundo novo. Cor sai de token misturado com a superfície, para os dois temas
    se cuidarem sozinhos (PADRÃO item 2). */
-/* ⚠️ O RECUO SAI DO INVÓLUCRO, e é o MESMO dos irmãos desta aba (`.au-lista`,
-   `.au-campo`, `.au-acoes`, `.au-instrucao`, todos `16px 24px 0`). O bloco
-   nasceu sem ele e encostava na borda da tela — o card tem recheio próprio, que
-   é o espaço DENTRO dele, e não o afastamento da margem. São duas medidas
-   diferentes, e confundi-las foi o defeito. O `max-width` acompanha o da lista
-   para os dois começarem e terminarem na mesma linha. */
-.au-ler-livre-fora{padding:var(--sp-4) var(--sp-5) 0; max-width:720px;}
-.au-ler-livre{
-  border-left:3px solid color-mix(in srgb,var(--accent) 70%,var(--border));
+/* ── LER UMA ETIQUETA: O MODAL ─────────────────────────────────────────────
+   A primeira versão era um painel aberto na aba, e o dono reprovou: ocupava a
+   tela para uma ação rápida e rara, e brigava com a lista, que é o assunto da
+   aba. Agora é um botão e um modal — e o modal é o `.au-fundo`/`.au-folha` que
+   esta tela já tinha, com as regras do PADRÃO item 4 já resolvidas dentro dele
+   (dvh, o par touch-action/overscroll, fechar no fundo, alvo de 40px).
+
+   O RECUO DE 24px é o mesmo do `.au-folha-topo`: dentro da folha, quem tem
+   recuo próprio é cada bloco, porque a folha rola e o cabeçalho não. */
+.au-leitura-corpo{
+  display:flex; flex-direction:column; align-items:center;
+  gap:var(--sp-2); padding:var(--sp-5) 24px 0; text-align:center;
 }
-.au-leitura-achado{margin-top:var(--sp-3)}
-/* Os anéis vêm da bancada com o tamanho da bancada, onde a tela é vista de pé e
-   de longe. Aqui é uma consulta rápida, sentado: o mesmo desenho, menor. */
-.au-leitura-estado{margin-top:var(--sp-4)}
-.au-leitura-estado .au-aneis-caixa{width:68px}
-.au-leitura-estado .au-aneis{width:68px; height:68px}
+.au-leitura-aneis{width:120px; flex:none}
+.au-leitura-titulo, .au-leitura-detalhe{margin:0; max-width:34ch}
+.au-leitura-achado{padding:var(--sp-4) 24px 0}
+.au-leitura-achado .au-modelo{display:block}
 .au-link{margin-top:10px;font-family:var(--fonte-principal);font-size:var(--texto-corpo);font-weight:600;color:var(--accent);background:none;border:none;padding:0;cursor:pointer;text-align:left;overflow-wrap:anywhere;}
 
 .au-campo{display:block;padding:16px 24px 0;max-width:520px;}
