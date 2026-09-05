@@ -1,0 +1,33 @@
+-- APLICADA EM 05/09/2026. Registro do que foi para producao.
+--
+-- BAIXAR A GARANTIA DE UMA PECA QUE VOLTOU, GUARDANDO O HISTORICO.
+-- Pedido do dono: "caso a cliente devolver depois de ter validado a garantia,
+-- coloca a garantia como baixada e mantem historico no sistema".
+--
+-- ⚠️ BAIXAR E MOVER, NAO MARCAR — e a escolha tem duas razoes MEDIDAS:
+--   1. `vessel_registros` tem PRIMARY KEY (codigo): uma garantia por peca. Com a
+--      linha fora de la, a chave libera e a PROXIMA dona registra normalmente,
+--      que foi a decisao do dono. Marcando com uma coluna, seria preciso trocar
+--      a chave primaria de uma tabela com 12 funcoes em cima.
+--   2. DOZE funcoes leem `vessel_registros`. Marcando, CADA UMA teria de
+--      aprender a ignorar as baixadas — e bastaria UMA esquecida para as
+--      iniciais da dona anterior aparecerem num canto da tela ou na pagina
+--      PUBLICA do selo. Movendo, esse buraco nao chega a existir.
+--
+-- ⚠️ A TRAVA FOI CONFERIDA CONTRA AS IRMAS, e nao escrita de cabeca. A irma
+-- certa e `vessel_edicoes` (a trilha): RLS ligada, `anon` NAO le, `authenticated`
+-- le so se for admin, e NINGUEM escreve direto. Esta tabela guarda CPF, nome e
+-- WhatsApp: merece a trava da trilha, e nao a de `vessel_registros`, que anon
+-- alcanca. Ja subiu tabela sem trava nesta casa, e nove revisoes passaram batido.
+--
+-- ⚠️ E FOI PRECISO UMA SEGUNDA MIGRATION (ver o arquivo irmao desta data): a
+-- tabela nasceu com INSERT/UPDATE/DELETE para `authenticated`, pela concessao
+-- padrao do Supabase. `grant select` nao retira o resto.
+--
+-- PROVADO em transacao com ROLLBACK, sem sujar dado real: com a garantia ativa a
+-- pagina mostrava "Fulana D."; depois do movimento ela abre igual, com
+-- `registrada: false`, dono VAZIO e o modelo intacto — autenticidade preservada,
+-- dona anterior fora do ar. O historico ficou com nome, CPF e motivo.
+--
+-- O SQL completo esta no banco. Para le-lo:
+--   select pg_get_functiondef(oid) from pg_proc where proname='vessel_baixar_garantia';

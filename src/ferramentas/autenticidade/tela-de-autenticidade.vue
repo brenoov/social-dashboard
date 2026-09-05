@@ -1297,10 +1297,45 @@
             Compra conferida: pedido {{ r.bling_pedido }} no Bling.
           </p>
 
-          <div v-if="podeEditar && trocando !== r.codigo" class="au-acoes">
+          <div v-if="podeEditar && trocando !== r.codigo && baixandoGarantia !== r.codigo" class="au-acoes">
             <button class="au-botao secundario" type="button" @click="abrirTroca(r)">
               Trocar de dono
             </button>
+            <!-- ⚠️ TROCAR E BAIXAR SAO COISAS DIFERENTES, e ficam lado a lado de
+                 proposito: bolsa que mudou de mao TROCA de dono e a garantia segue;
+                 bolsa que VOLTOU tem a garantia encerrada. Quem confunde as duas apaga
+                 a garantia de uma cliente que continua com a bolsa — por isso os
+                 rotulos dizem o que ACONTECE, e nao "editar". -->
+            <button class="au-botao secundario" type="button" @click="abrirBaixaDeGarantia(r)">
+              Encerrar garantia (devolução)
+            </button>
+          </div>
+
+          <!-- A PERGUNTA DA BAIXA. Motivo SEMPRE obrigatorio e senha, como o resto da
+               tela: isto apaga o vinculo de uma pessoa de verdade com a bolsa dela. -->
+          <div v-if="baixandoGarantia === r.codigo" class="au-confirma">
+            <p class="au-confirma-texto">
+              A garantia de <strong>{{ r.nome }}</strong> vai ser encerrada.
+              A página do selo volta a mostrar a bolsa <strong>sem dona</strong> — as iniciais
+              dela somem de lá — e a peça pode ser registrada de novo por quem comprar.
+              O histórico fica guardado aqui dentro.
+            </p>
+            <label class="au-campo"><span class="au-rot">Motivo</span>
+              <input v-model="motivoDaBaixaDeGarantia" type="text" :disabled="baixaDeGarantiaEmVoo"
+                     placeholder="Por que a garantia está sendo encerrada?"></label>
+            <label class="au-campo"><span class="au-rot">Sua senha</span>
+              <input v-model="senhaDaBaixa" type="password" autocomplete="current-password"
+                     :disabled="baixaDeGarantiaEmVoo"></label>
+            <p v-if="erroDaBaixa" class="au-erro" role="alert">{{ erroDaBaixa }}</p>
+            <div class="au-acoes">
+              <button class="au-botao" type="button"
+                      :disabled="baixaDeGarantiaEmVoo || !senhaDaBaixa || !motivoDaBaixaDeGarantia.trim()"
+                      @click="confirmarBaixaDeGarantia(r)">
+                {{ baixaDeGarantiaEmVoo ? 'Encerrando…' : 'Encerrar a garantia' }}
+              </button>
+              <button class="au-botao secundario" type="button" :disabled="baixaDeGarantiaEmVoo"
+                      @click="fecharBaixaDeGarantia">Cancelar</button>
+            </div>
           </div>
 
           <!-- ⚠️ REVENDA E PRESENTE SÃO O CASO NORMAL DISTO, não a exceção: uma
@@ -2139,6 +2174,60 @@ const loteAtual = computed(() => lotes.value.find((l) => l.id === loteEscolhido.
 // edição não basta, porque é na criação que ela entra. A frase é uma só, e mora
 // em `lotes.js`, junto da regra — frase escrita em dois lugares diverge no dia
 // em que uma delas muda.
+// ── ENCERRAR A GARANTIA DE UMA PEÇA QUE VOLTOU ────────────────────────────
+// Pedido do dono em 05/09/2026. BAIXAR É MOVER, e não marcar: a linha sai de
+// `vessel_registros` e vai para o histórico. Por isso a página do selo volta a
+// mostrar a bolsa sem dona SOZINHA, e a peça pode ser registrada de novo — sem
+// que nenhuma das 12 funções que leem registros precise aprender nada.
+const baixandoGarantia = ref(null)
+const motivoDaBaixaDeGarantia = ref('')
+const senhaDaBaixa = ref('')
+const erroDaBaixa = ref('')
+const baixaDeGarantiaEmVoo = ref(false)
+
+function abrirBaixaDeGarantia(r) {
+  baixandoGarantia.value = r.codigo
+  // ⚠️ NASCE LIMPO. Motivo e senha da vez anterior sobrando aqui seriam a baixa
+  // seguinte acontecendo com a justificativa da anterior — e ninguém veria.
+  motivoDaBaixaDeGarantia.value = ''
+  senhaDaBaixa.value = ''
+  erroDaBaixa.value = ''
+  trocando.value = null   // as duas perguntas nunca ficam abertas juntas
+}
+
+function fecharBaixaDeGarantia() {
+  baixandoGarantia.value = null
+  motivoDaBaixaDeGarantia.value = ''
+  senhaDaBaixa.value = ''
+  erroDaBaixa.value = ''
+}
+
+async function confirmarBaixaDeGarantia(r) {
+  const motivo = motivoDaBaixaDeGarantia.value.trim()
+  // A TELA COBRA O MOTIVO ANTES DO BANCO. Sem isto a pessoa digita a senha,
+  // espera a rede, e descobre que faltava um campo que estava na tela o tempo todo.
+  if (!motivo) { erroDaBaixa.value = fraseDaRecusa('motivo_obrigatorio'); return }
+
+  baixaDeGarantiaEmVoo.value = true
+  erroDaBaixa.value = ''
+  try {
+    const conferida = await conferirASenha(senhaDaBaixa.value)
+    if (!conferida.ok) { erroDaBaixa.value = fraseDaSenha(conferida.erro); return }
+
+    const { data, error } = await sbClient.rpc('vessel_baixar_garantia', {
+      p_codigo: r.codigo, p_motivo: motivo,
+    })
+    if (error) { erroDaBaixa.value = 'Não consegui encerrar agora. Nada foi alterado.'; return }
+    if (!data?.ok) { erroDaBaixa.value = fraseDaRecusa(data?.motivo, data); return }
+
+    fecharBaixaDeGarantia()
+    adminToast('Garantia encerrada. A página do selo já não mostra dona.', true)
+    await carregar()
+  } finally {
+    baixaDeGarantiaEmVoo.value = false
+  }
+}
+
 const listaDeProdutosAberta = ref(false)
 const produtosLidos = ref(0)
 // A foto grande do produto, quando se clica na lupa. `null` = ninguem pediu.
