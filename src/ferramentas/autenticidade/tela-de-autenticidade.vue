@@ -123,7 +123,6 @@
                  seria preciso abrir a edição de um lote por vez.
                  Ele não aparece hoje em lote nenhum: toda referência tem quatro
                  dígitos. Aviso que aparece sempre vira paisagem (PADRÃO item 9). -->
-            <span v-if="serieAmbigua(l.sku)" class="selo selo-atencao">Nº de série ambíguo</span>
             <span>{{ l.quantidade }} {{ l.quantidade === 1 ? 'peça' : 'peças' }}</span>
             <span>{{ dataCurta(l.fabricado_em) }}</span>
           </div>
@@ -212,12 +211,6 @@
                  dedo trocado — e é justamente ele que amarra a bolsa ao papel. -->
             <label class="au-campo"><span class="au-rot">O.S. (opcional)</span>
               <input v-model="edicao.os" type="text" maxlength="40"></label>
-            <!-- O AVISO SEGUE O QUE ESTÁ DIGITADO, e não o que está gravado:
-                 quem está corrigindo a referência precisa ver o aviso sumir
-                 enquanto digita, senão não tem como saber se resolveu. -->
-            <p v-if="avisoDaSerieEditada" class="au-confirma au-aviso-serie au-aviso-serie-edicao">
-              {{ avisoDaSerieEditada }}
-            </p>
             <label class="au-campo"><span class="au-rot">Finalizado em</span>
               <input v-model="edicao.fabricado_em" type="date"></label>
             <label class="au-campo"><span class="au-rot">Quantidade</span>
@@ -1737,7 +1730,6 @@
              sabe disso é o dono — o campo continua aceitando e o botão "Gerar"
              continua ligado. O que a tela não pode é deixar entrar em silêncio
              uma referência que faz dois números de série iguais. -->
-        <p v-if="avisoDaSerieNova" class="au-confirma au-aviso-serie">{{ avisoDaSerieNova }}</p>
         <label class="au-campo"><span class="au-rot">Quantidade de peças</span>
           <input v-model.number="novo.quantidade" type="number" min="1" max="500" required></label>
         <label class="au-campo"><span class="au-rot">Finalizado em</span>
@@ -1807,7 +1799,7 @@ import {
   rotuloDoMotivo, pecasEmOrdem, estadoDaPeca, linhasDaListaDoLote,
   codigosComGarantia, etiquetasGravadas, motivoObrigatorio, descricaoDaPeca,
   agruparPorLote, abrirPorPadrao, contagemDoGrupo,
-  rotuloDaSerie, prefixoDaSerie, serieAmbigua, avisoDeSerieAmbigua, fraseDaPecaNaMao,
+  rotuloDaSerie, prefixoDaSerie, fraseDaPecaNaMao,
 } from './lotes.js'
 import {
   filaDeGarantia, comoConferir, fraseDaRecusaDeGarantia,
@@ -2178,8 +2170,6 @@ async function verFotoGrande(produto) {
   }
 }
 
-const avisoDaSerieNova = computed(() => avisoDeSerieAmbigua(novo.sku))
-const avisoDaSerieEditada = computed(() => avisoDeSerieAmbigua(edicao.sku))
 const proxima = computed(() => proximaPorGravar(pecasDoLote(loteEscolhido.value)))
 const resumo = computed(() => resumoDeAlertas(alertas.value))
 

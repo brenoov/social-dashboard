@@ -25,7 +25,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import {
-  DIGITOS_DA_REFERENCIA, numeroDeSerie, serieAmbigua, avisoDeSerieAmbigua,
+  numeroDeSerie,
   rotuloDaSerie, prefixoDaSerie, descricaoDaPeca, linhasDaListaDoLote,
   fraseDaPecaNaMao,
 } from './lotes.js'
@@ -33,24 +33,44 @@ import {
 /* ── 1. O FORMATO QUE O DONO ESCOLHEU ─────────────────────────────────────── */
 
 test('o número de série é os DÍGITOS da referência colados na sequência da peça', () => {
-  assert.equal(numeroDeSerie('H0015S', 1), '00151')
-  assert.equal(numeroDeSerie('H0015S', 12), '001512')
-  assert.equal(numeroDeSerie('C0011S', 3), '00113')
+  assert.equal(numeroDeSerie('H0015S', 1), '0015001')
+  assert.equal(numeroDeSerie('H0015S', 12), '0015012')
+  assert.equal(numeroDeSerie('C0011S', 3), '0011003')
 })
 
-test('sem separador e sem zero de enchimento: a peça 1 não vira "01"', () => {
-  // padStart aqui inventaria um número que a etiqueta da cliente não tem
-  assert.equal(numeroDeSerie('H0015S', 1), '00151')
-  assert.equal(numeroDeSerie('H0015S', 9), '00159')
-  assert.equal(numeroDeSerie('H0015S', 10), '001510')
+test('⚠️ a sequência tem LARGURA FIXA de 3 casas', () => {
+  /* ESTE TESTE ERA O CONTRÁRIO ATÉ 04/09/2026: exigia que a peça 1 saísse como
+   * "1", sem enchimento. A decisão mudou porque colar dois números de tamanho
+   * variável não tem leitura de volta.
+   *
+   * TRÊS CASAS BASTAM E ISSO É DEMONSTRÁVEL, não estimado: o banco recusa lote
+   * acima de 500 peças, então peça 1000 não existe. */
+  assert.equal(numeroDeSerie('H0015S', 1), '0015001')
+  assert.equal(numeroDeSerie('H0015S', 9), '0015009')
+  assert.equal(numeroDeSerie('H0015S', 10), '0015010')
   assert.equal(numeroDeSerie('H0015S', 500), '0015500')
 })
 
+test('⚠️ REFERENCIAS DE TAMANHOS DIFERENTES NAO COLIDEM MAIS', () => {
+  /* É o teste que prova que o defeito acabou, e não só que o formato mudou.
+   * Antes: 0015 + peça 12 = "001512" = 00151 + peça 2. O mesmo número para duas
+   * bolsas diferentes. */
+  const quatro = numeroDeSerie('H0015S', 12)   // referência 0015, peça 12
+  const cinco = numeroDeSerie('H00151S', 2)    // referência 00151, peça 2
+  assert.notEqual(quatro, cinco, 'duas bolsas com o mesmo número de série')
+  assert.equal(quatro, '0015012')
+  assert.equal(cinco, '00151002')
+
+  // E a leitura de volta é única: tira as 3 últimas, sobra a referência.
+  assert.equal(quatro.slice(0, -3), '0015')
+  assert.equal(cinco.slice(0, -3), '00151')
+})
+
 test('as letras da referência não entram — só os dígitos', () => {
-  assert.equal(numeroDeSerie('LV1021', 7), '10217')
-  assert.equal(numeroDeSerie('h0015s', 7), '00157')
-  assert.equal(numeroDeSerie(' H0015S ', 7), '00157')
-  assert.equal(numeroDeSerie('H-0015/S', 7), '00157')
+  assert.equal(numeroDeSerie('LV1021', 7), '1021007')
+  assert.equal(numeroDeSerie('h0015s', 7), '0015007')
+  assert.equal(numeroDeSerie(' H0015S ', 7), '0015007')
+  assert.equal(numeroDeSerie('H-0015/S', 7), '0015007')
 })
 
 /* ── 2. SEM REFERÊNCIA NÃO HÁ NÚMERO DE SÉRIE ─────────────────────────────── */
@@ -79,46 +99,13 @@ test('`Number(null)` é ZERO e é finito — a guarda exige inteiro MAIOR QUE ZE
 })
 
 test('sequência escrita como texto de um inteiro vale — é o que vem do banco', () => {
-  assert.equal(numeroDeSerie('H0015S', '12'), '001512')
+  assert.equal(numeroDeSerie('H0015S', '12'), '0015012')
 })
 
 /* ── 4. A TRAVA DA AMBIGUIDADE ────────────────────────────────────────────── */
 
-test('hoje a referência tem quatro dígitos, e é isso que sustenta o formato colado', () => {
-  assert.equal(DIGITOS_DA_REFERENCIA, 4)
-})
-
-test('referência com quantidade de dígitos diferente de quatro é AMBÍGUA', () => {
-  assert.equal(serieAmbigua('H0015S'), false, '0015 tem quatro — é o padrão de hoje')
-  assert.equal(serieAmbigua('C0011S'), false)
-  assert.equal(serieAmbigua('H015S'), true, 'três dígitos')
-  assert.equal(serieAmbigua('H00151S'), true, 'cinco dígitos')
-})
-
-test('referência sem dígito nenhum não é ambígua — ela simplesmente não tem série', () => {
-  // avisar aqui seria aviso que aparece sempre, e aviso que aparece sempre vira
-  // paisagem (PADRÃO item 9)
-  assert.equal(serieAmbigua(''), false)
-  assert.equal(serieAmbigua(null), false)
-  assert.equal(serieAmbigua('SEMNUMERO'), false)
-})
-
-test('o aviso diz quantos dígitos são, e mostra as DUAS leituras possíveis', () => {
-  assert.equal(avisoDeSerieAmbigua('H0015S'), '', 'com quatro dígitos não há o que avisar')
-  assert.equal(avisoDeSerieAmbigua(''), '')
-  const aviso = avisoDeSerieAmbigua('H00151S')
-  assert.match(aviso, /5 dígitos/, 'a pessoa precisa saber QUANTOS são')
-  assert.match(aviso, /4 dígitos|quatro/, 'e quantos as outras têm')
-  // sem os dois exemplos lado a lado, "ambíguo" é palavra de programador
-  assert.match(aviso, /001512/)
-  assert.match(aviso, /Nada está bloqueado|Nada foi bloqueado/,
-    'a tela avisa, não impede: quem decide se a referência muda é o dono')
-})
-
-/* ── 5. O RÓTULO QUE A TELA ESCREVE ───────────────────────────────────────── */
-
 test('com referência, o rótulo é o número de série', () => {
-  assert.equal(rotuloDaSerie({ numero_na_serie: 12 }, { sku: 'H0015S' }), 'nº de série 001512')
+  assert.equal(rotuloDaSerie({ numero_na_serie: 12 }, { sku: 'H0015S' }), 'nº de série 0015012')
 })
 
 test('SEM referência o rótulo volta a ser o `nº 3` de sempre', () => {
@@ -129,7 +116,7 @@ test('SEM referência o rótulo volta a ser o `nº 3` de sempre', () => {
 })
 
 test('`curto` é só o número, para onde o cabeçalho da coluna já diz o que ele é', () => {
-  assert.equal(rotuloDaSerie({ numero_na_serie: 12 }, { sku: 'H0015S' }, { curto: true }), '001512')
+  assert.equal(rotuloDaSerie({ numero_na_serie: 12 }, { sku: 'H0015S' }, { curto: true }), '0015012')
 })
 
 test('o `curto` NÃO encurta o fallback: sem referência a célula continua dizendo `nº 3`', () => {
@@ -150,7 +137,7 @@ test('descricaoDaPeca nomeia a bolsa pelo número de série quando há referênc
   const f = descricaoDaPeca(
     { numero_na_serie: 7, codigo: 'k7m4x9qp2r' },
     { modelo: 'Mônaco', cor: 'Quartz', sku: 'H0015S' })
-  assert.equal(f, 'Mônaco · Quartz · nº de série 00157 — K7M4X9QP2R')
+  assert.equal(f, 'Mônaco · Quartz · nº de série 0015007 — K7M4X9QP2R')
 })
 
 test('descricaoDaPeca sem referência continua dizendo `nº 7`, como sempre disse', () => {
@@ -168,7 +155,7 @@ test('a lista do lote ganha a coluna do número de série, e ELA VEM PRIMEIRO', 
     [{ numero_na_serie: 12, codigo: 'AAA111' }], { sku: 'H0015S' })
   const [cab, linha] = csv.split('\n')
   assert.equal(cab, 'numero de serie;numero;codigo;endereco;estado;gravada em;motivo da baixa')
-  assert.match(linha, /^001512;12;AAA111;/)
+  assert.match(linha, /^0015012;12;AAA111;/)
 })
 
 test('a coluna do NÚMERO DA PEÇA continua na planilha — nada se perde', () => {
@@ -297,70 +284,16 @@ test('o "nº 8 de 20" da bancada NÃO virou número de série, e isso é decisã
 const script = tela.slice(tela.indexOf('<script setup>'))
 const estilo = tela.slice(tela.indexOf('<style'))
 
-test('as DUAS portas do lote avisam quando a referência faria número de série ambíguo', () => {
-  // só a criação não basta — a referência também se corrige na edição; só a
-  // edição não basta — é na criação que ela entra
-  assert.match(script, /const avisoDaSerieNova = computed\(\(\) => avisoDeSerieAmbigua\(novo\.sku\)\)/)
-  assert.match(script, /const avisoDaSerieEditada = computed\(\(\) => avisoDeSerieAmbigua\(edicao\.sku\)\)/)
-  assert.match(template, /v-if="avisoDaSerieNova"/)
-  assert.match(template, /v-if="avisoDaSerieEditada"/)
-})
-
-test('o aviso segue o que está DIGITADO, e não o que está gravado', () => {
-  // quem está corrigindo a referência precisa ver o aviso sumir enquanto digita
-  for (const campo of ['novo.sku', 'edicao.sku']) {
-    assert.ok(script.includes(`avisoDeSerieAmbigua(${campo})`),
-      `o aviso não lê ${campo}: ele mostraria o estado de antes da correção`)
-  }
-})
-
-test('a tela AVISA e não IMPEDE: nada trava por causa da ambiguidade', () => {
-  // o dono escolheu o formato sabendo da ressalva. Quem decide se a referência
-  // muda é ele, e um botão travado tiraria essa decisão dele.
-  assert.doesNotMatch(script, /serieAmbigua\([^)]*\)[^\n]*\breturn\b/,
-    'alguma conta passou a recusar por causa da ambiguidade — o combinado é avisar')
-  assert.doesNotMatch(template, /:disabled="[^"]*[sS]erie[aA]mbigua/,
-    'um botão ficou travado pela ambiguidade — o combinado é avisar, não impedir')
-})
-
-test('o cartão do lote mostra o selo, e a referência CRUA continua lá', () => {
+test('o cartão do lote mantém a referência CRUA', () => {
   // PADRÃO item 8: o número de série leva só os DÍGITOS da referência. As letras
   // ("H", "S") não entram nele em lugar nenhum — sem esta linha elas sumiriam da
   // tela inteira, e este é o lugar delas.
   assert.match(template, /<span v-if="l\.sku" class="au-ref">ref\. \{\{ l\.sku \}\}<\/span>/,
     'a referência crua sumiu do cartão: as letras dela não moram em mais lugar nenhum')
-  assert.match(template, /v-if="serieAmbigua\(l\.sku\)" class="selo selo-atencao"/)
+  // O selo "Nº de série ambíguo" saiu em 04/09/2026 junto com a ambiguidade —
+  // ver o teste da remoção, no fim deste arquivo.
 })
 
-test('o aviso é bloco de aviso da casa, e não cor escolhida no olho', () => {
-  // PADRÃO item 2: cor só de token, e o texto em `--text` porque a cor é o
-  // SINAL. `.au-confirma` é o desenho de aviso que esta tela já tem.
-  assert.match(template, /class="au-confirma au-aviso-serie/,
-    'o aviso tem de reaproveitar `.au-confirma`, o bloco de aviso desta tela')
-  const regra = estilo.match(/\n\.au-aviso-serie\{([^}]*)\}/)
-  assert.ok(regra, 'sumiu a regra do recuo do aviso')
-  assert.doesNotMatch(regra[1], /#[0-9a-f]{3,8}/i, 'hex de cor no aviso')
-  assert.doesNotMatch(regra[1], /font-size:\s*\d/, 'tamanho de texto escolhido no olho')
-})
-
-test('o recuo do celular do aviso vive no `@media` do FIM do arquivo', () => {
-  // duas regras de mesma especificidade, ganha a última: um ajuste de celular
-  // escrito antes das regras-base seria apagado em silêncio
-  const celular = estilo.lastIndexOf('@media (max-width:520px){')
-  assert.notEqual(celular, -1)
-  assert.ok(estilo.indexOf('.au-aviso-serie{') < celular,
-    'a regra-base do aviso tem de vir ANTES do `@media` do celular')
-  assert.match(estilo.slice(celular), /\.au-aviso-serie\{margin-left:16px/,
-    'o aviso não recuou junto com os campos a 375px')
-})
-
-// ── A FRASE GRANDE DA BANCADA, DEPOIS QUE A SÉRIE PASSOU A ACEITAR BURACO ──
-//
-// Em 03/09/2026 peça gravada ou com garantia passou a CONGELAR no número dela,
-// porque esse número virou o número de série impresso no certificado da
-// cliente. O preço combinado com o dono é o vão: um lote de nove peças pode ter
-// uma numerada 10, e aí `nº 10 de 9` seria uma frase impossível na maior letra
-// da tela, no meio de uma gravação em série.
 test('fraseDaPecaNaMao: o caso normal continua igual', () => {
   assert.equal(fraseDaPecaNaMao({ numero_na_serie: 8 }, { quantidade: 20 }), 'nº 8 de 20')
   assert.equal(fraseDaPecaNaMao({ numero_na_serie: 1 }, { quantidade: 1 }), 'nº 1 de 1')
@@ -384,4 +317,24 @@ test('fraseDaPecaNaMao: sem total confiável, mostra só o número', () => {
 test('fraseDaPecaNaMao: peça sem número nenhum não vira "nº undefined"', () => {
   assert.equal(fraseDaPecaNaMao({}, { quantidade: 20 }), '')
   assert.equal(fraseDaPecaNaMao(null, { quantidade: 20 }), '')
+})
+
+test('⚠️ O AVISO DE AMBIGUIDADE NAO EXISTE MAIS — porque o defeito nao existe', () => {
+  /* Ate 04/09/2026 a tela AVISAVA quando a referencia nao tinha quatro digitos:
+   * a sequencia ia sem enchimento, e "001512" podia ser duas bolsas.
+   *
+   * Com a sequencia em largura fixa isso acabou. Manter o aviso seria ALARME
+   * FALSO — e alarme que aparece sem causa cega para os que tem causa. Por isso
+   * `serieAmbigua` e `avisoDeSerieAmbigua` foram REMOVIDOS, e nao apenas
+   * desligados.
+   *
+   * Este teste guarda a remocao: se alguem trouxer o aviso de volta sem trazer
+   * de volta o defeito, ele reprova e pergunta por que. */
+  const fonte = readFileSync(new URL('./lotes.js', import.meta.url), 'utf8')
+  assert.doesNotMatch(fonte, /export function serieAmbigua/)
+  assert.doesNotMatch(fonte, /export function avisoDeSerieAmbigua/)
+
+  const tela = readFileSync(new URL('./tela-de-autenticidade.vue', import.meta.url), 'utf8')
+  assert.doesNotMatch(tela, /avisoDaSerie|serieAmbigua/,
+    'a tela voltou a mostrar um aviso cuja causa nao existe mais')
 })
