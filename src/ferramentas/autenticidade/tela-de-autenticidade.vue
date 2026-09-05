@@ -5129,6 +5129,18 @@ onMounted(() => {
      ela tem duas etapas, senha e recusa escrita, e não é uma célula. */
   .au-tabela .au-card > .au-confirma{grid-column:1 / -1; margin-top:var(--sp-3);}
 
+  /* ⚠️ PELO MESMO MOTIVO, OS BOTÕES DE AÇÃO. Filho direto de `.au-card` vira UMA
+     célula da grade, e a caixa dos botões caía numa coluna de ~1fr: os dois
+     botões não cabiam lado a lado ali, quebravam a linha por causa do
+     `flex-wrap:wrap` da regra-base e empilhavam um sobre o outro, esticando a
+     ALTURA DA LINHA INTEIRA. Medido no navegador em 05/09/2026, a 1440px.
+     Ocupando a linha toda eles voltam a ficar lado a lado.
+     O `padding` horizontal da regra-base (24px, pensado para fora de card)
+     também sai: aqui quem dá o respiro é o `padding` do próprio card. */
+  .au-tabela .au-card > .au-acoes{
+    grid-column:1 / -1; padding:0; margin-top:var(--sp-2);
+  }
+
   .au-tabela-etiquetas .au-tabela-cab, .au-tabela-etiquetas .au-card{
     grid-template-columns:minmax(0,2fr) minmax(0,1fr) minmax(0,1.3fr) minmax(0,2.4fr) minmax(0,1.4fr);
   }

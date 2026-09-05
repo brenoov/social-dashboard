@@ -172,3 +172,36 @@ test('nenhuma regra da tela grande vale abaixo de 900px', () => {
   assert.doesNotMatch(painelGrande, /@media[^{]*max-width/,
     'o bloco da tela grande do painel ganhou um `max-width` dentro');
 });
+
+/* ── FILHO DIRETO DO CARD VIRA UMA CÉLULA ────────────────────────────────────
+ * No computador `.au-tabela .au-card` é `display:grid`, e TODO filho direto cai
+ * numa coluna. A caixa dos botões caía numa coluna de ~1fr, onde os dois botões
+ * não cabiam lado a lado: o `flex-wrap:wrap` da regra-base os empilhava e a
+ * linha inteira crescia. Medido em 05/09/2026 a 1440px: 195px empilhados contra
+ * 143px lado a lado — 52px a mais em CADA linha da aba Garantias.
+ *
+ * Quem tem de ocupar a linha toda são os blocos que NÃO são célula: a conversa
+ * de confirmação e a caixa de botões. */
+test('caixa de botoes dentro de card-tabela ocupa a LINHA INTEIRA', () => {
+  assert.match(estilo, /\.au-tabela \.au-card > \.au-acoes\{[^}]*grid-column:1 \/ -1/,
+    'sem isto os botoes empilham numa coluna e esticam a altura da linha');
+});
+
+test('os DOIS blocos que nao sao celula ocupam a linha inteira', () => {
+  // Se alguem adicionar um terceiro bloco de largura cheia e esquecer a regra,
+  // o defeito volta calado. Aqui ficam os dois que existem hoje.
+  for (const bloco of ['au-confirma', 'au-acoes']) {
+    const re = new RegExp('\\.au-tabela \\.au-card > \\.' + bloco + '\\{[^}]*grid-column:1 \\/ -1');
+    assert.match(estilo, re, `${bloco} tem de ocupar a linha inteira dentro da tabela`);
+  }
+});
+
+test('a regra dos botoes vive no bloco de COMPUTADOR, e nao na regra-base', () => {
+  /* A grade so existe a partir de 900px. A mesma regra na base tiraria o
+   * `padding` da caixa de botoes no celular, onde nao ha grade nenhuma. */
+  const abre = estilo.indexOf('@media (min-width:900px)');
+  assert.ok(abre > -1, 'nao achei o bloco de computador');
+  const daRegra = estilo.indexOf('.au-tabela .au-card > .au-acoes');
+  assert.ok(daRegra > abre,
+    'a regra dos botoes tem de estar DEPOIS da abertura do @media de computador');
+});
