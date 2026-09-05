@@ -15,16 +15,16 @@ export function enderecoDaTag(codigo) {
 // separador e sem zeros de enchimento:
 //
 //     referência H0015S, peça 1   →  00151
-//     referência H0015S, peça 12  →  001512
-//     referência C0011S, peça 3   →  00113
+//     referência H0015S, peça 12  →  0015012
+//     referência C0011S, peça 3   →  0011003
 //
-// ⚠️ COLADO SÓ NÃO É AMBÍGUO ENQUANTO TODA REFERÊNCIA TIVER A MESMA QUANTIDADE
-// DE DÍGITOS. Hoje são quatro (0011, 0012, 0015), então "001512" só pode ser a
-// referência 0015 na peça 12. No dia em que entrar uma de três ou de cinco,
-// "001512" passa a poder ser 0015+12 OU 00151+2 — e um número de série que
-// aponta para duas bolsas não é número de série. O dono escolheu o formato
-// sabendo disso; `serieAmbigua` e `avisoDeSerieAmbigua` são o que faz a tela
-// AVISAR (nunca impedir) antes que aconteça.
+// ⚠️ A SEQUÊNCIA TEM LARGURA FIXA, E É ISSO QUE SUSTENTA O FORMATO COLADO.
+// Até 04/09/2026 a peça ia sem enchimento, e aí "001512" podia ser a peça 12 da
+// referência 0015 OU a peça 2 da referência 00151 — um número que aponta para
+// duas bolsas não é número de série. A tela AVISAVA disso (`serieAmbigua`), e o
+// aviso deixou de existir junto com o defeito: com 3 casas sempre, as últimas
+// três são SEMPRE a peça e o resto é SEMPRE a referência, tenha ela quatro
+// dígitos ou cinco.
 //
 // SEM REFERÊNCIA NÃO HÁ NÚMERO DE SÉRIE. Aí a tela volta a mostrar o que já
 // mostrava — `nº 3` —, que é a verdade que se tem, em vez de um traço que não
@@ -34,10 +34,26 @@ export function enderecoDaTag(codigo) {
 // que é a página que a CLIENTE abre ao encostar o celular na bolsa. As duas são
 // a mesma de propósito: o número que a etiqueta manda para a cliente e o número
 // que o painel imprime na bancada têm de bater. Mudou uma, muda a outra — não há
-// terceira dona da regra.
-export const DIGITOS_DA_REFERENCIA = 4
-
+// terceira dona da regra. (Em 04/09/2026 as duas mudaram na mesma entrega.)
 const digitosDaReferencia = (sku) => String(sku ?? '').replace(/\D/g, '')
+
+// ⚠️ A SEQUÊNCIA TEM LARGURA FIXA, E É ISSO QUE DESFAZ A AMBIGUIDADE.
+//
+// Colar dois números de tamanho variável não tem leitura de volta: a referência
+// 0015 na peça 12 dava "001512", que é a peça 12 da referência 0015 OU a peça 2
+// da referência 00151. Um número que aponta para duas bolsas não é número de
+// série. O sistema já AVISAVA disso; agora não acontece mais.
+//
+// Com a sequência sempre em 3 casas, as últimas 3 são SEMPRE a peça e o resto é
+// SEMPRE a referência — não importa se ela tem 4 ou 5 dígitos. A leitura é única.
+//
+// TRÊS CASAS BASTAM, E ISSO É DEMONSTRÁVEL, não estimado: `vessel_gerar_lote` e
+// `vessel_editar_lote` recusam `p_quantidade > 500`. Peça 1000 não existe.
+//
+// ⚠️ QUEM JÁ ESTÁ CONGELADA NÃO MUDA — peça gravada ou com garantia mantém o
+// número que já foi ao mundo. Em 04/09/2026, quando isto entrou, havia UMA peça
+// congelada no sistema inteiro: era o momento mais barato que ia existir.
+export const DIGITOS_DA_SEQUENCIA = 3
 
 export function numeroDeSerie(sku, numero) {
   const digitos = digitosDaReferencia(sku)
@@ -46,34 +62,9 @@ export function numeroDeSerie(sku, numero) {
   // lado do certificado pegou isso. Aqui se exige INTEIRO MAIOR QUE ZERO.
   const n = (numero === null || numero === undefined || numero === '') ? NaN : Number(numero)
   if (!digitos || !Number.isInteger(n) || n < 1) return ''
-  return digitos + String(n)
+  return digitos + String(n).padStart(DIGITOS_DA_SEQUENCIA, '0')
 }
 
-export function serieAmbigua(sku) {
-  const digitos = digitosDaReferencia(sku)
-  // referência SEM dígito nenhum não é ambígua: ela simplesmente não tem série.
-  // Avisar dela seria aviso que aparece sempre, e aviso que aparece sempre vira
-  // paisagem (PADRÃO item 9).
-  return digitos.length > 0 && digitos.length !== DIGITOS_DA_REFERENCIA
-}
-
-// O AVISO, POR ESCRITO. Ele mora aqui, junto da regra, e não na tela: a mesma
-// frase serve às DUAS portas do lote (criar e editar), e frase escrita em dois
-// lugares é frase que diverge no dia em que uma delas muda.
-//
-// Ele mostra AS DUAS LEITURAS lado a lado de propósito. "Ambíguo" é palavra de
-// programador; "pode ser a peça 12 da 0015 ou a peça 2 da 00151" é a coisa.
-export function avisoDeSerieAmbigua(sku) {
-  const digitos = digitosDaReferencia(sku)
-  if (!serieAmbigua(sku)) return ''
-  return `Esta referência tem ${digitos.length} dígitos, e as outras têm ${DIGITOS_DA_REFERENCIA}. `
-    + 'O número de série cola os dígitos da referência na sequência da peça, sem separador — '
-    + 'a referência 0015 na peça 12 vira “001512”. Isso só aponta para uma bolsa só enquanto '
-    + `todas tiverem ${DIGITOS_DA_REFERENCIA} dígitos: misturando tamanhos, “001512” passa a poder `
-    + 'ser a peça 12 da referência 0015 OU a peça 2 da referência 00151 — e um número que aponta '
-    + 'para duas bolsas não é número de série. Nada está bloqueado: quem decide se a referência '
-    + 'muda é você.'
-}
 
 // O PREFIXO, SEPARADO DO NÚMERO. Ele existe porque o rótulo precisa sumir em UM
 // lugar só: a lista de peças é TABELA no computador, onde a coluna "Nº DE SÉRIE"

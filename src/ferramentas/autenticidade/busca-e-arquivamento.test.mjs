@@ -361,10 +361,12 @@ test('filtrarEtiquetas: por número na série, e ele casa EXATO', () => {
  */
 
 test('filtrarEtiquetas: o número de série INTEIRO acha a peça', () => {
+  // ⚠️ FORMATO NOVO desde 04/09/2026: a sequência tem 3 casas fixas. "10881"
+  // era SS1088 + peça 1; agora é "1088001". O porquê está em `numeroDeSerie`.
   const so = (texto) => codigos(filtrarEtiquetas(ETIQUETAS, { loteDaPeca, texto }))
-  assert.deepEqual(so('10881'), ['AAA111'], 'SS1088 na peça 1')
-  assert.deepEqual(so('12345'), ['BBB222'], 'SS1234 na peça 5')
-  assert.deepEqual(so('15009'), ['CCC333'], 'SS1500 na peça 9')
+  assert.deepEqual(so('1088001'), ['AAA111'], 'SS1088 na peça 1')
+  assert.deepEqual(so('1234005'), ['BBB222'], 'SS1234 na peça 5')
+  assert.deepEqual(so('1500009'), ['CCC333'], 'SS1500 na peça 9')
 })
 
 test('filtrarEtiquetas: o número de série casa EXATO, como o número da peça', () => {
@@ -389,13 +391,13 @@ test('filtrarEtiquetas: peça de lote sem referência não estoura nem casa com 
 test('filtrarLotes: o número de série de uma peça acha o LOTE dela', () => {
   // é o mesmo caminho de "esta bolsa aqui é de qual lote?" que já existia pelo
   // código — só que agora pelo número que está IMPRESSO na bolsa
-  assert.deepEqual(ids(filtrarLotes(LOTES, { pecasDoLote, texto: '10881', estado: 'todos' })), ['a'])
-  assert.deepEqual(ids(filtrarLotes(LOTES, { pecasDoLote, texto: '15001', estado: 'todos' })), ['c'])
+  assert.deepEqual(ids(filtrarLotes(LOTES, { pecasDoLote, texto: '1088001', estado: 'todos' })), ['a'])
+  assert.deepEqual(ids(filtrarLotes(LOTES, { pecasDoLote, texto: '1500001', estado: 'todos' })), ['c'])
   assert.deepEqual(ids(filtrarLotes(LOTES, { pecasDoLote, texto: '999999', estado: 'todos' })), [])
 })
 
 test('lotesParaGravar: o seletor da aba Gravar também acha pelo número de série', () => {
-  assert.deepEqual(ids(lotesParaGravar(LOTES, { pecasDoLote, texto: '10881' })), ['a'])
+  assert.deepEqual(ids(lotesParaGravar(LOTES, { pecasDoLote, texto: '1088001' })), ['a'])
 })
 
 test('filtrarEtiquetas: por estado', () => {
