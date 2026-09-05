@@ -338,3 +338,27 @@ test('⚠️ O AVISO DE AMBIGUIDADE NAO EXISTE MAIS — porque o defeito nao exi
   assert.doesNotMatch(tela, /avisoDaSerie|serieAmbigua/,
     'a tela voltou a mostrar um aviso cuja causa nao existe mais')
 })
+
+test('⚠️ O SUFIXO DE VARIACAO ENTRA no numero de serie, e isso e DECISAO', () => {
+  /* `SS0008HB.M5` vira `00085`, e nao `0008`. Parece descuido e nao e —
+   * decidido em 05/09/2026, com os dois caminhos medidos lado a lado.
+   *
+   * NO BLING CADA PRODUTO TEM SKU PROPRIO: `.M5` e `.M6` sao produtos
+   * diferentes, cores diferentes do mesmo molde. Pegando so o primeiro grupo de
+   * digitos, os dois virariam referencia `0008` e a peca 1 de cada um daria
+   * `0008001` — duas bolsas distintas com o MESMO numero de serie. Este teste
+   * existe para que a "limpeza" obvia reprove antes de chegar numa bolsa. */
+  assert.equal(numeroDeSerie('SS0008HB.M5', 1), '00085001')
+  assert.equal(numeroDeSerie('SS0008HB.M6', 1), '00086001')
+  assert.notEqual(numeroDeSerie('SS0008HB.M5', 1), numeroDeSerie('SS0008HB.M6', 1),
+    'duas variacoes do mesmo molde com o MESMO numero de serie')
+})
+
+test('os SKU sem sufixo nao mudam nada — a regra so aparece onde ha variacao', () => {
+  // Dos dez SKU que ja passaram pelo sistema, so UM tem sufixo com digito.
+  for (const [sku, esperado] of [['H0015S','0015001'], ['C0011S','0011001'],
+                                 ['LV1021','1021001'], ['SS1025-Fly Rum','1025001'],
+                                 ['SS-1162-Memphis Preto-Fly Olivia','1162001']]) {
+    assert.equal(numeroDeSerie(sku, 1), esperado, sku)
+  }
+})
