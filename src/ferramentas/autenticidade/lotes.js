@@ -197,6 +197,35 @@ export const MOTIVOS_DE_BAIXA = [
   { chave: 'teste', rotulo: 'Usada em teste' },
 ]
 
+// ── POR QUE A GARANTIA FOI ENCERRADA ───────────────────────────────────────
+// Lista separada da de baixa de PEÇA de propósito: lá a peça some da produção
+// (extravio, refugo); aqui a PEÇA continua existindo e quem sai é a dona. Um
+// motivo de uma lista aplicado na outra contaria história errada no histórico.
+//
+// `outro` é o escape obrigatório: nenhuma lista prevê a vida real, e sem ele a
+// pessoa escolheria o motivo "mais ou menos parecido" — que é pior do que texto
+// livre, porque parece preciso.
+export const MOTIVOS_DE_DEVOLUCAO = [
+  { chave: 'devolucao_arrependimento', rotulo: 'Devolução — arrependimento (7 dias)' },
+  { chave: 'devolucao_defeito', rotulo: 'Devolução — defeito na peça' },
+  { chave: 'troca_por_outra', rotulo: 'Trocada por outra peça' },
+  { chave: 'compra_cancelada', rotulo: 'Compra cancelada ou não paga' },
+  { chave: 'registro_errado', rotulo: 'Registrada por engano (pessoa ou selo errado)' },
+  { chave: 'outro', rotulo: 'Outro motivo (escrever)' },
+]
+
+// O TEXTO QUE VAI PARAR NO HISTÓRICO. O banco guarda `motivo` como texto livre,
+// então quem traduz a escolha em frase é aqui — e é aqui também que 'outro'
+// devolve o que a pessoa escreveu, em vez da palavra "outro", que não explica
+// nada para quem ler daqui a três meses.
+export function motivoDaDevolucaoEscrito(chave, escrito = '') {
+  const limpo = String(escrito || '').trim()
+  if (chave === 'outro') return limpo
+  const achado = MOTIVOS_DE_DEVOLUCAO.find((m) => m.chave === chave)
+  if (!achado) return limpo
+  return limpo ? `${achado.rotulo} — ${limpo}` : achado.rotulo
+}
+
 // O RÓTULO QUE A PESSOA LÊ, a partir da chave que o banco aceita. Ele MORA AQUI,
 // junto da lista, e não na tela: a lista completa do lote (`linhasDaListaDoLote`,
 // mais abaixo) escreve o mesmo motivo que a tela mostra, e rótulo escrito em

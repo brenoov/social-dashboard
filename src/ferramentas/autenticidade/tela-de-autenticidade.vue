@@ -1320,16 +1320,25 @@
               dela somem de lá — e a peça pode ser registrada de novo por quem comprar.
               O histórico fica guardado aqui dentro.
             </p>
-            <label class="au-campo"><span class="au-rot">Motivo</span>
+            <label class="au-campo"><span class="au-rot">Por que a garantia está sendo encerrada</span>
+              <select v-model="motivoEscolhidoDaDevolucao" :disabled="baixaDeGarantiaEmVoo">
+                <option value="">Escolha o motivo…</option>
+                <option v-for="m in MOTIVOS_DE_DEVOLUCAO" :key="m.chave" :value="m.chave">{{ m.rotulo }}</option>
+              </select>
+            </label>
+            <!-- A observação é OPCIONAL quando o motivo veio da lista, e
+                 OBRIGATÓRIA em "Outro" — que sem texto não explica nada. -->
+            <label v-if="motivoEscolhidoDaDevolucao" class="au-campo">
+              <span class="au-rot">{{ motivoEscolhidoDaDevolucao === 'outro' ? 'Escreva o motivo' : 'Observação (opcional)' }}</span>
               <input v-model="motivoDaBaixaDeGarantia" type="text" :disabled="baixaDeGarantiaEmVoo"
-                     placeholder="Por que a garantia está sendo encerrada?"></label>
+                     :placeholder="motivoEscolhidoDaDevolucao === 'outro' ? 'Escreva o que aconteceu' : 'Algum detalhe que ajude a entender depois'"></label>
             <label class="au-campo"><span class="au-rot">Sua senha</span>
               <input v-model="senhaDaBaixa" type="password" autocomplete="current-password"
                      :disabled="baixaDeGarantiaEmVoo"></label>
             <p v-if="erroDaBaixa" class="au-erro" role="alert">{{ erroDaBaixa }}</p>
             <div class="au-acoes">
               <button class="au-botao" type="button"
-                      :disabled="baixaDeGarantiaEmVoo || !senhaDaBaixa || !motivoDaBaixaDeGarantia.trim()"
+                      :disabled="baixaDeGarantiaEmVoo || !senhaDaBaixa || !motivoDaDevolucaoPronto"
                       @click="confirmarBaixaDeGarantia(r)">
                 {{ baixaDeGarantiaEmVoo ? 'Encerrando…' : 'Encerrar a garantia' }}
               </button>
@@ -1835,6 +1844,7 @@ import {
   codigosComGarantia, etiquetasGravadas, motivoObrigatorio, descricaoDaPeca,
   agruparPorLote, abrirPorPadrao, contagemDoGrupo,
   rotuloDaSerie, prefixoDaSerie, fraseDaPecaNaMao,
+  MOTIVOS_DE_DEVOLUCAO, motivoDaDevolucaoEscrito,
 } from './lotes.js'
 import {
   filaDeGarantia, comoConferir, fraseDaRecusaDeGarantia,
@@ -2180,15 +2190,27 @@ const loteAtual = computed(() => lotes.value.find((l) => l.id === loteEscolhido.
 // mostrar a bolsa sem dona SOZINHA, e a peça pode ser registrada de novo — sem
 // que nenhuma das 12 funções que leem registros precise aprender nada.
 const baixandoGarantia = ref(null)
+// A ESCOLHA da lista e o TEXTO livre são dois campos, e não um só: guardar os
+// dois juntos impediria saber se "" quer dizer "não escolheu" ou "escolheu e
+// não escreveu observação" — e é essa diferença que libera o botão.
+const motivoEscolhidoDaDevolucao = ref('')
 const motivoDaBaixaDeGarantia = ref('')
 const senhaDaBaixa = ref('')
 const erroDaBaixa = ref('')
 const baixaDeGarantiaEmVoo = ref(false)
 
+// O TEXTO FINAL que vai para o histórico, montado num lugar só: a trava do
+// botão e o que é gravado leem daqui, então não há como o botão liberar uma
+// coisa e o banco receber outra.
+const motivoDaDevolucaoPronto = computed(
+  () => motivoDaDevolucaoEscrito(motivoEscolhidoDaDevolucao.value, motivoDaBaixaDeGarantia.value),
+)
+
 function abrirBaixaDeGarantia(r) {
   baixandoGarantia.value = r.codigo
   // ⚠️ NASCE LIMPO. Motivo e senha da vez anterior sobrando aqui seriam a baixa
   // seguinte acontecendo com a justificativa da anterior — e ninguém veria.
+  motivoEscolhidoDaDevolucao.value = ''
   motivoDaBaixaDeGarantia.value = ''
   senhaDaBaixa.value = ''
   erroDaBaixa.value = ''
@@ -2197,13 +2219,14 @@ function abrirBaixaDeGarantia(r) {
 
 function fecharBaixaDeGarantia() {
   baixandoGarantia.value = null
+  motivoEscolhidoDaDevolucao.value = ''
   motivoDaBaixaDeGarantia.value = ''
   senhaDaBaixa.value = ''
   erroDaBaixa.value = ''
 }
 
 async function confirmarBaixaDeGarantia(r) {
-  const motivo = motivoDaBaixaDeGarantia.value.trim()
+  const motivo = motivoDaDevolucaoPronto.value
   // A TELA COBRA O MOTIVO ANTES DO BANCO. Sem isto a pessoa digita a senha,
   // espera a rede, e descobre que faltava um campo que estava na tela o tempo todo.
   if (!motivo) { erroDaBaixa.value = fraseDaRecusa('motivo_obrigatorio'); return }
@@ -2217,7 +2240,14 @@ async function confirmarBaixaDeGarantia(r) {
     const { data, error } = await sbClient.rpc('vessel_baixar_garantia', {
       p_codigo: r.codigo, p_motivo: motivo,
     })
-    if (error) { erroDaBaixa.value = 'Não consegui encerrar agora. Nada foi alterado.'; return }
+    if (error) {
+      // ⚠️ A frase amigável sozinha ESCONDEU um defeito real por horas: a trilha
+      // recusava a ação nova e a tela só dizia "não consegui". O recado do banco
+      // vem junto agora — feio, mas é ele que diz o que consertar.
+      erroDaBaixa.value = 'Não consegui encerrar agora. Nada foi alterado. '
+        + `O banco recusou assim: ${error.message || 'sem detalhe'}`
+      return
+    }
     if (!data?.ok) { erroDaBaixa.value = fraseDaRecusa(data?.motivo, data); return }
 
     fecharBaixaDeGarantia()

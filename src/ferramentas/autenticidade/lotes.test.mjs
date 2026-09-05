@@ -5,6 +5,7 @@ import {
   MOTIVOS_DE_BAIXA, fraseDaRecusa, fraseDaSenha,
   rotuloDoMotivo, pecasEmOrdem, estadoDaPeca, linhasDaListaDoLote,
   codigosComGarantia, etiquetasGravadas, motivoObrigatorio, descricaoDaPeca,
+  MOTIVOS_DE_DEVOLUCAO, motivoDaDevolucaoEscrito,
 } from './lotes.js'
 
 test('enderecoDaTag: e exatamente o que vai gravado na etiqueta', () => {
@@ -491,4 +492,53 @@ test('descricaoDaPeca: peca que a tela nao conhece diz a verdade inteira', () =>
 
 test('descricaoDaPeca: sem peca nenhuma nao estoura nem inventa', () => {
   assert.equal(descricaoDaPeca(null, null), 'peça desconhecida')
+})
+
+// ── ENCERRAR GARANTIA: POR QUE ─────────────────────────────────────────────
+// A tela oferecia so um campo em branco, e o dono pediu motivos prontos. Estes
+// testes travam a lista e, principalmente, o TEXTO QUE VAI PARAR NO HISTORICO:
+// e ele que alguem vai ler daqui a meses para entender a decisao.
+
+test('MOTIVOS_DE_DEVOLUCAO: a lista INTEIRA, na ordem, com rotulo em portugues', () => {
+  assert.deepEqual(MOTIVOS_DE_DEVOLUCAO.map((m) => m.chave), [
+    'devolucao_arrependimento', 'devolucao_defeito', 'troca_por_outra',
+    'compra_cancelada', 'registro_errado', 'outro',
+  ])
+  for (const m of MOTIVOS_DE_DEVOLUCAO) {
+    assert.ok(m.rotulo && m.rotulo.length > 3, `sem rotulo legivel: ${m.chave}`)
+  }
+})
+
+test('MOTIVOS_DE_DEVOLUCAO: "outro" e o ULTIMO, porque e o escape da lista', () => {
+  assert.equal(MOTIVOS_DE_DEVOLUCAO[MOTIVOS_DE_DEVOLUCAO.length - 1].chave, 'outro')
+})
+
+test('MOTIVOS_DE_DEVOLUCAO: nao repete as chaves da baixa de PECA', () => {
+  // Duas listas com a mesma chave significando coisas diferentes e a receita
+  // para o historico contar a historia errada.
+  const daPeca = new Set(MOTIVOS_DE_BAIXA.map((m) => m.chave))
+  for (const m of MOTIVOS_DE_DEVOLUCAO) {
+    assert.ok(!daPeca.has(m.chave), `chave repetida nas duas listas: ${m.chave}`)
+  }
+})
+
+test('motivoDaDevolucaoEscrito: escolha da lista vira a frase da lista', () => {
+  assert.equal(motivoDaDevolucaoEscrito('devolucao_defeito'),
+    'Devolução — defeito na peça')
+})
+
+test('motivoDaDevolucaoEscrito: escolha da lista MAIS observacao junta as duas', () => {
+  assert.equal(motivoDaDevolucaoEscrito('devolucao_defeito', 'alça descosturada'),
+    'Devolução — defeito na peça — alça descosturada')
+})
+
+test('motivoDaDevolucaoEscrito: "outro" guarda o que a pessoa escreveu, nao a palavra outro', () => {
+  assert.equal(motivoDaDevolucaoEscrito('outro', 'cliente mudou de endereço'),
+    'cliente mudou de endereço')
+  // e sem nada escrito nao inventa texto: fica vazio, e a tela cobra.
+  assert.equal(motivoDaDevolucaoEscrito('outro', '   '), '')
+})
+
+test('motivoDaDevolucaoEscrito: espaco em volta nao entra no historico', () => {
+  assert.equal(motivoDaDevolucaoEscrito('outro', '  peça trocada  '), 'peça trocada')
 })
