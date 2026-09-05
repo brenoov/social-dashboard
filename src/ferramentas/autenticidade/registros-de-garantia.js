@@ -62,7 +62,9 @@ export function comoConferir(pedido, lote) {
   const l = lote || {}
   return [
     p.whatsapp ? `Chame no WhatsApp ${p.whatsapp} e pergunte onde comprou.` : null,
-    p.onde_comprou ? `Ela escreveu que comprou em: ${p.onde_comprou}.` : null,
+    // "informou" e nao "escreveu": desde 05/09/2026 ela ESCOLHE numa lista de
+    // lojas na maioria dos casos, e so escreve quando marca "outro lugar".
+    p.onde_comprou ? `Ela informou que comprou em: ${p.onde_comprou}.` : null,
     l.modelo ? `Procure no Bling uma venda de ${l.modelo} para este CPF.` : null,
     p.comprado_em ? `Ela informou a compra em ${p.comprado_em}.` : null,
   ].filter(Boolean)
