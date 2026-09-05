@@ -129,7 +129,7 @@ import {
   canaisDoEscopo, estaLimitada, filtrarPedidos, filtrarMapaDeCanais, fraseDoRecorte,
 } from '../../compartilhado/canais-de-venda-permitidos.js'
 import { adminToast } from '../../compartilhado/avisos.js'
-import { filtrarPedidosPorCanal, depositosVisiveis, prepararEstoque, statusSaldo, categoriasDisponiveis, DEPOSITOS } from './estoque-gv.js'
+import { filtrarPedidosPorCanal, depositosVisiveis, prepararEstoque, statusSaldo, categoriasDisponiveis, normalizarDepositos, DEPOSITOS_SEMENTE } from './estoque-gv.js'
 import { montarLinhas, posicionarLinhas, alturaComum } from './velocimetro-gv.js'
 import { agruparCanais, estadoDoGrupo, alternarGrupo } from '../../compartilhado/grupo-do-canal.js'
 import { aplicarDataDaVenda } from '../../compartilhado/data-da-venda.js'
@@ -656,7 +656,7 @@ async function loadGestaoVistaData(period){
     let pedidosPrev=ajustePrev.pedidos;
 
     // Supabase: pode rodar em paralelo (API diferente)
-    const[canaisCheio,metasRows,eqTimes,eqMembros,eqMembrosDeGrupo]=await Promise.all([
+    const[canaisCheio,metasRows,eqTimes,eqMembros,eqMembrosDeGrupo,depsRows,vincRows]=await Promise.all([
       // O GRUPO vem na mesma leitura do nome (Peça 2, 20/08/2026): é ele que
       // separa o menu de canais em Atacado / Varejo / Outros.
       sbClient.from('bling_lojas').select('loja_id,nome,grupo,grupo_id').then(r=>{const mp={};_gvGrupoDoCanal={};_gvCanaisBrutos=r.data||[];_gvCanaisBrutos.forEach(l=>{mp[l.loja_id]=l.nome;_gvGrupoDoCanal[l.loja_id]=l.grupo||null;});return mp;}).catch(()=>({})),
@@ -671,8 +671,25 @@ async function loadGestaoVistaData(period){
       // vínculo desde 21/08 (`meus_vinculos`); sem ler aqui, o banco liberaria e
       // esta tela mostraria zero, sem erro. Falhar devolve lista vazia — o lado
       // seguro do erro, igual aos vizinhos.
-      sbClient.from('canais_grupos_membros').select('grupo_id,profile_id,papel').then(r=>r.data||[]).catch(()=>[])
+      sbClient.from('canais_grupos_membros').select('grupo_id,profile_id,papel').then(r=>r.data||[]).catch(()=>[]),
+      // ── OS DEPÓSITOS, e o vínculo canal↔depósito ──
+      //
+      // ⚠️ ANTES ISTO ERA UMA LISTA ESCRITA À MÃO com três depósitos, e o Bling
+      // tem sete. Loja nova exigia mexer em código aqui, no coletor e no robô
+      // comercial. Agora vem de `bling_depositos`, alimentada pelo próprio
+      // Bling; falhar cai na semente, e a seção continua desenhando.
+      sbClient.from('bling_depositos').select('deposito_id,nome,ativo,padrao').then(r=>r.data||[]).catch(()=>[]),
+      // O vínculo EXPLÍCITO. É ele que resolve o caso em que o nome não resolve:
+      // o canal "Loja Santa Bárbara d'Oeste" corresponde ao depósito "Estoque
+      // Loja Sbo. Tivoli", e não há uma palavra em comum entre os dois.
+      sbClient.from('fabrica_lojas').select('deposito_id,canal_loja_id').then(r=>r.data||[]).catch(()=>[])
     ]);
+
+    // Guardados fora do ctx porque a seção de estoque desenha depois, por conta.
+    _gvDepositos = normalizarDepositos(depsRows);
+    _gvVinculoCanalDeposito = new Map((vincRows||[])
+      .filter(v=>v && v.canal_loja_id && v.deposito_id)
+      .map(v=>[String(v.canal_loja_id), Number(v.deposito_id)]));
 
     // O RECORTE POR TIME. `null` = vê tudo, o caminho de 15 dos 17 perfis de
     // hoje: para eles nada muda, inclusive os canais zerados continuam
@@ -905,9 +922,13 @@ function _gvAplicaFiltro(opts){
 // e mostra uma coluna por depósito visível ao(s) canal(is) selecionado(s) no
 // filtro de canal (_gvCanaisSel), com busca/status/ordenação/limite próprios.
 let _gvEstoqueCache=null; // [{deposito_id,sku,produto,saldo}]
+// Os depósitos que existem, lidos de `bling_depositos` no carregamento. Nasce
+// com a semente para o caso de a seção desenhar antes da leitura terminar.
+let _gvDepositos=DEPOSITOS_SEMENTE.slice();
+let _gvVinculoCanalDeposito=new Map();
 async function _gvCarregaEstoque(){
   if(_gvEstoqueCache)return _gvEstoqueCache;
-  const ids=DEPOSITOS.map(d=>d.id);
+  const ids=_gvDepositos.map(d=>d.id);
   const size=1000, rows=[];
   try{
     for(let from=0;;from+=size){
@@ -977,7 +998,11 @@ async function _gvRenderEstoque(){
   const itens=await _gvCarregaEstoque();
   const ctx=window._gvRenderCtx;
   const canaisNomes=[..._gvCanaisSel].map(id=>ctx&&ctx.canais&&ctx.canais[id]).filter(Boolean);
-  const deps=depositosVisiveis(canaisNomes);
+  // Passa os IDS dos canais junto com o nome: o vínculo explícito casa por id, e
+  // o nome é só a queda para a loja nova que ninguém cadastrou ainda.
+  const canaisComId=[..._gvCanaisSel].map(id=>({loja_id:String(id), nome:(ctx&&ctx.canais&&ctx.canais[id])||''}))
+                                     .filter(c=>c.nome);
+  const deps=depositosVisiveis(canaisComId,_gvDepositos,_gvVinculoCanalDeposito);
   // Popula as categorias no dropdown uma vez (categorias reais, já sem matéria-prima).
   const catChips=document.getElementById('gv-est-cat-chips');
   if(catChips&&catChips.childElementCount===0){

@@ -15,11 +15,32 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 import { ajustarPelaDataDaNota, linhasDaJanela } from './notas-bling.mjs';
 
 // Depósito de cada canal foco (mapeado no Bling):
+// ⚠️ ESTA LISTA DEIXOU DE SER A VERDADE em 05/09/2026. Ela ficou só como
+// SEMENTE, para o caso de a chamada de depósitos ao Bling falhar — assim o robô
+// continua coletando os três de sempre em vez de coletar nada.
+//
+// A verdade agora é a tabela `bling_depositos`, alimentada pelo próprio Bling
+// (ver `blingDepositos`). Depósito novo entra sozinho; ninguém mexe em código.
 export const DEP_FOCO = [
   { canal: 'Shopping Tivoli (Santa Bárbara)', deposito_id: '14888726315' },
   { canal: 'Shopping Dom Pedro',              deposito_id: '14888617206' },
   { canal: 'Atacado Nuvem Shop (Estoque Pulmão)', deposito_id: '14888248253' },
 ];
+
+// OS DEPOSITOS QUE O BLING TEM, com nome. É o que substitui a lista de cima.
+// `situacao` do Bling: 1 = ativo. Depósito inativo continua vindo, marcado —
+// sumir com ele daqui esconderia estoque parado que ainda existe.
+export async function blingDepositos(token) {
+  const resp = await blingProxy(token, 'depositos', { pagina: 1, limite: 100 });
+  const d = resp.data;
+  if (!Array.isArray(d)) return [];
+  return d.map((x) => ({
+    deposito_id: Number(x.id),
+    nome: String(x.descricao || x.nome || '').slice(0, 120) || `Depósito ${x.id}`,
+    ativo: Number(x.situacao) === 1,
+    padrao: !!x.padrao,
+  })).filter((x) => Number.isFinite(x.deposito_id) && x.deposito_id > 0);
+}
 
 // ── Conta de serviço: login → access_token ──
 export async function loginServico() {
@@ -106,10 +127,14 @@ export async function blingProdutos(token, maxPaginas = 20) {
 }
 
 // Saldo físico por depósito foco, por produto (em lotes de idsProdutos).
+// ⚠️ ATE 05/09/2026 ESTA FUNCAO JOGAVA FORA o saldo de todo deposito que nao
+// estivesse na lista cravada — e o Bling MANDA TODOS eles na mesma resposta. O
+// deposito de uma loja nova chegava aqui e era descartado numa linha, sem erro
+// nenhum: a loja simplesmente nao existia na Gestao a Vista ate alguem editar
+// codigo. Agora nada e descartado; quem decide o que mostrar e a tela.
 export async function blingSaldoFoco(token, prodMap) {
   const ids = Object.keys(prodMap);
   const saldoPorDep = {};            // deposito_id → { produtoId → saldo }
-  for (const x of DEP_FOCO) saldoPorDep[x.deposito_id] = {};
   for (let i = 0; i < ids.length; i += 40) {
     const batch = ids.slice(i, i + 40);
     const params = {};
@@ -121,9 +146,10 @@ export async function blingSaldoFoco(token, prodMap) {
       const pid = String(row.produto?.id || '');
       for (const dep of (row.depositos || [])) {
         const did = String(dep.id);
-        if (did in saldoPorDep) {
-          const saldo = Number(dep.saldoFisico) || 0;
-          if (saldo > 0) saldoPorDep[did][pid] = saldo;
+        const saldo = Number(dep.saldoFisico) || 0;
+        if (saldo > 0) {
+          if (!saldoPorDep[did]) saldoPorDep[did] = {};
+          saldoPorDep[did][pid] = saldo;
         }
       }
     }

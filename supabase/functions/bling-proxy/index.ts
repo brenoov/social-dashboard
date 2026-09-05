@@ -50,6 +50,11 @@ const CAMINHOS_PERMITIDOS: RegExp[] = [
   /^produtos$/,
   /^produtos\/[A-Za-z0-9_-]+$/,
   /^estoques\/saldos$/,
+  // `depositos` entrou em 05/09/2026: e a LISTA DOS DEPOSITOS com os nomes.
+  // Ate entao os nomes viviam cravados em tres arquivos do repositorio, e loja
+  // nova exigia mexer em codigo. Aqui e so leitura de nome de deposito — nao
+  // traz saldo, preco nem cliente.
+  /^depositos$/,
   /^nfe$/,
   /^nfe\/[A-Za-z0-9_-]+$/,
   /^nfce$/,

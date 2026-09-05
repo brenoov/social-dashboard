@@ -15,6 +15,7 @@ import { pathToFileURL } from 'node:url';
 import {
   loginServico, blingProxy, blingPedidos, blingProdutos, blingSaldoFoco,
   classificarItem, classificarItemDetalhado, categoriaDeEstoque, DEP_FOCO,
+  blingDepositos,
 } from './lib/bling-comercial.mjs';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://kounqtdoioootxqegkij.supabase.co';
@@ -22,13 +23,49 @@ const SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const REST = SUPABASE_URL + '/rest/v1';
 const sb = { apikey: SERVICE_KEY, Authorization: 'Bearer ' + SERVICE_KEY, 'Content-Type': 'application/json' };
 
-// Canais foco (loja.id das vendas no Bling)
-const CANAIS = [
+// ⚠️ ESTA LISTA DEIXOU DE SER A VERDADE em 05/09/2026, pelo mesmo motivo dos
+// depósitos: canal novo criado no Bling nunca aparecia, e todo pedido de canal
+// fora dela era DESCARTADO antes de virar dado. Ela ficou como SEMENTE, para o
+// caso de a leitura da tabela falhar.
+//
+// A verdade agora é `bling_lojas.foco`. Ver `canaisDeFoco` logo abaixo.
+const CANAIS_SEMENTE = [
   { nome: 'Tivoli',    loja_id: '205834140' },
   { nome: 'Dom Pedro', loja_id: '205657609' },
   { nome: 'Atacado',   loja_id: '205451611' },
 ];
-const CANAL_IDS = new Set(CANAIS.map(c => c.loja_id));
+
+// OS CANAIS QUE O ROBO DETALHA, lidos da tabela. Se a leitura falhar, devolve a
+// semente — perder um canal novo por soluço de rede é ruim; perder a coleta
+// inteira é pior.
+export async function canaisDeFoco(sbGetJson) {
+  try {
+    const linhas = await sbGetJson('/bling_lojas?select=loja_id,nome,foco&foco=is.true');
+    if (Array.isArray(linhas) && linhas.length) {
+      return linhas.map((l) => ({ nome: l.nome, loja_id: String(l.loja_id) }));
+    }
+  } catch (e) {
+    console.warn('  não consegui ler os canais (segue com a lista antiga):', e.message);
+  }
+  return CANAIS_SEMENTE;
+}
+
+// CANAL QUE APARECEU NOS PEDIDOS E NAO ESTA CADASTRADO entra sozinho.
+//
+// ⚠️ O NOME NAO VEM DO BLING. A API não tem `/canais-de-venda` nem `/lojas`
+// (as duas dão 404, medido em 05/09/2026) e o pedido traz só `loja:{id}`. Então
+// o canal entra com um nome provisório e alguém o renomeia na Config de Admin —
+// o que NÃO dá para automatizar é o nome, não o reconhecimento.
+export function canaisNovosNosPedidos(pedidos, jaCadastrados) {
+  const conhecidos = new Set([...jaCadastrados].map(String));
+  const novos = new Map();
+  for (const p of (pedidos || [])) {
+    const id = String(p?.loja?.id ?? '');
+    if (!id || conhecidos.has(id) || novos.has(id)) continue;
+    novos.set(id, { loja_id: Number(id), nome: `Canal #${id.slice(-4)}`, foco: true });
+  }
+  return [...novos.values()];
+}
 
 // ── Agregação pura: soma itens dos pedidos DAQUELE canal, por SKU ──
 // pedidos: [{ loja:{id}, itens:[{ codigo, descricao, quantidade, valor, produto:{id} }] }]
@@ -69,6 +106,14 @@ export function mesesRange(backfillN = 0, hoje = new Date()) {
     out.push({ mes: ini, ini, fim });
   }
   return out;
+}
+
+// ── Supabase REST leitura (service key) ──
+// A chave de servico passa por cima da RLS, como no resto deste robo.
+async function sbGetJson(caminho) {
+  const r = await fetch(`${REST}${caminho}`, { headers: sb });
+  if (!r.ok) throw new Error(`GET ${caminho} -> ${r.status} ${(await r.text()).slice(0, 160)}`);
+  return r.json();
 }
 
 // ── Supabase REST upsert (service key) ──
@@ -120,10 +165,35 @@ async function main() {
   // Marca desta rodada: o que ficar com carimbo anterior a isto é sobra.
   const carimbo = new Date().toISOString();
 
+  // ── OS CANAIS, lidos da tabela em vez de escritos aqui ──
+  const CANAIS = await canaisDeFoco(sbGetJson);
+  const CANAL_IDS = new Set(CANAIS.map((c) => c.loja_id));
+  console.log(`→ Canais em foco (${CANAIS.length}): ${CANAIS.map((c) => c.nome).join(', ')}`);
+
+  // Todos os cadastrados, para saber quem e NOVO nos pedidos.
+  let cadastrados = new Set(CANAIS.map((c) => c.loja_id));
+  try {
+    const todos = await sbGetJson('/bling_lojas?select=loja_id');
+    cadastrados = new Set((todos || []).map((l) => String(l.loja_id)));
+  } catch { /* segue com os de foco; no pior caso um canal e reinserido */ }
+
   // ── Vendas por item/mês/canal ──
   for (const { mes, ini, fim } of meses) {
     const pedidos = await blingPedidos(token, ini, fim);
     if (pedidos.length >= 1000) console.warn(`  ⚠ ${mes}: ${pedidos.length} pedidos (limite de paginação atingido — possível truncamento)`);
+
+    // CANAL NOVO ENTRA SOZINHO. Ele passa a valer já nesta rodada.
+    const novos = canaisNovosNosPedidos(pedidos, cadastrados);
+    if (novos.length) {
+      await upsert('bling_lojas', 'loja_id', novos);
+      for (const n of novos) {
+        cadastrados.add(String(n.loja_id));
+        CANAIS.push({ nome: n.nome, loja_id: String(n.loja_id) });
+        CANAL_IDS.add(String(n.loja_id));
+        console.log(`  ✚ canal novo no Bling: ${n.nome} — renomeie na Config de Admin`);
+      }
+    }
+
     const foco = pedidos.filter(p => CANAL_IDS.has(String(p?.loja?.id ?? '')));
     console.log(`  ${mes}: ${pedidos.length} pedidos, ${foco.length} nos canais foco — detalhando itens…`);
 
@@ -164,11 +234,37 @@ async function main() {
   // é "isto é produto vendável?", e o pega-tudo da lista respondia "sim" a todo
   // nome desconhecido. Era assim que argola, botão, couro e camurça chegavam ao
   // telão da Gestão à Vista.
-  console.log('→ Estoque por depósito foco…');
+  // ── OS DEPOSITOS QUE EXISTEM, direto do Bling ──
+  //
+  // ⚠️ ISTO RODA ANTES DO SALDO, de proposito: e daqui que sai o NOME de cada
+  // deposito. Sem esta chamada, um deposito novo entraria no estoque como um
+  // numero sem nome, e a tela mostraria uma coluna que ninguem sabe o que e.
+  //
+  // Se a chamada falhar, o robo NAO para: segue com a lista-semente `DEP_FOCO`,
+  // que e o comportamento antigo. Perder o deposito novo por um soluco de rede e
+  // ruim; perder a coleta inteira e pior.
+  console.log('→ Depósitos do Bling…');
+  let depositos = [];
+  try {
+    depositos = await blingDepositos(token);
+    if (depositos.length) {
+      await upsert('bling_depositos', 'deposito_id',
+        depositos.map((d) => ({ ...d, atualizado_em: new Date().toISOString() })));
+      console.log(`  ${depositos.length} depósitos: ${depositos.map((d) => d.nome).join(', ')}`);
+    }
+  } catch (e) {
+    console.warn('  não consegui listar os depósitos (segue com a lista antiga):', e.message);
+  }
+  // A lista que vai ser percorrida: a do Bling quando deu certo, a semente quando não.
+  const depositosParaColetar = depositos.length
+    ? depositos.map((d) => ({ deposito_id: String(d.deposito_id), canal: d.nome }))
+    : DEP_FOCO;
+
+  console.log('→ Estoque por depósito…');
   const prodMap = await blingProdutos(token);
   const saldoPorDep = await blingSaldoFoco(token, prodMap);
   const naoReconhecidos = new Map();   // sku -> nome, para a vigia abaixo
-  for (const { deposito_id, canal } of DEP_FOCO) {
+  for (const { deposito_id, canal } of depositosParaColetar) {
     const saldos = saldoPorDep[deposito_id] || {};
     const rows = Object.entries(saldos).map(([pid, saldo]) => {
       const meta = prodMap[pid] || {};
@@ -178,6 +274,12 @@ async function main() {
       return {
         deposito_id: Number(deposito_id), sku, produto: nome.slice(0, 120),
         categoria: categoriaDeEstoque(nome), saldo: Math.round(Number(saldo) || 0),
+        // ⚠️ ATE 05/09/2026 ESTA COLUNA NAO ERA ESCRITA AQUI. Ela tem `default
+        // now()`, e nao ha gatilho — entao guardava quando o SKU apareceu pela
+        // PRIMEIRA vez naquele deposito, e nao quando foi conferido. Uma delas
+        // marcava 30/07 com o robo rodando todo dia. Nome que mente e pior que
+        // coluna que falta: quem olhasse concluiria que o robo parou.
+        atualizado_em: new Date().toISOString(),
       };
     });
     await upsert('gc_estoque_item', 'deposito_id,sku', rows);
