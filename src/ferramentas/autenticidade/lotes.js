@@ -35,6 +35,25 @@ export function enderecoDaTag(codigo) {
 // a mesma de propósito: o número que a etiqueta manda para a cliente e o número
 // que o painel imprime na bancada têm de bater. Mudou uma, muda a outra — não há
 // terceira dona da regra. (Em 04/09/2026 as duas mudaram na mesma entrega.)
+// ⚠️ TODOS OS DÍGITOS DO SKU, E NÃO SÓ O PRIMEIRO GRUPO. Parece descuido e não é
+// — foi decidido em 05/09/2026, com os dois caminhos medidos lado a lado.
+//
+// `SS0008HB.M5` vira `00085`, e não `0008`: o `5` do sufixo de variação entra.
+// Feio de ler, e é justamente o que faz alguém querer "consertar". NÃO CONSERTE.
+//
+// O MOTIVO: no Bling, CADA PRODUTO TEM SKU PRÓPRIO. `SS0008HB.M5` e
+// `SS0008HB.M6` são produtos diferentes — cores diferentes do mesmo molde — e
+// precisam de números de série diferentes. Pegando só o primeiro grupo, os dois
+// virariam referência `0008`, e a peça 1 de cada um daria `0008001`: duas bolsas
+// distintas com o MESMO número de série. É o defeito que a largura fixa da
+// sequência acabou de eliminar, voltando por outra porta.
+//
+// A alternativa que também funcionaria era numerar a sequência POR REFERÊNCIA em
+// vez de por lote (0008001..0008003 no lote preto, 0008004..0008006 no areia).
+// Foi apresentada e recusada: ela custa mexer na criação e na renumeração das
+// peças — a parte mais delicada do selo, cujo número vai gravado dentro de uma
+// bolsa — e mataria a frase "nº 3 de 12", porque a série deixaria de terminar no
+// lote. O dono escolheu o caminho que não encosta em nada.
 const digitosDaReferencia = (sku) => String(sku ?? '').replace(/\D/g, '')
 
 // ⚠️ A SEQUÊNCIA TEM LARGURA FIXA, E É ISSO QUE DESFAZ A AMBIGUIDADE.
