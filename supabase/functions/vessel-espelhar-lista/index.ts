@@ -248,13 +248,28 @@ const FALTA_PERMISSAO_BLING =
   + 'a permissão for concedida, eles sobem sozinhos. Atenção: reautorizar o Bling derruba o acesso '
   + 'atual até o novo ser gravado, então faça com alguém acompanhando.';
 
+/** O PREFIXO POR ORIGEM. Ate 06/09/2026 o codigo comecava sempre com "LP-",
+ *  porque quando ele foi escrito so existia UMA landing page. A coluna `origem`
+ *  nasceu depois, para a LP de pre-venda, e esta funcao nao acompanhou: no Bling
+ *  um cadastro de pre-venda ficava IDENTICO a um da LP comum, e a unica forma de
+ *  separar era pela data. A planilha sempre soube (tem coluna `origem`); o Bling
+ *  nao. Corrigido antes do primeiro cadastro de pre-venda existir. */
+export const PREFIXO_POR_ORIGEM: Record<string, string> = {
+  'pre-venda': 'PV',
+  'lp-vesselbrasil': 'LP',
+};
+const PREFIXO_PADRAO = 'LP';
+
 /** A MARCA DE ORIGEM, no único campo livre que um contato do Bling tem. */
-function codigoDeOrigem(linha: any): string {
+export function codigoDeOrigem(linha: any): string {
   const dia = new Date(linha.criado_em).toISOString().slice(0, 10).replace(/-/g, '');
   // Um pedaço do id da linha entra para o código ser único por pessoa: se dois
   // contatos disputassem o mesmo `codigo`, o Bling poderia recusar o segundo.
   const curto = String(linha.id).replace(/[^A-Za-z0-9]/g, '').slice(-6).toUpperCase();
-  return `LP-${dia}-${curto}`;
+  // Origem desconhecida cai em "LP" e NAO em algo inventado: melhor um cadastro
+  // com a etiqueta antiga do que um codigo que ninguem sabe ler.
+  const pre = PREFIXO_POR_ORIGEM[String(linha.origem || '').trim()] || PREFIXO_PADRAO;
+  return `${pre}-${dia}-${curto}`;
 }
 
 /** Devolve `{id}` se deu certo, ou `{erro}` com a frase em português. */
