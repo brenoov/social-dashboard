@@ -145,6 +145,12 @@ Deno.serve(async (req) => {
     p_codigo: corpo.codigo, p_nome: corpo.nome, p_cpf: corpo.cpf,
     p_whatsapp: corpo.whatsapp, p_onde: corpo.onde ?? null,
     p_comprado_em: corpo.comprado_em ?? null,
+    // A DATA DE NASCIMENTO entrou em 06/09/2026. Ela existe por um motivo de
+    // operação, e não de cadastro: na hora da venda a vendedora quase nunca
+    // consegue tirar todos os dados, e validar a garantia é o momento em que a
+    // própria cliente preenche o que faltou. Daí o robô completa o cadastro
+    // dela no Bling.
+    p_nascimento: corpo.nascimento ?? null,
   });
   if (error) return responder({ ok: false, motivo: 'falha_ao_guardar' }, 500);
   if (!aberto?.ok) return responder(aberto, 200);

@@ -69,6 +69,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { exigirSegredoDeCron } from '../_shared/segredo-de-cron.ts';
 import { montarCsvDeGarantias } from '../_shared/csv-de-garantias.js';
+import { completarContato } from '../_shared/completar-contato-do-bling.js';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -431,6 +432,92 @@ Deno.serve(async (req) => {
     // Falha aqui NÃO trava a lista de espera nem perde garantia: a garantia
     // continua inteira no banco, e a próxima rodada tenta de novo em 15 min.
     resultado.garantias = `falhou: ${e instanceof Error ? e.message : String(e)}`;
+  }
+
+  // ── 1c. COMPLETAR O CADASTRO DA CLIENTE NO BLING ─────────────────────────
+  //
+  // Na hora da venda a vendedora quase nunca consegue tirar todos os dados.
+  // Validar a garantia é o momento em que a própria cliente preenche o que
+  // faltou — e daqui isso vai para o cadastro dela no Bling.
+  //
+  // ⚠️ A PÁGINA NÃO FAZ ISSO, e não é detalhe: a portaria pública do Bling é só
+  // leitura, e a cliente não pode ficar esperando dois sistemas de fora
+  // responderem. Quem escreve é este robô, com credencial própria.
+  //
+  // ⚠️ O CONTATO É LIDO INTEIRO E DEVOLVIDO INTEIRO. Mandar só os campos que
+  // mudaram é como se apagam os outros sem ninguém ver. Provado em 06/09/2026
+  // contra a API de verdade, num contato descartável criado e apagado: o PUT
+  // respondeu 204, celular e nascimento entraram, e telefone, e-mail,
+  // naturalidade e CEP continuaram lá.
+  try {
+    const { data: paraCompletar } = await sb
+      .from('vessel_registros')
+      .select('codigo, nome, cpf, whatsapp, nascimento, bling_contato_id')
+      .is('bling_atualizado_em', null)
+      .not('cpf', 'is', null)
+      .limit(25);   // teto por rodada: são 4 rodadas por hora, e a fila anda.
+
+    if (paraCompletar?.length) {
+      const tb = await tokenBling(sb);
+      let completados = 0, semContato = 0, semMudanca = 0;
+
+      for (const g of paraCompletar) {
+        // O contato vem do registro quando a compra foi casada; senão, procura
+        // pelo CPF, que é o que liga a pessoa à compra dela.
+        let contatoId = g.bling_contato_id;
+        if (!contatoId) {
+          const busca = await fetch(
+            `${BLING}/contatos?numeroDocumento=${encodeURIComponent(String(g.cpf).replace(/\D/g, ''))}`,
+            { headers: { Authorization: `Bearer ${tb}`, Accept: 'application/json' } });
+          const jb = await busca.json().catch(() => null);
+          contatoId = jb?.data?.[0]?.id ?? null;
+        }
+        if (!contatoId) {
+          // Sem cadastro no Bling não há o que completar. NÃO cria contato: a
+          // cliente pode ter comprado numa revenda, e inventar cadastro aqui
+          // encheria a base do dono de gente que nunca comprou dele.
+          semContato++;
+          continue;
+        }
+
+        const det = await fetch(`${BLING}/contatos/${contatoId}`,
+          { headers: { Authorization: `Bearer ${tb}`, Accept: 'application/json' } });
+        const atual = (await det.json().catch(() => null))?.data;
+        if (!atual) { semContato++; continue; }
+
+        const { corpo, mudou } = completarContato(atual, g);
+        if (!mudou) {
+          // Nada a fazer, mas MARCA assim mesmo: sem isto o robô releria esta
+          // linha a cada 15 minutos, para sempre, gastando cota do Bling.
+          await sb.from('vessel_registros')
+            .update({ bling_atualizado_em: new Date().toISOString(), bling_contato_id: String(contatoId) })
+            .eq('codigo', g.codigo);
+          semMudanca++;
+          continue;
+        }
+
+        const put = await fetch(`${BLING}/contatos/${contatoId}`, {
+          method: 'PUT',
+          headers: { Authorization: `Bearer ${tb}`, Accept: 'application/json',
+                     'Content-Type': 'application/json' },
+          body: JSON.stringify(corpo),
+        });
+        if (put.ok) {
+          await sb.from('vessel_registros')
+            .update({ bling_atualizado_em: new Date().toISOString(), bling_contato_id: String(contatoId) })
+            .eq('codigo', g.codigo);
+          completados++;
+        }
+        // Recusa do Bling NÃO marca: a linha fica na fila e a próxima rodada
+        // tenta de novo. Garantia não se perde por isso — ela já está no banco.
+      }
+      resultado.cadastros = `${completados} completado(s), ${semMudanca} já em dia, `
+        + `${semContato} sem cadastro no Bling`;
+    } else {
+      resultado.cadastros = 'nenhum pendente';
+    }
+  } catch (e) {
+    resultado.cadastros = `falhou: ${e instanceof Error ? e.message : String(e)}`;
   }
 
   // ── 2. O BLING ────────────────────────────────────────────────────────────
