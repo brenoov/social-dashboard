@@ -68,6 +68,7 @@
 //    assinada não se sobrescreve. Aqui o arquivo é uma fotografia da lista.)
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { exigirSegredoDeCron } from '../_shared/segredo-de-cron.ts';
+import { montarCsvDeGarantias } from '../_shared/csv-de-garantias.js';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -80,6 +81,12 @@ const BLING = 'https://api.bling.com.br/Api/v3';
 const RAIZ = 'wbp6sefe483fe7da14c6ebe53225105f1f389'; // espaço "01. RBV and Company"
 const CAMINHO = ['04. Vessel Brasil', '17. Marketing', 'Lista de espera (LP)'];
 const ARQUIVO = 'lista-de-espera-vessel.csv';
+
+// A SEGUNDA PLANILHA, na MESMA pasta (pedido do dono em 06/09/2026). Arquivo
+// separado, e nao colunas somadas no de cima: uma lista de espera tem
+// nome/e-mail/origem e uma garantia tem selo, modelo, prazo e pedido — juntar as
+// duas daria uma planilha em que metade das colunas esta sempre vazia.
+const ARQUIVO_GARANTIAS = 'garantias-vessel.csv';
 
 // As etiquetas que o contato recebe no Bling. Hoje só "Cliente", que é o que
 // existe. Quando o dono criar um tipo "Lista de espera (LP)", some o id aqui.
@@ -164,10 +171,10 @@ async function acharOuCriarPasta(t: string, paiId: string, nome: string, podeCri
 }
 
 /** Baixa o CSV que está lá hoje. Devolve '' se não existir ainda. */
-async function baixarCsv(t: string, pastaId: string): Promise<string> {
+async function baixarCsv(t: string, pastaId: string, nomeDoArquivo: string = ARQUIVO): Promise<string> {
   const lista = await wdGet(t, `/files/${encodeURIComponent(pastaId)}/files?page%5Blimit%5D=100`);
   const achado = (lista.corpo?.data ?? []).find((f: any) =>
-    String(f?.attributes?.name ?? '').trim() === ARQUIVO);
+    String(f?.attributes?.name ?? '').trim() === nomeDoArquivo);
   if (!achado) return '';
   const r = await fetch(`${WD}/download/${encodeURIComponent(achado.id)}`, {
     headers: { Authorization: `Zoho-oauthtoken ${t}` } });
@@ -175,12 +182,13 @@ async function baixarCsv(t: string, pastaId: string): Promise<string> {
   return (await r.text()).replace(/^\uFEFF/, '');
 }
 
-async function subirCsv(t: string, pastaId: string, texto: string): Promise<void> {
+async function subirCsv(t: string, pastaId: string, texto: string,
+                        nomeDoArquivo: string = ARQUIVO): Promise<void> {
   const fd = new FormData();
   // BOM no início: sem ele o Excel abre "Ana" como "AnÃ¡". O arquivo vai ser
   // aberto também fora do Zoho.
-  fd.append('content', new Blob(['\uFEFF' + texto], { type: 'text/csv' }), ARQUIVO);
-  const url = `${WD}/upload?filename=${encodeURIComponent(ARQUIVO)}`
+  fd.append('content', new Blob(['\uFEFF' + texto], { type: 'text/csv' }), nomeDoArquivo);
+  const url = `${WD}/upload?filename=${encodeURIComponent(nomeDoArquivo)}`
     + `&parent_id=${encodeURIComponent(pastaId)}&override-name-exist=true`;
   const r = await fetch(url, {
     method: 'POST',
@@ -370,6 +378,59 @@ Deno.serve(async (req) => {
       await sb.from('vessel_lista_espera').update({ ultimo_erro: frase }).is('planilha_em', null);
       resultado.planilha = `falhou: ${frase}`;
     }
+  }
+
+  // ── 1b. A PLANILHA DAS GARANTIAS, na mesma pasta ─────────────────────────
+  //
+  // ⚠️ VAI NUM `try` PRÓPRIO, e não junto do de cima: se o Zoho recusar ESTA
+  // planilha, a lista de espera — que já funcionava — não pode parar de subir
+  // por tabela. Cada uma reporta o seu próprio resultado.
+  //
+  // ⚠️ CPF INTEIRO, por decisão do dono em 06/09/2026 (a alternativa mascarada
+  // estava na mesa). O arquivo mora num drive compartilhado.
+  try {
+    const { data: conexao } = await sb
+      .from('acessos_conexoes')
+      .select('client_id, client_secret, refresh_token, data_center')
+      .eq('provedor', 'zoho').maybeSingle();
+    if (!conexao?.refresh_token) throw new Error('A central não está conectada ao Zoho.');
+    const tz = await tokenZoho(conexao);
+
+    let pasta = RAIZ;
+    for (let i = 0; i < CAMINHO.length; i++) {
+      pasta = await acharOuCriarPasta(tz, pasta, CAMINHO[i], i === CAMINHO.length - 1);
+    }
+
+    const [regs, peds, pecas, lotes] = await Promise.all([
+      sb.from('vessel_registros').select('*'),
+      sb.from('vessel_pedidos_de_registro').select('*'),
+      sb.from('vessel_pecas').select('codigo, lote_id'),
+      sb.from('vessel_lotes').select('id, modelo, cor'),
+    ]);
+
+    // Duas leituras e um mapa, em vez de um `select` aninhado: embed com nome
+    // ambíguo já derrubou consulta nesta casa, e aqui o custo é o mesmo.
+    const loteDoId: Record<string, any> = {};
+    for (const l of (lotes.data ?? [])) loteDoId[String(l.id)] = l;
+    const pecaParaLote: Record<string, any> = {};
+    for (const p of (pecas.data ?? [])) {
+      const l = loteDoId[String(p.lote_id)];
+      if (l) pecaParaLote[String(p.codigo)] = { modelo: l.modelo, cor: l.cor };
+    }
+
+    const csvGarantias = montarCsvDeGarantias(regs.data ?? [], peds.data ?? [], pecaParaLote);
+    const csvLaDentro = await baixarCsv(tz, pasta, ARQUIVO_GARANTIAS);
+    if (csvLaDentro === csvGarantias) {
+      resultado.garantias = `em dia (${(regs.data ?? []).length} garantia(s))`;
+    } else {
+      await subirCsv(tz, pasta, csvGarantias, ARQUIVO_GARANTIAS);
+      resultado.garantias = `regravada com ${(regs.data ?? []).length} garantia(s) `
+        + `e ${(peds.data ?? []).length} na fila`;
+    }
+  } catch (e) {
+    // Falha aqui NÃO trava a lista de espera nem perde garantia: a garantia
+    // continua inteira no banco, e a próxima rodada tenta de novo em 15 min.
+    resultado.garantias = `falhou: ${e instanceof Error ? e.message : String(e)}`;
   }
 
   // ── 2. O BLING ────────────────────────────────────────────────────────────
