@@ -39,13 +39,26 @@ function listaPermitida() {
 }
 
 // TODA ação que qualquer função do repositório escreve na trilha.
+//
+// ⚠️ SÃO DUAS FORMAS DE ESCREVER, e por um tempo esta guarda só via UMA. O
+// `insert ... values (codigo, 'acao', ...)` era pego; o `insert ... select
+// p.codigo, 'acao', ...` (usado quando se escreve uma linha por peça de um
+// lote) passava invisível. Descoberto em 07/09/2026, ao somar `lote_excluido`:
+// a guarda continuou verde sem enxergar a ação nova — que é exatamente o modo
+// de falhar que ela existe para impedir.
 function acoesEscritas() {
   const achadas = new Map()
+  const formas = [
+    /insert\s+into\s+(?:public\.)?vessel_edicoes[\s\S]{0,400}?values\s*\(\s*[^,]+,\s*'([a-z_]+)'/gi,
+    /insert\s+into\s+(?:public\.)?vessel_edicoes[\s\S]{0,400}?select\s+[^,]+,\s*'([a-z_]+)'/gi,
+  ]
   for (const { nome, sql } of TEXTOS) {
-    const re = /insert\s+into\s+(?:public\.)?vessel_edicoes[\s\S]{0,400}?values\s*\(\s*[^,]+,\s*'([a-z_]+)'/gi
-    let m
-    while ((m = re.exec(sql)) !== null) {
-      if (!achadas.has(m[1])) achadas.set(m[1], nome)
+    for (const re of formas) {
+      re.lastIndex = 0
+      let m
+      while ((m = re.exec(sql)) !== null) {
+        if (!achadas.has(m[1])) achadas.set(m[1], nome)
+      }
     }
   }
   return achadas
@@ -68,10 +81,15 @@ test('⚠️ TODA acao escrita na trilha esta na lista de acoes permitidas', () 
     + 'transacao inteira): ' + forasDaLei.map(([a, f]) => `${a} (em ${f})`).join(', '))
 })
 
-test('a acao que causou o defeito real esta coberta', () => {
-  // Prova de que o teste acima ve o caso concreto, e nao passa por vacuidade.
-  assert.ok(acoesEscritas().has('baixar_garantia'),
-    'baixar_garantia deveria ser vista como escrita na trilha')
-  assert.ok(new Set(listaPermitida()).has('baixar_garantia'),
-    'baixar_garantia deveria estar na lista de permitidas')
+test('⚠️ a guarda ENXERGA cada acao concreta — senao ela passa por vacuidade', () => {
+  /* Duas vezes esta guarda ficou verde sem ver nada: primeiro porque a funcao
+   * so morava no banco, depois porque a acao era escrita com `select` e nao com
+   * `values`. Listar as acoes uma a uma e o que impede a terceira vez. */
+  const vistas = acoesEscritas()
+  const permitidas = new Set(listaPermitida())
+  for (const acao of ['baixar_garantia', 'lote_excluido', 'peca_excluida',
+                      'desmarcar_gravada', 'dono_trocado']) {
+    assert.ok(vistas.has(acao), `a guarda NAO ve "${acao}" sendo escrita na trilha`)
+    assert.ok(permitidas.has(acao), `"${acao}" nao esta na lista de permitidas`)
+  }
 })
