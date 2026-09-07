@@ -17,6 +17,6 @@
     "electron": "^32.2.0",
     "electron-builder": "^25.1.8"
   },
-  "version": "1.0.0",
+  "version": "1.0.1",
   "author": "RBV Company"
 }
