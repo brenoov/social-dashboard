@@ -27,6 +27,7 @@ const CANAIS_DO_PRELOAD = {
   LER: 'gravador-de-mesa:ler-paginas',
   ESCREVER: 'gravador-de-mesa:escrever-pagina',
   DESCONECTAR: 'gravador-de-mesa:desconectar',
+  RELIGAR: 'gravador-de-mesa:religar-servico',
 }
 
 const NOME_NA_JANELA = 'gravadorDeMesa'
@@ -74,6 +75,10 @@ function montarSuperficie(ipcRenderer) {
       return pedir(CANAIS_DO_PRELOAD.ESCREVER, pagina, bytes)
     },
     async desconectar() { return pedir(CANAIS_DO_PRELOAD.DESCONECTAR) },
+    // ⚠️ ESTE NÃO FALA COM O LEITOR, fala com o Windows: pede para religar o
+    // serviço de Cartão Inteligente. Abre a janelinha de autorização, e a
+    // pessoa precisa clicar em "Sim" — por isso pode demorar.
+    async religarOServico() { return pedir(CANAIS_DO_PRELOAD.RELIGAR) },
   }
 }
 

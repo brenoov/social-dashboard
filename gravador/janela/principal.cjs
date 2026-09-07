@@ -11,7 +11,7 @@
 // versão e traz junto o sumiço do `__dirname`, que aqui é o que aponta o
 // preload. Esta é a forma que menos surpreende na bancada.
 const path = require('node:path')
-const { app, BrowserWindow, shell, ipcMain } = require('electron')
+const { app, BrowserWindow, shell, ipcMain, dialog } = require('electron')
 // O atualizador e CommonJS; as REGRAS de quando usa-lo estao em
 // `atualizacao.js`, que tem teste. Aqui so se entrega o objeto de verdade.
 const { autoUpdater } = require('electron-updater')
@@ -44,7 +44,20 @@ if (!app.requestSingleInstanceLock()) {
     // O LEITOR SÓ NASCE NO PRIMEIRO PEDIDO. Criar aqui abriria o processo do
     // PowerShell antes de alguém querer gravar — e, num computador sem leitor
     // ligado, o programa morreria na abertura em vez de abrir a tela e explicar.
-    atendente = criarAtendente({ criarLeitor: () => criarLeitorDeVerdade() })
+    const { argumentosDoConserto, fraseDoConserto } = await import('./religar-o-servico.js')
+    atendente = criarAtendente({
+      criarLeitor: () => criarLeitorDeVerdade(),
+      // RELIGAR O SERVICO DO WINDOWS. Comando fixo, sem nenhum pedaco vindo da
+      // tela — e com `-Verb RunAs` la dentro, que e o que abre a janelinha de
+      // autorizacao. Sem o clique da pessoa, nada acontece.
+      consertarOLeitor: () => new Promise((resolver) => {
+        try {
+          const { execFile } = require('node:child_process')
+          execFile('powershell.exe', argumentosDoConserto(), { windowsHide: true },
+            (erro) => resolver(fraseDoConserto({ erro, codigo: erro ? 1 : 0 })))
+        } catch (erro) { resolver(fraseDoConserto({ erro })) }
+      }),
+    })
     atendente.registrar(ipcMain)
 
     const janela = abrirAJanela({
@@ -62,6 +75,25 @@ if (!app.requestSingleInstanceLock()) {
       empacotado: app.isPackaged,
       aoMudarTitulo: (titulo) => { if (!janela.isDestroyed?.()) janela.setTitle(titulo) },
       registrar: (recado) => console.log('[atualizacao]', recado),
+      // ⚠️ SO PERGUNTA COM A BANCADA PARADA. `temEtiquetaEmUso` responde se ha
+      // etiqueta conectada agora; interromper alguem no meio de uma gravacao e
+      // exatamente o que este programa evita desde o comeco.
+      estaOcupado: () => atendente?.temEtiquetaEmUso?.() === true,
+      perguntarSeReinicia: async (versaoNova) => {
+        if (janela.isDestroyed?.()) return false
+        const r = await dialog.showMessageBox(janela, {
+          type: 'info',
+          buttons: ['Reiniciar agora', 'Depois'],
+          defaultId: 0,
+          cancelId: 1,
+          title: 'Versão nova do gravador',
+          message: `A versão ${versaoNova || 'nova'} está pronta.`,
+          detail: 'O programa precisa reiniciar para usá-la. Leva alguns segundos.\n\n'
+            + 'Se preferir, escolha "Depois" — ela entra sozinha na próxima vez que '
+            + 'você fechar o programa.',
+        })
+        return r?.response === 0
+      },
     }).procurar()
   })
 

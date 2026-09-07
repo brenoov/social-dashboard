@@ -22,6 +22,18 @@ export function criarAtualizacao({
   empacotado = true,
   aoMudarTitulo = () => {},
   registrar = () => {},
+  // ⚠️ `perguntarSeReinicia` E `estaOcupado` ENTRARAM EM 07/09/2026.
+  //
+  // Ate aqui a versao nova baixava sozinha e so era instalada quando a pessoa
+  // FECHAVA o programa — e o unico aviso era o titulo da janela. Quem deixa o
+  // programa aberto a semana inteira nunca recebia a atualizacao. Foi o dono
+  // quem apontou: "obriga a pessoa a reiniciar".
+  //
+  // O convite so aparece com a bancada PARADA (`estaOcupado`): interromper
+  // alguem com a etiqueta na mao e a fila pela metade e exatamente o que o
+  // comentario abaixo evitou desde o comeco.
+  perguntarSeReinicia = null,
+  estaOcupado = () => false,
 } = {}) {
   let estado = 'nada'
 
@@ -51,6 +63,7 @@ export function criarAtualizacao({
   autoUpdater.on?.('update-downloaded', (info) => {
     registrar(`versão ${info?.version ?? '(sem número)'} baixada; instala ao fechar`)
     mudarPara('baixada')
+    convidarAReiniciar(info?.version)
   })
 
   // ERRO DE ATUALIZAÇÃO NUNCA PODE VIRAR SUSTO NA BANCADA. Sem internet, com o
@@ -59,10 +72,34 @@ export function criarAtualizacao({
   // quem está gravando não fica sabendo de nada.
   autoUpdater.on?.('error', (e) => registrar(`não consegui procurar atualização: ${e?.message ?? e}`))
 
+  // O CONVITE. Ele nao instala nada por conta: `quitAndInstall` fecha o programa,
+  // e quem decide a hora e quem esta na bancada. Recusar e uma resposta valida —
+  // a versao nova continua guardada e entra quando o programa fechar, como antes.
+  async function convidarAReiniciar(versaoNova) {
+    if (typeof perguntarSeReinicia !== 'function') return false
+    if (estaOcupado()) {
+      registrar('versão nova pronta, mas há etiqueta em uso — pergunto depois')
+      return false
+    }
+    let quer = false
+    try { quer = await perguntarSeReinicia(versaoNova ?? '') } catch { quer = false }
+    if (!quer) { registrar('a pessoa preferiu reiniciar depois'); return false }
+    registrar('reiniciando para instalar a versão nova')
+    try { autoUpdater.quitAndInstall?.() } catch (e) {
+      registrar(`não consegui reiniciar: ${e?.message ?? e}`)
+      return false
+    }
+    return true
+  }
+
   mostrar()
 
   return {
     estado: () => estado,
+    // Para a tela poder OFERECER o reinicio na mao — o botao so aparece quando
+    // ha versao baixada esperando.
+    temVersaoEsperando: () => estado === 'baixada',
+    reiniciarAgora: () => convidarAReiniciar(versao),
     async procurar() {
       try {
         await autoUpdater.checkForUpdates()

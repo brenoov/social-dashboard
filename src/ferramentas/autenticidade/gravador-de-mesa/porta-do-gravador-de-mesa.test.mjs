@@ -16,6 +16,7 @@ import {
   temLeitorDeMesa,
   traduzirFalha,
   criarGravadorDeMesa,
+  pedeParaReligar, sabeReligar, religarOLeitor,
 } from './porta-do-gravador-de-mesa.js'
 import { planoDeGravacao, BYTES_DE_USUARIO } from './ndef-para-ntag213.js'
 import { conferirLeitura } from '../nfc-fila.js'
@@ -302,3 +303,70 @@ test('a porta é a ÚNICA que fala com a janela: ela não expõe APDU cru', asyn
       `a porta expôs "${nome}": comando cru é do motor, do lado do programa`)
   }
 })
+
+// ── O BOTAO DE RELIGAR O LEITOR (07/09/2026) ───────────────────────────────
+/* O servico de Cartao Inteligente do Windows caiu na bancada em 06/09 e o
+ * conserto — abrir "Servicos", achar o nome certo, clicar em Iniciar — e longe
+ * demais de quem esta com uma bolsa na mao. O botao encurta isso.
+ *
+ * ⚠️ Ele SO aparece no erro, e so no erro CERTO: botao sempre visivel convida a
+ * apertar quando nada esta errado, e ele abre a janelinha de autorizacao do
+ * Windows, que nao pode virar rotina. */
+
+test('pedeParaReligar: SIM na mensagem do servico', () => {
+  assert.equal(pedeParaReligar('O serviço de Cartão Inteligente do Windows não está rodando. '
+    + 'Abra "Serviços" no Windows, procure por "Cartão Inteligente" e inicie.'), true)
+  assert.equal(pedeParaReligar('O serviço de Cartão Inteligente do Windows parou.'), true)
+})
+
+test('⚠️ pedeParaReligar: NAO em problema de etiqueta', () => {
+  /* Oferecer o conserto do Windows aqui ensina a apertar o botao errado — e o
+   * botao pede autorizacao de administrador. */
+  for (const frase of [
+    'Não há etiqueta no leitor. Encoste a etiqueta em cima do leitor, no meio.',
+    'A etiqueta saiu de cima do leitor no meio. Encoste de novo e segure parada.',
+    'A etiqueta não respondeu. Encoste de novo e segure parada.',
+    'A resposta do leitor veio estragada. Encoste a etiqueta de novo.',
+  ]) {
+    assert.equal(pedeParaReligar(frase), false, `ofereceu religar em: ${frase}`)
+  }
+})
+
+test('pedeParaReligar: NAO quando o problema e o cabo ou outro programa', () => {
+  assert.equal(pedeParaReligar('Não achei nenhum leitor. Confira se o ACR122U está ligado na USB.'), false)
+  assert.equal(pedeParaReligar('O leitor está sendo usado por outro programa.'), false)
+})
+
+test('pedeParaReligar: sem frase nenhuma, nao aparece', () => {
+  assert.equal(pedeParaReligar(''), false)
+  assert.equal(pedeParaReligar(null), false)
+  assert.equal(pedeParaReligar(undefined), false)
+});
+
+test('sabeReligar: versao antiga do programa NAO oferece o botao', () => {
+  // A tela e a mesma para todas as versoes do `.exe`. Um botao que nao faz nada
+  // e pior que botao nenhum.
+  assert.equal(sabeReligar({ gravadorDeMesa: {} }), false);
+  assert.equal(sabeReligar({}), false);
+  assert.equal(sabeReligar({ gravadorDeMesa: { religarOServico: () => {} } }), true);
+});
+
+test('religarOLeitor devolve a frase do programa', async () => {
+  const janela = { gravadorDeMesa: { religarOServico: async () => 'Pronto. Religado.' } };
+  assert.deepEqual(await religarOLeitor(janela), { ok: true, frase: 'Pronto. Religado.' });
+});
+
+test('⚠️ religarOLeitor: recusa vira frase, e nunca estoura na tela', async () => {
+  const janela = { gravadorDeMesa: {
+    religarOServico: async () => { throw new Error('Você cancelou a autorização do Windows.') },
+  } };
+  const r = await religarOLeitor(janela);
+  assert.equal(r.ok, false);
+  assert.match(r.frase, /cancelou/);
+});
+
+test('religarOLeitor sem o programa diz o caminho manual', async () => {
+  const r = await religarOLeitor({});
+  assert.equal(r.ok, false);
+  assert.match(r.frase, /Serviços/);
+});

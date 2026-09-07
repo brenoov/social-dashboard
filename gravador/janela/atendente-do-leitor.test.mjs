@@ -55,8 +55,12 @@ test('NÃO EXISTE canal de APDU cru: quem monta o comando é o motor', () => {
       'gravador-de-mesa:escrever-pagina',
       'gravador-de-mesa:ler-paginas',
       'gravador-de-mesa:listar-leitores',
+      // Entrou em 07/09/2026. Ele NAO fala com o leitor: pede ao Windows para
+      // religar o servico de Cartao Inteligente. Nao carrega bytes nem endereco
+      // de pagina, entao nao abre o buraco que este teste guarda.
+      'gravador-de-mesa:religar-servico',
     ],
-    'a superfície tem de continuar com estes cinco pedidos, e nenhum a mais',
+    'a superfície tem de continuar com estes seis pedidos, e nenhum a mais',
   )
 })
 
@@ -247,4 +251,60 @@ test('registrar pendura UM ouvinte por canal no ipcMain', async () => {
   // e o ouvinte descarta o primeiro argumento (o `evento` do Electron)
   const resposta = await pendurados.get(CANAIS.LISTAR)({ remetente: 'electron' })
   assert.deepEqual(resposta, { ok: true, valor: ['ACR122U'] })
+})
+
+// ── RELIGAR O LEITOR (07/09/2026) ──────────────────────────────────────────
+test('religar SEM a ferramenta injetada nao estoura — responde o que fazer', () => {
+  const atendente = criarAtendente({ criarLeitor: () => leitorDeMentira() })
+  return atendente.atender(CANAIS.RELIGAR).then((r) => {
+    assert.equal(r.ok, false)
+    assert.match(r.frase, /Servicos|Serviços/, 'tem de dizer o caminho manual');
+  })
+})
+
+test('religar CHAMA a ferramenta e devolve a frase dela', async () => {
+  let chamou = 0
+  const atendente = criarAtendente({
+    criarLeitor: leitorDeMentira().criarLeitor,
+    consertarOLeitor: async () => { chamou++; return { ok: true, frase: 'Pronto, religado.' } },
+  })
+  const r = await atendente.atender(CANAIS.RELIGAR)
+  assert.equal(chamou, 1)
+  assert.deepEqual(r, { ok: true, valor: 'Pronto, religado.' })
+})
+
+test('⚠️ religar SOLTA a etiqueta antes — a conexao atual aponta para um servico morto', async () => {
+  // `leitorDeMentira()` devolve { leitor, registro, criarLeitor } — o ajudante ja
+  // conta as desconexoes, entao nao preciso inventar gancho novo.
+  const falso = leitorDeMentira()
+  const atendente = criarAtendente({
+    criarLeitor: falso.criarLeitor,
+    consertarOLeitor: async () => ({ ok: true, frase: 'ok' }),
+  })
+  await atendente.atender(CANAIS.CONECTAR, null)
+  const antes = falso.registro.desconexoes
+  await atendente.atender(CANAIS.RELIGAR)
+  assert.equal(falso.registro.desconexoes, antes + 1,
+    'sem soltar, o programa seguraria um handle morto do Windows')
+})
+
+test('recusa da ferramenta chega com a frase dela, e nao como sucesso', async () => {
+  const atendente = criarAtendente({
+    criarLeitor: leitorDeMentira().criarLeitor,
+    consertarOLeitor: async () => ({ ok: false, frase: 'Você cancelou a autorização.' }),
+  })
+  const r = await atendente.atender(CANAIS.RELIGAR)
+  assert.equal(r.ok, false)
+  assert.match(r.frase, /cancelou/)
+})
+
+test('temEtiquetaEmUso responde se ha etiqueta conectada agora', async () => {
+  // E o que impede a atualizacao de interromper alguem no meio de uma gravacao.
+  const falso = leitorDeMentira()
+  const atendente = criarAtendente({ criarLeitor: falso.criarLeitor })
+  assert.equal(atendente.temEtiquetaEmUso(), false, 'sem conectar nao ha etiqueta')
+  await atendente.atender(CANAIS.CONECTAR, null)
+  assert.equal(atendente.temEtiquetaEmUso(), true)
+  await atendente.atender(CANAIS.DESCONECTAR)
+  assert.equal(atendente.temEtiquetaEmUso(), false, 'soltou a etiqueta e continua dizendo que usa')
 })

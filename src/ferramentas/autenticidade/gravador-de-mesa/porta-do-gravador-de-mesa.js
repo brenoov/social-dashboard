@@ -69,6 +69,46 @@ const SEM_RECADO = 'Não consegui falar com o leitor de mesa. '
 // `0x8010001D`, que não diz nada a quem está com uma bolsa na mão.
 const CODIGO_CRU = /^\s*0x[0-9a-f]{1,8}\s*$/i
 
+// ── QUANDO OFERECER O BOTAO DE RELIGAR ─────────────────────────────────────
+//
+// ⚠️ SO NO ERRO, e so no erro CERTO (pedido do dono em 07/09/2026). Um botao de
+// "religar o leitor" sempre visivel convida a apertar quando nada esta errado —
+// e ele abre a janelinha de autorizacao do Windows, que nao pode virar rotina.
+//
+// E nao e em QUALQUER erro: "encoste a etiqueta" ou "a etiqueta se mexeu" nao
+// tem nada a ver com o servico do Windows, e oferecer o conserto ali ensina a
+// pessoa a apertar o botao errado quando o problema e outro.
+const FRASES_QUE_PEDEM_RELIGAR = [
+  /Cartão Inteligente/i,
+  /serviço.*não (está rodando|subiu)/i,
+  /serviço.*parou/i,
+]
+
+export function pedeParaReligar(frase) {
+  const texto = String(frase ?? '')
+  if (!texto.trim()) return false
+  return FRASES_QUE_PEDEM_RELIGAR.some((r) => r.test(texto))
+}
+
+// O programa sabe religar? Versoes antigas do `.exe` nao sabem, e a tela e a
+// MESMA para todas — perguntar antes evita oferecer um botao que nao faz nada.
+export function sabeReligar(janela = globalThis) {
+  return typeof janela?.gravadorDeMesa?.religarOServico === 'function'
+}
+
+export async function religarOLeitor(janela = globalThis) {
+  if (!sabeReligar(janela)) {
+    return { ok: false, frase: 'Esta versão do programa não sabe religar o leitor sozinha. '
+      + 'Abra "Serviços" no Windows, procure "Cartão Inteligente" e clique em Iniciar.' }
+  }
+  try {
+    return { ok: true, frase: String(await janela.gravadorDeMesa.religarOServico() || '').trim()
+      || 'Pronto. Encoste a etiqueta e tente de novo.' }
+  } catch (erro) {
+    return { ok: false, frase: traduzirFalha(erro) }
+  }
+}
+
 export function traduzirFalha(erro) {
   const recado = String(erro?.message ?? erro ?? '').trim()
   if (!recado || CODIGO_CRU.test(recado)) return SEM_RECADO

@@ -524,6 +524,28 @@
                      recado da gravação aparece — antes ele era desenhado duas
                      vezes, aqui e num bloco próprio logo acima. -->
                 <p class="au-bancada-detalhe">{{ estadoDaBancadaAgora.detalhe }}</p>
+
+                <!-- ⚠️ O BOTÃO DE RELIGAR SÓ APARECE NO ERRO CERTO. Ele abre a
+                     janelinha de autorização do Windows, e isso não pode virar
+                     rotina: botão sempre visível convida a apertar quando nada
+                     está errado. `pedeParaReligar` só diz sim quando a frase
+                     fala do serviço de Cartão Inteligente — nunca em "encoste a
+                     etiqueta", que não tem nada a ver com o Windows. -->
+                <div v-if="mostrarReligar" class="au-religar">
+                  <!-- ⚠️ `au-link` E NÃO `au-botao`, de propósito. A obra tem UMA
+                       ação principal — o teste `modo-bancada` reprova a segunda,
+                       e a regra é boa: duas competindo é o mesmo que nenhuma.
+                       Religar é saída de emergência, não a ação do trabalho. -->
+                  <button class="au-link" type="button"
+                          :disabled="religando" @click="religarOServicoDoLeitor">
+                    {{ religando ? 'Religando…' : 'Religar o leitor' }}
+                  </button>
+                  <p class="au-religar-dica">
+                    O Windows vai pedir autorização. Isto liga o serviço, deixa ele ligando
+                    sozinho e desliga a economia de energia das portas USB.
+                  </p>
+                  <p v-if="recadoDoReligar" class="au-religar-recado">{{ recadoDoReligar }}</p>
+                </div>
               </div>
             </div>
           </div>
@@ -1890,6 +1912,7 @@ import {
   temLeitorDeMesa,
   criarGravadorDeMesa,
   traduzirFalha as traduzirFalhaDoLeitorDeMesa,
+  pedeParaReligar, sabeReligar, religarOLeitor,
 } from './gravador-de-mesa/porta-do-gravador-de-mesa.js'
 // A SEQUÊNCIA — ler antes, planejar em cima do que leu, escrever, ler de volta e
 // conferir, e só então marcar. Mora fora do `.vue` porque `node --test` não
@@ -2003,6 +2026,33 @@ function voltarGuia() {
 }
 const gravando = ref(false)
 const recadoNfc = ref('')
+
+// ── RELIGAR O LEITOR (07/09/2026) ──────────────────────────────────────────
+// O serviço de Cartão Inteligente do Windows caiu na bancada em 06/09 e o
+// conserto — abrir "Serviços", achar o nome certo, clicar em Iniciar — é longe
+// demais de quem está com uma bolsa na mão.
+const religando = ref(false)
+const recadoDoReligar = ref('')
+// Três condições, e as três importam: a frase tem de ser a do serviço, o
+// programa instalado tem de saber religar (versão antiga não sabe, e botão que
+// não faz nada é pior que botão nenhum), e não pode estar religando agora.
+const mostrarReligar = computed(
+  () => pedeParaReligar(estadoDaBancadaAgora.value?.detalhe || recadoNfc.value) && sabeReligar(),
+)
+
+async function religarOServicoDoLeitor() {
+  religando.value = true
+  recadoDoReligar.value = ''
+  try {
+    const r = await religarOLeitor()
+    recadoDoReligar.value = r.frase
+    // Deu certo: limpa o recado antigo para o botão sumir sozinho — deixá-lo na
+    // tela faria a pessoa apertar de novo achando que não funcionou.
+    if (r.ok) recadoNfc.value = ''
+  } finally {
+    religando.value = false
+  }
+}
 
 // ── A BANCADA ─────────────────────────────────────────────────────────────
 // A aba Gravar É o painel de máquina: a peça da vez em letra garrafal, o estado
@@ -4728,6 +4778,14 @@ onMounted(() => {
   margin-top:var(--sp-2); font-size:var(--texto-corpo); line-height:1.5;
   color:var(--text); overflow-wrap:anywhere;
 }
+
+/* O BLOCO DE RELIGAR. Ele nasce escondido e só aparece no erro do serviço — por
+   isso não tem `display` próprio: quem o mostra é o `v-if`. Fica embaixo do
+   detalhe, com filete em cima, para ler como "e o que fazer sobre isso". */
+.au-religar{margin-top:var(--sp-3);padding-top:var(--sp-3);
+  border-top:1px solid color-mix(in srgb,var(--accent) 30%,var(--border));}
+.au-religar-dica{margin-top:var(--sp-2);font-size:var(--texto-corpo);color:var(--muted);}
+.au-religar-recado{margin-top:var(--sp-2);font-size:var(--texto-corpo);color:var(--text);}
 
 /* ══════════════════════════════════════════════════════════════════════════
    OS ANÉIS — a animação que CONTA o que está acontecendo

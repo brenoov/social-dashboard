@@ -22,6 +22,9 @@ export const CANAIS = {
   LER: 'gravador-de-mesa:ler-paginas',
   ESCREVER: 'gravador-de-mesa:escrever-pagina',
   DESCONECTAR: 'gravador-de-mesa:desconectar',
+  // O conserto do leitor. Fica junto dos outros porque a tela o chama pelo
+  // mesmo caminho — mas ele NÃO fala com o leitor: fala com o Windows.
+  RELIGAR: 'gravador-de-mesa:religar-servico',
 }
 
 const BYTES_POR_PAGINA = 4
@@ -41,7 +44,11 @@ const SEM_RECADO = 'O leitor de mesa falhou sem dizer por quê. '
 const recusar = (erro) => ({ ok: false, frase: String(erro?.message ?? erro ?? '').trim() || SEM_RECADO })
 const entregar = (valor) => ({ ok: true, valor })
 
-export function criarAtendente({ criarLeitor }) {
+// `consertarOLeitor` vem de fora, como `criarLeitor`: ele executa um comando do
+// Windows, e injetar em vez de importar e o que permite testar isto sem chamar
+// o sistema de verdade. Ausente, o atendente responde que nao sabe consertar —
+// e nao estoura.
+export function criarAtendente({ criarLeitor, consertarOLeitor = null }) {
   let leitor = null
   let sessao = null
 
@@ -127,6 +134,22 @@ export function criarAtendente({ criarLeitor }) {
       await soltarAEtiqueta()
       return entregar(true)
     },
+
+    // ⚠️ ESTE NAO FALA COM O LEITOR, fala com o Windows. Ele existe porque o
+    // servico de Cartao Inteligente parar e o defeito mais comum da bancada, e
+    // o conserto (abrir "Servicos", achar o nome certo, clicar em Iniciar) e
+    // longe demais de quem esta com uma bolsa na mao.
+    async [CANAIS.RELIGAR]() {
+      if (typeof consertarOLeitor !== 'function') {
+        return { ok: false, frase: 'Este programa nao sabe religar o leitor sozinho. '
+          + 'Abra "Servicos" no Windows, procure "Cartao Inteligente" e clique em Iniciar.' }
+      }
+      // SOLTA A ETIQUETA ANTES. A conexao atual aponta para um servico que caiu;
+      // religar por baixo dela deixaria o programa segurando um handle morto.
+      await soltarAEtiqueta()
+      const r = await consertarOLeitor()
+      return r?.ok ? entregar(r.frase) : { ok: false, frase: r?.frase || SEM_RECADO }
+    },
   }
 
   async function atender(canal, ...argumentos) {
@@ -143,6 +166,11 @@ export function criarAtendente({ criarLeitor }) {
 
   return {
     atender,
+
+    // ⚠️ EXISTE PARA A ATUALIZACAO SABER SE PODE INTERROMPER. Com etiqueta
+    // conectada, o convite para reiniciar nem aparece: fechar o programa no meio
+    // de uma gravacao e o que ele evita desde o comeco.
+    temEtiquetaEmUso: () => sessao != null,
 
     // O ouvinte descarta o primeiro argumento — o `evento` do Electron. Deixá-lo
     // passar faria a página virar o `pagina` do `lerPaginas`.

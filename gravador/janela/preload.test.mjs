@@ -40,11 +40,14 @@ test('os canais do preload são exatamente os do atendente', () => {
 
 /* ── O QUE A PÁGINA ENXERGA, E SÓ ISSO ────────────────────────────────────── */
 
-test('a janela ganha `gravadorDeMesa`, com seis funções e nada mais', () => {
+test('a janela ganha `gravadorDeMesa`, com sete funções e nada mais', () => {
   assert.equal(NOME_NA_JANELA, 'gravadorDeMesa')
   const superficie = montarSuperficie(ipcDeMentira())
+  // `religarOServico` entrou em 07/09/2026. Ela é a única que NÃO fala com o
+  // leitor: fala com o Windows, para religar o serviço de Cartão Inteligente.
   assert.deepEqual(Object.keys(superficie).sort(), [
     'conectar', 'desconectar', 'disponivel', 'escreverPagina', 'lerPaginas', 'listarLeitores',
+    'religarOServico',
   ])
   for (const nome of Object.keys(superficie)) {
     assert.equal(typeof superficie[nome], 'function', `${nome} tem de ser função`)
