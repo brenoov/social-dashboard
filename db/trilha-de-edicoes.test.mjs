@@ -93,3 +93,28 @@ test('⚠️ a guarda ENXERGA cada acao concreta — senao ela passa por vacuida
     assert.ok(permitidas.has(acao), `"${acao}" nao esta na lista de permitidas`)
   }
 })
+
+test('⚠️ a lista so CRESCE — arquivo fora de ordem e pego aqui', () => {
+  /* A guarda acima confia em "vale o ultimo arquivo", e isso depende do NOME do
+   * arquivo ordenar certo. Em 07/09/2026 duas migrations do mesmo dia
+   * inverteram: a mais nova ordenava ANTES, e a lista lida ficou sem a acao
+   * recem-criada. Acao so e ACRESCENTADA nesta tabela — nunca removida — entao
+   * cada lista tem de conter todas as anteriores. Se um arquivo entrar fora de
+   * ordem, isto falha, com nome e tudo. */
+  const listas = []
+  for (const { nome, sql } of TEXTOS) {
+    const i = sql.lastIndexOf('vessel_edicoes_acao_check')
+    if (i === -1) continue
+    const arr = sql.slice(i).match(/array\s*\[([^\]]+)\]/i)
+    if (!arr) continue
+    listas.push({ nome, acoes: new Set(arr[1].match(/'([a-z_]+)'/g).map((s) => s.replace(/'/g, ''))) })
+  }
+  assert.ok(listas.length >= 2, 'preciso de pelo menos duas listas para comparar')
+  for (let i = 1; i < listas.length; i++) {
+    const antes = listas[i - 1], agora = listas[i]
+    const sumiram = [...antes.acoes].filter((a) => !agora.acoes.has(a))
+    assert.deepEqual(sumiram, [],
+      `${agora.nome} nao tem ${sumiram.join(', ')}, que ${antes.nome} ja tinha — `
+      + 'ou a acao foi removida (nao deveria), ou este arquivo esta fora de ordem')
+  }
+})
