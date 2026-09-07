@@ -40,6 +40,9 @@ import { execFileSync } from 'node:child_process'
 import { mkdirSync, writeFileSync, existsSync, rmSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { reduzir } from './lib/reduzir-imagem.mjs'
+import { pastaDoSku, fotosDaPasta } from './lib/fotos-do-zoho.mjs'
+import { fotosDoZohoParaSku } from './lib/buscar-no-zoho.mjs'
 import {
   lotesParaOlhar, pastaDoLote, enderecoDaFoto, imagensGrandesDoProduto,
   corDoProduto, produtoQueBate, loteEstaFaltando,
@@ -100,10 +103,11 @@ function baixarEReduzir(bytes, destino) {
   const cru = `${destino}.original`
   writeFileSync(cru, bytes)
   try {
-    // `sips` e nativo do macOS: nao entra dependencia nova no projeto por causa
-    // de um robo que roda cinco vezes por dia.
-    execFileSync('/usr/bin/sips', ['-Z', String(LARGURA_MAXIMA), '-s', 'format', 'jpeg',
-      '-s', 'formatOptions', '55', cru, '--out', destino], { stdio: 'ignore' })
+    // ⚠️ ERA `sips` DIRETO, que e nativo do macOS — e prendia este robo A UMA
+    // MAQUINA. Com o Mac dormindo as 8h05 ninguem tirava foto naquele dia. Agora
+    // ele escolhe entre `sips` e ImageMagick pelo que EXISTE, e roda igual no
+    // Linux do GitHub Actions.
+    reduzir(cru, destino, LARGURA_MAXIMA)
   } catch {
     // Se o `sips` recusar (arquivo que nao e imagem, por exemplo), NAO se
     // guarda o original no lugar: uma foto que o redutor nao entendeu tambem
@@ -163,21 +167,50 @@ async function main() {
 
       // ── AS FOTOS ──
       if (falta.faltaFoto) {
-        const urls = imagensGrandesDoProduto(produto).slice(0, MAXIMO_DE_FOTOS)
+        // ⚠️ O BLING E A FONTE. O Zoho so entra quando o cadastro do Bling nao
+        // tem foto nenhuma — regra do dono, 07/09/2026. Inverter a ordem faria a
+        // foto do certificado divergir da foto da loja, e a cliente compara.
+        let urls = imagensGrandesDoProduto(produto).slice(0, MAXIMO_DE_FOTOS)
+        let cabecalhoExtra = null
+        let deOnde = 'Bling'
+
+        if (!urls.length && lote.sku) {
+          // ── A SEGUNDA FONTE: as fotos que moram no Zoho ──
+          // Casamento por SKU EXATO. Pasta sem o SKU no nome fica de fora, e o
+          // robo diz qual — adivinhar pelo modelo poria a foto de OUTRA bolsa
+          // num certificado de autenticidade.
+          try {
+            const doZoho = await fotosDoZohoParaSku(lote.sku)
+            if (doZoho.fotos.length) {
+              urls = doZoho.fotos.slice(0, MAXIMO_DE_FOTOS).map((f) => f.url)
+              cabecalhoExtra = doZoho.cabecalho
+              deOnde = `Zoho (${doZoho.pasta})`
+            } else if (doZoho.porque) {
+              console.log(`   sem foto no Bling; no Zoho, ${doZoho.porque}`)
+            }
+          } catch (e) {
+            // Falha do Zoho NAO derruba a rodada: as fotos que vieram do Bling
+            // para os outros lotes ja estao no disco e valem.
+            console.log(`   sem foto no Bling, e o Zoho falhou: ${e.message}`)
+          }
+        }
+
         const pasta = pastaDoLote({ ...lote, cor: mudou.cor ?? lote.cor })
         if (!urls.length) {
           console.log('   o produto não tem foto no Bling. Assim que subir lá, a próxima rodada pega.')
         } else if (!pasta) {
           console.log('   sem modelo nem cor não dá para nomear a pasta. Fica como está.')
         } else if (DRY) {
-          console.log(`   [dry] baixaria ${urls.length} foto(s) para fotos/selo/${pasta}/`)
+          console.log(`   [dry] baixaria ${urls.length} foto(s) do ${deOnde} para fotos/selo/${pasta}/`)
         } else {
           const destino = join(PASTA_DAS_FOTOS, pasta)
           mkdirSync(destino, { recursive: true })
           const guardadas = []
           for (let i = 0; i < urls.length; i++) {
-            const r = await fetch(urls[i])
-            if (!r.ok) { console.log(`   foto ${i + 1}: o Bling recusou (${r.status}).`); continue }
+            // O Zoho exige o cabecalho de autorizacao; o Bling manda URL
+            // assinada e nao quer nenhum. Por isso ele vem junto da fonte.
+            const r = await fetch(urls[i], cabecalhoExtra ? { headers: cabecalhoExtra } : undefined)
+            if (!r.ok) { console.log(`   foto ${i + 1}: ${deOnde} recusou (${r.status}).`); continue }
             const arquivo = join(destino, `${guardadas.length + 1}.jpg`)
             const tamanho = baixarEReduzir(Buffer.from(await r.arrayBuffer()), arquivo)
             if (!tamanho) { console.log(`   foto ${i + 1}: não é uma imagem que eu consiga reduzir.`); continue }
