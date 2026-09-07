@@ -73,6 +73,10 @@ const PASTA_DAS_FOTOS = join(SITE, 'fotos', 'selo')
 const BLING = 'https://api.bling.com.br/Api/v3'
 const DRY = process.argv.includes('--dry')
 const SEM_PUSH = process.argv.includes('--sem-push')
+// ⚠️ `--refazer` REBAIXA A FOTO DE QUEM JA TEM. Serve para quando a ORDEM DAS
+// FONTES muda: sem ele, quem ja tem foto fica com a da fonte antiga para
+// sempre, porque "ja tem foto" e a condicao de ser ignorado.
+const REFAZER = process.argv.includes('--refazer')
 // ⚠️ 900 PIXELS PORQUE E O QUE JA ESTA NO SITE, nao porque eu escolhi um numero
 // bonito. Medido: as seis pastas que ja existem tem fotos de 900x900 com 36-52
 // KB. A minha primeira versao usava 1400, e as fotos sairam com 196 KB — quatro
@@ -80,7 +84,20 @@ const SEM_PUSH = process.argv.includes('--sem-push')
 // pode estar num sinal ruim. Foto do robo tem de ser indistinguivel da foto que
 // o dono sobe a mao.
 const LARGURA_MAXIMA = 900
-const MAXIMO_DE_FOTOS = 4   // o certificado mostra uma galeria, nao um album
+// ⚠️ ERAM 4, E ERA PALPITE MEU — nao medida. O comentario antigo dizia "o
+// certificado mostra uma galeria, nao um album", e a conta parava ai. So que as
+// pastas TRATADAS do Zoho tem 8 ou 9 fotos (frente, costas, lado, lateralizada,
+// alca, interno e dois ou tres detalhes): o limite jogava fora metade do
+// material pronto.
+//
+// O dono mandou trazer todas (07/09/2026). O custo e pequeno: cada foto sai com
+// ~30 KB, entao 9 fotos sao ~270 KB — menos que UMA foto de rede social.
+//
+// O teto de 12 nao contradiz "todas": ele existe para o caso de uma pasta vir
+// com lixo dentro (um arquivo solto, uma exportacao esquecida). Nenhuma pasta
+// medida chega perto disso; se um dia chegar, e mais provavel ser engano do que
+// bolsa com 13 angulos.
+const MAXIMO_DE_FOTOS = 12
 
 const espera = (ms) => new Promise((r) => setTimeout(r, ms))
 
@@ -139,7 +156,7 @@ async function main() {
 
     const { rows: lotes } = await cliente.query(
       'select id, modelo, cor, sku, fotos from public.vessel_lotes order by criado_em desc')
-    const alvos = lotesParaOlhar(lotes)
+    const alvos = lotesParaOlhar(lotes, { refazer: REFAZER })
     console.log(`${lotes.length} lotes no total · ${alvos.length} com SKU e faltando foto ou cor\n`)
     if (!alvos.length) return
 
@@ -166,16 +183,30 @@ async function main() {
       }
 
       // ── AS FOTOS ──
-      if (falta.faltaFoto) {
-        // ⚠️ O BLING E A FONTE. O Zoho so entra quando o cadastro do Bling nao
-        // tem foto nenhuma — regra do dono, 07/09/2026. Inverter a ordem faria a
-        // foto do certificado divergir da foto da loja, e a cliente compara.
-        let urls = imagensGrandesDoProduto(produto).slice(0, MAXIMO_DE_FOTOS)
+      if (falta.faltaFoto || REFAZER) {
+        // ⚠️⚠️ ORDEM INVERTIDA EM 07/09/2026, E ISTO E PALIATIVO — NAO E O DESENHO
+        // CERTO. Leia antes de mexer.
+        //
+        // O padrao era o Bling primeiro. O dono percebeu que varios cadastros do
+        // Bling ainda tem foto de enquadramento ruim, enquanto a pasta do Zoho ja
+        // tem a versao tratada. Conferido na mesma bolsa (Cerne Croco Preto,
+        // SS0002HB.B2): as duas com fundo bege, mas na do Bling a alca esticada
+        // ocupa dois tercos da imagem e a bolsa fica pequena no rodape.
+        //
+        // O CONSERTO DE VERDADE E SUBIR AS FOTOS TRATADAS NO BLING — e a foto do
+        // Bling que aparece na loja, no Mercado Livre e na Shopify, onde a
+        // cliente DECIDE COMPRAR. Trocar so a fonte do certificado conserta a
+        // vitrine menor e deixa a maior torta.
+        //
+        // ENTAO ISTO AQUI TEM DATA PARA MORRER: quando o Bling estiver em dia,
+        // volte a ordem (Bling primeiro, Zoho como segunda fonte) — e o
+        // comportamento passa a ser o mesmo sem ninguem notar, porque as duas
+        // fontes terao a mesma foto.
+        let urls = []
         let cabecalhoExtra = null
-        let deOnde = 'Bling'
+        let deOnde = ''
 
-        if (!urls.length && lote.sku) {
-          // ── A SEGUNDA FONTE: as fotos que moram no Zoho ──
+        if (lote.sku) {
           // Casamento por SKU EXATO. Pasta sem o SKU no nome fica de fora, e o
           // robo diz qual — adivinhar pelo modelo poria a foto de OUTRA bolsa
           // num certificado de autenticidade.
@@ -185,14 +216,17 @@ async function main() {
               urls = doZoho.fotos.slice(0, MAXIMO_DE_FOTOS).map((f) => f.url)
               cabecalhoExtra = doZoho.cabecalho
               deOnde = `Zoho (${doZoho.pasta})`
-            } else if (doZoho.porque) {
-              console.log(`   sem foto no Bling; no Zoho, ${doZoho.porque}`)
             }
           } catch (e) {
-            // Falha do Zoho NAO derruba a rodada: as fotos que vieram do Bling
-            // para os outros lotes ja estao no disco e valem.
-            console.log(`   sem foto no Bling, e o Zoho falhou: ${e.message}`)
+            // Falha do Zoho NAO derruba a rodada: cai no Bling, que e o caminho
+            // de sempre.
+            console.log(`   o Zoho falhou (${e.message}); tentando o Bling`)
           }
+        }
+
+        if (!urls.length) {
+          urls = imagensGrandesDoProduto(produto).slice(0, MAXIMO_DE_FOTOS)
+          if (urls.length) deOnde = 'Bling'
         }
 
         const pasta = pastaDoLote({ ...lote, cor: mudou.cor ?? lote.cor })

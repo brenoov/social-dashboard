@@ -79,9 +79,22 @@ export function loteEstaFaltando(lote) {
   return { faltaFoto, faltaCor, precisa: faltaFoto || faltaCor }
 }
 
-export function lotesParaOlhar(lotes) {
+/**
+ * Os lotes que o robo vai olhar.
+ *
+ * ⚠️ `refazer` EXISTE POR UM MOTIVO CONCRETO (07/09/2026): quando a ORDEM DAS
+ * FONTES muda, quem ja tem foto continua com a foto da fonte antiga para sempre
+ * — porque "ja tem foto" e a propria condicao de ser ignorado. Sem esta porta,
+ * inverter a preferencia so valeria para os lotes futuros, e o dono ficaria com
+ * 53 certificados na foto pior sem entender por que.
+ *
+ * Ele NAO e o padrao: refazer todo dia gastaria a cota do Bling e do Zoho para
+ * rebaixar as mesmas fotos.
+ */
+export function lotesParaOlhar(lotes, { refazer = false } = {}) {
   return (Array.isArray(lotes) ? lotes : [])
-    .filter((l) => String(l?.sku ?? '').trim() && loteEstaFaltando(l).precisa)
+    .filter((l) => String(l?.sku ?? '').trim())
+    .filter((l) => refazer || loteEstaFaltando(l).precisa)
 }
 
 // AS IMAGENS GRANDES DE UM PRODUTO DO BLING, na ordem em que ele as guarda.
