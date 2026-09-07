@@ -214,7 +214,25 @@ async function main() {
       git('add', 'fotos/selo')
       git('commit', '-m', 'Fotos do selo vindas do Bling (robô)')
       git('push', 'origin', 'main')
-      console.log('\nSite publicado. A Vercel leva um minuto para trocar.')
+
+      // ⚠️ O `git push` GUARDA, MAS NAO PUBLICA — e ate 07/09/2026 este robo
+      // dizia "Site publicado" logo depois dele.
+      //
+      // Este site nao e publicado pelo git: o plano Hobby da Vercel BLOQUEIA o
+      // deploy quando os metadados dizem que o repositorio e privado e de
+      // organizacao. Por isso existe `ferramentas/publicar.sh`, que publica de
+      // uma copia SEM o `.git`. Quem so faz push guarda a foto no repositorio e
+      // deixa o site como estava.
+      //
+      // O estrago era invisivel: o robo terminava dizendo que publicou, o lote
+      // ficava com o endereco da foto gravado no banco, e a pagina da cliente
+      // pedia uma imagem que respondia 404. Descoberto em 07/09 conferindo o
+      // endereco de verdade depois de rodar — 46 lotes com foto no banco e
+      // nenhuma no ar. As antigas so funcionavam porque alguem tinha publicado
+      // o site a mao por outro motivo, carregando a pasta junto.
+      console.log('\nPublicando o site (o push sozinho não publica)…')
+      execFileSync('./ferramentas/publicar.sh', [], { cwd: SITE, stdio: 'inherit' })
+      console.log('\nSite publicado.')
     } else if (publicou) {
       console.log('\nFotos gravadas, sem publicar (--dry ou --sem-push).')
     }
