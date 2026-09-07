@@ -98,7 +98,19 @@ export const SCRIPT_DA_PONTE = [
   '  try {',
   "    if ($cmd -eq 'PING') { Responder $n 'OK' (TextoHex 'pronto') }",
   "    elseif (-not $ctxOk) { Responder $n 'ERRO' (TextoHex $ctxErro) }",
-  "    elseif ($cmd -eq 'LEITORES') { $tam = 0; [void][PcscPonte]::SCardListReaders($ctx, $null, $null, [ref]$tam); if ($tam -le 0) { Responder $n 'OK' '' } else { $buf = New-Object byte[] $tam; $r = [PcscPonte]::SCardListReaders($ctx, $null, $buf, [ref]$tam); if ($r -ne 0) { Responder $n 'ERRO' (TextoHex ('SCardListReaders ' + (CodigoHex $r))) } else { $texto = [Text.Encoding]::ASCII.GetString($buf, 0, $tam); $nomes = $texto.Split(@([char]0), [StringSplitOptions]::RemoveEmptyEntries); Responder $n 'OK' (TextoHex ($nomes -join ([char]10))) } } }",
+  // ⚠️ O RETORNO DESTA PRIMEIRA CHAMADA NAO PODE SER DESCARTADO, e ja foi.
+  // Ate 07/09/2026 esta linha comecava com `[void]`: quando o servico de Cartao
+  // Inteligente do Windows PARAVA no meio do expediente, a chamada falhava, o
+  // tamanho ficava 0 e a ponte respondia OK COM LISTA VAZIA. O programa entao
+  // dizia "nao achei nenhum leitor — confira o cabo USB e tente outra porta",
+  // que e o conselho errado: o cabo estava bom e o servico e que estava parado.
+  // Quem estava na bancada trocou de porta, trocou de cabo, e so muito depois
+  // viu a mensagem certa. Falha nao pode virar lista vazia.
+  //
+  // Passar o codigo de verdade acerta os DOIS casos: 0x8010002E ja significa
+  // "nenhum leitor" e continua dizendo isso; 0x8010001D/1E dizem que o servico
+  // parou, com o caminho para religar.
+  "    elseif ($cmd -eq 'LEITORES') { $tam = 0; $r0 = [PcscPonte]::SCardListReaders($ctx, $null, $null, [ref]$tam); if ($r0 -ne 0) { Responder $n 'ERRO' (TextoHex ('SCardListReaders ' + (CodigoHex $r0))) } elseif ($tam -le 0) { Responder $n 'OK' '' } else { $buf = New-Object byte[] $tam; $r = [PcscPonte]::SCardListReaders($ctx, $null, $buf, [ref]$tam); if ($r -ne 0) { Responder $n 'ERRO' (TextoHex ('SCardListReaders ' + (CodigoHex $r))) } else { $texto = [Text.Encoding]::ASCII.GetString($buf, 0, $tam); $nomes = $texto.Split(@([char]0), [StringSplitOptions]::RemoveEmptyEntries); Responder $n 'OK' (TextoHex ($nomes -join ([char]10))) } } }",
   "    elseif ($cmd -eq 'CONECTAR') { if ($card -ne [IntPtr]::Zero) { [void][PcscPonte]::SCardDisconnect($card, 0); $card = [IntPtr]::Zero }; $nome = [Text.Encoding]::UTF8.GetString((DeHex $arg)); $novo = [IntPtr]::Zero; $proto = 0; $r = [PcscPonte]::SCardConnect($ctx, $nome, 2, 3, [ref]$novo, [ref]$proto); if ($r -ne 0) { Responder $n 'ERRO' (TextoHex ('SCardConnect ' + (CodigoHex $r))) } else { $card = $novo; $ativo = $proto; Responder $n 'OK' '' } }",
   "    elseif ($cmd -eq 'APDU') { if ($card -eq [IntPtr]::Zero) { Responder $n 'ERRO' (TextoHex 'sem etiqueta conectada') } else { $io = [SCardIO]::new(); $io.Protocol = $ativo; $io.Length = 8; $pacote = DeHex $arg; $recv = New-Object byte[] 258; $len = 258; $r = [PcscPonte]::SCardTransmit($card, [ref]$io, $pacote, $pacote.Length, [IntPtr]::Zero, $recv, [ref]$len); if ($r -ne 0) { Responder $n 'ERRO' (TextoHex ('SCardTransmit ' + (CodigoHex $r))) } else { Responder $n 'OK' (ParaHex $recv $len) } } }",
   "    elseif ($cmd -eq 'DESCONECTAR') { if ($card -ne [IntPtr]::Zero) { [void][PcscPonte]::SCardDisconnect($card, 0); $card = [IntPtr]::Zero }; Responder $n 'OK' '' }",
