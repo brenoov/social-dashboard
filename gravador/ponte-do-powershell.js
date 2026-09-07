@@ -80,7 +80,23 @@ export const SCRIPT_DA_PONTE = [
   '$ctx = [IntPtr]::Zero',
   '$ctxOk = $false',
   "$ctxErro = ''",
-  "try { $r = [PcscPonte]::SCardEstablishContext(2, [IntPtr]::Zero, [IntPtr]::Zero, [ref]$ctx); if ($r -eq 0) { $ctxOk = $true } else { $ctxErro = 'SCardEstablishContext ' + (CodigoHex $r) } } catch { $ctxErro = $Error[0].Exception.Message }",
+  // ⚠️ ABRIR O CONTEXTO VIROU FUNCAO, para poder ser chamada DE NOVO.
+  //
+  // Ate 07/09/2026 isto rodava UMA VEZ, quando o programa abria. Se o servico de
+  // Cartao Inteligente do Windows parasse no meio do expediente, o contexto
+  // morria — e mesmo depois de a pessoa RELIGAR o servico, o programa continuava
+  // quebrado ate ser fechado e aberto de novo. Ninguem adivinha isso: a pessoa
+  // religa o servico, ve que continua falhando, e conclui que o conserto nao
+  // funcionou. Foi assim que virou "erro em cima de erro" em 06/09.
+  //
+  // Agora, quando o contexto cai, o proximo comando abre outro. O conserto do
+  // lado do Windows passa a fazer efeito sozinho, sem reabrir o programa.
+  "function AbrirContexto { ",
+  "  if ($script:ctx -ne [IntPtr]::Zero) { try { [void][PcscPonte]::SCardReleaseContext($script:ctx) } catch { } ; $script:ctx = [IntPtr]::Zero }",
+  "  $script:ctxOk = $false",
+  "  try { $novo = [IntPtr]::Zero; $r = [PcscPonte]::SCardEstablishContext(2, [IntPtr]::Zero, [IntPtr]::Zero, [ref]$novo); if ($r -eq 0) { $script:ctx = $novo; $script:ctxOk = $true; $script:ctxErro = '' } else { $script:ctxErro = 'SCardEstablishContext ' + (CodigoHex $r) } } catch { $script:ctxErro = $Error[0].Exception.Message }",
+  "}",
+  "AbrirContexto",
   '$card = [IntPtr]::Zero',
   '$ativo = 0',
   '$sair = $false',
@@ -96,6 +112,12 @@ export const SCRIPT_DA_PONTE = [
   "  $arg = ''",
   '  if ($partes.Length -gt 2) { $arg = $partes[2] }',
   '  try {',
+  // ⚠️ A TENTATIVA DE REABRIR VEM ANTES DA CORRENTE DE DECISAO, e nao dentro
+  // dela: assim, quando a reabertura da certo, o comando SEGUE normalmente na
+  // mesma rodada, em vez de devolver erro e esperar a pessoa tentar de novo.
+  // `PING` fica de fora porque ele existe justamente para responder sem tocar
+  // no leitor.
+  "    if ((-not $ctxOk) -and ($cmd -ne 'PING') -and ($cmd -ne 'SAIR')) { AbrirContexto }",
   "    if ($cmd -eq 'PING') { Responder $n 'OK' (TextoHex 'pronto') }",
   "    elseif (-not $ctxOk) { Responder $n 'ERRO' (TextoHex $ctxErro) }",
   // ⚠️ O RETORNO DESTA PRIMEIRA CHAMADA NAO PODE SER DESCARTADO, e ja foi.
@@ -110,7 +132,7 @@ export const SCRIPT_DA_PONTE = [
   // Passar o codigo de verdade acerta os DOIS casos: 0x8010002E ja significa
   // "nenhum leitor" e continua dizendo isso; 0x8010001D/1E dizem que o servico
   // parou, com o caminho para religar.
-  "    elseif ($cmd -eq 'LEITORES') { $tam = 0; $r0 = [PcscPonte]::SCardListReaders($ctx, $null, $null, [ref]$tam); if ($r0 -ne 0) { Responder $n 'ERRO' (TextoHex ('SCardListReaders ' + (CodigoHex $r0))) } elseif ($tam -le 0) { Responder $n 'OK' '' } else { $buf = New-Object byte[] $tam; $r = [PcscPonte]::SCardListReaders($ctx, $null, $buf, [ref]$tam); if ($r -ne 0) { Responder $n 'ERRO' (TextoHex ('SCardListReaders ' + (CodigoHex $r))) } else { $texto = [Text.Encoding]::ASCII.GetString($buf, 0, $tam); $nomes = $texto.Split(@([char]0), [StringSplitOptions]::RemoveEmptyEntries); Responder $n 'OK' (TextoHex ($nomes -join ([char]10))) } } }",
+  "    elseif ($cmd -eq 'LEITORES') { $tam = 0; $r0 = [PcscPonte]::SCardListReaders($ctx, $null, $null, [ref]$tam); if ($r0 -ne 0) { if (@(-2146435043, -2146435042, -2146435069) -contains $r0) { $script:ctxOk = $false } ; Responder $n 'ERRO' (TextoHex ('SCardListReaders ' + (CodigoHex $r0))) } elseif ($tam -le 0) { Responder $n 'OK' '' } else { $buf = New-Object byte[] $tam; $r = [PcscPonte]::SCardListReaders($ctx, $null, $buf, [ref]$tam); if ($r -ne 0) { Responder $n 'ERRO' (TextoHex ('SCardListReaders ' + (CodigoHex $r))) } else { $texto = [Text.Encoding]::ASCII.GetString($buf, 0, $tam); $nomes = $texto.Split(@([char]0), [StringSplitOptions]::RemoveEmptyEntries); Responder $n 'OK' (TextoHex ($nomes -join ([char]10))) } } }",
   "    elseif ($cmd -eq 'CONECTAR') { if ($card -ne [IntPtr]::Zero) { [void][PcscPonte]::SCardDisconnect($card, 0); $card = [IntPtr]::Zero }; $nome = [Text.Encoding]::UTF8.GetString((DeHex $arg)); $novo = [IntPtr]::Zero; $proto = 0; $r = [PcscPonte]::SCardConnect($ctx, $nome, 2, 3, [ref]$novo, [ref]$proto); if ($r -ne 0) { Responder $n 'ERRO' (TextoHex ('SCardConnect ' + (CodigoHex $r))) } else { $card = $novo; $ativo = $proto; Responder $n 'OK' '' } }",
   "    elseif ($cmd -eq 'APDU') { if ($card -eq [IntPtr]::Zero) { Responder $n 'ERRO' (TextoHex 'sem etiqueta conectada') } else { $io = [SCardIO]::new(); $io.Protocol = $ativo; $io.Length = 8; $pacote = DeHex $arg; $recv = New-Object byte[] 258; $len = 258; $r = [PcscPonte]::SCardTransmit($card, [ref]$io, $pacote, $pacote.Length, [IntPtr]::Zero, $recv, [ref]$len); if ($r -ne 0) { Responder $n 'ERRO' (TextoHex ('SCardTransmit ' + (CodigoHex $r))) } else { Responder $n 'OK' (ParaHex $recv $len) } } }",
   "    elseif ($cmd -eq 'DESCONECTAR') { if ($card -ne [IntPtr]::Zero) { [void][PcscPonte]::SCardDisconnect($card, 0); $card = [IntPtr]::Zero }; Responder $n 'OK' '' }",
