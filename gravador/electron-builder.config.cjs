@@ -53,7 +53,20 @@ const configuracao = {
   // Central tem por que morar la. O que vai dentro do pacote e a chave `anon`,
   // a mesma que ja esta publica no JavaScript do painel.
   publish: [{ provider: 'github', owner: 'rbv-co', repo: 'gravador-de-etiquetas-versoes' }],
-  win: { target: 'nsis' },
+  win: {
+    target: 'nsis',
+    // ⚠️ O NOME DO INSTALADOR SEM ESPAÇO, e isto NÃO é gosto.
+    //
+    // Por padrão o electron-builder monta o arquivo com o `productName` — que
+    // tem espaços — mas escreve no `latest.yml` a versão com HÍFENS. Os dois
+    // não batem, e o `latest.yml` é o arquivo que o programa instalado lê para
+    // se atualizar: ele pediria um arquivo que não existe e a atualização
+    // ficaria MUDA, sem erro nenhum na tela de ninguém.
+    //
+    // Aconteceu nas versões 1.0.0 e 1.0.1, as duas pegas na conferência antes
+    // de subir. Fixando o nome aqui, as duas pontas passam a nascer iguais.
+    artifactName: 'Gravador-de-Etiquetas-Vessel-Setup-${version}.${ext}',
+  },
   nsis: {
     oneClick: false,
     perMachine: false,
